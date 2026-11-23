@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.alchemy/
+.wrangler/
+*.tsbuildinfo
+.env
+.env.*
+.DS_Store
+
+# Research material for the article: screen-recording frames that show an
+# account name. Kept locally, never published.
+apple-music-cuadros/

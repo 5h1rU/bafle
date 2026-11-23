@@ -1,0 +1,33 @@
+packages:
+  - packages/*
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true
+
+# One version of everything, shared by every package.
+catalog:
+  "@alchemy.run/cloudflare": 2.0.0-beta.87
+  "@alchemy.run/domain": 2.0.0-beta.87
+  "@alchemy.run/frontend-frameworks": 2.0.0-beta.87
+  "@cloudflare/workers-types": 5.20261117.1
+  "@effect/platform-browser": ^4.1.5
+  "@effect/platform-node": ^4.1.5
+  "@effect/vitest": ^4.1.5
+  "@foldkit/ui": ^0.170.0
+  "@foldkit/vite-plugin": ^0.29.1
+  "@tailwindcss/vite": ^4.1.18
+  alchemy: 2.0.0-beta.87
+  clsx: ^2.1.1
+  effect: ^4.1.5
+  foldkit: ^0.170.0
+  happy-dom: ^21.0.4
+  tailwindcss: ^4.1.18
+  typescript: ^7.0.2
+  vite: ^8.3.5
+  vitest: ^5.0.4
+
+permissions:
+  '@alchemy.run/domain':
+    skills: true

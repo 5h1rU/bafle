@@ -1,0 +1,30 @@
+{
+  "name": "@bafle/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@alchemy.run/domain": "catalog:",
+    "@bafle/domain": "workspace:*",
+    "@effect/platform-browser": "catalog:",
+    "@foldkit/ui": "catalog:",
+    "alchemy": "catalog:",
+    "clsx": "catalog:",
+    "effect": "catalog:",
+    "foldkit": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@foldkit/vite-plugin": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "happy-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

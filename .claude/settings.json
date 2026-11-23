@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "alchemy": { "source": { "source": "github", "repo": "alchemy-run/alchemy" } },
+    "foldkit": { "source": { "source": "github", "repo": "foldkit/foldkit" } }
+  },
+  "enabledPlugins": {
+    "foldkit-skills@foldkit": true,
+    "alchemy@alchemy": true
+  }
+}

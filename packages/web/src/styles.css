@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* One warm neutral scale and one accent. Each token is a variable, so the
+   dark scheme only has to change the values, never the classes. */
+@theme {
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --color-canvas: #faf8f5;
+  --color-panel: #f1eee8;
+  --color-ink: #1d1b18;
+  --color-muted: #6a655d;
+  --color-line: #e0dbd2;
+  /* The fill of a picture's box before the picture arrives, and of placeholders. */
+  --color-tile: #e4dfd6;
+  --color-accent: #b0410e;
+  --color-accent-wash: #f6e3d6;
+  --color-on-accent: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-canvas: #151412;
+    --color-panel: #1d1b18;
+    --color-ink: #f3f0ea;
+    --color-muted: #a8a196;
+    --color-line: #302d28;
+    --color-tile: #2b2824;
+    --color-accent: #ff9a52;
+    --color-accent-wash: #3a2616;
+    --color-on-accent: #1d1b18;
+  }
+}
+
+/* Before the app has drawn anything, the page is already its own colour, not white. */
+body {
+  background-color: var(--color-canvas);
+}
+
+/* The page swap: the app asks for a view transition only when the page on
+   screen changes, and the runtime skips it under prefers-reduced-motion.
+   The default cross-fade is the effect wanted, only shorter. */
+::view-transition-group(root),
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 150ms;
+}
+
+/* The navigation is the same on both sides of a swap, so it does not fade
+   with the page: its new state is simply there. */
+::view-transition-old(navigation) {
+  display: none;
+}
+
+::view-transition-new(navigation) {
+  animation: none;
+}

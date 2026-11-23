@@ -1,0 +1,80 @@
+import { clsx } from "clsx";
+import * as Array from "effect/Array";
+import type { Html, HtmlBuilder } from "foldkit/html";
+import type { Message } from "../message.ts";
+import type { ArtworkShape } from "./artwork.ts";
+import { SECTION_HEADING_CLASS } from "./layout.ts";
+import { SHELF_ROW_CLASS, SHELF_TILE_CLASS } from "./shelf.ts";
+import { TRACK_ROW_CLASS, TRACK_THUMBNAIL_CLASS } from "./trackList.ts";
+
+// VIEW
+
+const SHELF_PLACEHOLDER_TILES = 8;
+const TRACK_PLACEHOLDER_ROWS = 8;
+
+/** A grey block standing in for content on its way. It keeps still under reduced motion. */
+const BLOCK_CLASS = "animate-pulse bg-tile motion-reduce:animate-none";
+
+const tilePlaceholderView = (shape: ArtworkShape, h: HtmlBuilder<Message>): Html =>
+  h.div(
+    [h.Class(SHELF_TILE_CLASS)],
+    [
+      h.div([
+        h.Class(
+          clsx(BLOCK_CLASS, "aspect-square", {
+            "rounded-full": shape === "Round",
+            "rounded-lg": shape === "Square",
+          }),
+        ),
+      ]),
+      h.div([h.Class(clsx(BLOCK_CLASS, "mt-3 h-4 w-4/5 rounded"))]),
+      h.div([h.Class(clsx(BLOCK_CLASS, "mt-2 h-4 w-3/5 rounded"))]),
+    ],
+  );
+
+/**
+ * A shelf before its tiles are known: the real title, since that never
+ * depends on the catalog, over blocks the size of the tiles to come.
+ */
+export const shelfPlaceholderView = (
+  title: string,
+  shape: ArtworkShape,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.section(
+    [],
+    [
+      h.h2([h.Class(SECTION_HEADING_CLASS)], [title]),
+      h.div(
+        [h.AriaHidden(true), h.Class(clsx(SHELF_ROW_CLASS, "overflow-x-hidden"))],
+        Array.makeBy(SHELF_PLACEHOLDER_TILES, () => tilePlaceholderView(shape, h)),
+      ),
+    ],
+  );
+
+const trackRowPlaceholderView = (h: HtmlBuilder<Message>): Html =>
+  h.div(
+    [h.Class(TRACK_ROW_CLASS)],
+    [
+      h.div([h.Class(clsx(BLOCK_CLASS, TRACK_THUMBNAIL_CLASS, "aspect-square rounded-lg"))]),
+      h.div(
+        [h.Class("min-w-0 flex-1")],
+        [
+          h.div([h.Class(clsx(BLOCK_CLASS, "h-4 w-2/5 rounded"))]),
+          h.div([h.Class(clsx(BLOCK_CLASS, "mt-2 h-4 w-1/4 rounded"))]),
+        ],
+      ),
+      h.div([h.Class(clsx(BLOCK_CLASS, "h-4 w-8 rounded"))]),
+    ],
+  );
+
+/** Rows the size of track rows, for a list whose tracks are on their way. */
+export const trackListPlaceholderView = (h: HtmlBuilder<Message>): Html =>
+  h.div(
+    [h.AriaHidden(true), h.Class("mt-2")],
+    Array.makeBy(TRACK_PLACEHOLDER_ROWS, () => trackRowPlaceholderView(h)),
+  );
+
+/** A block where a heading will be, when even the heading depends on the reply. */
+export const headingPlaceholderView = (h: HtmlBuilder<Message>): Html =>
+  h.div([h.AriaHidden(true), h.Class(clsx(BLOCK_CLASS, "h-6 w-32 rounded"))]);
