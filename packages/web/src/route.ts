@@ -1,9 +1,10 @@
+import { TrackId } from "@bafle/domain/Catalog/Track";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as String from "effect/String";
 import { Route } from "foldkit";
-import { defineRouteUnion, literal } from "foldkit/route";
+import { defineRouteUnion, literal, schemaSegment, slash } from "foldkit/route";
 
 // ROUTE
 
@@ -12,6 +13,7 @@ export const AppRoute = defineRouteUnion({
   Home: {},
   New: {},
   Search: { maybeTerm: Schema.Option(Schema.String) },
+  Track: { trackId: TrackId },
   NotFound: { path: Schema.String },
 });
 export type AppRoute = typeof AppRoute.Type;
@@ -30,7 +32,13 @@ export const searchRouter = pipe(
   Route.mapTo(AppRoute.Search),
 );
 
-const routeParser = Route.oneOf(searchRouter, newRouter, homeRouter);
+export const trackRouter = pipe(
+  literal("track"),
+  slash(schemaSegment("trackId", TrackId)),
+  Route.mapTo(AppRoute.Track),
+);
+
+const routeParser = Route.oneOf(trackRouter, searchRouter, newRouter, homeRouter);
 
 export const urlToAppRoute = Route.parseUrlWithFallback(routeParser, AppRoute.NotFound);
 
@@ -40,10 +48,20 @@ export const routeToUrl = (route: AppRoute): string =>
     Home: () => homeRouter(),
     New: () => newRouter(),
     Search: ({ maybeTerm }) => searchRouter({ maybeTerm }),
+    Track: ({ trackId }) => trackRouter({ trackId }),
     NotFound: ({ path }) => path,
   });
 
 export const isSameRoute = Schema.toEquivalence(AppRoute);
+
+/**
+ * Whether two routes are places within one page. Search is one page whatever
+ * was typed into it; every track has a page of its own.
+ */
+export const isSamePage = (one: AppRoute, other: AppRoute): boolean =>
+  one._tag === "Track" && other._tag === "Track"
+    ? one.trackId === other.trackId
+    : one._tag === other._tag;
 
 /**
  * What a route asks the catalog to search for: the term without the spaces

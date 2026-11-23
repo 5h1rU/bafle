@@ -3,6 +3,7 @@ import * as Layer from "effect/Layer";
 import { CatalogSearch, CatalogSearchLive } from "./Catalog/CatalogSearch.query.ts";
 import { HomeFeed, HomeFeedLive } from "./Catalog/HomeFeed.query.ts";
 import { NewMusic, NewMusicLive } from "./Catalog/NewMusic.query.ts";
+import { TrackDetail, TrackDetailLive } from "./Catalog/TrackDetail.query.ts";
 
 /**
  * Bafle, a music player. So far a listener only browses and searches the
@@ -11,8 +12,13 @@ import { NewMusic, NewMusicLive } from "./Catalog/NewMusic.query.ts";
  */
 export class Bafle extends Domain.Model("Bafle", {
   aggregates: [],
-  queries: [HomeFeed, NewMusic, CatalogSearch],
+  queries: [HomeFeed, NewMusic, CatalogSearch, TrackDetail],
 }) {}
 
 /** Every query's implementation. They require the MusicCatalog external system. */
-export const BafleHandlers = Layer.mergeAll(HomeFeedLive, NewMusicLive, CatalogSearchLive);
+export const BafleHandlers = Layer.mergeAll(
+  HomeFeedLive,
+  NewMusicLive,
+  CatalogSearchLive,
+  TrackDetailLive,
+);

@@ -79,6 +79,22 @@ export const deezerPlaylist = {
   type: "playlist",
 };
 
+/** The same track asked for by id: Deezer adds the date, the position and the credits. */
+export const deezerTrackPage = {
+  ...deezerTrack,
+  isrc: "GBDUW0000059",
+  track_position: 4,
+  disk_number: 1,
+  release_date: "2001-03-12",
+  bpm: 123,
+  contributors: [
+    { ...deezerArtist, role: "Main" },
+    { id: 99, name: "Romanthony", role: "Featured" },
+    // Deezer lists an artist once per role.
+    { ...deezerArtist, role: "Featured" },
+  ],
+};
+
 /** A playlist Deezer has no picture or curator for. */
 export const barePlaylist = { id: 5, title: "Untitled", picture_medium: "", type: "playlist" };
 
@@ -93,4 +109,7 @@ export const stocked = {
   "/search/album": { body: { data: [deezerAlbum], total: 1 } },
   "/search/artist": { body: { data: [deezerArtist], total: 1 } },
   "/search/playlist": { body: { data: [], total: 0 } },
+  "/track/3135556": { body: deezerTrackPage },
+  "/track/404": { body: { error: { type: "DataException", message: "no data", code: 800 } } },
+  "/track/429": { body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } } },
 } satisfies Record<string, Answer>;

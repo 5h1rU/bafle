@@ -1,5 +1,6 @@
 import * as Domain from "@alchemy.run/domain";
 import { Bafle, BafleHandlers } from "@bafle/domain/Bafle.model";
+import { TrackId } from "@bafle/domain/Catalog/Track";
 import { ListenerApi } from "@bafle/domain/ListenerApi.api";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -52,5 +53,19 @@ it.live("a listener is told when the catalog cannot answer", () => {
     const bafle = yield* ListenerApi.clientInProcess;
     const refused = yield* bafle.HomeFeed({}).pipe(Effect.flip);
     expect(refused._tag).toBe("CatalogUnavailable");
+  }).pipe(Effect.scoped, Effect.provide(layer));
+});
+
+it.live("a listener opens a track, and is told when it does not exist", () => {
+  const { layer } = worldOver(stocked);
+  return Effect.gen(function* () {
+    const bafle = yield* ListenerApi.clientInProcess;
+    const track = yield* bafle.TrackDetail({ trackId: TrackId.make("3135556") });
+    expect(track.title).toBe("Harder, Better, Faster, Stronger");
+    expect(track.artists.map((artist) => artist.name)).toEqual(["Daft Punk", "Romanthony"]);
+    expect(track.releaseDate).toBe("2001-03-12");
+
+    const missing = yield* bafle.TrackDetail({ trackId: TrackId.make("404") }).pipe(Effect.flip);
+    expect(missing).toMatchObject({ _tag: "TrackNotFound", trackId: "404" });
   }).pipe(Effect.scoped, Effect.provide(layer));
 });

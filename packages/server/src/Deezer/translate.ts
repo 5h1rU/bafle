@@ -2,8 +2,15 @@ import { AlbumId, type AlbumSummary } from "@bafle/domain/Catalog/Album";
 import { ArtistId, type ArtistCredit, type ArtistSummary } from "@bafle/domain/Catalog/Artist";
 import type { Artwork } from "@bafle/domain/Catalog/Artwork";
 import { PlaylistId, type PlaylistSummary } from "@bafle/domain/Catalog/Playlist";
-import { TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
-import type { DeezerAlbum, DeezerArtist, DeezerPlaylist, DeezerTrack } from "./DeezerSchemas.ts";
+import { type Track, TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
+import * as Array from "effect/Array";
+import type {
+  DeezerAlbum,
+  DeezerArtist,
+  DeezerPlaylist,
+  DeezerTrack,
+  DeezerTrackPage,
+} from "./DeezerSchemas.ts";
 
 type Image = string | null | undefined;
 
@@ -47,6 +54,24 @@ export const toTrack = (track: DeezerTrack): TrackSummary => ({
   previewUrl: track.preview || null,
   explicit: track.explicit_lyrics ?? false,
 });
+
+/** `YYYY-MM-DD` and nothing else. Deezer writes `0000-00-00` when it does not know. */
+const toReleaseDate = (date: string | null | undefined): string | null =>
+  date && /^\d{4}-\d{2}-\d{2}$/.test(date) && !date.startsWith("0000") ? date : null;
+
+export const toFullTrack = (track: DeezerTrackPage): Track => {
+  // Without contributors, the main artist is still credited, by name alone.
+  const credited = track.contributors?.length
+    ? track.contributors
+    : [{ id: track.artist.id, name: track.artist.name }];
+  return {
+    ...toTrack(track),
+    artists: Array.dedupeWith(credited.map(toArtist), (a, b) => a.id === b.id),
+    releaseDate: toReleaseDate(track.release_date),
+    trackNumber:
+      track.track_position && track.track_position > 0 ? Math.round(track.track_position) : null,
+  };
+};
 
 export const toPlaylist = (playlist: DeezerPlaylist): PlaylistSummary => ({
   id: PlaylistId.make(String(playlist.id)),

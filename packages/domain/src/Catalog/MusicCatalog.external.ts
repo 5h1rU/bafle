@@ -4,7 +4,8 @@ import { AlbumSummary } from "./Album.ts";
 import { ArtistSummary } from "./Artist.ts";
 import { CatalogUnavailable } from "./CatalogUnavailable.rejection.ts";
 import { PlaylistSummary } from "./Playlist.ts";
-import { TrackSummary } from "./Track.ts";
+import { Track, TrackId, TrackSummary } from "./Track.ts";
+import { TrackNotFound } from "./TrackNotFound.rejection.ts";
 
 /** What the catalog recommends today: picks by its editors, and what listeners gather around. */
 export const FeaturedMusic = Schema.Struct({
@@ -47,6 +48,12 @@ export class MusicCatalog extends Domain.ExternalSystem(
       args: { term: Schema.String, limit: Schema.Int },
       success: SearchResults,
       error: CatalogUnavailable,
+    },
+    /** One track, in full. */
+    track: {
+      args: { trackId: TrackId },
+      success: Track,
+      error: [TrackNotFound, CatalogUnavailable],
     },
   },
   { description: "The music provider whose catalog Bafle browses and searches." },

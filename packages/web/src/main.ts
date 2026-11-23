@@ -3,29 +3,62 @@ import type {
   FeaturedMusic,
   TrendingMusic,
 } from "@bafle/domain/Catalog/MusicCatalog.external";
+import type { Track, TrackId } from "@bafle/domain/Catalog/Track";
+import * as Array from "effect/Array";
+import { identity, pipe } from "effect/Function";
+import * as HashMap from "effect/HashMap";
+import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as String from "effect/String";
 import { AsyncData, type Runtime, Update } from "foldkit";
 import { UrlRequest } from "foldkit/navigation";
 import { modifyFields } from "foldkit/struct";
-import { toString as urlToString, type Url } from "foldkit/url";
-import { Catalog, type CatalogClient, type LoadError, toLoadError } from "./catalog.ts";
+import type { Url } from "foldkit/url";
+import {
+  Catalog,
+  type CatalogClient,
+  type LoadError,
+  toLoadError,
+  toTrackOutcome,
+} from "./catalog.ts";
 import {
   askCatalogSearch,
   askHomeFeed,
   askNewMusic,
+  askTrackDetail,
   FocusPage,
   FocusSearchField,
+  FocusTrackRow,
   LoadExternal,
+  NavigateBack,
   NavigateInternal,
   ReplaceSearchTerm,
   type Request,
+  ScrollPageToTop,
   WaitForTypingPause,
 } from "./command.ts";
 import { Message } from "./message.ts";
-import { Awaiting, canShow, Model, type SearchAnswer } from "./model.ts";
-import { AppRoute, isSameRoute, routeToUrl, searchedTerm, urlToAppRoute } from "./route.ts";
+import {
+  addressOf,
+  Awaiting,
+  canShow,
+  type Entrance,
+  maybeHeadedFor,
+  isLoaded,
+  Model,
+  type SearchAnswer,
+  trackData,
+} from "./model.ts";
+import {
+  AppRoute,
+  isSamePage,
+  isSameRoute,
+  routeToUrl,
+  searchedTerm,
+  urlToAppRoute,
+} from "./route.ts";
+import { pageIdOf } from "./view/layout.ts";
 
 type UpdateReturn = Update.Return<Model, Message, CatalogClient>;
 type Step = Update.Step<Model, Message, CatalogClient>;
@@ -55,6 +88,18 @@ const searchPage: Page<SearchAnswer> = {
   write: (model, nextSearch) => modifyFields(model, { search: () => nextSearch }),
 };
 
+/** A track's page keeps what the catalog told it under the track's id. Nothing held is no entry. */
+const trackPage = (trackId: TrackId): Page<Option.Option<Track>> => ({
+  read: (model) => trackData(model, trackId),
+  write: (model, nextTrack) =>
+    modifyFields(model, {
+      tracks: (tracks) =>
+        AsyncData.isIdle(nextTrack)
+          ? HashMap.remove(tracks, trackId)
+          : HashMap.set(tracks, trackId, nextTrack),
+    }),
+});
+
 /** Loading for the first time, or again over what is already held. */
 const markPending = <A>(data: PageData<A>): PageData<A> =>
   Option.getOrElse(AsyncData.revalidateOrLoad(data), () => data);
@@ -70,19 +115,37 @@ const standDown = <A>(data: PageData<A>): PageData<A> =>
     onSuccess: () => data,
   });
 
-const isAnswerFor = (search: PageData<SearchAnswer>, term: string): boolean =>
-  Option.exists(AsyncData.getData(search), (answer) => answer.term === term);
-
 const forgetAnswer = (model: Model): Model => searchPage.write(model, AsyncData.Idle());
+
+/** The catalog has already said it has no such track: asking again would say the same. */
+const isKnownMissing = (track: PageData<Option.Option<Track>>): boolean =>
+  Option.exists(AsyncData.getData(track), Option.isNone);
 
 // UPDATE
 
-const isAwaitingReply = (awaiting: Awaiting, requestId: string): boolean =>
-  Awaiting.matchOrElse(
-    awaiting,
-    { Reply: (reply) => reply.requestId === requestId },
-    () => false,
-  );
+/** What a request is awaited as: how its reply will be recognised, and what it is for. */
+type Expecting = (requestId: string) => Awaiting;
+
+const forTheScreen: Expecting = (requestId) => Awaiting.Reply({ requestId });
+
+const forIntention =
+  (route: AppRoute): Expecting =>
+  (requestId) =>
+    Awaiting.Intention({ requestId, route });
+
+const forArrival =
+  (route: AppRoute, entrance: Entrance): Expecting =>
+  (requestId) =>
+    Awaiting.Arrival({ requestId, route, entrance });
+
+const maybeAwaitedRequestId = (awaiting: Awaiting): Option.Option<string> =>
+  Awaiting.match(awaiting, {
+    Nothing: () => Option.none(),
+    TypingPause: () => Option.none(),
+    Reply: ({ requestId }) => Option.some(requestId),
+    Intention: ({ requestId }) => Option.some(requestId),
+    Arrival: ({ requestId }) => Option.some(requestId),
+  });
 
 const isAwaitingPause = (awaiting: Awaiting, pauseId: string): boolean =>
   Awaiting.matchOrElse(
@@ -91,57 +154,72 @@ const isAwaitingPause = (awaiting: Awaiting, pauseId: string): boolean =>
     () => false,
   );
 
+/** The page a reply is about: the one the app is heading for, else the one on screen. */
+const awaitedRoute = (model: Model): AppRoute => Option.getOrElse(maybeHeadedFor(model), () => model.route);
+
 /** Search opens with its field focused, ready to be typed into. */
 const focusSearchFieldOnSearch: Step = (model) =>
-  model.displayed._tag === "Search" ? { model, commands: [FocusSearchField()] } : { model };
+  model.route._tag === "Search" ? { model, commands: [FocusSearchField()] } : { model };
 
 /**
- * Decide what is on screen. The destination takes the screen once it has
- * something to show; until then the page on screen stays, whole and usable.
- * Two cases do not wait: a change within the page on screen (typing in
- * Search), and a screen that only holds placeholders, which is nothing
- * worth holding.
+ * What takes the focus when another page takes the screen. Back from a track
+ * it is the row that opened it, so the list is as the listener left it, down
+ * to where the keyboard was. A track's page takes it itself: the row that
+ * held it is now behind the page. Search gives it to its field.
  */
-const swap: Step = (model) => {
-  const isSwapping =
-    canShow(model, model.route) ||
-    model.displayed._tag === model.route._tag ||
-    !canShow(model, model.displayed);
-  if (!isSwapping) {
-    return { model };
-  }
-  const swapped = modifyFields(model, { displayed: () => model.route });
-  return model.displayed._tag === "Search" ? { model: swapped } : focusSearchFieldOnSearch(swapped);
-};
+const focusOn = (left: AppRoute, entered: AppRoute, entrance: Entrance) =>
+  left._tag === "Track" && entered._tag !== "Track" && entrance === "Returning"
+    ? [FocusTrackRow({ pageId: pageIdOf(entered), trackId: left.trackId })]
+    : AppRoute.matchOrElse(
+        entered,
+        {
+          Search: () => [FocusSearchField()],
+          Track: () => [FocusPage({ pageId: pageIdOf(entered) })],
+        },
+        () => [],
+      );
 
 /** Send a query and await its reply. Any earlier request stops being the one awaited. */
-const send = (model: Model, ask: Request): UpdateReturn => {
+const send = (model: Model, ask: Request, expecting: Expecting): UpdateReturn => {
   const allocation = DomainFoldkit.next(model.requestIds);
   return {
     model: modifyFields(model, {
       requestIds: () => allocation.commandIds,
-      awaiting: () => Awaiting.Reply({ requestId: allocation.commandId }),
+      awaiting: () => expecting(allocation.commandId),
     }),
     commands: [ask(allocation.commandId)],
   };
 };
 
 /** Load a page for the first time, or refresh it over what it holds. */
-const request = <A>(model: Model, page: Page<A>, ask: Request): UpdateReturn =>
-  send(page.write(model, markPending(page.read(model))), ask);
+const requestPage = <A>(
+  model: Model,
+  page: Page<A>,
+  ask: Request,
+  expecting: Expecting,
+): UpdateReturn =>
+  send(page.write(model, markPending(page.read(model))), ask, expecting);
 
-/** Ask the catalog for what the current route shows. */
-const load: Step = (model) =>
-  AppRoute.match<UpdateReturn>(model.route, {
-    Home: () => request(model, homePage, askHomeFeed),
-    New: () => request(model, newMusicPage, askNewMusic),
-    Search: () =>
-      Option.match(searchedTerm(model.route), {
-        onNone: () => ({ model }),
-        onSome: (term) => request(model, searchPage, askCatalogSearch(term)),
-      }),
-    NotFound: () => ({ model }),
-  });
+/** Ask the catalog for what a route shows. */
+const load =
+  (route: AppRoute, expecting: Expecting): Step =>
+  (model) =>
+    AppRoute.match<UpdateReturn>(route, {
+      Home: () => requestPage(model, homePage, askHomeFeed, expecting),
+      New: () => requestPage(model, newMusicPage, askNewMusic, expecting),
+      Search: () =>
+        Option.match(searchedTerm(route), {
+          onNone: () => ({ model }),
+          onSome: (term) => requestPage(model, searchPage, askCatalogSearch(term), expecting),
+        }),
+      Track: ({ trackId }) => {
+        const page = trackPage(trackId);
+        return isKnownMissing(page.read(model))
+          ? { model }
+          : requestPage(model, page, askTrackDetail(trackId), expecting);
+      },
+      NotFound: () => ({ model }),
+    });
 
 /** Keep the results on screen, marked as out of date, and ask once the typing pauses. */
 const waitForTypingPause: Step = (model) => {
@@ -157,67 +235,300 @@ const waitForTypingPause: Step = (model) => {
 };
 
 /**
- * Search loads like any page when the listener arrives from elsewhere: at
- * once, and from the answer on hand if it is for the same term. When Search
- * is already on screen the URL changed because they typed, so it waits for
- * a pause instead of asking on every letter.
+ * Search is already on screen, so its URL changed because the listener
+ * typed: it waits for a pause instead of asking on every letter. A blank
+ * field asks nothing and goes back to the prompt.
  */
-const loadSearch: Step = (model) =>
+const followTyping: Step = (model) =>
   Option.match(searchedTerm(model.route), {
     onNone: () => ({ model: forgetAnswer(model) }),
-    onSome: (term) => {
-      if (model.displayed._tag === "Search") {
-        return waitForTypingPause(model);
-      }
-      return load(isAnswerFor(model.search, term) ? model : forgetAnswer(model));
-    },
+    onSome: () => waitForTypingPause(model),
   });
 
 /**
- * The route changed, so whatever was awaited belonged to another
- * destination: abandon it. Its reply, if it still comes, matches nothing.
+ * A search reached from another page starts from the answer on hand only if
+ * it is for the same term: any other answer is for something else.
  */
-const turnTo =
-  (route: AppRoute): Step =>
-  (model) => ({
-    model: modifyFields(model, {
-      route: () => route,
-      awaiting: () => Awaiting.Nothing(),
-      home: standDown,
-      newMusic: standDown,
-      search: standDown,
-    }),
+const keepAnswerOnlyFor =
+  (route: AppRoute) =>
+  (model: Model): Model =>
+    route._tag === "Search" && !(Option.isSome(searchedTerm(route)) && isLoaded(model, route))
+      ? forgetAnswer(model)
+      : model;
+
+/**
+ * Whether a page can take the screen without a wait: the Model holds what it
+ * shows, or the screen only holds placeholders, which is nothing worth
+ * holding.
+ */
+const needsNoWait = (model: Model, route: AppRoute): boolean =>
+  isLoaded(model, route) || !canShow(model, model.route);
+
+/** Stop waiting for every track: at most one was being asked for, and only it changes. */
+const standDownTracks = (tracks: Model["tracks"]): Model["tracks"] =>
+  pipe(
+    tracks,
+    HashMap.map((track) => standDown(track)),
+    HashMap.filter((track) => !AsyncData.isIdle(track)),
+  );
+
+/**
+ * The listener did something else, so whatever was awaited is abandoned
+ * without a trace: its page goes back to what it held, a row that was
+ * loading is a plain row again, and its reply, if it still comes, matches
+ * nothing.
+ */
+const abandon = (model: Model): Model =>
+  modifyFields(model, {
+    awaiting: () => Awaiting.Nothing(),
+    home: standDown,
+    newMusic: standDown,
+    search: standDown,
+    tracks: standDownTracks,
   });
 
-/** The listener chose a destination: the latest one wins, loads, and takes the screen when it can. */
-const arriveAt = (route: AppRoute): Step =>
-  Update.combine([
-    turnTo(route),
-    (stepModel) => (stepModel.route._tag === "Search" ? loadSearch(stepModel) : load(stepModel)),
-    swap,
+/** A page takes the screen. The focus follows, unless the screen only moved within the page. */
+const showPage =
+  (route: AppRoute, entrance: Entrance): Step =>
+  (model) => {
+    const shown = modifyFields(model, { route: () => route });
+    return isSamePage(model.route, route)
+      ? { model: shown }
+      : { model: shown, commands: focusOn(model.route, route, entrance) };
+  };
+
+/** Ask the browser for a new history entry, and note it: its `ChangedUrl` is the app's own. */
+const moveUrlTo =
+  (route: AppRoute): Step =>
+  (model) => ({
+    model: modifyFields(model, { maybeAskedRoute: () => Option.some(route) }),
+    commands: [NavigateInternal({ url: routeToUrl(route) })],
+  });
+
+/**
+ * A page chosen by a link takes the screen, and only now does the URL move:
+ * one new history entry, for a page that is shown. Behind it is the entry
+ * the URL was at. The URL change this asks for comes back as a `ChangedUrl`
+ * for the page already on screen, which changes nothing: see `arriveAt`.
+ */
+const commit =
+  (route: AppRoute, behind: AppRoute): Step =>
+  (model) =>
+    Update.combine(modifyFields(model, { trail: Array.append(behind) }), [
+      showPage(route, "Arriving"),
+      moveUrlTo(route),
+    ]);
+
+/**
+ * Whether a page chosen by a link can take the screen. A section does so
+ * with its content or with its failure, since a navigation item has no room
+ * to state one. A track does so only with the track itself: one that failed
+ * to open, or that the catalog does not have, says so on its row.
+ */
+const canCommit = (model: Model, route: AppRoute): boolean =>
+  AppRoute.matchOrElse(
+    route,
+    {
+      Track: ({ trackId }) =>
+        Option.exists(AsyncData.getData(trackData(model, trackId)), Option.isSome),
+    },
+    () => canShow(model, route),
+  );
+
+/**
+ * How the URL came to be a route's. The app only hears that it changed, so
+ * it tells the cases apart by what it knows: the change it asked for itself,
+ * and the page it left by a link to get where it was.
+ */
+type UrlChangeCause = "Asked" | "Back" | "Unplaced";
+
+// NOTE: a jump through the browser's history menu onto a page the same as the
+// nearest of the trail reads as Back: the URL is all the app is told. The
+// trail then names pages that are not behind the current one.
+const causeOfUrlChange = (model: Model, route: AppRoute): UrlChangeCause => {
+  if (Option.exists(model.maybeAskedRoute, (asked) => isSameRoute(asked, route))) {
+    return "Asked";
+  }
+  return Option.exists(Array.last(model.trail), (nearest) => isSameRoute(nearest, route))
+    ? "Back"
+    : "Unplaced";
+};
+
+type Trail = Model["trail"];
+
+/**
+ * Keep the trail true to the browser's history. The app's own changes need
+ * nothing here: a page chosen by a link put the entry it left on the trail
+ * as it took the screen, and typing in Search rewrites its own entry and
+ * moves nothing. Going back to the nearest page of the trail takes it off.
+ * Any other move, Forward or a jump, lands somewhere the app cannot place, so
+ * it forgets the trail rather than trust it: a way back that leads nowhere
+ * is worse than none.
+ */
+const retraceTrail = (cause: UrlChangeCause): ((trail: Trail) => Trail) =>
+  Match.value(cause).pipe(
+    Match.withReturnType<(trail: Trail) => Trail>(),
+    Match.when("Asked", () => identity),
+    Match.when("Back", () => Array.dropRight(1)),
+    Match.when("Unplaced", () => () => []),
+    Match.exhaustive,
+  );
+
+const retrace =
+  (cause: UrlChangeCause) =>
+  (model: Model): Model =>
+    modifyFields(model, {
+      maybeAskedRoute: () => Option.none(),
+      trail: retraceTrail(cause),
+    });
+
+/**
+ * The browser is already at a route: the URL moved first, so only the screen
+ * can be held. A page the Model holds takes it at once and refreshes behind
+ * it; any other holds the page on screen until its reply comes. Two cases do
+ * not wait: a change within the page on screen (typing in Search), and a
+ * screen that only holds placeholders, which is nothing worth holding.
+ */
+const enterByUrl =
+  (route: AppRoute, entrance: Entrance): Step =>
+  (model) => {
+    if (isSamePage(route, model.route)) {
+      return Update.combine(model, [
+        showPage(route, entrance),
+        route._tag === "Search" ? followTyping : load(route, forTheScreen),
+      ]);
+    }
+    const prepared = keepAnswerOnlyFor(route)(model);
+    return needsNoWait(prepared, route)
+      ? Update.combine(prepared, [showPage(route, entrance), load(route, forTheScreen)])
+      : load(route, forArrival(route, entrance))(prepared);
+  };
+
+/**
+ * The browser says where the URL is. Where the app already takes it to be,
+ * there is nothing to do: a page chosen by a link moved the URL as it took
+ * the screen, and this is that change coming back. Anywhere else, the
+ * listener went Back or Forward, or typed in Search, and whatever was awaited
+ * belonged to another destination: it is abandoned.
+ */
+const arriveAt =
+  (route: AppRoute): Step =>
+  (model) => {
+    const cause = causeOfUrlChange(model, route);
+    const retraced = retrace(cause)(model);
+    return isSameRoute(route, addressOf(model))
+      ? { model: retraced }
+      : enterByUrl(route, cause === "Back" ? "Returning" : "Arriving")(abandon(retraced));
+  };
+
+/**
+ * The listener's next choice leaves the page on screen where it is, so the
+ * URL has to be that page's again. It is not when a page reached by Back or
+ * Forward was still loading: the page on screen, which the listener is acting
+ * from, gets the entry after that one.
+ */
+const bringUrlToScreen =
+  (abandoned: Awaiting): Step =>
+  (model) =>
+    Awaiting.matchOrElse<UpdateReturn>(
+      abandoned,
+      {
+        Arrival: ({ route }) =>
+          moveUrlTo(model.route)(modifyFields(model, { trail: Array.append(route) })),
+      },
+      () => ({ model }),
+    );
+
+/** Give up whatever was awaited, and stay on the page on screen. */
+const returnToScreen: Step = (model) => bringUrlToScreen(model.awaiting)(abandon(model));
+
+/**
+ * The page on screen loads again where it stands, and the history is left
+ * alone. Choosing it twice is still the latest choice, so a request already
+ * out for it is abandoned for a new one.
+ */
+const reload: Step = (model) =>
+  Update.combine(model, [
+    returnToScreen,
+    (stepModel) => load(stepModel.route, forTheScreen)(stepModel),
   ]);
 
 /**
- * A link or Try again asked for a route. Anywhere but where the listener
- * already is, it navigates, and the URL change does the rest. Where they
- * already are, the history is left alone and the route loads again in
- * place: choosing it twice is still the latest choice, so a request already
- * out for it is abandoned for a new one. That is also the way out of a
- * request that never answers.
+ * Head for a page chosen by a link. One the Model holds takes the screen at
+ * once and refreshes behind it, and so does any page when the screen only
+ * holds placeholders. Otherwise the intention is recorded and the query sent:
+ * the page on screen stays, the URL stays, and the reply decides the rest.
  */
-const goTo =
-  (route: AppRoute, url: string): Step =>
+const headFor =
+  (route: AppRoute): Step =>
+  (model) => {
+    const freed = keepAnswerOnlyFor(route)(abandon(model));
+    return needsNoWait(freed, route)
+      ? Update.combine(freed, [commit(route, addressOf(model)), load(route, forTheScreen)])
+      : Update.combine(freed, [
+          bringUrlToScreen(model.awaiting),
+          load(route, forIntention(route)),
+        ]);
+  };
+
+/**
+ * A link asked for a route. The latest choice wins: whatever was awaited is
+ * abandoned first. A track the catalog is known not to have is no longer
+ * something to open, so asking for it changes nothing.
+ */
+const follow =
+  (route: AppRoute): Step =>
+  (model) => {
+    if (route._tag === "Track" && isKnownMissing(trackData(model, route.trackId))) {
+      return { model };
+    }
+    return isSameRoute(route, model.route) ? reload(model) : headFor(route)(model);
+  };
+
+/** Choosing the page already on screen asks for its top, as a tab bar does. */
+const scrollToTopWhenChosenAgain =
+  (route: AppRoute): Step =>
   (model) =>
     isSameRoute(route, model.route)
-      ? Update.combine(model, [turnTo(route), load])
-      : { model, commands: [NavigateInternal({ url })] };
+      ? { model, commands: [ScrollPageToTop({ pageId: pageIdOf(route) })] }
+      : { model };
 
-const focusPage: Step = (model) => ({ model, commands: [FocusPage()] });
+const focusPage: Step = (model) => ({
+  model,
+  commands: [FocusPage({ pageId: pageIdOf(model.route) })],
+});
+
+/** What held the focus in a row is about to go: the row itself takes it. */
+const focusTrackRow =
+  (trackId: TrackId): Step =>
+  (model) => ({
+    model,
+    commands: [FocusTrackRow({ pageId: pageIdOf(model.route), trackId })],
+  });
+
+/**
+ * The reply to an intention has been settled into the Model. A page that can
+ * take the screen does, and the URL with it. A track that cannot stays where
+ * its row is, with what the catalog said: the list, the URL and the history
+ * are as they were. A row that turns out to be for a track the catalog does
+ * not have stops being a link, and a link that goes takes the focus with it:
+ * the row is given it back.
+ */
+const commitIfOpenable =
+  (route: AppRoute): Step =>
+  (model) => {
+    if (canCommit(model, route)) {
+      return commit(route, model.route)(model);
+    }
+    return route._tag === "Track" && isKnownMissing(trackData(model, route.trackId))
+      ? focusTrackRow(route.trackId)(model)
+      : { model };
+  };
 
 /**
  * A reply counts only if it answers the request awaited. It settles its
  * page: data replaces what was held, a failure keeps it. Then the screen
- * follows.
+ * follows, for a page that was being waited for.
  */
 const receive = <A>(
   model: Model,
@@ -225,65 +536,126 @@ const receive = <A>(
   requestId: string,
   outcome: Result.Result<A, LoadError>,
 ): UpdateReturn => {
-  if (!isAwaitingReply(model.awaiting, requestId)) {
+  if (!Option.contains(maybeAwaitedRequestId(model.awaiting), requestId)) {
     return { model };
   }
-  const settled = page.write(model, AsyncData.settle(page.read(model), outcome));
-  return swap(modifyFields(settled, { awaiting: () => Awaiting.Nothing() }));
+  const settled = modifyFields(page.write(model, AsyncData.settle(page.read(model), outcome)), {
+    awaiting: () => Awaiting.Nothing(),
+  });
+  return Awaiting.matchOrElse<UpdateReturn>(
+    model.awaiting,
+    {
+      Intention: ({ route }) => commitIfOpenable(route)(settled),
+      Arrival: ({ route, entrance }) => showPage(route, entrance)(settled),
+    },
+    () => ({ model: settled }),
+  );
 };
+
+/** A reply about a track is about the one awaited: the one being opened, else the one on screen. */
+const receiveTrack = (
+  model: Model,
+  requestId: string,
+  outcome: Result.Result<Option.Option<Track>, LoadError>,
+): UpdateReturn =>
+  AppRoute.matchOrElse<UpdateReturn>(
+    awaitedRoute(model),
+    { Track: ({ trackId }) => receive(model, trackPage(trackId), requestId, outcome) },
+    () => ({ model }),
+  );
+
+const receiveCatalogMessage = (model: Model, message: typeof Catalog.Message.Type): UpdateReturn =>
+  Catalog.Message.match<UpdateReturn>(message, {
+    SucceededHomeFeed: ({ requestId, result }) =>
+      receive(model, homePage, requestId, Result.succeed(result)),
+    FailedHomeFeed: ({ requestId, failure }) =>
+      receive(model, homePage, requestId, Result.fail(toLoadError(failure))),
+    SucceededNewMusic: ({ requestId, result }) =>
+      receive(model, newMusicPage, requestId, Result.succeed(result)),
+    FailedNewMusic: ({ requestId, failure }) =>
+      receive(model, newMusicPage, requestId, Result.fail(toLoadError(failure))),
+    SucceededCatalogSearch: ({ requestId, result }) =>
+      Option.match(searchedTerm(awaitedRoute(model)), {
+        onNone: () => ({ model }),
+        onSome: (term) =>
+          receive(model, searchPage, requestId, Result.succeed({ term, results: result })),
+      }),
+    FailedCatalogSearch: ({ requestId, failure }) =>
+      receive(model, searchPage, requestId, Result.fail(toLoadError(failure))),
+    SucceededTrackDetail: ({ requestId, result }) =>
+      receiveTrack(model, requestId, Result.succeed(Option.some(result))),
+    FailedTrackDetail: ({ requestId, failure }) =>
+      receiveTrack(model, requestId, toTrackOutcome(failure)),
+  });
+
+/**
+ * Typing goes through the URL: the current history entry is rewritten, so the
+ * field's text survives a reload and Back never walks a term back letter by
+ * letter. The entry is Search's own, except while a page reached by Back or
+ * Forward is still loading: then the current entry is that page's, and Search
+ * is given a new one after it instead of rewriting it.
+ */
+const rewriteSearchTerm =
+  (maybeTerm: Option.Option<string>): Step =>
+  (model) => {
+    const route = AppRoute.Search({ maybeTerm });
+    return Awaiting.matchOrElse<UpdateReturn>(
+      model.awaiting,
+      {
+        Arrival: (awaited) =>
+          moveUrlTo(route)(
+            modifyFields(abandon(model), { trail: Array.append(awaited.route) }),
+          ),
+      },
+      () => ({
+        model: modifyFields(model, { maybeAskedRoute: () => Option.some(route) }),
+        commands: [ReplaceSearchTerm({ maybeTerm })],
+      }),
+    );
+  };
 
 export const update = (model: Model, message: Message) =>
   Message.match<UpdateReturn>(message, {
     ClickedLink: ({ request }) =>
       UrlRequest.match<UpdateReturn>(request, {
-        Internal: ({ url }) => goTo(urlToAppRoute(url), urlToString(url))(model),
+        Internal: ({ url }) => {
+          const route = urlToAppRoute(url);
+          return Update.combine(model, [scrollToTopWhenChosenAgain(route), follow(route)]);
+        },
         External: ({ href }) => ({ model, commands: [LoadExternal({ href })] }),
       }),
 
     ChangedUrl: ({ url }) => arriveAt(urlToAppRoute(url))(model),
 
-    ClickedTryAgain: () =>
-      Update.combine(model, [goTo(model.displayed, routeToUrl(model.displayed)), focusPage]),
+    ClickedBack: () => ({ model, commands: [NavigateBack()] }),
 
-    UpdatedSearchField: ({ value }) => ({
-      model,
-      commands: [ReplaceSearchTerm({ maybeTerm: Option.liftPredicate(value, String.isNonEmpty) })],
-    }),
+    ClickedTryAgain: () => Update.combine(model, [reload, focusPage]),
+
+    ClickedTryAgainOnTrack: ({ trackId }) =>
+      Update.combine(model, [follow(AppRoute.Track({ trackId })), focusTrackRow(trackId)]),
+
+    UpdatedSearchField: ({ value }) =>
+      rewriteSearchTerm(Option.liftPredicate(value, String.isNonEmpty))(model),
 
     CompletedWaitForTypingPause: ({ pauseId }) =>
       Option.match(searchedTerm(model.route), {
         onNone: () => ({ model }),
         onSome: (term) =>
           isAwaitingPause(model.awaiting, pauseId)
-            ? send(model, askCatalogSearch(term))
+            ? send(model, askCatalogSearch(term), forTheScreen)
             : { model },
       }),
 
-    GotCatalogMessage: ({ message }) =>
-      Catalog.Message.match<UpdateReturn>(message, {
-        SucceededHomeFeed: ({ requestId, result }) =>
-          receive(model, homePage, requestId, Result.succeed(result)),
-        FailedHomeFeed: ({ requestId, failure }) =>
-          receive(model, homePage, requestId, Result.fail(toLoadError(failure))),
-        SucceededNewMusic: ({ requestId, result }) =>
-          receive(model, newMusicPage, requestId, Result.succeed(result)),
-        FailedNewMusic: ({ requestId, failure }) =>
-          receive(model, newMusicPage, requestId, Result.fail(toLoadError(failure))),
-        SucceededCatalogSearch: ({ requestId, result }) =>
-          Option.match(searchedTerm(model.route), {
-            onNone: () => ({ model }),
-            onSome: (term) =>
-              receive(model, searchPage, requestId, Result.succeed({ term, results: result })),
-          }),
-        FailedCatalogSearch: ({ requestId, failure }) =>
-          receive(model, searchPage, requestId, Result.fail(toLoadError(failure))),
-      }),
+    GotCatalogMessage: ({ message }) => receiveCatalogMessage(model, message),
 
     CompletedNavigateInternal: () => ({ model }),
+    CompletedNavigateBack: () => ({ model }),
     CompletedLoadExternal: () => ({ model }),
     CompletedReplaceSearchTerm: () => ({ model }),
     CompletedFocusSearchField: () => ({ model }),
     CompletedFocusPage: () => ({ model }),
+    CompletedFocusTrackRow: () => ({ model }),
+    CompletedScrollPageToTop: () => ({ model }),
   });
 
 // INIT
@@ -300,15 +672,18 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, CatalogC
   return Update.combine(
     Model.make({
       route,
-      displayed: route,
       awaiting: Awaiting.Nothing(),
       // Replies are matched in memory, so the ids only have to differ within this page load.
       requestIds: { session: "page", sent: 0 },
       home: AsyncData.Idle(),
       newMusic: AsyncData.Idle(),
       search: AsyncData.Idle(),
+      tracks: HashMap.empty(),
+      maybeAskedRoute: Option.none(),
+      // A fresh load knows nothing of the history behind it, so no page has a way back yet.
+      trail: [],
     }),
-    [load, focusSearchFieldOnSearch],
+    [load(route, forTheScreen), focusSearchFieldOnSearch],
   );
 };
 
@@ -316,10 +691,11 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, CatalogC
 
 /**
  * Cross-fade when the page on screen changes, and only then: typing and
- * background refreshes repaint plainly. The runtime skips the transition
- * under `prefers-reduced-motion`.
+ * background refreshes repaint plainly, and so does the URL catching up with
+ * a page already shown. The runtime skips the transition under
+ * `prefers-reduced-motion`.
  */
 export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   previousModel,
   model,
-}) => previousModel.displayed._tag !== model.displayed._tag;
+}) => !isSamePage(previousModel.route, model.route);

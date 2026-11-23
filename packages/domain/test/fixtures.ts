@@ -6,7 +6,7 @@ import type {
   TrendingMusic,
 } from "../src/Catalog/MusicCatalog.external.ts";
 import { PlaylistId, type PlaylistSummary } from "../src/Catalog/Playlist.ts";
-import { TrackId, type TrackSummary } from "../src/Catalog/Track.ts";
+import { type Track, TrackId, type TrackSummary } from "../src/Catalog/Track.ts";
 
 const artwork = (name: string) => ({
   small: `https://img.test/${name}/small.jpg`,
@@ -59,4 +59,12 @@ export const found: SearchResults = {
   albums: [album],
   artists: [artist],
   playlists: [playlist],
+};
+
+/** The same track, as its own page shows it. */
+export const fullTrack: Track = {
+  ...track,
+  artists: [artist],
+  releaseDate: "2013-09-02",
+  trackNumber: 3,
 };

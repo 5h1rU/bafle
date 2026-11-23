@@ -5,7 +5,7 @@ import type { Message } from "../message.ts";
 import type { ArtworkShape } from "./artwork.ts";
 import { SECTION_HEADING_CLASS } from "./layout.ts";
 import { SHELF_ROW_CLASS, SHELF_TILE_CLASS } from "./shelf.ts";
-import { TRACK_ROW_CLASS, TRACK_THUMBNAIL_CLASS } from "./trackList.ts";
+import { TRACK_ROW_CLASS, TRACK_ROW_LINE_CLASS, TRACK_THUMBNAIL_CLASS } from "./trackList.ts";
 
 // VIEW
 
@@ -13,7 +13,7 @@ const SHELF_PLACEHOLDER_TILES = 8;
 const TRACK_PLACEHOLDER_ROWS = 8;
 
 /** A grey block standing in for content on its way. It keeps still under reduced motion. */
-const BLOCK_CLASS = "animate-pulse bg-tile motion-reduce:animate-none";
+export const BLOCK_CLASS = "animate-pulse bg-tile motion-reduce:animate-none";
 
 const tilePlaceholderView = (shape: ArtworkShape, h: HtmlBuilder<Message>): Html =>
   h.div(
@@ -54,7 +54,7 @@ export const shelfPlaceholderView = (
 
 const trackRowPlaceholderView = (h: HtmlBuilder<Message>): Html =>
   h.div(
-    [h.Class(TRACK_ROW_CLASS)],
+    [h.Class(clsx(TRACK_ROW_CLASS, TRACK_ROW_LINE_CLASS))],
     [
       h.div([h.Class(clsx(BLOCK_CLASS, TRACK_THUMBNAIL_CLASS, "aspect-square rounded-lg"))]),
       h.div(

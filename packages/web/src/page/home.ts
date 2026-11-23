@@ -6,8 +6,10 @@ import type { Message } from "../message.ts";
 import type { HomeData } from "../model.ts";
 import {
   PAGE_SECTIONS_CLASS,
+  type Presence,
   QUIET_LINE_CLASS,
   pageAttributes,
+  PAGE_IDS,
   pageTitleView,
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
@@ -16,6 +18,7 @@ import { albumTile, artistTile, maybeShelfView, playlistTile } from "../view/she
 
 // VIEW
 
+const PAGE_ID = PAGE_IDS.Home;
 const TITLE = "Home";
 const EDITORS_PICKS = "Editors' picks";
 const TOP_PLAYLISTS = "Top playlists";
@@ -64,9 +67,9 @@ const shelvesView = (featured: FeaturedMusic, h: HtmlBuilder<Message>): Html =>
     },
   );
 
-export const view = (home: HomeData, h: HtmlBuilder<Message>): Html =>
-  h.div(pageAttributes(h), [
-    pageTitleView(TITLE, h),
+export const view = (home: HomeData, presence: Presence, h: HtmlBuilder<Message>): Html =>
+  h.div(pageAttributes(PAGE_ID, presence, h), [
+    pageTitleView(PAGE_ID, TITLE, h),
     h.div(
       [h.AriaBusy(AsyncData.isPending(home))],
       [

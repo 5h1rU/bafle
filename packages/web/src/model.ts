@@ -4,6 +4,9 @@ import {
   SearchResults,
   TrendingMusic,
 } from "@bafle/domain/Catalog/MusicCatalog.external";
+import { Track, TrackId } from "@bafle/domain/Catalog/Track";
+import * as Array from "effect/Array";
+import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { AsyncData } from "foldkit";
@@ -27,31 +30,82 @@ export const SearchData = AsyncData.Schema(SearchAnswer, LoadError);
 export type SearchData = typeof SearchData.schema.Type;
 
 /**
- * The one thing the app is waiting for. It always belongs to the current
- * route: every change of route abandons it, so a reply or a pause that
- * arrives for anything else is recognised by its id and dropped.
+ * What the catalog said about one track. No track is an answer too: the
+ * catalog does not have it, and asking again will not change that.
+ */
+export const TrackData = AsyncData.Schema(Schema.Option(Track), LoadError);
+export type TrackData = typeof TrackData.schema.Type;
+
+/** Whether a page takes the screen because the listener went back to it, or otherwise. */
+export const Entrance = Schema.Literals(["Returning", "Arriving"]);
+export type Entrance = typeof Entrance.Type;
+
+/**
+ * The one thing the app is waiting for. Whatever the listener does next
+ * abandons it, so a reply or a pause that arrives for anything else is
+ * recognised by its id and dropped.
  */
 export const Awaiting = defineTaggedUnion({
   Nothing: {},
   /** The listener is typing in Search; the query goes out when they pause. */
   TypingPause: { pauseId: Schema.String },
+  /** A reply for the page on screen: its first load, a refresh, a retry. */
   Reply: { requestId: Schema.String },
+  /**
+   * A reply for a page the listener chose by a link. The URL has not moved:
+   * it is pushed when the page takes the screen, so the history only ever
+   * gains pages that were shown.
+   */
+  Intention: { requestId: Schema.String, route: AppRoute },
+  /**
+   * A reply for a page the browser has already moved the URL to, by Back or
+   * Forward. The page on screen is held until it comes, and how the listener
+   * got there is kept for then: it decides where the focus goes.
+   */
+  Arrival: { requestId: Schema.String, route: AppRoute, entrance: Entrance },
 });
 export type Awaiting = typeof Awaiting.Type;
 
 export const Model = Schema.Struct({
-  /** Where the listener asked to go. It follows the URL at once. */
+  /**
+   * The route whose page is on screen. It is the browser's URL too, except
+   * while an `Arrival` is awaited: a link moves the URL when its page takes
+   * the screen, never before.
+   */
   route: AppRoute,
-  /** The route whose page is on screen. It follows the data: see `swap` in main.ts. */
-  displayed: AppRoute,
   awaiting: Awaiting,
   /** Names each request and pause, so the one awaited can be told from the abandoned. */
   requestIds: DomainFoldkit.CommandIds,
   home: HomeData.schema,
   newMusic: NewMusicData.schema,
   search: SearchData.schema,
+  /**
+   * What the catalog said about every track asked for since the app loaded.
+   * Opening one again needs no wait, and a row reads here whether its track
+   * is loading, failed to open, or is gone from the catalog.
+   */
+  tracks: Schema.HashMap(TrackId, TrackData.schema),
+  /**
+   * The URL change the app has asked the browser for and not yet heard of: a
+   * new entry for a page that took the screen, or the current entry rewritten
+   * by typing in Search. The app is only ever told that the URL changed, never
+   * how: the change that arrives for what it asked is its own, and any other
+   * is the listener moving through the browser's history.
+   */
+  maybeAskedRoute: Schema.Option(AppRoute),
+  /**
+   * The pages the app takes to be behind the current one in the browser's
+   * history, nearest last: those it left by a link and has not gone back to.
+   * It is empty unless this visit left a page behind, which is what a page's
+   * own way back relies on: see `retrace` in main.ts.
+   */
+  trail: Schema.Array(AppRoute),
 });
 export type Model = typeof Model.Type;
+
+/** What the app holds about a track: nothing yet when it was never asked for. */
+export const trackData = (model: Model, trackId: TrackId): TrackData =>
+  AsyncData.fromOptionOrIdle(HashMap.get(model.tracks, trackId));
 
 /** A page with data, or with a failure to state, has more to show than placeholders. */
 const hasSomethingToShow = <A>(data: AsyncData.AsyncData<A, LoadError>): boolean =>
@@ -66,5 +120,49 @@ export const canShow = (model: Model, route: AppRoute): boolean =>
     Home: () => hasSomethingToShow(model.home),
     New: () => hasSomethingToShow(model.newMusic),
     Search: () => Option.isNone(searchedTerm(route)) || hasSomethingToShow(model.search),
+    Track: ({ trackId }) => hasSomethingToShow(trackData(model, trackId)),
     NotFound: () => true,
   });
+
+/**
+ * Whether the Model already holds what a route's page shows, so the page can
+ * take the screen without a wait. A search is held only for the term it
+ * answered.
+ */
+export const isLoaded = (model: Model, route: AppRoute): boolean =>
+  AppRoute.match(route, {
+    Home: () => AsyncData.hasData(model.home),
+    New: () => AsyncData.hasData(model.newMusic),
+    Search: () =>
+      Option.match(searchedTerm(route), {
+        onNone: () => true,
+        onSome: (term) =>
+          Option.exists(AsyncData.getData(model.search), (answer) => answer.term === term),
+      }),
+    Track: ({ trackId }) => AsyncData.hasData(trackData(model, trackId)),
+    NotFound: () => true,
+  });
+
+/**
+ * The page the app is waiting to put on screen in place of the one that is
+ * there, if any: the one a link chose, or the one the browser went to.
+ */
+export const maybeHeadedFor = (model: Model): Option.Option<AppRoute> =>
+  Awaiting.matchOrElse(
+    model.awaiting,
+    {
+      Intention: ({ route }) => Option.some(route),
+      Arrival: ({ route }) => Option.some(route),
+    },
+    () => Option.none(),
+  );
+
+/** The route the app takes the browser's URL to be. */
+export const addressOf = (model: Model): AppRoute =>
+  Awaiting.matchOrElse(model.awaiting, { Arrival: ({ route }) => route }, () => model.route);
+
+/**
+ * The page behind the current one in the browser's history, when the app
+ * knows of one: where a page's own way back leads.
+ */
+export const wayBack = (model: Model): Option.Option<AppRoute> => Array.last(model.trail);

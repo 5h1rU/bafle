@@ -47,6 +47,25 @@ export const DeezerTrack = Schema.Struct({
 });
 export type DeezerTrack = typeof DeezerTrack.Type;
 
+/** One track asked for by id: a list row's fields, and what only its own page shows. */
+export const DeezerTrackPage = Schema.Struct({
+  ...DeezerTrack.fields,
+  release_date: Schema.optional(Schema.NullOr(Schema.String)),
+  track_position: Schema.optional(Schema.NullOr(Schema.Number)),
+  /** Everyone credited. Deezer repeats an artist once per role they have. */
+  contributors: Schema.optional(Schema.NullOr(Schema.Array(DeezerArtist))),
+});
+export type DeezerTrackPage = typeof DeezerTrackPage.Type;
+
+/**
+ * How Deezer refuses: status 200 and this body. Code 800 is "no data", its
+ * way of saying nothing has that id.
+ */
+export const DeezerRefusal = Schema.Struct({
+  error: Schema.Struct({ code: Schema.optional(Schema.Number) }),
+});
+export const DEEZER_NO_DATA = 800;
+
 export const DeezerPlaylist = Schema.Struct({
   id: Schema.Number,
   title: Schema.String,

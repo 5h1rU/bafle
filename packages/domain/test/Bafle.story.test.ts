@@ -7,7 +7,10 @@ import { CatalogUnavailable } from "../src/Catalog/CatalogUnavailable.rejection.
 import { HomeFeed } from "../src/Catalog/HomeFeed.query.ts";
 import { MusicCatalog } from "../src/Catalog/MusicCatalog.external.ts";
 import { NewMusic } from "../src/Catalog/NewMusic.query.ts";
-import { featured, found, trending } from "./fixtures.ts";
+import { TrackId } from "../src/Catalog/Track.ts";
+import { TrackDetail } from "../src/Catalog/TrackDetail.query.ts";
+import { TrackNotFound } from "../src/Catalog/TrackNotFound.rejection.ts";
+import { featured, found, fullTrack, trending } from "./fixtures.ts";
 
 // The catalog runs for real, through whichever adapter a test provides.
 const story = Story.make(Bafle, { layer: BafleHandlers });
@@ -18,6 +21,10 @@ const WorkingCatalog = MusicCatalog.toLayer(
     featured: () => Effect.succeed(featured),
     trending: () => Effect.succeed(trending),
     search: () => Effect.succeed(found),
+    track: ({ trackId }) =>
+      trackId === fullTrack.id
+        ? Effect.succeed(fullTrack)
+        : Effect.fail(new TrackNotFound({ trackId })),
   }),
 );
 
@@ -27,6 +34,7 @@ const BrokenCatalog = MusicCatalog.toLayer(
     featured: () => Effect.fail(new CatalogUnavailable()),
     trending: () => Effect.fail(new CatalogUnavailable()),
     search: () => Effect.fail(new CatalogUnavailable()),
+    track: () => Effect.fail(new CatalogUnavailable()),
   }),
 );
 
@@ -76,5 +84,27 @@ it.effect("every page says so when the catalog cannot answer", () =>
     Story.rejected(new CatalogUnavailable()),
     Story.call(MusicCatalog.search, { term: "cumbia" }),
     Story.failed(MusicCatalog.search, new CatalogUnavailable()),
+    Story.query(TrackDetail, { trackId: fullTrack.id }),
+    Story.rejected(new CatalogUnavailable()),
+    Story.call(MusicCatalog.track, { trackId: fullTrack.id }),
+    Story.failed(MusicCatalog.track, new CatalogUnavailable()),
   ).pipe(Effect.provide(BrokenCatalog)),
 );
+
+it.effect("opening a track answers with the track in full", () =>
+  story(
+    Story.query(TrackDetail, { trackId: fullTrack.id }, fullTrack),
+    Story.call(MusicCatalog.track, { trackId: fullTrack.id }),
+    Story.returned(MusicCatalog.track, fullTrack),
+  ).pipe(Effect.provide(WorkingCatalog)),
+);
+
+it.effect("opening a track the catalog does not have says which one is missing", () => {
+  const gone = TrackId.make("tr-gone");
+  return story(
+    Story.query(TrackDetail, { trackId: gone }),
+    Story.rejected(new TrackNotFound({ trackId: gone })),
+    Story.call(MusicCatalog.track, { trackId: gone }),
+    Story.failed(MusicCatalog.track, new TrackNotFound({ trackId: gone })),
+  ).pipe(Effect.provide(WorkingCatalog));
+});

@@ -32,6 +32,10 @@ export const newIcon = (className: string): Html =>
 export const searchIcon = (className: string): Html =>
   outlineIcon(className, ["M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13Z", "M15.5 15.5 20 20"]);
 
+/** Points the way back. */
+export const backIcon = (className: string): Html =>
+  outlineIcon(className, ["M14.5 5.5 8 12l6.5 6.5"]);
+
 /** Stands where a picture would be when the catalog has none. */
 export const noteIcon = (className: string): Html =>
   outlineIcon(className, [

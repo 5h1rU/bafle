@@ -35,9 +35,13 @@ pnpm dev           # alchemy dev: Workers in local workerd, the app on Vite
 
 The app exists to show loading done well, so these are requirements, not style:
 
-1. Going to a page whose data is not loaded holds the current page and marks the chosen navigation item as loading; the page swaps when the data arrives.
-2. The latest navigation wins; replies to abandoned requests are dropped.
-3. A page already loaded swaps in at once and refreshes in the background.
-4. The first paint shows placeholders in the shape of the page, never a blank area.
-5. A failure is stated in place, with a way to try again.
-6. Search keeps its previous results while a new term loads.
+1. Going to a page whose data is not loaded holds the current page and marks what was chosen (the navigation item, or the row) as loading; the page swaps when the data arrives.
+2. The URL and the history move only when the screen does. A tap is an intention and lives in the Model; a history entry is a visit and is created when the destination takes the screen. Any number of taps that never get a reply leave history as it was. The exception is forced by the browser: on a direct link, a reload, Back or Forward the URL has already moved, so only the screen is held.
+3. The latest intention wins, without a trace; replies to abandoned requests are dropped. A request with no answer after 10 seconds is a failure.
+4. A page already loaded swaps in at once and refreshes in the background.
+5. The first paint shows placeholders in the shape of the page, never a blank area.
+6. A failure is said where the listener is. A track that fails to open from a list says so on its row, with "Try again", and the list stays as it is. A page reached by its URL, and a section, say it on the page.
+7. A failure that will not go away (a track the catalog does not have) says so without "Try again": on its row, which stops being openable, or on its page with the way back.
+8. Search keeps its previous results while a new term loads. Typing is the one navigation that is URL first, replacing its own entry, because the field's text lives in the URL.
+9. Going back to a list restores it exactly: same scroll position, same pictures already painted, nothing waiting on the network. Section pages stay mounted and hidden instead of being rebuilt, because Foldkit replaces the DOM when the view function at a position changes, and a rebuilt `<img>` repaints even when cached.
+10. A picture never appears as an empty box when a rendition of it is already loaded: show that one first and let the larger one replace it.

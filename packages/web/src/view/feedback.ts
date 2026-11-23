@@ -7,7 +7,8 @@ import { Message } from "../message.ts";
 
 // VIEW
 
-const reason = (error: LoadError): string =>
+/** Why the catalog could not be asked, in the listener's words. */
+export const reason = (error: LoadError): string =>
   Match.value(error).pipe(
     Match.when("CatalogUnavailable", () => "The music catalog is not answering right now."),
     Match.when("Unreachable", () => "Bafle could not be reached. Check your connection."),

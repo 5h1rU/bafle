@@ -2,6 +2,8 @@ import * as Domain from "@alchemy.run/domain";
 import { Bafle, BafleHandlers } from "@bafle/domain/Bafle.model";
 import { CatalogUnavailable } from "@bafle/domain/Catalog/CatalogUnavailable.rejection";
 import { MusicCatalog } from "@bafle/domain/Catalog/MusicCatalog.external";
+import { TrackId } from "@bafle/domain/Catalog/Track";
+import { TrackNotFound } from "@bafle/domain/Catalog/TrackNotFound.rejection";
 import { ListenerApi } from "@bafle/domain/ListenerApi.api";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -9,7 +11,7 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as HttpEffect from "effect/http/HttpEffect";
 import * as Layer from "effect/Layer";
 import { Catalog } from "../src/catalog.ts";
-import { featured, found, trending } from "./fixtures.ts";
+import { featured, found, fullTrack, trending } from "./fixtures.ts";
 
 // The app reaches the Api over plain HTTP (see entry.ts). These run the app's own query Commands
 // through that protocol against the Api as the Worker serves it, with only the network replaced.
@@ -19,6 +21,10 @@ const WorkingCatalog = MusicCatalog.toLayer(
     featured: () => Effect.succeed(featured),
     trending: () => Effect.succeed(trending),
     search: () => Effect.succeed(found),
+    track: ({ trackId }) =>
+      trackId === fullTrack.id
+        ? Effect.succeed(fullTrack)
+        : Effect.fail(new TrackNotFound({ trackId })),
   }),
 );
 
@@ -27,6 +33,7 @@ const BrokenCatalog = MusicCatalog.toLayer(
     featured: () => Effect.fail(new CatalogUnavailable()),
     trending: () => Effect.fail(new CatalogUnavailable()),
     search: () => Effect.fail(new CatalogUnavailable()),
+    track: () => Effect.fail(new CatalogUnavailable()),
   }),
 );
 
@@ -53,7 +60,7 @@ const connectedTo = (catalog: typeof WorkingCatalog) =>
     ),
   );
 
-it.live("the three queries are answered over plain HTTP", () =>
+it.live("the four queries are answered over plain HTTP", () =>
   Effect.gen(function* () {
     expect(yield* Catalog.HomeFeed({ input: {}, requestId: "page:0" }).effect).toEqual(
       Catalog.Message.SucceededHomeFeed({ requestId: "page:0", result: featured }),
@@ -64,6 +71,21 @@ it.live("the three queries are answered over plain HTTP", () =>
     expect(
       yield* Catalog.CatalogSearch({ input: { term: "daft" }, requestId: "page:2" }).effect,
     ).toEqual(Catalog.Message.SucceededCatalogSearch({ requestId: "page:2", result: found }));
+    expect(
+      yield* Catalog.TrackDetail({ input: { trackId: fullTrack.id }, requestId: "page:3" }).effect,
+    ).toEqual(Catalog.Message.SucceededTrackDetail({ requestId: "page:3", result: fullTrack }));
+  }).pipe(Effect.provide(connectedTo(WorkingCatalog))),
+);
+
+it.live("a track the catalog does not have is told apart from a catalog that cannot answer", () =>
+  Effect.gen(function* () {
+    const trackId = TrackId.make("tr-404");
+    const missing = yield* Catalog.TrackDetail({ input: { trackId }, requestId: "page:0" }).effect;
+    expect(missing).toMatchObject({
+      _tag: "FailedTrackDetail",
+      requestId: "page:0",
+      failure: { _tag: "Rejected", rejection: { _tag: "TrackNotFound", trackId } },
+    });
   }).pipe(Effect.provide(connectedTo(WorkingCatalog))),
 );
 

@@ -39,15 +39,30 @@ body {
 
 /* The page swap: the app asks for a view transition only when the page on
    screen changes, and the runtime skips it under prefers-reduced-motion.
-   The default cross-fade is the effect wanted, only shorter. */
-::view-transition-group(root),
-::view-transition-old(root),
-::view-transition-new(root) {
+   The default cross-fade is the effect wanted, only shorter. Every group
+   takes the same time, not just the root: the covers of the tracks on screen
+   are groups of their own, and would otherwise outlast the page they fade
+   with. */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
   animation-duration: 150ms;
 }
 
+/* A track's cover travels between its row and its page. It is the one thing
+   that moves, so it is given a little longer than the fade around it. */
+::view-transition-group(.track-cover) {
+  animation-duration: 250ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* The navigation is the same on both sides of a swap, so it does not fade
-   with the page: its new state is simply there. */
+   with the page: its new state is simply there. It stays above a cover on
+   its way to or from a row at the edge of the list. */
+::view-transition-group(navigation) {
+  z-index: 1;
+}
+
 ::view-transition-old(navigation) {
   display: none;
 }

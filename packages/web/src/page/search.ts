@@ -12,15 +12,17 @@ import {
   PAGE_SECTIONS_CLASS,
   QUIET_LINE_CLASS,
   pageAttributes,
+  PAGE_IDS,
   pageTitleView,
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
 import { headingPlaceholderView, trackListPlaceholderView } from "../view/placeholder.ts";
 import { albumTile, artistTile, maybeShelfView, playlistTile } from "../view/shelf.ts";
-import { maybeTrackSectionView } from "../view/trackList.ts";
+import { type TrackListContext, maybeTrackSectionView } from "../view/trackList.ts";
 
 // VIEW
 
+const PAGE_ID = PAGE_IDS.Search;
 const TITLE = "Search";
 
 const fieldView = (fieldText: string, h: HtmlBuilder<Message>): Html =>
@@ -65,7 +67,11 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
   h.div([h.Class("mt-8 max-w-3xl")], [headingPlaceholderView(h), trackListPlaceholderView(h)]);
 
 /** What was found, a group per kind, and only the kinds that found something. */
-const answerView = (answer: SearchAnswer, h: HtmlBuilder<Message>): Html =>
+const answerView = (
+  answer: SearchAnswer,
+  context: TrackListContext,
+  h: HtmlBuilder<Message>,
+): Html =>
   Array.match(
     Array.getSomes([
       maybeShelfView(
@@ -82,7 +88,14 @@ const answerView = (answer: SearchAnswer, h: HtmlBuilder<Message>): Html =>
         Array.map(answer.results.albums, albumTile),
         h,
       ),
-      maybeTrackSectionView("search-songs", "Songs", "Unranked", answer.results.tracks, h),
+      maybeTrackSectionView(
+        "search-songs",
+        "Songs",
+        "Unranked",
+        answer.results.tracks,
+        context,
+        h,
+      ),
       maybeShelfView(
         "search-playlists",
         "Playlists",
@@ -118,7 +131,12 @@ const outcome = (search: SearchData): string =>
         : `Nothing found for “${answer.term}”`,
   });
 
-const resultsView = (search: SearchData, searchedTerm: string, h: HtmlBuilder<Message>): Html => {
+const resultsView = (
+  search: SearchData,
+  searchedTerm: string,
+  context: TrackListContext,
+  h: HtmlBuilder<Message>,
+): Html => {
   // Out of date as soon as the field asks for something else, whether or not the new query is out yet.
   const isOutOfDate = Option.exists(
     AsyncData.getData(search),
@@ -142,7 +160,7 @@ const resultsView = (search: SearchData, searchedTerm: string, h: HtmlBuilder<Me
         search,
         TITLE,
         () => placeholderView(h),
-        (answer) => answerView(answer, h),
+        (answer) => answerView(answer, context, h),
         h,
       ),
     ],
@@ -158,16 +176,17 @@ export const view = (
   maybeFieldText: Option.Option<string>,
   maybeSearchedTerm: Option.Option<string>,
   search: SearchData,
+  context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): Html =>
-  h.div(pageAttributes(h), [
-    pageTitleView(TITLE, h),
+  h.div(pageAttributes(PAGE_ID, context.presence, h), [
+    pageTitleView(PAGE_ID, TITLE, h),
     fieldView(
       Option.getOrElse(maybeFieldText, () => ""),
       h,
     ),
     Option.match(maybeSearchedTerm, {
       onNone: () => promptView(h),
-      onSome: (searchedTerm) => resultsView(search, searchedTerm, h),
+      onSome: (searchedTerm) => resultsView(search, searchedTerm, context, h),
     }),
   ]);

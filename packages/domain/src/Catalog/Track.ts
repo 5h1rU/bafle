@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 import { AlbumId } from "./Album.ts";
-import { ArtistCredit } from "./Artist.ts";
+import { ArtistCredit, ArtistSummary } from "./Artist.ts";
 import { Artwork } from "./Artwork.ts";
 
 /** A track's id in the catalog. Opaque: only the catalog that issued it can read it. */
@@ -23,3 +23,18 @@ export const TrackSummary = Schema.Struct({
   explicit: Schema.Boolean,
 });
 export type TrackSummary = typeof TrackSummary.Type;
+
+/**
+ * A track as its own page shows it: everything a row has, and what only the
+ * page has room for.
+ */
+export const Track = Schema.Struct({
+  ...TrackSummary.fields,
+  /** Everyone credited on the track, the main artist first, each once. */
+  artists: Schema.Array(ArtistSummary),
+  /** The day it came out, as `YYYY-MM-DD`, when the catalog knows it. */
+  releaseDate: Schema.NullOr(Schema.String),
+  /** Its place on the album, counted from 1, when the catalog knows it. */
+  trackNumber: Schema.NullOr(Schema.Int),
+});
+export type Track = typeof Track.Type;

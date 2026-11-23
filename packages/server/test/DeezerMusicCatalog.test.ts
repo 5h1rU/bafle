@@ -1,9 +1,10 @@
 import { MusicCatalog } from "@bafle/domain/Catalog/MusicCatalog.external";
+import { TrackId } from "@bafle/domain/Catalog/Track";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { DeezerMusicCatalog, SHELF_SIZE } from "../src/Deezer/DeezerMusicCatalog.ts";
-import { type Answer, fakeDeezer, stocked } from "./deezer.ts";
+import { type Answer, deezerTrack, fakeDeezer, stocked } from "./deezer.ts";
 
 /** The catalog, read from a fake Deezer. */
 const catalogOver = (answers: Readonly<Record<string, Answer>>) => {
@@ -134,6 +135,64 @@ it.effect("an answer in a shape Bafle does not expect is the catalog being unava
   return Effect.gen(function* () {
     const catalog = yield* MusicCatalog;
     const refused = yield* catalog.featured().pipe(Effect.flip);
+    expect(refused._tag).toBe("CatalogUnavailable");
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("track: one track in full, each credited artist once, the main one first", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    expect(yield* catalog.track({ trackId: TrackId.make("3135556") })).toEqual({
+      ...harder,
+      artists: [
+        { ...daftPunk, picture: artwork(27) },
+        { id: "99", name: "Romanthony", picture: null },
+      ],
+      releaseDate: "2001-03-12",
+      trackNumber: 4,
+    });
+    expect(deezer.asked.map((url) => url.pathname)).toEqual(["/track/3135556"]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("track: what Deezer does not know stays unknown, and the main artist is still credited", () => {
+  const { layer } = catalogOver({
+    "/track/7": { body: { ...deezerTrack, id: 7, release_date: "0000-00-00", track_position: 0 } },
+  });
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const track = yield* catalog.track({ trackId: TrackId.make("7") });
+    expect(track.releaseDate).toBeNull();
+    expect(track.trackNumber).toBeNull();
+    expect(track.artists).toEqual([{ ...daftPunk, picture: null }]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("track: Deezer's \"no data\" is the track not being found", () => {
+  const { layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog.track({ trackId: TrackId.make("404") }).pipe(Effect.flip);
+    expect(refused).toMatchObject({ _tag: "TrackNotFound", trackId: "404" });
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("track: an id that is not one of Deezer's is not found, and Deezer is never asked", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog.track({ trackId: TrackId.make("../album/1") }).pipe(Effect.flip);
+    expect(refused._tag).toBe("TrackNotFound");
+    expect(deezer.asked).toEqual([]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("track: any other refusal is the catalog being unavailable", () => {
+  const { layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog.track({ trackId: TrackId.make("429") }).pipe(Effect.flip);
     expect(refused._tag).toBe("CatalogUnavailable");
   }).pipe(Effect.provide(layer));
 });

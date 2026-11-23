@@ -1,18 +1,22 @@
 import { CatalogUnavailable } from "@bafle/domain/Catalog/CatalogUnavailable.rejection";
 import { MusicCatalog } from "@bafle/domain/Catalog/MusicCatalog.external";
+import { TrackNotFound } from "@bafle/domain/Catalog/TrackNotFound.rejection";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
-import type * as Schema from "effect/Schema";
+import * as Schema from "effect/Schema";
 import {
+  DEEZER_NO_DATA,
   DeezerAlbum,
   DeezerArtist,
   DeezerPlaylist,
+  DeezerRefusal,
   DeezerTrack,
+  DeezerTrackPage,
   listOf,
 } from "./DeezerSchemas.ts";
-import { toAlbum, toArtist, toPlaylist, toTrack } from "./translate.ts";
+import { toAlbum, toArtist, toFullTrack, toPlaylist, toTrack } from "./translate.ts";
 
 /** Deezer's public API. It needs no key for the catalog. */
 export const DEEZER_API = "https://api.deezer.com";
@@ -33,20 +37,26 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
   Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
 
-    /** One of Deezer's lists, decoded. */
-    const list = <Item extends Schema.Top>(
+    /** One of Deezer's answers, decoded. Anything that goes wrong is the catalog being unavailable. */
+    const read = <Answer extends Schema.Top>(
       path: string,
-      item: Item,
+      answer: Answer,
       urlParams: Record<string, string | number> = {},
     ) =>
       client.get(`${DEEZER_API}${path}`, { urlParams, acceptJson: true }).pipe(
         Effect.flatMap(HttpClientResponse.filterStatusOk),
-        Effect.flatMap(HttpClientResponse.schemaBodyJson(listOf(item))),
-        Effect.map((answer) => answer.data),
+        Effect.flatMap(HttpClientResponse.schemaBodyJson(answer)),
         Effect.timeout("8 seconds"),
         Effect.tapError((error) => Effect.logWarning(`Deezer could not answer ${path}`, error)),
         Effect.mapError(() => new CatalogUnavailable()),
       );
+
+    /** One of Deezer's lists. */
+    const list = <Item extends Schema.Top>(
+      path: string,
+      item: Item,
+      urlParams: Record<string, string | number> = {},
+    ) => read(path, listOf(item), urlParams).pipe(Effect.map((answer) => answer.data));
 
     const together = { concurrency: "unbounded" } as const;
 
@@ -96,6 +106,20 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
           },
           together,
         ),
+      track: Effect.fn(function* ({ trackId }) {
+        // Deezer's ids are numbers. Anything else was never one of its tracks,
+        // so there is nothing to ask.
+        if (!/^\d+$/.test(trackId)) return yield* new TrackNotFound({ trackId });
+        // A refusal is tried first: a track's fields can never match it.
+        const answer = yield* read(
+          `/track/${trackId}`,
+          Schema.Union([DeezerRefusal, DeezerTrackPage]),
+        );
+        if (!("error" in answer)) return toFullTrack(answer);
+        if (answer.error.code === DEEZER_NO_DATA) return yield* new TrackNotFound({ trackId });
+        yield* Effect.logWarning(`Deezer refused /track/${trackId}`, answer.error);
+        return yield* new CatalogUnavailable();
+      }),
     };
   }),
 );

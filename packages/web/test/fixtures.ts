@@ -7,14 +7,16 @@ import type {
   TrendingMusic,
 } from "@bafle/domain/Catalog/MusicCatalog.external";
 import { PlaylistId, type PlaylistSummary } from "@bafle/domain/Catalog/Playlist";
-import { TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
+import { type Track, TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
+import { TrackNotFound } from "@bafle/domain/Catalog/TrackNotFound.rejection";
 import * as DomainFoldkit from "@alchemy.run/domain/Foldkit";
 import * as Option from "effect/Option";
+import { UrlRequest } from "foldkit/navigation";
 import { fromString, type Url } from "foldkit/url";
 import { Catalog } from "../src/catalog.ts";
 import { init, update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
-import type { Model } from "../src/model.ts";
+import { Awaiting, type Model } from "../src/model.ts";
 
 // CATALOG
 
@@ -57,6 +59,31 @@ export const explicitTrack: TrackSummary = {
   previewUrl: null,
   explicit: true,
 };
+
+/** Credited on the track beside its main artist; the catalog has no picture of them. */
+export const guest: ArtistSummary = {
+  id: ArtistId.make("ar-2"),
+  name: "Romanthony",
+  picture: null,
+};
+
+/** The first track, as its own page shows it. */
+export const fullTrack: Track = {
+  ...track,
+  artists: [artist, guest],
+  releaseDate: "2001-03-12",
+  trackNumber: 4,
+};
+
+/** The explicit track in full, with nothing the catalog could leave out. */
+export const bareTrack: Track = {
+  ...explicitTrack,
+  artists: [artist],
+  releaseDate: null,
+  trackNumber: null,
+};
+
+export const trackPath = (trackId: TrackId): string => `/track/${trackId}`;
 
 export const playlist: PlaylistSummary = {
   id: PlaylistId.make("pl-1"),
@@ -102,18 +129,22 @@ export const nothingFound: SearchResults = { tracks: [], albums: [], artists: []
 
 export const url = (path: string): Url => Option.getOrThrow(fromString(`https://bafle.test${path}`));
 
-/** The browser's address changed: a link was followed, or Back or Forward was pressed. */
+/** The browser's address changed. Sent on its own, it is the listener going Back or Forward. */
 export const changedUrl = (path: string): Message => Message.ChangedUrl({ url: url(path) });
 
+/** The listener pressed a link. */
 export const clickedLink = (path: string): Message =>
-  Message.ClickedLink({ request: { _tag: "Internal", url: url(path) } });
+  Message.ClickedLink({ request: UrlRequest.Internal({ url: url(path) }) });
 
 type QueryFailure = (typeof Catalog.Message.FailedHomeFeed.Type)["failure"];
 
 /** The catalog's provider is down: the Api's own, typed refusal. */
 const refused: QueryFailure = { _tag: "Rejected", rejection: new CatalogUnavailable() };
 
-/** The reply never made it back: all the client can say is that it does not know. */
+/**
+ * The reply never made it back, or none came in time: all the client can say
+ * is that it does not know.
+ */
 const lost: QueryFailure = { _tag: "Unknown" };
 
 /** The catalog's replies as the Api client reports them, before the app wraps them. */
@@ -127,10 +158,26 @@ export const reply = {
     Catalog.Message.SucceededNewMusic({ requestId, result }),
   newMusicRefused: (requestId: string) =>
     Catalog.Message.FailedNewMusic({ requestId, failure: refused }),
+  newMusicLost: (requestId: string) =>
+    Catalog.Message.FailedNewMusic({ requestId, failure: lost }),
   search: (requestId: string, result: SearchResults = found) =>
     Catalog.Message.SucceededCatalogSearch({ requestId, result }),
   searchRefused: (requestId: string) =>
     Catalog.Message.FailedCatalogSearch({ requestId, failure: refused }),
+  searchLost: (requestId: string) =>
+    Catalog.Message.FailedCatalogSearch({ requestId, failure: lost }),
+  track: (requestId: string, result: Track = fullTrack) =>
+    Catalog.Message.SucceededTrackDetail({ requestId, result }),
+  /** The catalog has no such track: its other typed refusal, and a final one. */
+  trackMissing: (requestId: string, trackId: TrackId = track.id) =>
+    Catalog.Message.FailedTrackDetail({
+      requestId,
+      failure: { _tag: "Rejected", rejection: new TrackNotFound({ trackId }) },
+    }),
+  trackRefused: (requestId: string) =>
+    Catalog.Message.FailedTrackDetail({ requestId, failure: refused }),
+  trackLost: (requestId: string) =>
+    Catalog.Message.FailedTrackDetail({ requestId, failure: lost }),
 };
 
 /** A reply as `update` receives it. A late reply is sent this way: its Command is long gone. */
@@ -143,15 +190,16 @@ export const arrived = (message: typeof Catalog.Message.Type): Message =>
 export const nextId = (model: Model): string => DomainFoldkit.next(model.requestIds).commandId;
 
 /** The id of the request or pause this Model is waiting for. */
-export const awaitedId = (model: Model): string => {
-  if (model.awaiting._tag === "Reply") {
-    return model.awaiting.requestId;
-  }
-  if (model.awaiting._tag === "TypingPause") {
-    return model.awaiting.pauseId;
-  }
-  throw new Error("This Model awaits nothing");
-};
+export const awaitedId = (model: Model): string =>
+  Awaiting.match(model.awaiting, {
+    Nothing: () => {
+      throw new Error("This Model awaits nothing");
+    },
+    TypingPause: ({ pauseId }) => pauseId,
+    Reply: ({ requestId }) => requestId,
+    Intention: ({ requestId }) => requestId,
+    Arrival: ({ requestId }) => requestId,
+  });
 
 /** The Model after these Messages, Commands unrun: for setting a test's starting point. */
 export const after = (model: Model, ...messages: ReadonlyArray<Message>): Model =>
@@ -160,23 +208,38 @@ export const after = (model: Model, ...messages: ReadonlyArray<Message>): Model 
 /** The app as a fresh page load leaves it, before any reply. */
 export const opened = (path: string): Model => init(url(path)).model;
 
+/** The listener pressed a link. Whether the URL moves now or when the page arrives is the app's call. */
+export const chose = (model: Model, path: string): Model => after(model, clickedLink(path));
+
+/**
+ * The reply awaited arrives. When it lets a page chosen by a link take the
+ * screen, the app moves the URL, and that change comes back: here it does.
+ */
+export const answered = (
+  model: Model,
+  answer: (requestId: string) => typeof Catalog.Message.Type,
+  path?: string,
+): Model =>
+  after(
+    model,
+    arrived(answer(awaitedId(model))),
+    ...(path === undefined ? [] : [changedUrl(path)]),
+  );
+
 /** Home on screen with its feed, nothing awaited. */
-export const onHome: Model = (() => {
-  const firstPaint = opened("/");
-  return after(firstPaint, arrived(reply.home(awaitedId(firstPaint))));
-})();
+export const onHome: Model = answered(opened("/"), reply.home);
 
-/** Home still on screen; the listener chose New, which has never loaded. */
-export const leavingHomeForNew: Model = after(onHome, changedUrl("/new"));
+/** Home still on screen; the listener chose New, which has never loaded. The URL has not moved. */
+export const leavingHomeForNew: Model = chose(onHome, "/new");
 
-/** New on screen with its charts, reached from Home: both pages hold data. */
-export const onNew: Model = after(
-  leavingHomeForNew,
-  arrived(reply.newMusic(awaitedId(leavingHomeForNew))),
-);
+/** New on screen with its charts, reached from Home by a link: both pages hold data. */
+export const onNew: Model = answered(leavingHomeForNew, reply.newMusic, "/new");
+
+/** New still on screen; the listener chose its first track, which has never loaded. */
+export const openingTrack: Model = chose(onNew, trackPath(track.id));
+
+/** The first track's page on screen, opened from New: New is behind it, as it was left. */
+export const onTrack: Model = answered(openingTrack, reply.track, trackPath(track.id));
 
 /** Search on screen with the results for "daft", reached by a direct link. */
-export const onSearch: Model = (() => {
-  const firstPaint = opened("/search?q=daft");
-  return after(firstPaint, arrived(reply.search(awaitedId(firstPaint))));
-})();
+export const onSearch: Model = answered(opened("/search?q=daft"), reply.search);

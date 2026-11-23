@@ -9,15 +9,17 @@ import {
   QUIET_LINE_CLASS,
   SECTION_HEADING_CLASS,
   pageAttributes,
+  PAGE_IDS,
   pageTitleView,
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
 import { shelfPlaceholderView, trackListPlaceholderView } from "../view/placeholder.ts";
 import { albumTile, maybeShelfView } from "../view/shelf.ts";
-import { maybeTrackSectionView } from "../view/trackList.ts";
+import { type TrackListContext, maybeTrackSectionView } from "../view/trackList.ts";
 
 // VIEW
 
+const PAGE_ID = PAGE_IDS.New;
 const TITLE = "New";
 const TOP_SONGS = "Top songs";
 const TOP_ALBUMS = "Top albums";
@@ -35,10 +37,14 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
     ],
   );
 
-const chartsView = (trending: TrendingMusic, h: HtmlBuilder<Message>): Html =>
+const chartsView = (
+  trending: TrendingMusic,
+  context: TrackListContext,
+  h: HtmlBuilder<Message>,
+): Html =>
   Array.match(
     Array.getSomes([
-      maybeTrackSectionView("new-top-songs", TOP_SONGS, "Ranked", trending.tracks, h),
+      maybeTrackSectionView("new-top-songs", TOP_SONGS, "Ranked", trending.tracks, context, h),
       maybeShelfView(
         "new-top-albums",
         TOP_ALBUMS,
@@ -53,9 +59,13 @@ const chartsView = (trending: TrendingMusic, h: HtmlBuilder<Message>): Html =>
     },
   );
 
-export const view = (newMusic: NewMusicData, h: HtmlBuilder<Message>): Html =>
-  h.div(pageAttributes(h), [
-    pageTitleView(TITLE, h),
+export const view = (
+  newMusic: NewMusicData,
+  context: TrackListContext,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.div(pageAttributes(PAGE_ID, context.presence, h), [
+    pageTitleView(PAGE_ID, TITLE, h),
     h.div(
       [h.AriaBusy(AsyncData.isPending(newMusic))],
       [
@@ -63,7 +73,7 @@ export const view = (newMusic: NewMusicData, h: HtmlBuilder<Message>): Html =>
           newMusic,
           TITLE,
           () => placeholderView(h),
-          (trending) => chartsView(trending, h),
+          (trending) => chartsView(trending, context, h),
           h,
         ),
       ],

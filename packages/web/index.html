@@ -7,7 +7,9 @@
     <link href="/src/styles.css" rel="stylesheet" />
     <title>Bafle</title>
   </head>
-  <body>
+  <!-- iOS Safari applies :active to a touch only where a touch listener is in
+       reach. This empty one makes a pressed row answer the finger at once. -->
+  <body ontouchstart="">
     <div id="root"></div>
     <script type="module" src="/src/entry.ts"></script>
   </body>
