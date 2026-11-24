@@ -338,3 +338,29 @@ it.effect("asking the catalog for a fresh source gives up like any other query, 
     expect(yield* Fiber.join(asking)).toEqual(Message.FailedRefreshSource({ order: 2 }));
   }).pipe(Effect.provide(hung));
 });
+
+it.effect("letting go of the engine stops the sound and leaves nothing listening to the element", () =>
+  Effect.gen(function* () {
+    const { element, stub } = stubElement();
+    const listening = { count: 0 };
+    const add = element.addEventListener.bind(element);
+    const remove = element.removeEventListener.bind(element);
+    element.addEventListener = ((...args: Parameters<typeof add>) => {
+      listening.count += 1;
+      add(...args);
+    }) as typeof element.addEventListener;
+    element.removeEventListener = ((...args: Parameters<typeof remove>) => {
+      listening.count -= 1;
+      remove(...args);
+    }) as typeof element.removeEventListener;
+
+    const { engine, release } = HtmlAudioEngine.makeWithRelease(element);
+    expect(listening.count).toBeGreaterThan(0);
+    yield* engine.start({ order: 1, source: "https://audio.test/tr-1.mp3", positionSeconds: 0 });
+    expect(stub.paused).toBe(false);
+
+    yield* release;
+    expect(stub.paused).toBe(true);
+    expect(listening.count).toBe(0);
+  }),
+);

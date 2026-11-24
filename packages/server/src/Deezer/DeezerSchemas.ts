@@ -57,6 +57,41 @@ export const DeezerTrackPage = Schema.Struct({
 });
 export type DeezerTrackPage = typeof DeezerTrackPage.Type;
 
+/** A track as an album lists it: Deezer does not always repeat the album on each one. */
+export const DeezerAlbumTrack = Schema.Struct({
+  id: Schema.Number,
+  title: Schema.String,
+  duration: Schema.Number,
+  preview: Image,
+  explicit_lyrics: Schema.optional(Schema.NullOr(Schema.Boolean)),
+  artist: DeezerArtistRef,
+});
+export type DeezerAlbumTrack = typeof DeezerAlbumTrack.Type;
+
+/**
+ * One album asked for by id: a tile's fields, the date, and its tracks. Only
+ * the first of a long album's tracks come with it: `nb_tracks` says how many
+ * there are in all.
+ */
+export const DeezerAlbumPage = Schema.Struct({
+  ...DeezerAlbum.fields,
+  release_date: Schema.optional(Schema.NullOr(Schema.String)),
+  nb_tracks: Schema.optional(Schema.NullOr(Schema.Number)),
+  tracks: Schema.optional(Schema.NullOr(Schema.Struct({ data: Schema.Array(DeezerAlbumTrack) }))),
+});
+export type DeezerAlbumPage = typeof DeezerAlbumPage.Type;
+
+/** An album as Deezer lists it under its artist: it leaves the artist off each one. */
+export const DeezerArtistAlbum = Schema.Struct({
+  id: Schema.Number,
+  title: Schema.String,
+  cover_medium: Image,
+  cover_big: Image,
+  cover_xl: Image,
+  explicit_lyrics: Schema.optional(Schema.NullOr(Schema.Boolean)),
+});
+export type DeezerArtistAlbum = typeof DeezerArtistAlbum.Type;
+
 /**
  * How Deezer refuses: status 200 and this body. Code 800 is "no data", its
  * way of saying nothing has that id.
@@ -78,9 +113,32 @@ export const DeezerPlaylist = Schema.Struct({
 export type DeezerPlaylist = typeof DeezerPlaylist.Type;
 
 /**
+ * One playlist asked for by id: a tile's fields, and its tracks. Deezer names
+ * who keeps it `creator` here and `user` in a list. Only the first of a long
+ * playlist's tracks come with it: `nb_tracks` says how many there are in all.
+ */
+export const DeezerPlaylistPage = Schema.Struct({
+  ...DeezerPlaylist.fields,
+  creator: Schema.optional(Schema.NullOr(Schema.Struct({ name: Schema.String }))),
+  tracks: Schema.optional(Schema.NullOr(Schema.Struct({ data: Schema.Array(DeezerTrack) }))),
+});
+export type DeezerPlaylistPage = typeof DeezerPlaylistPage.Type;
+
+/**
  * Every list Deezer answers with is wrapped in `data`. A refusal (a quota, a
  * bad parameter) arrives with status 200 and an `error` field instead, so it
  * fails this schema, as it should.
  */
 export const listOf = <Item extends Schema.Top>(item: Item) =>
   Schema.Struct({ data: Schema.Array(item) });
+
+/**
+ * A list that Deezer hands over a page at a time: `total` says how many items
+ * there are in all, and `next` is there for as long as a page follows.
+ */
+export const pageOf = <Item extends Schema.Top>(item: Item) =>
+  Schema.Struct({
+    data: Schema.Array(item),
+    total: Schema.optional(Schema.NullOr(Schema.Number)),
+    next: Schema.optional(Schema.NullOr(Schema.String)),
+  });

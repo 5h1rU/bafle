@@ -1,3 +1,6 @@
+import { AlbumId } from "@bafle/domain/Catalog/Album";
+import { ArtistId } from "@bafle/domain/Catalog/Artist";
+import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
@@ -14,6 +17,9 @@ export const AppRoute = defineRouteUnion({
   New: {},
   Search: { maybeTerm: Schema.Option(Schema.String) },
   Track: { trackId: TrackId },
+  Album: { albumId: AlbumId },
+  Artist: { artistId: ArtistId },
+  Playlist: { playlistId: PlaylistId },
   NotFound: { path: Schema.String },
 });
 export type AppRoute = typeof AppRoute.Type;
@@ -38,7 +44,33 @@ export const trackRouter = pipe(
   Route.mapTo(AppRoute.Track),
 );
 
-const routeParser = Route.oneOf(trackRouter, searchRouter, newRouter, homeRouter);
+export const albumRouter = pipe(
+  literal("album"),
+  slash(schemaSegment("albumId", AlbumId)),
+  Route.mapTo(AppRoute.Album),
+);
+
+export const artistRouter = pipe(
+  literal("artist"),
+  slash(schemaSegment("artistId", ArtistId)),
+  Route.mapTo(AppRoute.Artist),
+);
+
+export const playlistRouter = pipe(
+  literal("playlist"),
+  slash(schemaSegment("playlistId", PlaylistId)),
+  Route.mapTo(AppRoute.Playlist),
+);
+
+const routeParser = Route.oneOf(
+  trackRouter,
+  albumRouter,
+  artistRouter,
+  playlistRouter,
+  searchRouter,
+  newRouter,
+  homeRouter,
+);
 
 export const urlToAppRoute = Route.parseUrlWithFallback(routeParser, AppRoute.NotFound);
 
@@ -49,6 +81,9 @@ export const routeToUrl = (route: AppRoute): string =>
     New: () => newRouter(),
     Search: ({ maybeTerm }) => searchRouter({ maybeTerm }),
     Track: ({ trackId }) => trackRouter({ trackId }),
+    Album: ({ albumId }) => albumRouter({ albumId }),
+    Artist: ({ artistId }) => artistRouter({ artistId }),
+    Playlist: ({ playlistId }) => playlistRouter({ playlistId }),
     NotFound: ({ path }) => path,
   });
 
@@ -56,12 +91,24 @@ export const isSameRoute = Schema.toEquivalence(AppRoute);
 
 /**
  * Whether two routes are places within one page. Search is one page whatever
- * was typed into it; every track has a page of its own.
+ * was typed into it; every track has a page of its own, and so has every
+ * album, every artist and every playlist.
  */
-export const isSamePage = (one: AppRoute, other: AppRoute): boolean =>
-  one._tag === "Track" && other._tag === "Track"
-    ? one.trackId === other.trackId
-    : one._tag === other._tag;
+export const isSamePage = (one: AppRoute, other: AppRoute): boolean => {
+  if (one._tag === "Track" && other._tag === "Track") {
+    return one.trackId === other.trackId;
+  }
+  if (one._tag === "Album" && other._tag === "Album") {
+    return one.albumId === other.albumId;
+  }
+  if (one._tag === "Artist" && other._tag === "Artist") {
+    return one.artistId === other.artistId;
+  }
+  if (one._tag === "Playlist" && other._tag === "Playlist") {
+    return one.playlistId === other.playlistId;
+  }
+  return one._tag === other._tag;
+};
 
 /**
  * What a route asks the catalog to search for: the term without the spaces

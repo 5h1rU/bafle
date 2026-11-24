@@ -1,5 +1,8 @@
 import type * as Domain from "@alchemy.run/domain";
 import * as DomainFoldkit from "@alchemy.run/domain/Foldkit";
+import type { Album } from "@bafle/domain/Catalog/FullAlbum";
+import type { Artist } from "@bafle/domain/Catalog/FullArtist";
+import type { Playlist } from "@bafle/domain/Catalog/FullPlaylist";
 import type { Track } from "@bafle/domain/Catalog/Track";
 import { ListenerApi } from "@bafle/domain/ListenerApi.api";
 import * as Duration from "effect/Duration";
@@ -8,7 +11,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-/** The Api's four queries as Commands, with the Messages their replies arrive as. */
+/** The Api's queries as Commands, with the Messages their replies arrive as. */
 export const Catalog = DomainFoldkit.make(ListenerApi);
 
 /** What a Command that asks the catalog needs from the runtime: the Api client. */
@@ -29,6 +32,12 @@ export type LoadError = typeof LoadError.Type;
 type ListFailure = (typeof Catalog.Message.FailedHomeFeed.Type)["failure"];
 
 type TrackFailure = (typeof Catalog.Message.FailedTrackDetail.Type)["failure"];
+
+type AlbumFailure = (typeof Catalog.Message.FailedAlbumDetail.Type)["failure"];
+
+type ArtistFailure = (typeof Catalog.Message.FailedArtistDetail.Type)["failure"];
+
+type PlaylistFailure = (typeof Catalog.Message.FailedPlaylistDetail.Type)["failure"];
 
 export const toLoadError = (failure: ListFailure): LoadError =>
   Match.value(failure).pipe(
@@ -54,6 +63,54 @@ export const toTrackOutcome = (
     Match.tagsExhaustive({
       Rejected: ({ rejection }) =>
         rejection._tag === "TrackNotFound"
+          ? Result.succeed(Option.none())
+          : Result.fail(rejection._tag),
+      Denied: () => Result.fail("Unreachable"),
+      Unknown: () => Result.fail("Unreachable"),
+    }),
+  );
+
+/** What a failed query for an album settles as: as for a track, its absence is an answer. */
+export const toAlbumOutcome = (
+  failure: AlbumFailure,
+): Result.Result<Option.Option<Album>, LoadError> =>
+  Match.value(failure).pipe(
+    Match.withReturnType<Result.Result<Option.Option<Album>, LoadError>>(),
+    Match.tagsExhaustive({
+      Rejected: ({ rejection }) =>
+        rejection._tag === "AlbumNotFound"
+          ? Result.succeed(Option.none())
+          : Result.fail(rejection._tag),
+      Denied: () => Result.fail("Unreachable"),
+      Unknown: () => Result.fail("Unreachable"),
+    }),
+  );
+
+/** What a failed query for an artist settles as: as for a track, their absence is an answer. */
+export const toArtistOutcome = (
+  failure: ArtistFailure,
+): Result.Result<Option.Option<Artist>, LoadError> =>
+  Match.value(failure).pipe(
+    Match.withReturnType<Result.Result<Option.Option<Artist>, LoadError>>(),
+    Match.tagsExhaustive({
+      Rejected: ({ rejection }) =>
+        rejection._tag === "ArtistNotFound"
+          ? Result.succeed(Option.none())
+          : Result.fail(rejection._tag),
+      Denied: () => Result.fail("Unreachable"),
+      Unknown: () => Result.fail("Unreachable"),
+    }),
+  );
+
+/** What a failed query for a playlist settles as: as for a track, its absence is an answer. */
+export const toPlaylistOutcome = (
+  failure: PlaylistFailure,
+): Result.Result<Option.Option<Playlist>, LoadError> =>
+  Match.value(failure).pipe(
+    Match.withReturnType<Result.Result<Option.Option<Playlist>, LoadError>>(),
+    Match.tagsExhaustive({
+      Rejected: ({ rejection }) =>
+        rejection._tag === "PlaylistNotFound"
           ? Result.succeed(Option.none())
           : Result.fail(rejection._tag),
       Denied: () => Result.fail("Unreachable"),

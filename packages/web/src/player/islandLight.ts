@@ -10,8 +10,8 @@ import * as Option from "effect/Option";
 // here is what neither can do. One thing is to change the pace of those
 // animations little by little, so that the light gathers speed and loses it
 // instead of starting and stopping at once: it is called from the Mount that
-// starts the light when the island enters the document, and from the
-// Subscription that follows what the Model says the light is doing. The
+// starts the light when the island enters the document, and from the Command
+// `update` gives whenever the Model's word on the light changes. The
 // other is to keep the light where it is while the outline under it changes:
 // it is called from the Mount that draws the outline.
 
@@ -178,15 +178,31 @@ export const putLightNear = (lights: Element, outline: SVGGeometryElement, place
 const eased = (share: number): number => share * share * (3 - 2 * share);
 
 /**
+ * The change of pace each light is in the middle of, by its number. A light
+ * has one pace, so a change asked for while another is under way takes its
+ * place: the one under way sees that its number is no longer the light's and
+ * stops where it has got to, and the new one goes on from there. That is what
+ * lets a pause follow a start, or a start a pause, without the light jumping.
+ */
+const changes = new WeakMap<Element, number>();
+
+/**
  * Take the light from whatever pace it has now to `pace`, a frame at a time.
- * Interrupted, it leaves the light at the pace it had reached.
+ * Overtaken by a later change, or interrupted, it leaves the light at the
+ * pace it had reached.
  */
 export const changePace = (lights: Element, pace: number): Effect.Effect<void> =>
   Effect.callback<void>((resume) => {
+    const change = (changes.get(lights) ?? 0) + 1;
+    changes.set(lights, change);
     const from = paceOf(lights);
     const began = performance.now();
     const frame = { id: 0 };
     const step = (now: number): void => {
+      if (changes.get(lights) !== change) {
+        resume(Effect.void);
+        return;
+      }
       const share = Math.min(1, (now - began) / CHANGES_PACE_OVER_MILLISECONDS);
       setPace(lights, from + (pace - from) * eased(share));
       if (share < 1) {

@@ -14,10 +14,10 @@ import type { PlayOrigin } from "./message.ts";
 
 /**
  * What a row's menu can offer. Not every row offers all of it: a track is
- * queued only after something else is playing, and its page is opened only
- * while the catalog has it.
+ * queued only after something else is playing, and its page and its album's
+ * are opened only while the catalog has them.
  */
-export const RowAction = Schema.Literals(["PlayNext", "AddToQueue", "OpenSong"]);
+export const RowAction = Schema.Literals(["PlayNext", "AddToQueue", "OpenAlbum", "OpenSong"]);
 export type RowAction = typeof RowAction.Type;
 
 export const RowMenu = Menu.create<RowAction>();

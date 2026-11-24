@@ -9,8 +9,14 @@ import * as Option from "effect/Option";
 import * as TestClock from "effect/testing/TestClock";
 import { Catalog, REPLY_TIMEOUT } from "../src/catalog.ts";
 import {
+  askAlbumDetail,
+  askArtistDetail,
   askHomeFeed,
+  askPlaylistDetail,
   askTrackDetail,
+  FocusAlbumTile,
+  FocusArtistTile,
+  FocusPlaylistTile,
   FocusTrackRow,
   NavigateBack,
   NavigateInternal,
@@ -20,7 +26,16 @@ import {
 } from "../src/command.ts";
 import { Message } from "../src/message.ts";
 import { PAGE_IDS } from "../src/view/layout.ts";
-import { track, trackPath } from "./fixtures.ts";
+import {
+  album,
+  albumPath,
+  artist,
+  artistPath,
+  playlist,
+  playlistPath,
+  track,
+  trackPath,
+} from "./fixtures.ts";
 
 // The stories resolve Commands by their Messages and never run them. These run the ones whose
 // effect is itself a requirement: how typing and the way back treat the history, how long a
@@ -91,6 +106,68 @@ it.effect("a list that no longer has the row gives the focus to its page", () =>
   }),
 );
 
+it.effect("back on a shelf, the focus goes to the tile of the album", () =>
+  Effect.gen(function* () {
+    document.body.innerHTML = `
+      <div id="${PAGE_IDS.Home}" tabindex="0">
+        <a href="/album/other" data-album-tile="other">Another</a>
+        <a href="${albumPath(album.id)}" data-album-tile="${album.id}">The one</a>
+      </div>`;
+
+    expect(yield* FocusAlbumTile({ pageId: PAGE_IDS.Home, albumId: album.id }).effect).toEqual(
+      Message.CompletedFocusAlbumTile(),
+    );
+    expect(document.activeElement?.textContent).toBe("The one");
+  }),
+);
+
+it.effect("a shelf that no longer has the tile gives the focus to its page", () =>
+  Effect.gen(function* () {
+    document.body.innerHTML = `<div id="${PAGE_IDS.Home}" tabindex="0"><a href="/album/other" data-album-tile="other">Another</a></div>`;
+
+    yield* FocusAlbumTile({ pageId: PAGE_IDS.Home, albumId: album.id }).effect;
+    expect(document.activeElement?.id).toBe(PAGE_IDS.Home);
+  }),
+);
+
+it.effect("the tile of an artist or of a playlist is found by its kind, whatever id an album's tile has", () =>
+  Effect.gen(function* () {
+    // The catalog's ids are told apart within a kind only: here all three tiles share one.
+    const shared = artist.id;
+    document.body.innerHTML = `
+      <div id="${PAGE_IDS.Search}" tabindex="0">
+        <a href="${artistPath(artist.id)}" data-artist-tile="${shared}">The artist</a>
+        <a href="/album/${shared}" data-album-tile="${shared}">The album</a>
+        <a href="/playlist/${shared}" data-playlist-tile="${shared}">The playlist</a>
+        <a href="${playlistPath(playlist.id)}" data-playlist-tile="${playlist.id}">The one</a>
+      </div>`;
+
+    expect(
+      yield* FocusArtistTile({ pageId: PAGE_IDS.Search, artistId: artist.id }).effect,
+    ).toEqual(Message.CompletedFocusArtistTile());
+    expect(document.activeElement?.textContent).toBe("The artist");
+
+    expect(
+      yield* FocusPlaylistTile({ pageId: PAGE_IDS.Search, playlistId: playlist.id }).effect,
+    ).toEqual(Message.CompletedFocusPlaylistTile());
+    expect(document.activeElement?.textContent).toBe("The one");
+  }),
+);
+
+it.effect("a shelf that no longer has the artist or the playlist gives the focus to its page", () =>
+  Effect.gen(function* () {
+    document.body.innerHTML = `<div id="${PAGE_IDS.Home}" tabindex="0"><a href="/album/other" data-album-tile="${artist.id}">Another</a></div>`;
+
+    yield* FocusArtistTile({ pageId: PAGE_IDS.Home, artistId: artist.id }).effect;
+    expect(document.activeElement?.id).toBe(PAGE_IDS.Home);
+
+    document.body.innerHTML = `<div id="${PAGE_IDS.Home}" tabindex="0"><a href="/album/other" data-album-tile="${playlist.id}">Another</a></div>`;
+
+    yield* FocusPlaylistTile({ pageId: PAGE_IDS.Home, playlistId: playlist.id }).effect;
+    expect(document.activeElement?.id).toBe(PAGE_IDS.Home);
+  }),
+);
+
 /** The app's client over a network that takes every request and never answers one. */
 const hungServer = () => {
   const signals: Array<AbortSignal> = [];
@@ -142,6 +219,41 @@ it.effect("every query has the same limit, and reports it as its own failure", (
     expect(yield* Fiber.join(asking)).toEqual(
       Message.GotCatalogMessage({
         message: Catalog.Message.FailedHomeFeed({ requestId: "page:0", failure: { _tag: "Unknown" } }),
+      }),
+    );
+
+    const askingAlbum = yield* Effect.forkChild(askAlbumDetail(album.id)("page:1").effect);
+    yield* TestClock.adjust(REPLY_TIMEOUT);
+    expect(yield* Fiber.join(askingAlbum)).toEqual(
+      Message.GotCatalogMessage({
+        message: Catalog.Message.FailedAlbumDetail({
+          requestId: "page:1",
+          failure: { _tag: "Unknown" },
+        }),
+      }),
+    );
+
+    const askingArtist = yield* Effect.forkChild(askArtistDetail(artist.id)("page:2").effect);
+    yield* TestClock.adjust(REPLY_TIMEOUT);
+    expect(yield* Fiber.join(askingArtist)).toEqual(
+      Message.GotCatalogMessage({
+        message: Catalog.Message.FailedArtistDetail({
+          requestId: "page:2",
+          failure: { _tag: "Unknown" },
+        }),
+      }),
+    );
+
+    const askingPlaylist = yield* Effect.forkChild(
+      askPlaylistDetail(playlist.id)("page:3").effect,
+    );
+    yield* TestClock.adjust(REPLY_TIMEOUT);
+    expect(yield* Fiber.join(askingPlaylist)).toEqual(
+      Message.GotCatalogMessage({
+        message: Catalog.Message.FailedPlaylistDetail({
+          requestId: "page:3",
+          failure: { _tag: "Unknown" },
+        }),
       }),
     );
   }).pipe(Effect.provide(server.layer));

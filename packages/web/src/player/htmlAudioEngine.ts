@@ -97,7 +97,13 @@ type Engine = typeof AudioEngine.Service;
  * listener's own tap, and an element that a tap has started stays allowed to
  * go on to the next track by itself.
  */
-export const make = (element: HTMLMediaElement): Engine => {
+/**
+ * An engine on an element, with the way to let go of the element when the
+ * engine is done with: the sound stopped, and nothing listening to it.
+ */
+export const makeWithRelease = (
+  element: HTMLMediaElement,
+): Readonly<{ engine: Engine; release: Effect.Effect<void> }> => {
   const listeners = new Set<(report: EngineReport) => void>();
   const state: { order: number; maybeLastSaid: Option.Option<EngineReport> } = {
     order: 0,
@@ -144,7 +150,7 @@ export const make = (element: HTMLMediaElement): Engine => {
       );
     });
 
-  return {
+  const engine: Engine = {
     start: ({ order, source, positionSeconds }) =>
       sound(order, () => {
         element.src = source;
@@ -175,11 +181,37 @@ export const make = (element: HTMLMediaElement): Engine => {
       ).pipe(Effect.flatMap(() => Effect.never)),
     ),
   };
+
+  const release = Effect.sync(() => {
+    element.pause();
+    PROMPTS.forEach((prompt) => element.removeEventListener(prompt, say));
+    listeners.clear();
+  });
+
+  return { engine, release };
 };
 
-/** One audio element for the life of the page. It is never in the document: no page can rebuild it. */
-export const layer: Layer.Layer<AudioEngine> = Layer.sync(AudioEngine, () => {
-  const element = new Audio();
-  element.preload = "auto";
-  return make(element);
-});
+/** An engine on an element that outlives it: a test's, which is thrown away with the test. */
+export const make = (element: HTMLMediaElement): Engine => makeWithRelease(element).engine;
+
+/**
+ * One audio element for the life of the page. It is never in the document:
+ * no page can rebuild it. The element is the Layer's to let go of: when the
+ * runtime that was given the engine ends, the sound stops and the element
+ * is left with nothing listening to it, instead of playing on with thirteen
+ * listeners nobody will ever hear from.
+ */
+export const layer: Layer.Layer<AudioEngine> = Layer.effect(
+  AudioEngine,
+  Effect.map(
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        const element = new Audio();
+        element.preload = "auto";
+        return makeWithRelease(element);
+      }),
+      ({ release }) => release,
+    ),
+    ({ engine }) => engine,
+  ),
+);

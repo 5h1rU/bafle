@@ -100,6 +100,13 @@ export const playNextIcon = (className: string): Html =>
 export const playLastIcon = (className: string): Html =>
   outlineIcon(className, ["M4 6h16", "M4 11h16", "M4 13.75v5.5l4.5-2.75L4 13.75Z", "M12 16.5h8"]);
 
+/** A record: the album a track is on. */
+export const albumIcon = (className: string): Html =>
+  outlineIcon(className, [
+    "M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17Z",
+    "M12 14.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z",
+  ]);
+
 /** More about this one thing. */
 export const detailsIcon = (className: string): Html =>
   outlineIcon(className, [

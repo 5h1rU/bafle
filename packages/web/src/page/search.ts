@@ -17,7 +17,13 @@ import {
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
 import { headingPlaceholderView, trackListPlaceholderView } from "../view/placeholder.ts";
-import { albumTile, artistTile, maybeShelfView, playlistTile } from "../view/shelf.ts";
+import {
+  albumTile,
+  artistTile,
+  maybeShelfView,
+  playlistTile,
+  type TilesOpening,
+} from "../view/shelf.ts";
 import { type TrackListContext, maybeTrackSectionView } from "../view/trackList.ts";
 
 // VIEW
@@ -70,6 +76,7 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
 const answerView = (
   answer: SearchAnswer,
   context: TrackListContext,
+  { isAlbumOpening, isArtistOpening, isPlaylistOpening }: TilesOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
   Array.match(
@@ -78,14 +85,14 @@ const answerView = (
         "search-artists",
         "Artists",
         "Round",
-        Array.map(answer.results.artists, artistTile),
+        Array.map(answer.results.artists, artistTile(isArtistOpening, context.presence)),
         h,
       ),
       maybeShelfView(
         "search-albums",
         "Albums",
         "Square",
-        Array.map(answer.results.albums, albumTile),
+        Array.map(answer.results.albums, albumTile(isAlbumOpening, context.presence)),
         h,
       ),
       maybeTrackSectionView(
@@ -100,7 +107,7 @@ const answerView = (
         "search-playlists",
         "Playlists",
         "Square",
-        Array.map(answer.results.playlists, playlistTile),
+        Array.map(answer.results.playlists, playlistTile(isPlaylistOpening, context.presence)),
         h,
       ),
     ]),
@@ -135,6 +142,7 @@ const resultsView = (
   search: SearchData,
   searchedTerm: string,
   context: TrackListContext,
+  opening: TilesOpening,
   h: HtmlBuilder<Message>,
 ): Html => {
   // Out of date as soon as the field asks for something else, whether or not the new query is out yet.
@@ -160,7 +168,7 @@ const resultsView = (
         search,
         TITLE,
         () => placeholderView(h),
-        (answer) => answerView(answer, context, h),
+        (answer) => answerView(answer, context, opening, h),
         h,
       ),
     ],
@@ -177,6 +185,7 @@ export const view = (
   maybeSearchedTerm: Option.Option<string>,
   search: SearchData,
   context: TrackListContext,
+  opening: TilesOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(pageAttributes(PAGE_ID, context.presence, h), [
@@ -187,6 +196,6 @@ export const view = (
     ),
     Option.match(maybeSearchedTerm, {
       onNone: () => promptView(h),
-      onSome: (searchedTerm) => resultsView(search, searchedTerm, context, h),
+      onSome: (searchedTerm) => resultsView(search, searchedTerm, context, opening, h),
     }),
   ]);

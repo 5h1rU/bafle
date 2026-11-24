@@ -4,7 +4,7 @@ import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { Submodel } from "foldkit";
-import type { Html, HtmlBuilder } from "foldkit/html";
+import type { ChildAttribute, Html, HtmlBuilder } from "foldkit/html";
 import {
   nextIcon,
   noteIcon,
@@ -47,6 +47,13 @@ import { TITLE_PIXELS_PER_SECOND } from "./command.ts";
  */
 export type ViewInputs = Readonly<{
   toTrackPageLink: (track: TrackSummary, content: ReadonlyArray<Html>) => Html;
+  /**
+   * Whether the island is drawn under the expanded player's sheet, which is
+   * on its way off the screen. It is then a picture of the island to come:
+   * out of reach, and with no name in a view transition, since the player on
+   * the sheet is the one that carries the names.
+   */
+  isUnderSheet: boolean;
 }>;
 
 /**
@@ -59,6 +66,16 @@ export type ExpandedViewInputs = Readonly<{
   titleId: string;
   toCollapseControl: () => Html;
   toDetail: (track: TrackSummary) => Html;
+  /**
+   * The expanded player is drawn on a sheet, which the listener can swipe
+   * away. The sheet is the shell's (`sheet/`): these are what it asks the
+   * player to put on the piece that travels and on the one piece inside it,
+   * and whether all of the sheet is on screen. The player knows no more of
+   * it than that.
+   */
+  sheetAttributes: ReadonlyArray<ChildAttribute>;
+  contentAttributes: ReadonlyArray<ChildAttribute>;
+  isSheetWhole: boolean;
 }>;
 
 export const PLAYER_ID = "player";
@@ -234,6 +251,7 @@ const coverView = (
   sizeClass: string,
   rendition: "small" | "large",
   h: HtmlBuilder<Message>,
+  isNamed = true,
 ): Html =>
   h.keyed("div")(
     track.id,
@@ -241,7 +259,7 @@ const coverView = (
       h.DataAttribute("cover", ""),
       h.Class(clsx(sizeClass, "relative shrink-0 overflow-hidden bg-tile")),
       h.Style({
-        viewTransitionName: coverTransitionName(track.id),
+        viewTransitionName: isNamed ? coverTransitionName(track.id) : "none",
         viewTransitionClass: "track-cover island-cover",
       }),
     ],
@@ -298,7 +316,7 @@ const maybeShortNotice = (playback: Playback): Option.Option<string> =>
  * the transition is as long as the Command that says when the pass is over.
  */
 const titleLineStyle = (title: TitleMarquee): Record<string, string> =>
-  Option.match(title.phase === "Travelling" ? title.maybeTravelPixels : Option.none(), {
+  Option.match(title.phase === "Standing" ? Option.none() : title.maybeTravelPixels, {
     onNone: () => ({ transform: "translateX(0)", transition: "none" }),
     onSome: (travelPixels) => ({
       transform: `translateX(${-travelPixels}px)`,
@@ -672,7 +690,7 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
  * stands out a little above and below; the body curves up to meet it. The
  * main control sits in a swell at the other end, and Next in a tail past
  * it. The figure takes the cover's colours near the cover, and while there
- * is sound a copper light travels its whole outline.
+ * is sound a light travels its whole outline.
  *
  * On a narrow screen it stands above the navigation while that is whole, and
  * comes down into the navigation's row, between its circle and Search, when
@@ -694,21 +712,30 @@ const islandView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const { current, playback } = session;
+  const { isUnderSheet } = viewInputs;
 
+  // NOTE: under the sheet the island gives up its id and its names: the
+  // player on the sheet has them, and two pieces by one name end a view
+  // transition before it starts. `data-under-sheet` takes the names of its
+  // light and its shadow too (styles.css).
   return h.section(
     [
-      h.Id(PLAYER_ID),
+      ...(isUnderSheet ? [h.DataAttribute("under-sheet", "")] : [h.Id(PLAYER_ID)]),
       h.AriaLabel("Player"),
+      h.Inert(isUnderSheet),
       h.DataAttribute("layout", "island"),
       h.DataAttribute("playback", playback._tag),
       h.OnMount(DrawIslandFigure()),
       h.Class(
-        "dock-island absolute right-5 bottom-[5.125rem] left-5 z-30 flex h-11 items-center text-on-island [view-transition-name:player] minimized:right-11 minimized:bottom-5 minimized:left-[4.875rem] minimized:mr-[2.125rem] md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
+        clsx(
+          "dock-island absolute right-5 bottom-[5.125rem] left-5 z-30 flex h-11 items-center text-on-island minimized:right-11 minimized:bottom-5 minimized:left-[4.875rem] minimized:mr-[2.125rem] md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
+          { "[view-transition-name:player]": !isUnderSheet },
+        ),
       ),
     ],
     [
       ...islandFigureView(current.album.cover?.small, model.light, h),
-      coverView(current, "-my-[3px] size-[3.125rem] rounded-full", "small", h),
+      coverView(current, "-my-[3px] size-[3.125rem] rounded-full", "small", h, !isUnderSheet),
       viewInputs.toTrackPageLink(current, trackWordsView(session, model.title, h)),
       islandControlsView(session, h),
       announcementView(session, h),
@@ -745,35 +772,59 @@ const sheetView = (
       h.AriaLabel("Player"),
       h.DataAttribute("layout", "expanded"),
       h.DataAttribute("playback", session.playback._tag),
+      // NOTE: `box-content`, because the sheet is given padding past its
+      // edge (see `sheetStyles`): its height is then that of what is seen of
+      // it, and the padding is more sheet below the screen. For the same
+      // reason its border is drawn by the piece inside it: a border of its
+      // own would make it a pixel taller than its place, and a sheet that
+      // does not fit its place is never whole on screen.
       h.Class(
-        "mx-auto flex min-h-full w-full max-w-lg flex-col rounded-t-3xl border-x border-t border-line bg-panel px-6 pb-10 [view-transition-name:player]",
+        "box-content h-full w-full max-w-lg rounded-t-3xl bg-panel [view-transition-name:player]",
       ),
+      ...viewInputs.sheetAttributes,
     ],
     [
-      viewInputs.toCollapseControl(),
+      // NOTE: what is in the sheet scrolls only while the sheet is whole.
+      // Short of that a swipe on it is the sheet's, and from the top of what
+      // is in it a swipe down goes on to the sheet: the scroll is handed on
+      // to the box around it, as any scroll that reaches its end is.
       h.div(
-        [h.Class("mx-auto mt-2 w-full max-w-sm")],
-        [coverView(current, "aspect-square w-full rounded-2xl", "large", h)],
-      ),
-      h.keyed("div")(
-        current.id,
         [
           h.Class(
-            "mt-6 min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none",
+            clsx(
+              "rounded-t-[inherit] border-x border-t border-line px-6 pb-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+              viewInputs.isSheetWhole ? "overflow-y-auto" : "overflow-hidden",
+            ),
           ),
+          ...viewInputs.contentAttributes,
         ],
         [
-          h.h1(
-            [h.Id(viewInputs.titleId), h.Class("truncate text-2xl font-bold tracking-tight")],
-            [current.title],
+          viewInputs.toCollapseControl(),
+          h.div(
+            [h.Class("mx-auto mt-2 w-full max-w-sm")],
+            [coverView(current, "aspect-square w-full rounded-2xl", "large", h)],
           ),
-          h.p([h.Class("truncate text-lg text-muted")], [current.artist.name]),
+          h.keyed("div")(
+            current.id,
+            [
+              h.Class(
+                "mt-6 min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none",
+              ),
+            ],
+            [
+              h.h1(
+                [h.Id(viewInputs.titleId), h.Class("truncate text-2xl font-bold tracking-tight")],
+                [current.title],
+              ),
+              h.p([h.Class("truncate text-lg text-muted")], [current.artist.name]),
+            ],
+          ),
+          h.div([h.Class("mt-2")], [progressOrNoticeView(session, h)]),
+          stepsView(session, "mt-2 flex items-center justify-center gap-6", h),
+          h.div([h.Class("mt-8")], [viewInputs.toDetail(current)]),
+          announcementView(session, h),
         ],
       ),
-      h.div([h.Class("mt-2")], [progressOrNoticeView(session, h)]),
-      stepsView(session, "mt-2 flex items-center justify-center gap-6", h),
-      h.div([h.Class("mt-8")], [viewInputs.toDetail(current)]),
-      announcementView(session, h),
     ],
   );
 };

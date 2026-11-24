@@ -1,12 +1,19 @@
 import * as DomainFoldkit from "@alchemy.run/domain/Foldkit";
+import { AlbumId } from "@bafle/domain/Catalog/Album";
+import { ArtistId } from "@bafle/domain/Catalog/Artist";
+import { Album } from "@bafle/domain/Catalog/FullAlbum";
+import { Artist } from "@bafle/domain/Catalog/FullArtist";
+import { Playlist } from "@bafle/domain/Catalog/FullPlaylist";
 import {
   FeaturedMusic,
   SearchResults,
   TrendingMusic,
 } from "@bafle/domain/Catalog/MusicCatalog.external";
+import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import { Track, TrackId } from "@bafle/domain/Catalog/Track";
 import { Menu } from "@foldkit/ui";
 import * as Array from "effect/Array";
+import { pipe } from "effect/Function";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -16,6 +23,7 @@ import { LoadError } from "./catalog.ts";
 import { PlayOrigin } from "./message.ts";
 import { maybeCurrentTrackId, Model as PlayerModel, QueuePlace } from "./player/model.ts";
 import { AppRoute, searchedTerm } from "./route.ts";
+import * as Sheet from "./sheet/index.ts";
 
 // MODEL
 
@@ -38,6 +46,18 @@ export type SearchData = typeof SearchData.schema.Type;
  */
 export const TrackData = AsyncData.Schema(Schema.Option(Track), LoadError);
 export type TrackData = typeof TrackData.schema.Type;
+
+/** What the catalog said about one album. As with a track, no album is an answer too. */
+export const AlbumData = AsyncData.Schema(Schema.Option(Album), LoadError);
+export type AlbumData = typeof AlbumData.schema.Type;
+
+/** What the catalog said about one artist. As with a track, no artist is an answer too. */
+export const ArtistData = AsyncData.Schema(Schema.Option(Artist), LoadError);
+export type ArtistData = typeof ArtistData.schema.Type;
+
+/** What the catalog said about one playlist. As with a track, no playlist is an answer too. */
+export const PlaylistData = AsyncData.Schema(Schema.Option(Playlist), LoadError);
+export type PlaylistData = typeof PlaylistData.schema.Type;
 
 /** Whether a page takes the screen because the listener went back to it, or otherwise. */
 export const Entrance = Schema.Literals(["Returning", "Arriving"]);
@@ -90,6 +110,10 @@ export const RowDone = Schema.Struct({
 });
 export type RowDone = typeof RowDone.Type;
 
+/** A row, as the Model names it: the page it is on and its track. */
+export const Row = Schema.Struct({ from: PlayOrigin, trackId: TrackId });
+export type Row = typeof Row.Type;
+
 export const Model = Schema.Struct({
   /**
    * The route whose page is on screen. It is the browser's URL too, except
@@ -104,11 +128,39 @@ export const Model = Schema.Struct({
   newMusic: NewMusicData.schema,
   search: SearchData.schema,
   /**
+   * What every search answered since the app loaded found, under its term.
+   * `search` is the one on the page; this is what lets the listener go back
+   * to an earlier one, through the browser's history or by typing its term
+   * again, and find its results there at once.
+   */
+  searched: Schema.HashMap(Schema.String, SearchResults),
+  /**
    * What the catalog said about every track asked for since the app loaded.
    * Opening one again needs no wait, and a row reads here whether its track
    * is loading, failed to open, or is gone from the catalog.
    */
   tracks: Schema.HashMap(TrackId, TrackData.schema),
+  /**
+   * What the catalog said about every album asked for since the app loaded,
+   * kept as `tracks` is: opening one again needs no wait.
+   */
+  albums: Schema.HashMap(AlbumId, AlbumData.schema),
+  /**
+   * The row each album was last asked from, for an album asked from a row's
+   * menu. An album can be on many rows of a list, so what the catalog said of
+   * it does not tell which of them was used: that row says that the album is
+   * opening, or how that ended. An album chosen from a shelf has no entry,
+   * and its tile says that it is opening.
+   */
+  albumRows: Schema.HashMap(AlbumId, Row),
+  /**
+   * What the catalog said about every artist asked for since the app loaded,
+   * kept as `albums` is. An artist is only ever chosen from a shelf, so their
+   * tile says that they are opening.
+   */
+  artists: Schema.HashMap(ArtistId, ArtistData.schema),
+  /** What the catalog said about every playlist asked for since the app loaded, kept as `artists` is. */
+  playlists: Schema.HashMap(PlaylistId, PlaylistData.schema),
   /**
    * The URL change the app has asked the browser for and not yet heard of: a
    * new entry for a page that took the screen, or the current entry rewritten
@@ -141,8 +193,22 @@ export const Model = Schema.Struct({
    * sounding. It belongs to no page, so no change of page touches it.
    */
   player: PlayerModel,
+  /**
+   * The sheet the expanded player is drawn on: how much of it is on screen,
+   * as the document says it. That there is a sheet at all is not here, since
+   * expanded is derived from the route: this is only the sheet's own state
+   * while it is drawn.
+   */
+  playerSheet: Sheet.Model,
 });
 export type Model = typeof Model.Type;
+
+/** The expanded player's sheet as it enters the document: whole, brought on screen by the island growing into it. */
+export const initialPlayerSheet: Sheet.Model = Sheet.init({
+  id: "player-sheet",
+  edge: "Bottom",
+  entrance: "AtRest",
+});
 
 /** What is held about a track among those asked for: nothing yet when it never was. */
 export const trackDataIn = (tracks: Model["tracks"], trackId: TrackId): TrackData =>
@@ -151,6 +217,124 @@ export const trackDataIn = (tracks: Model["tracks"], trackId: TrackId): TrackDat
 /** What the app holds about a track. */
 export const trackData = (model: Model, trackId: TrackId): TrackData =>
   trackDataIn(model.tracks, trackId);
+
+/** What is held about an album among those asked for: nothing yet when it never was. */
+export const albumDataIn = (albums: Model["albums"], albumId: AlbumId): AlbumData =>
+  AsyncData.fromOptionOrIdle(HashMap.get(albums, albumId));
+
+/** What the app holds about an album. */
+export const albumData = (model: Model, albumId: AlbumId): AlbumData =>
+  albumDataIn(model.albums, albumId);
+
+/** What is held about an artist among those asked for: nothing yet when they never were. */
+export const artistDataIn = (artists: Model["artists"], artistId: ArtistId): ArtistData =>
+  AsyncData.fromOptionOrIdle(HashMap.get(artists, artistId));
+
+/** What the app holds about an artist. */
+export const artistData = (model: Model, artistId: ArtistId): ArtistData =>
+  artistDataIn(model.artists, artistId);
+
+/** What is held about a playlist among those asked for: nothing yet when it never was. */
+export const playlistDataIn = (
+  playlists: Model["playlists"],
+  playlistId: PlaylistId,
+): PlaylistData => AsyncData.fromOptionOrIdle(HashMap.get(playlists, playlistId));
+
+/** What the app holds about a playlist. */
+export const playlistData = (model: Model, playlistId: PlaylistId): PlaylistData =>
+  playlistDataIn(model.playlists, playlistId);
+
+/**
+ * The catalog has already said it has no such track, album, artist or
+ * playlist: asking again would say the same.
+ */
+export const isKnownMissing = <A>(
+  data: AsyncData.AsyncData<Option.Option<A>, LoadError>,
+): boolean => Option.exists(AsyncData.getData(data), Option.isNone);
+
+/** The pages that are lists of their own and no section: an album's, an artist's, a playlist's. */
+type ListPage = "Album" | "Artist" | "Playlist";
+
+const maybeAlbumIdOf = (route: AppRoute): Option.Option<AlbumId> =>
+  route._tag === "Album" ? Option.some(route.albumId) : Option.none();
+
+const maybeArtistIdOf = (route: AppRoute): Option.Option<ArtistId> =>
+  route._tag === "Artist" ? Option.some(route.artistId) : Option.none();
+
+const maybePlaylistIdOf = (route: AppRoute): Option.Option<PlaylistId> =>
+  route._tag === "Playlist" ? Option.some(route.playlistId) : Option.none();
+
+/** Whose page of a kind is in the document: the one on screen, else the nearest one behind it. */
+const maybeIdInDocument =
+  <Id>(maybeIdOf: (route: AppRoute) => Option.Option<Id>) =>
+  (route: AppRoute, trail: Model["trail"]): Option.Option<Id> =>
+    pipe(
+      maybeIdOf(route),
+      Option.orElse(() => Array.findLast(trail, maybeIdOf)),
+    );
+
+/**
+ * Whether the page of a kind that is in the document has a page behind it in
+ * the browser's history. On screen, that is any page behind the current one;
+ * kept, any page behind its own entry.
+ */
+const hasWayBackFrom =
+  (page: ListPage) =>
+  (route: AppRoute, trail: Model["trail"]): boolean =>
+    route._tag === page
+      ? Array.isReadonlyArrayNonEmpty(trail)
+      : Option.exists(
+          Array.findLastIndex(trail, (behind) => behind._tag === page),
+          (index) => index > 0,
+        );
+
+/**
+ * The album whose page is in the document: the one on screen, else the
+ * nearest one behind the page on screen. An album's page is a list, and a
+ * list is found as it was left: while the listener is on a page reached from
+ * it, it stays in the document, hidden, as a section does. One album's page
+ * is kept at a time.
+ */
+export const maybeAlbumIdInDocument: (
+  route: AppRoute,
+  trail: Model["trail"],
+) => Option.Option<AlbumId> = maybeIdInDocument(maybeAlbumIdOf);
+
+/**
+ * Whether the album's page in the document has a page behind it in the
+ * browser's history. On screen, that is any page behind the current one;
+ * kept, any page behind its own entry.
+ */
+export const hasWayBackFromAlbum: (route: AppRoute, trail: Model["trail"]) => boolean =
+  hasWayBackFrom("Album");
+
+/**
+ * The artist whose page is in the document, as an album's is: an artist's
+ * page is a list and a shelf, kept behind the album or the song reached from
+ * it. One artist's page is kept at a time.
+ */
+export const maybeArtistIdInDocument: (
+  route: AppRoute,
+  trail: Model["trail"],
+) => Option.Option<ArtistId> = maybeIdInDocument(maybeArtistIdOf);
+
+/** Whether the artist's page in the document has a page behind it, as for an album's. */
+export const hasWayBackFromArtist: (route: AppRoute, trail: Model["trail"]) => boolean =
+  hasWayBackFrom("Artist");
+
+/**
+ * The playlist whose page is in the document, as an album's is: a playlist's
+ * page is a list, kept behind the song or the album reached from it. One
+ * playlist's page is kept at a time.
+ */
+export const maybePlaylistIdInDocument: (
+  route: AppRoute,
+  trail: Model["trail"],
+) => Option.Option<PlaylistId> = maybeIdInDocument(maybePlaylistIdOf);
+
+/** Whether the playlist's page in the document has a page behind it, as for an album's. */
+export const hasWayBackFromPlaylist: (route: AppRoute, trail: Model["trail"]) => boolean =
+  hasWayBackFrom("Playlist");
 
 /** A page with data, or with a failure to state, has more to show than placeholders. */
 const hasSomethingToShow = <A>(data: AsyncData.AsyncData<A, LoadError>): boolean =>
@@ -168,6 +352,9 @@ export const canShow = (model: Model, route: AppRoute): boolean =>
     Search: () => Option.isNone(searchedTerm(route)) || hasSomethingToShow(model.search),
     Track: ({ trackId }) =>
       hasSomethingToShow(trackData(model, trackId)) || isPlayersTrack(model, route),
+    Album: ({ albumId }) => hasSomethingToShow(albumData(model, albumId)),
+    Artist: ({ artistId }) => hasSomethingToShow(artistData(model, artistId)),
+    Playlist: ({ playlistId }) => hasSomethingToShow(playlistData(model, playlistId)),
     NotFound: () => true,
   });
 
@@ -187,6 +374,9 @@ export const isLoaded = (model: Model, route: AppRoute): boolean =>
           Option.exists(AsyncData.getData(model.search), (answer) => answer.term === term),
       }),
     Track: ({ trackId }) => AsyncData.hasData(trackData(model, trackId)),
+    Album: ({ albumId }) => AsyncData.hasData(albumData(model, albumId)),
+    Artist: ({ artistId }) => AsyncData.hasData(artistData(model, artistId)),
+    Playlist: ({ playlistId }) => AsyncData.hasData(playlistData(model, playlistId)),
     NotFound: () => true,
   });
 

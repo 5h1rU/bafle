@@ -14,7 +14,7 @@ import {
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
 import { shelfPlaceholderView, trackListPlaceholderView } from "../view/placeholder.ts";
-import { albumTile, maybeShelfView } from "../view/shelf.ts";
+import { albumTile, type IsAlbumOpening, maybeShelfView } from "../view/shelf.ts";
 import { type TrackListContext, maybeTrackSectionView } from "../view/trackList.ts";
 
 // VIEW
@@ -40,6 +40,7 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
 const chartsView = (
   trending: TrendingMusic,
   context: TrackListContext,
+  isAlbumOpening: IsAlbumOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
   Array.match(
@@ -49,7 +50,7 @@ const chartsView = (
         "new-top-albums",
         TOP_ALBUMS,
         "Square",
-        Array.map(trending.albums, albumTile),
+        Array.map(trending.albums, albumTile(isAlbumOpening, context.presence)),
         h,
       ),
     ]),
@@ -62,6 +63,7 @@ const chartsView = (
 export const view = (
   newMusic: NewMusicData,
   context: TrackListContext,
+  isAlbumOpening: IsAlbumOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(pageAttributes(PAGE_ID, context.presence, h), [
@@ -73,7 +75,7 @@ export const view = (
           newMusic,
           TITLE,
           () => placeholderView(h),
-          (trending) => chartsView(trending, context, h),
+          (trending) => chartsView(trending, context, isAlbumOpening, h),
           h,
         ),
       ],

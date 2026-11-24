@@ -847,7 +847,7 @@ describe("A4: a row says that its track failed to open", () => {
 describe("A5: a row says that the catalog does not have its track", () => {
   const missing = answered(openingTrack, reply.trackMissing);
 
-  test("the row is no longer something to open: not a link, with nothing to press", () =>
+  test("the row is no longer a way to its track's page, and says so for good", () =>
     scene(
       app,
       given(missing),
@@ -859,8 +859,8 @@ describe("A5: a row says that the catalog does not have its track", () => {
           // Still listed, and still named.
           expectAll(all.role("listitem")).toHaveCount(2),
           see(text("Harder, Better, Faster, Stronger")).toExist(),
-          // There is nothing left to do with the missing track: its row has no control at its end.
-          see(trackRow(/Harder, Better, Faster, Stronger/)).toBeAbsent(),
+          // The row keeps its control: the album the track was on can still be gone to.
+          see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-busy", "false"),
           expectAll(all.selector(`a[href="${trackPath(track.id)}"]`)).toHaveCount(0),
           expectAll(all.selector('[tabindex="0"]')).toHaveCount(0),
           // For good: no Try again.
@@ -881,10 +881,10 @@ describe("A5: a row says that the catalog does not have its track", () => {
       Subscription.emit(clickedLink(trackPath(track.id))),
       Command.resolve(Catalog.TrackDetail, reply.trackMissing(nextId(onNew))),
       see(text("This song is not available.")).toHaveAttr("role", "status"),
-      // The control the listener used is gone: what stands in its place takes the focus it held.
+      // What the listener chose is gone from the menu: the row's control is given the focus back.
       Command.expectExact(FocusTrackRow),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
-      inside(topSongs, expectAll(all.selector("span[data-track-row]")).toHaveCount(1)),
+      inside(topSongs, expectAll(all.selector("button[data-track-row]")).toHaveCount(2)),
     ));
 });
 
@@ -1132,8 +1132,8 @@ describe("rule f: the pages behind the one on screen are kept, and hidden", () =
       app,
       given(onTrack),
       // Each page has its place; only the place of the page on screen is visible.
-      expectAll(all.selector("main div.absolute.inset-0")).toHaveCount(4),
-      expectAll(all.selector("main div.absolute.inset-0.invisible")).toHaveCount(3),
+      expectAll(all.selector("main div.absolute.inset-0")).toHaveCount(7),
+      expectAll(all.selector("main div.absolute.inset-0.invisible")).toHaveCount(6),
       expectAll(all.selector("main .invisible #new-page")).toHaveCount(1),
       expectAll(all.selector("main .invisible #home-page")).toHaveCount(1),
       expectAll(all.selector("main .invisible #track-page")).toHaveCount(0),

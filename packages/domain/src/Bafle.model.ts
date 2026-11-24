@@ -1,8 +1,11 @@
 import * as Domain from "@alchemy.run/domain";
 import * as Layer from "effect/Layer";
+import { AlbumDetail, AlbumDetailLive } from "./Catalog/AlbumDetail.query.ts";
+import { ArtistDetail, ArtistDetailLive } from "./Catalog/ArtistDetail.query.ts";
 import { CatalogSearch, CatalogSearchLive } from "./Catalog/CatalogSearch.query.ts";
 import { HomeFeed, HomeFeedLive } from "./Catalog/HomeFeed.query.ts";
 import { NewMusic, NewMusicLive } from "./Catalog/NewMusic.query.ts";
+import { PlaylistDetail, PlaylistDetailLive } from "./Catalog/PlaylistDetail.query.ts";
 import { TrackDetail, TrackDetailLive } from "./Catalog/TrackDetail.query.ts";
 
 /**
@@ -12,7 +15,15 @@ import { TrackDetail, TrackDetailLive } from "./Catalog/TrackDetail.query.ts";
  */
 export class Bafle extends Domain.Model("Bafle", {
   aggregates: [],
-  queries: [HomeFeed, NewMusic, CatalogSearch, TrackDetail],
+  queries: [
+    HomeFeed,
+    NewMusic,
+    CatalogSearch,
+    TrackDetail,
+    AlbumDetail,
+    ArtistDetail,
+    PlaylistDetail,
+  ],
 }) {}
 
 /** Every query's implementation. They require the MusicCatalog external system. */
@@ -21,4 +32,7 @@ export const BafleHandlers = Layer.mergeAll(
   NewMusicLive,
   CatalogSearchLive,
   TrackDetailLive,
+  AlbumDetailLive,
+  ArtistDetailLive,
+  PlaylistDetailLive,
 );

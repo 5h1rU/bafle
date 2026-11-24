@@ -11,6 +11,7 @@ import { modifyFields } from "foldkit/struct";
 import type { CatalogClient } from "../catalog.ts";
 import type { AudioEngine, EngineReport } from "./audioEngine.ts";
 import {
+  ChangeIslandLightPace,
   PausePlayback,
   PublishNowPlaying,
   RefreshSource,
@@ -135,7 +136,23 @@ const publishNowPlaying = (track: TrackSummary) =>
  */
 const startCurrent = (session: Session, playback: Playback, positionSeconds: number): Step =>
   Option.match(playableSource(session.current), {
-    onNone: () => settle(withPlayback(session, Playback.Failed())),
+    // NOTE: the track as it is held has nothing to play. That happens when
+    // the catalog, asked again after a failure, answered without a source:
+    // the answer is kept, and a later "Try again" would otherwise find
+    // nothing to start and fail on the spot, without asking anybody. So the
+    // catalog is asked once more, as it is for a source that failed, and
+    // only an answer that is empty again is the end.
+    onNone: () =>
+      session.sourceRefresh === "Untried"
+        ? giveOrder(
+            modifyFields(session, {
+              playback: () => Playback.Recovering(),
+              positionSeconds: () => positionSeconds,
+              seek: () => Seek.Settled(),
+            }),
+            (order) => [RefreshSource({ order, trackId: session.current.id })],
+          )
+        : settle(withPlayback(session, Playback.Failed())),
     onSome: (source) =>
       giveOrder(
         modifyFields(session, {
@@ -186,8 +203,29 @@ const acrossAnOrder = (playback: Playback): Playback =>
     () => playback,
   );
 
-/** Ask the engine for another position. The wish stands until the engine says it is there. */
+/** The source is being replaced, or is past replacing: the engine holds nothing to move within. */
+const hasNoLiveSource = Playback.isAnyOf(["Recovering", "Failed"]);
+
+/**
+ * Ask the engine for another position. The wish stands until the engine
+ * says it is there.
+ */
+// NOTE: while the catalog is being asked for a fresh source there is nothing
+// to ask the engine, and an order given now would take the next number: the
+// catalog's answer, made for the number before, would then be dropped as
+// stale and the player would wait for it for ever. So the position is only
+// noted, and the fresh source starts from there.
 const seekTo = (session: Session, targetSeconds: number): Step =>
+  hasNoLiveSource(session.playback)
+    ? settle(
+        modifyFields(session, {
+          positionSeconds: () => targetSeconds,
+          seek: () => Seek.Settled(),
+        }),
+      )
+    : seekNow(session, targetSeconds);
+
+const seekNow = (session: Session, targetSeconds: number): Step =>
   giveOrder(
     modifyFields(session, {
       seek: () => Seek.Seeking({ targetSeconds }),
@@ -502,19 +540,41 @@ const gotSeekSliderMessage = (model: Model, message: Slider.Message): UpdateRetu
 
 // TITLE
 
+/** The title as it is held, or the very same Model when nothing of it changes. */
+const withTitle = (model: Model, next: Model["title"]): Model =>
+  Equal.equals(model.title, next) ? model : modifyFields(model, { title: () => next });
+
 /**
- * The title's place or its length changed. It stands, and if it does not
- * fit, the wait before its first pass starts over.
+ * The title was measured again. What follows depends on what changed.
+ *
+ * Only its place: the island grew or narrowed under it. A pass goes as far
+ * as the title is long, whatever the width of its place, so whatever is
+ * under way, a wait or a pass, goes on undisturbed.
+ *
+ * It fits now, in the middle of a pass: it ends that pass, and stands for
+ * good when it is over. Stopping it where it is would be a jump.
+ *
+ * Anything else, a title of another length or one that has started or
+ * stopped fitting while it stood: it stands, and if it does not fit, the
+ * wait before its first pass starts over.
  */
 const measuredTitle =
   (placePixels: number, maybeTravelPixels: Option.Option<number>): Step =>
   (model) => {
     const { title } = model;
-    if (
-      title.placePixels === placePixels &&
-      Equal.equals(title.maybeTravelPixels, maybeTravelPixels)
-    ) {
-      return { model };
+    const isMidPass = title.phase !== "Standing";
+
+    if (Option.isNone(maybeTravelPixels) && isMidPass) {
+      return { model: withTitle(model, { ...title, placePixels, phase: "Finishing" }) };
+    }
+    if (Equal.equals(title.maybeTravelPixels, maybeTravelPixels)) {
+      return {
+        model: withTitle(model, {
+          ...title,
+          placePixels,
+          phase: title.phase === "Finishing" ? "Travelling" : title.phase,
+        }),
+      };
     }
     const run = title.run + 1;
     return {
@@ -555,17 +615,34 @@ const startTitlePass =
     ],
   });
 
-const restTitle = (): Step => (model) => ({
-  model: modifyFields(model, {
-    title: (title) => modifyFields(title, { phase: () => "Standing" as const }),
-  }),
-  commands: [
-    WaitToTravelTitle({
-      run: model.title.run,
-      milliseconds: Duration.toMillis(TITLE_RESTS_FOR),
-    }),
-  ],
-});
+/**
+ * A pass is over. The title stands and waits for the next; one that came to
+ * fit while it travelled has made its last, and stands unmeasured against
+ * no wait: the run is closed.
+ */
+const restTitle = (): Step => (model) =>
+  model.title.phase === "Finishing"
+    ? {
+        model: modifyFields(model, {
+          title: (title) => ({
+            run: title.run + 1,
+            placePixels: title.placePixels,
+            maybeTravelPixels: Option.none(),
+            phase: "Standing" as const,
+          }),
+        }),
+      }
+    : {
+        model: modifyFields(model, {
+          title: (title) => modifyFields(title, { phase: () => "Standing" as const }),
+        }),
+        commands: [
+          WaitToTravelTitle({
+            run: model.title.run,
+            milliseconds: Duration.toMillis(TITLE_RESTS_FOR),
+          }),
+        ],
+      };
 
 // WHAT FOLLOWS FROM THE REST
 
@@ -597,6 +674,16 @@ const withWhatFollows =
         title: (title) =>
           isAnotherTrack ? { ...initialTitle, run: title.run + 1 } : title,
       }),
+      // NOTE: the light's change of pace is the document's side of the
+      // Model's change of mind, so it is a Command given here, where the
+      // Model changes, and not a Subscription watching the Model for it.
+      commands:
+        light === model.light
+          ? (result.commands ?? [])
+          : [
+              ...(result.commands ?? []),
+              ChangeIslandLightPace({ pace: light === "Travelling" ? 1 : 0 }),
+            ],
     };
   };
 
@@ -640,6 +727,7 @@ const handle = (model: Model, message: Message) =>
     CompletedPublishNowPlaying: () => ({ model }),
     CompletedDrawIslandFigure: () => ({ model }),
     CompletedStartIslandLight: () => ({ model }),
+    CompletedChangeIslandLightPace: () => ({ model }),
   });
 
 // ENTRY

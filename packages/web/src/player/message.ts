@@ -36,6 +36,7 @@ export const Message = defineMessageUnion({
   CompletedWaitToTravelTitle: { run: Schema.Int },
   CompletedTravelTitle: { run: Schema.Int },
   CompletedDrawIslandFigure: {},
+  CompletedChangeIslandLightPace: {},
   CompletedStartIslandLight: {},
 });
 export type Message = typeof Message.Type;

@@ -1,3 +1,6 @@
+import { AlbumId } from "@bafle/domain/Catalog/Album";
+import { ArtistId } from "@bafle/domain/Catalog/Artist";
+import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import * as Array from "effect/Array";
 import { pipe } from "effect/Function";
@@ -11,12 +14,16 @@ import { init, update } from "../src/main.ts";
 import { Message, type PlayOrigin } from "../src/message.ts";
 import {
   addressOf,
+  albumData,
+  artistData,
   Awaiting,
   canShow,
   isPlayerExpanded,
   isPlayersTrack,
   maybeHeadedFor,
   type Model,
+  playlistData,
+  type Row,
   trackData,
   wayBack,
 } from "../src/model.ts";
@@ -30,11 +37,21 @@ import {
   urlToAppRoute,
 } from "../src/route.ts";
 import {
+  album,
+  albumPath,
   arrived,
+  artist,
+  artistPath,
   changedUrl,
+  choseFromRow,
   clickedLink,
   explicitTrack,
+  fullAlbum,
+  fullArtist,
+  fullPlaylist,
   fullTrack,
+  playlist,
+  playlistPath,
   reply,
   track,
   trackPath,
@@ -55,6 +72,13 @@ import {
 // changes only by the listener's choice or by the track before it ending, and playing and
 // navigating never reach into each other.
 //
+// Albums are walked too: opened from a row's menu, where the list is held and the row speaks for
+// what became of it, and from a shelf's tile, where the album's page does; played from, opened a
+// song from, and gone back from.
+//
+// So are artists and playlists, which are only ever opened from a shelf's tile: found, failed and
+// missing, played from, gone on from to an album or a song, and gone back from.
+//
 // The browser's history is walked along with the app: a page chosen by a link pushes an entry when
 // it takes the screen, typing rewrites one, Back, Forward and the history menu move through them.
 // That is what the app's own picture of the history is held against, what a page's back control
@@ -71,6 +95,28 @@ const TRACK_PATHS: Array.NonEmptyReadonlyArray<string> = [
   // A row can outlive its track: the list was loaded before the catalog withdrew it.
   trackPath(MISSING_TRACK_ID),
 ];
+/** The album of the lists' second track: the catalog has withdrawn it, and a row still leads to it. */
+const MISSING_ALBUM_ID: AlbumId = explicitTrack.album.id;
+
+const ALBUM_PATHS: Array.NonEmptyReadonlyArray<string> = [
+  albumPath(album.id),
+  albumPath(album.id),
+  albumPath(MISSING_ALBUM_ID),
+];
+/** An artist and a playlist the catalog has withdrawn: a shelf loaded before that still leads to each. */
+const MISSING_ARTIST_ID = ArtistId.make("ar-404");
+const MISSING_PLAYLIST_ID = PlaylistId.make("pl-404");
+
+const ARTIST_PATHS: Array.NonEmptyReadonlyArray<string> = [
+  artistPath(artist.id),
+  artistPath(artist.id),
+  artistPath(MISSING_ARTIST_ID),
+];
+const PLAYLIST_PATHS: Array.NonEmptyReadonlyArray<string> = [
+  playlistPath(playlist.id),
+  playlistPath(playlist.id),
+  playlistPath(MISSING_PLAYLIST_ID),
+];
 const PATHS: Array.NonEmptyReadonlyArray<string> = [
   "/",
   "/new",
@@ -80,7 +126,13 @@ const PATHS: Array.NonEmptyReadonlyArray<string> = [
   "/search?q=a+",
   "/nowhere",
   ...TRACK_PATHS,
+  ...ALBUM_PATHS,
+  ...ARTIST_PATHS,
+  ...PLAYLIST_PATHS,
 ];
+
+/** The rows a list has: the tracks of the lists, the second on the album that is gone. */
+const ROW_TRACK_IDS: Array.NonEmptyReadonlyArray<TrackId> = [track.id, explicitTrack.id];
 const LINKS: Array.NonEmptyReadonlyArray<string> = ["/", "/new", "/search", "/", "/new", "/nowhere"];
 const FIELD_TEXTS: Array.NonEmptyReadonlyArray<string> = ["", "a", "ab", "a ", " ", "b"];
 
@@ -136,6 +188,15 @@ type Issued = NonNullable<ReturnType<typeof update>["commands"]>[number];
 const hasRequestId = Schema.is(Schema.Struct({ requestId: Schema.String }));
 const hasTrackInput = Schema.is(
   Schema.Struct({ requestId: Schema.String, input: Schema.Struct({ trackId: TrackId }) }),
+);
+const hasAlbumInput = Schema.is(
+  Schema.Struct({ requestId: Schema.String, input: Schema.Struct({ albumId: AlbumId }) }),
+);
+const hasArtistInput = Schema.is(
+  Schema.Struct({ requestId: Schema.String, input: Schema.Struct({ artistId: ArtistId }) }),
+);
+const hasPlaylistInput = Schema.is(
+  Schema.Struct({ requestId: Schema.String, input: Schema.Struct({ playlistId: PlaylistId }) }),
 );
 const hasPauseId = Schema.is(Schema.Struct({ pauseId: Schema.String }));
 const hasUrl = Schema.is(Schema.Struct({ url: Schema.String }));
@@ -320,6 +381,54 @@ const replyTo = (command: Issued, fate: Fate): Option.Option<Message> => {
       ),
     );
   }
+  if (name === "AlbumDetail" && hasAlbumInput(args)) {
+    const { requestId, input } = args;
+    if (fate === "Refused") {
+      return Option.some(arrived(reply.albumRefused(requestId)));
+    }
+    if (fate === "TimedOut") {
+      return Option.some(arrived(reply.albumLost(requestId)));
+    }
+    return Option.some(
+      arrived(
+        input.albumId === MISSING_ALBUM_ID
+          ? reply.albumMissing(requestId, input.albumId)
+          : reply.album(requestId, { ...fullAlbum, id: input.albumId }),
+      ),
+    );
+  }
+  if (name === "ArtistDetail" && hasArtistInput(args)) {
+    const { requestId, input } = args;
+    if (fate === "Refused") {
+      return Option.some(arrived(reply.artistRefused(requestId)));
+    }
+    if (fate === "TimedOut") {
+      return Option.some(arrived(reply.artistLost(requestId)));
+    }
+    return Option.some(
+      arrived(
+        input.artistId === MISSING_ARTIST_ID
+          ? reply.artistMissing(requestId, input.artistId)
+          : reply.artist(requestId, { ...fullArtist, id: input.artistId }),
+      ),
+    );
+  }
+  if (name === "PlaylistDetail" && hasPlaylistInput(args)) {
+    const { requestId, input } = args;
+    if (fate === "Refused") {
+      return Option.some(arrived(reply.playlistRefused(requestId)));
+    }
+    if (fate === "TimedOut") {
+      return Option.some(arrived(reply.playlistLost(requestId)));
+    }
+    return Option.some(
+      arrived(
+        input.playlistId === MISSING_PLAYLIST_ID
+          ? reply.playlistMissing(requestId, input.playlistId)
+          : reply.playlist(requestId, { ...fullPlaylist, id: input.playlistId }),
+      ),
+    );
+  }
   if (name === "WaitForTypingPause" && hasPauseId(args)) {
     return Option.some(Message.CompletedWaitForTypingPause({ pauseId: args.pauseId }));
   }
@@ -380,13 +489,34 @@ const moveHistory = (history: History, command: Issued): Option.Option<Moved> =>
 const currentPath = (history: History): string =>
   Option.getOrElse(Array.get(history.entries, history.index), () => "/");
 
-type PageName = "home" | "newMusic" | "search" | "track";
+type PageName = "home" | "newMusic" | "search" | "track" | "album" | "artist" | "playlist";
 
 const pendingTrackIds = (model: Model): ReadonlyArray<TrackId> =>
   pipe(
     HashMap.toEntries(model.tracks),
     Array.filter(([, data]) => AsyncData.isPending(data)),
     Array.map(([trackId]) => trackId),
+  );
+
+const pendingAlbumIds = (model: Model): ReadonlyArray<AlbumId> =>
+  pipe(
+    HashMap.toEntries(model.albums),
+    Array.filter(([, data]) => AsyncData.isPending(data)),
+    Array.map(([albumId]) => albumId),
+  );
+
+const pendingArtistIds = (model: Model): ReadonlyArray<ArtistId> =>
+  pipe(
+    HashMap.toEntries(model.artists),
+    Array.filter(([, data]) => AsyncData.isPending(data)),
+    Array.map(([artistId]) => artistId),
+  );
+
+const pendingPlaylistIds = (model: Model): ReadonlyArray<PlaylistId> =>
+  pipe(
+    HashMap.toEntries(model.playlists),
+    Array.filter(([, data]) => AsyncData.isPending(data)),
+    Array.map(([playlistId]) => playlistId),
   );
 
 const pendingPages = (model: Model): ReadonlyArray<PageName> =>
@@ -397,6 +527,15 @@ const pendingPages = (model: Model): ReadonlyArray<PageName> =>
     Option.liftPredicate<PageName>("track", () =>
       Array.isReadonlyArrayNonEmpty(pendingTrackIds(model)),
     ),
+    Option.liftPredicate<PageName>("album", () =>
+      Array.isReadonlyArrayNonEmpty(pendingAlbumIds(model)),
+    ),
+    Option.liftPredicate<PageName>("artist", () =>
+      Array.isReadonlyArrayNonEmpty(pendingArtistIds(model)),
+    ),
+    Option.liftPredicate<PageName>("playlist", () =>
+      Array.isReadonlyArrayNonEmpty(pendingPlaylistIds(model)),
+    ),
   ]);
 
 const pageOf = (route: AppRoute): Option.Option<PageName> =>
@@ -405,6 +544,9 @@ const pageOf = (route: AppRoute): Option.Option<PageName> =>
     New: () => Option.some("newMusic"),
     Search: () => Option.some("search"),
     Track: () => Option.some("track"),
+    Album: () => Option.some("album"),
+    Artist: () => Option.some("artist"),
+    Playlist: () => Option.some("playlist"),
     NotFound: () => Option.none(),
   });
 
@@ -418,6 +560,9 @@ const showsTryAgain = (model: Model): boolean =>
     New: () => AsyncData.hasError(model.newMusic),
     Search: () => AsyncData.hasError(model.search),
     Track: ({ trackId }) => AsyncData.hasError(trackData(model, trackId)),
+    Album: ({ albumId }) => AsyncData.hasError(albumData(model, albumId)),
+    Artist: ({ artistId }) => AsyncData.hasError(artistData(model, artistId)),
+    Playlist: ({ playlistId }) => AsyncData.hasError(playlistData(model, playlistId)),
     NotFound: () => false,
   });
 
@@ -438,6 +583,55 @@ const failedTrackIds = (model: Model): ReadonlyArray<TrackId> =>
     HashMap.toEntries(model.tracks),
     Array.filter(([, data]) => AsyncData.isFailure(data)),
     Array.map(([trackId]) => trackId),
+  );
+
+/** Whether the page on screen shelves albums, each tile a link to its page. */
+const shelvesAlbums = (model: Model): boolean =>
+  AppRoute.matchOrElse(
+    model.route,
+    {
+      Home: () => AsyncData.hasData(model.home),
+      New: () => AsyncData.hasData(model.newMusic),
+      Search: () => AsyncData.hasData(model.search),
+    },
+    () => false,
+  );
+
+/** Whether the page on screen is an album's, with its rows. */
+const listsAlbum = (model: Model): boolean =>
+  model.route._tag === "Album" &&
+  Option.exists(AsyncData.getData(albumData(model, model.route.albumId)), Option.isSome);
+
+/** Whether the page on screen shelves artists and playlists, each tile a link to its page. */
+const shelvesArtistsAndPlaylists = (model: Model): boolean =>
+  AppRoute.matchOrElse(
+    model.route,
+    {
+      Home: () => AsyncData.hasData(model.home),
+      Search: () => AsyncData.hasData(model.search),
+    },
+    () => false,
+  );
+
+/** Whether the page on screen is an artist's, with their rows and their shelf. */
+const listsArtist = (model: Model): boolean =>
+  model.route._tag === "Artist" &&
+  Option.exists(AsyncData.getData(artistData(model, model.route.artistId)), Option.isSome);
+
+/** Whether the page on screen is a playlist's, with its rows. */
+const listsPlaylist = (model: Model): boolean =>
+  model.route._tag === "Playlist" &&
+  Option.exists(AsyncData.getData(playlistData(model, model.route.playlistId)), Option.isSome);
+
+/** The rows of the list on screen that offer Try again for their album: it failed to open from them. */
+const failedAlbumRows = (model: Model): ReadonlyArray<Row> =>
+  pipe(
+    HashMap.toEntries(model.albumRows),
+    Array.filter(
+      ([albumId, row]) =>
+        row.from === model.route._tag && AsyncData.isFailure(albumData(model, albumId)),
+    ),
+    Array.map(([, row]) => row),
   );
 
 /** What the rules allow of any Model, whatever happened before it. Returns the rules it breaks. */
@@ -469,6 +663,63 @@ const broken = (model: Model): ReadonlyArray<string> => {
       "a track known to be missing is never asked for again",
       Array.every(
         HashMap.toValues(model.tracks),
+        (data) =>
+          !AsyncData.isPending(data) || !Option.exists(AsyncData.getData(data), Option.isNone),
+      ),
+    ],
+    [
+      "the only album ever pending is the one the listener is opening or looking at",
+      Array.every(
+        pendingAlbumIds(model),
+        (albumId) => awaited._tag === "Album" && awaited.albumId === albumId,
+      ),
+    ],
+    [
+      "an album with nothing held and nothing asked has no entry",
+      Array.every(HashMap.toValues(model.albums), (data) => !AsyncData.isIdle(data)),
+    ],
+    [
+      "an album known to be missing is never asked for again",
+      Array.every(
+        HashMap.toValues(model.albums),
+        (data) =>
+          !AsyncData.isPending(data) || !Option.exists(AsyncData.getData(data), Option.isNone),
+      ),
+    ],
+    [
+      "the only artist ever pending is the one the listener is opening or looking at",
+      Array.every(
+        pendingArtistIds(model),
+        (artistId) => awaited._tag === "Artist" && awaited.artistId === artistId,
+      ),
+    ],
+    [
+      "an artist with nothing held and nothing asked has no entry",
+      Array.every(HashMap.toValues(model.artists), (data) => !AsyncData.isIdle(data)),
+    ],
+    [
+      "an artist known to be missing is never asked for again",
+      Array.every(
+        HashMap.toValues(model.artists),
+        (data) =>
+          !AsyncData.isPending(data) || !Option.exists(AsyncData.getData(data), Option.isNone),
+      ),
+    ],
+    [
+      "the only playlist ever pending is the one the listener is opening or looking at",
+      Array.every(
+        pendingPlaylistIds(model),
+        (playlistId) => awaited._tag === "Playlist" && awaited.playlistId === playlistId,
+      ),
+    ],
+    [
+      "a playlist with nothing held and nothing asked has no entry",
+      Array.every(HashMap.toValues(model.playlists), (data) => !AsyncData.isIdle(data)),
+    ],
+    [
+      "a playlist known to be missing is never asked for again",
+      Array.every(
+        HashMap.toValues(model.playlists),
         (data) =>
           !AsyncData.isPending(data) || !Option.exists(AsyncData.getData(data), Option.isNone),
       ),
@@ -802,6 +1053,95 @@ const acting = (walk: Walk, seed: number): Happening => {
     };
   }
 
+  const albumRoll = nextSeed(playChoice) % 100;
+  const albumChoice = nextSeed(nextSeed(playChoice));
+  if (albumRoll < 10 && listsTracks(walk.model)) {
+    const from: PlayOrigin = walk.model.route._tag === "Search" ? "Search" : "New";
+    return {
+      label: "chooses Go to album on a row",
+      message: choseFromRow(from, pick(ROW_TRACK_IDS, albumChoice), "OpenAlbum"),
+      ...unchanged,
+    };
+  }
+  if (albumRoll < 16 && shelvesAlbums(walk.model)) {
+    return clicks(pick(ALBUM_PATHS, albumChoice));
+  }
+  const failedAlbums = failedAlbumRows(walk.model);
+  if (albumRoll < 70 && Array.isReadonlyArrayNonEmpty(failedAlbums)) {
+    const row = pick(failedAlbums, albumChoice);
+    return {
+      label: "clicks Try again on a row's album",
+      message: Message.ClickedTryAgainOnAlbum({ from: row.from, trackId: row.trackId }),
+      ...unchanged,
+    };
+  }
+  if (albumRoll < 25 && listsAlbum(walk.model)) {
+    return {
+      label: "taps a row of the album to play",
+      message: Message.ClickedPlayTrack({ trackId: pick(PLAYABLE_IDS, albumChoice), from: "Album" }),
+      ...unchanged,
+    };
+  }
+  if (albumRoll < 40 && listsAlbum(walk.model)) {
+    return {
+      label: "chooses Song details on a row of the album",
+      message: choseFromRow("Album", track.id, "OpenSong"),
+      ...unchanged,
+    };
+  }
+  if (albumRoll < 60 && walk.model.route._tag === "Album") {
+    // The page's own way back, as a track's page has it.
+    return Option.isSome(wayBack(walk.model))
+      ? { label: "clicks the album page's Back", message: Message.ClickedBack(), ...unchanged }
+      : clicks("/");
+  }
+
+  const shelfRoll = nextSeed(albumChoice) % 100;
+  const shelfChoice = nextSeed(nextSeed(albumChoice));
+  if (shelfRoll < 6 && shelvesArtistsAndPlaylists(walk.model)) {
+    return clicks(pick(ARTIST_PATHS, shelfChoice));
+  }
+  if (shelfRoll < 12 && shelvesArtistsAndPlaylists(walk.model)) {
+    return clicks(pick(PLAYLIST_PATHS, shelfChoice));
+  }
+  if (shelfRoll < 25 && (listsArtist(walk.model) || listsPlaylist(walk.model))) {
+    const from: PlayOrigin = walk.model.route._tag === "Artist" ? "Artist" : "Playlist";
+    return {
+      label: `taps a row of the ${from === "Artist" ? "artist" : "playlist"} to play`,
+      message: Message.ClickedPlayTrack({ trackId: pick(PLAYABLE_IDS, shelfChoice), from }),
+      ...unchanged,
+    };
+  }
+  if (shelfRoll < 37 && (listsArtist(walk.model) || listsPlaylist(walk.model))) {
+    const from: PlayOrigin = walk.model.route._tag === "Artist" ? "Artist" : "Playlist";
+    return {
+      label: `chooses Go to album on a row of the ${from === "Artist" ? "artist" : "playlist"}`,
+      message: choseFromRow(from, pick(ROW_TRACK_IDS, shelfChoice), "OpenAlbum"),
+      ...unchanged,
+    };
+  }
+  if (shelfRoll < 47 && listsArtist(walk.model)) {
+    // The artist's own shelf: its tiles lead to albums as any shelf's do.
+    return clicks(pick(ALBUM_PATHS, shelfChoice));
+  }
+  if (shelfRoll < 47 && listsPlaylist(walk.model)) {
+    return {
+      label: "chooses Song details on a row of the playlist",
+      message: choseFromRow("Playlist", track.id, "OpenSong"),
+      ...unchanged,
+    };
+  }
+  if (shelfRoll < 65 && (walk.model.route._tag === "Artist" || walk.model.route._tag === "Playlist")) {
+    // The page's own way back, as a track's page has it.
+    return Option.isSome(wayBack(walk.model))
+      ? {
+          label: `clicks the ${walk.model.route._tag === "Artist" ? "artist" : "playlist"} page's Back`,
+          message: Message.ClickedBack(),
+          ...unchanged,
+        }
+      : clicks("/");
+  }
+
   if (roll < 12 && walk.history.index > 0) {
     const history = { entries: walk.history.entries, index: walk.history.index - 1 };
     return {
@@ -1017,6 +1357,36 @@ test("the walks do reach what they are meant to try", () => {
   // Pages chosen by a link did take the screen, and the URL with them.
   expect(reaching("pushes /track/")).toBeGreaterThan(WALKS / 20);
   expect(reaching("pushes /new")).toBeGreaterThan(WALKS / 10);
+  // Albums: asked from a row and from a tile, found, failed, missing, played from and left.
+  expect(reaching("chooses Go to album on a row")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("clicks link /album/")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("SucceededAlbumDetail")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("AlbumNotFound")).toBeGreaterThan(WALKS / 50);
+  expect(reaching("FailedAlbumDetail")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("pushes /album/")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("clicks Try again on a row's album")).toBeGreaterThan(WALKS / 200);
+  expect(reaching("taps a row of the album to play")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("chooses Song details on a row of the album")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("clicks the album page's Back")).toBeGreaterThan(WALKS / 100);
+  // Artists and playlists: chosen from a tile, found, failed, missing, played from, gone on from
+  // to an album or a song, and left.
+  expect(reaching("clicks link /artist/")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("SucceededArtistDetail")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("ArtistNotFound")).toBeGreaterThan(WALKS / 50);
+  expect(reaching("FailedArtistDetail")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("pushes /artist/")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("taps a row of the artist to play")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("chooses Go to album on a row of the artist")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("clicks the artist page's Back")).toBeGreaterThan(WALKS / 200);
+  expect(reaching("clicks link /playlist/")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("SucceededPlaylistDetail")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("PlaylistNotFound")).toBeGreaterThan(WALKS / 50);
+  expect(reaching("FailedPlaylistDetail")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("pushes /playlist/")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("taps a row of the playlist to play")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("chooses Go to album on a row of the playlist")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("chooses Song details on a row of the playlist")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("clicks the playlist page's Back")).toBeGreaterThan(WALKS / 200);
   // A request nobody answered: the Command's timeout, reported as a lost reply.
   expect(reaching('"failure":{"_tag":"Unknown"}')).toBeGreaterThan(WALKS / 10);
   // Playing, and everything an engine can answer with, while all of the above goes on.

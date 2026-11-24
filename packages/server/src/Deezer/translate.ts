@@ -2,12 +2,19 @@ import { AlbumId, type AlbumSummary } from "@bafle/domain/Catalog/Album";
 import { ArtistId, type ArtistCredit, type ArtistSummary } from "@bafle/domain/Catalog/Artist";
 import type { Artwork } from "@bafle/domain/Catalog/Artwork";
 import { PlaylistId, type PlaylistSummary } from "@bafle/domain/Catalog/Playlist";
+import type { Album } from "@bafle/domain/Catalog/FullAlbum";
+import type { Artist } from "@bafle/domain/Catalog/FullArtist";
+import type { Playlist } from "@bafle/domain/Catalog/FullPlaylist";
 import { type Track, TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
 import * as Array from "effect/Array";
 import type {
   DeezerAlbum,
+  DeezerAlbumPage,
+  DeezerAlbumTrack,
   DeezerArtist,
+  DeezerArtistAlbum,
   DeezerPlaylist,
+  DeezerPlaylistPage,
   DeezerTrack,
   DeezerTrackPage,
 } from "./DeezerSchemas.ts";
@@ -72,6 +79,70 @@ export const toFullTrack = (track: DeezerTrackPage): Track => {
       track.track_position && track.track_position > 0 ? Math.round(track.track_position) : null,
   };
 };
+
+/**
+ * An album with the tracks Deezer lists for it. Each track is on this album,
+ * so it carries this album's id, title and cover, whether or not Deezer
+ * repeated them on it.
+ */
+export const toFullAlbum = (
+  album: DeezerAlbumPage,
+  tracks: ReadonlyArray<DeezerAlbumTrack>,
+): Album => {
+  const summary = toAlbum(album);
+  return {
+    ...summary,
+    tracks: tracks.map((track) => ({
+      id: TrackId.make(String(track.id)),
+      title: track.title,
+      artist: toCredit(track.artist),
+      album: { id: summary.id, title: summary.title, cover: summary.cover },
+      durationSeconds: Math.round(track.duration),
+      previewUrl: track.preview || null,
+      explicit: track.explicit_lyrics ?? false,
+    })),
+    releaseDate: toReleaseDate(album.release_date),
+  };
+};
+
+/**
+ * An artist with the tracks and the albums Deezer lists for them. Each album
+ * is theirs, so it carries their id and name, which Deezer leaves off it.
+ */
+export const toFullArtist = (
+  artist: DeezerArtist,
+  topTracks: ReadonlyArray<DeezerTrack>,
+  albums: ReadonlyArray<DeezerArtistAlbum>,
+): Artist => {
+  const summary = toArtist(artist);
+  return {
+    ...summary,
+    topTracks: topTracks.map(toTrack),
+    albums: albums.map((album) => ({
+      id: AlbumId.make(String(album.id)),
+      title: album.title,
+      artist: { id: summary.id, name: summary.name },
+      cover: toArtwork(album.cover_medium, album.cover_big, album.cover_xl),
+      explicit: album.explicit_lyrics ?? false,
+    })),
+  };
+};
+
+/** Who keeps a playlist. Deezer names them `creator` on the playlist itself and `user` in a list. */
+const toCurator = (playlist: DeezerPlaylistPage): string =>
+  playlist.creator?.name ?? playlist.user?.name ?? "Deezer";
+
+/** A playlist with the tracks Deezer lists for it, each once. */
+export const toFullPlaylist = (
+  playlist: DeezerPlaylistPage,
+  tracks: ReadonlyArray<DeezerTrack>,
+): Playlist => ({
+  id: PlaylistId.make(String(playlist.id)),
+  title: playlist.title,
+  curator: toCurator(playlist),
+  picture: toArtwork(playlist.picture_medium, playlist.picture_big, playlist.picture_xl),
+  tracks: Array.dedupeWith(tracks.map(toTrack), (a, b) => a.id === b.id),
+});
 
 export const toPlaylist = (playlist: DeezerPlaylist): PlaylistSummary => ({
   id: PlaylistId.make(String(playlist.id)),

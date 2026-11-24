@@ -14,7 +14,13 @@ import {
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
 import { shelfPlaceholderView } from "../view/placeholder.ts";
-import { albumTile, artistTile, maybeShelfView, playlistTile } from "../view/shelf.ts";
+import {
+  albumTile,
+  artistTile,
+  maybeShelfView,
+  playlistTile,
+  type TilesOpening,
+} from "../view/shelf.ts";
 
 // VIEW
 
@@ -35,28 +41,33 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
     ],
   );
 
-const shelvesView = (featured: FeaturedMusic, h: HtmlBuilder<Message>): Html =>
+const shelvesView = (
+  featured: FeaturedMusic,
+  presence: Presence,
+  { isAlbumOpening, isArtistOpening, isPlaylistOpening }: TilesOpening,
+  h: HtmlBuilder<Message>,
+): Html =>
   Array.match(
     Array.getSomes([
       maybeShelfView(
         "home-editors-picks",
         EDITORS_PICKS,
         "Square",
-        Array.map(featured.albums, albumTile),
+        Array.map(featured.albums, albumTile(isAlbumOpening, presence)),
         h,
       ),
       maybeShelfView(
         "home-top-playlists",
         TOP_PLAYLISTS,
         "Square",
-        Array.map(featured.playlists, playlistTile),
+        Array.map(featured.playlists, playlistTile(isPlaylistOpening, presence)),
         h,
       ),
       maybeShelfView(
         "home-top-artists",
         TOP_ARTISTS,
         "Round",
-        Array.map(featured.artists, artistTile),
+        Array.map(featured.artists, artistTile(isArtistOpening, presence)),
         h,
       ),
     ]),
@@ -67,7 +78,12 @@ const shelvesView = (featured: FeaturedMusic, h: HtmlBuilder<Message>): Html =>
     },
   );
 
-export const view = (home: HomeData, presence: Presence, h: HtmlBuilder<Message>): Html =>
+export const view = (
+  home: HomeData,
+  presence: Presence,
+  opening: TilesOpening,
+  h: HtmlBuilder<Message>,
+): Html =>
   h.div(pageAttributes(PAGE_ID, presence, h), [
     pageTitleView(PAGE_ID, TITLE, h),
     h.div(
@@ -77,7 +93,7 @@ export const view = (home: HomeData, presence: Presence, h: HtmlBuilder<Message>
           home,
           TITLE,
           () => placeholderView(h),
-          (featured) => shelvesView(featured, h),
+          (featured) => shelvesView(featured, presence, opening, h),
           h,
         ),
       ],

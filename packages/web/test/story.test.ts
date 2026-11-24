@@ -1,6 +1,7 @@
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
+import { AsyncData } from "foldkit";
 import { Command, given, message, model, story } from "foldkit/story";
 import { modifyFields } from "foldkit/struct";
 import { describe, expect, test } from "vitest";
@@ -1280,6 +1281,46 @@ describe("rule 6: search keeps its results while it loads", () => {
       ),
     ));
 
+  test("a term searched for before shows what it found at once, and is asked for again only after the pause", () => {
+    // "daft", then "daft punk", answered: both are held, and the page shows the second.
+    const onMore = after(askedForMore, arrived(reply.search(awaitedId(askedForMore), foundMore)));
+    expect(HashMap.get(onMore.searched, "daft")).toEqual(Option.some(found));
+    expect(HashMap.get(onMore.searched, "daft punk")).toEqual(Option.some(foundMore));
+
+    // Back to "daft" within Search, or its letters deleted: either way the URL says "daft" again.
+    story(
+      update,
+      given(onMore),
+      message(changedUrl("/search?q=daft")),
+      model((model) => {
+        expect(model.route).toEqual(searchFor("daft"));
+        // Not the list for "daft punk" marked as loading: the list for "daft" itself.
+        expect(model.search).toEqual(
+          SearchData.Refreshing({ data: { term: "daft", results: found } }),
+        );
+      }),
+      // As with any typing, the catalog hears of it after the pause.
+      Command.expectExact(WaitForTypingPause({ pauseId: nextId(onMore) })),
+      Command.resolve(
+        WaitForTypingPause,
+        Message.CompletedWaitForTypingPause({ pauseId: nextId(onMore) }),
+      ),
+      Command.resolve(
+        Catalog.CatalogSearch,
+        reply.search(nextId(after(onMore, changedUrl("/search?q=daft")))),
+      ),
+      model((model) =>
+        expect(model.search).toEqual(SearchData.Success({ data: { term: "daft", results: found } })),
+      ),
+    );
+  });
+
+  test("a search that failed is not kept: there is nothing of it to go back to", () => {
+    const failed = after(askedForMore, arrived(reply.searchRefused(awaitedId(askedForMore))));
+    expect(HashMap.has(failed.searched, "daft punk")).toBe(false);
+    expect(HashMap.get(failed.searched, "daft")).toEqual(Option.some(found));
+  });
+
   test("a pause overtaken by more typing asks nothing; only the last one does", () => {
     const typedEvenMore = after(typedMore, changedUrl("/search?q=daft+punk+live"));
 
@@ -1434,9 +1475,10 @@ describe("the way back", () => {
     );
   });
 
-  test("back on a list that has to load again, the row still takes the focus when it comes", () => {
-    // The track was opened from a search; on its page the listener searched for something else,
-    // and went Back twice: the first search is no longer the one the Model holds.
+  // The track was opened from a search for "daft"; on its page the listener
+  // searched for something else, and went Back to the track. The search page
+  // now holds the second search, and the first is one Back further.
+  const afterAnotherSearch = (): Model => {
     const onTrackFromSearch = answered(
       chose(onSearch, trackPath(track.id)),
       reply.track,
@@ -1456,18 +1498,49 @@ describe("the way back", () => {
       answered(askedElse, (requestId) => reply.search(requestId, foundMore)),
       changedUrl(trackPath(track.id)),
     );
+    return answered(backOnTrack, reply.track);
+  };
+
+  test("back on an earlier search, what it found is still held: the list is there at once, as it was left", () => {
+    const backOnTrack = afterAnotherSearch();
     expect(backOnTrack.route).toEqual(trackRoute);
+    // The page holds the second search; the first is kept under its term.
+    expect(AsyncData.getData(backOnTrack.search)).toEqual(
+      Option.some({ term: "justice", results: foundMore }),
+    );
+    expect(HashMap.get(backOnTrack.searched, "daft")).toEqual(Option.some(found));
 
     story(
       update,
-      given(answered(backOnTrack, reply.track)),
+      given(backOnTrack),
+      message(changedUrl("/search?q=daft")),
+      // Nothing is waited for: the list takes the screen with what it held, and is asked for again behind it.
+      model((model) => {
+        expect(model.route).toEqual(searchFor("daft"));
+        expect(model.search).toEqual(
+          SearchData.Refreshing({ data: { term: "daft", results: found } }),
+        );
+      }),
+      Command.expectExact(
+        Catalog.CatalogSearch({ input: { term: "daft" }, requestId: nextId(backOnTrack) }),
+        FocusTrackRow({ pageId: PAGE_IDS.Search, trackId: track.id }),
+      ),
+      Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      Command.resolve(Catalog.CatalogSearch, reply.search(nextId(backOnTrack))),
+    );
+  });
+
+  test("back on a list that has to load again, the row still takes the focus when it comes", () => {
+    // A search the app does not hold: here, one whose answer was never kept.
+    const backOnTrack = modifyFields(afterAnotherSearch(), { searched: () => HashMap.empty() });
+
+    story(
+      update,
+      given(backOnTrack),
       message(changedUrl("/search?q=daft")),
       // The search for "daft" has to be asked again: the track's page is held meanwhile.
       model((model) => expect(model.route).toEqual(trackRoute)),
-      Command.resolve(
-        Catalog.CatalogSearch,
-        reply.search(nextId(answered(backOnTrack, reply.track))),
-      ),
+      Command.resolve(Catalog.CatalogSearch, reply.search(nextId(backOnTrack))),
       model((model) => expect(model.route).toEqual(searchFor("daft"))),
       // As when the list is there at once: the row, not the field.
       Command.expectExact(FocusTrackRow({ pageId: PAGE_IDS.Search, trackId: track.id })),

@@ -20,6 +20,9 @@ export const PAGE_IDS: Readonly<Record<AppRoute["_tag"], string>> = {
   New: "new-page",
   Search: "search-page",
   Track: "track-page",
+  Album: "album-page",
+  Artist: "artist-page",
+  Playlist: "playlist-page",
   NotFound: "not-found-page",
 };
 
@@ -39,12 +42,28 @@ export const pageTitleIdOf = (pageId: string): string => `${pageId}-title`;
  */
 export const TRACK_ROW_ATTRIBUTE = "track-row";
 
+/** The data attribute that marks a shelf's tile with its album, so the focus can be given back to it. */
+export const ALBUM_TILE_ATTRIBUTE = "album-tile";
+
+// NOTE: a kind of tile has an attribute of its own because the catalog's ids
+// are only told apart within a kind: Search shelves artists, albums and
+// playlists on one page, and an artist can have the id an album has.
+
+/** The data attribute that marks a shelf's tile with its artist, as an album's tile is marked. */
+export const ARTIST_TILE_ATTRIBUTE = "artist-tile";
+
+/** The data attribute that marks a shelf's tile with its playlist, as an album's tile is marked. */
+export const PLAYLIST_TILE_ATTRIBUTE = "playlist-tile";
+
 /**
  * Whether a page is the one on screen, or kept behind it. A kept page stays
  * in the document, laid out and scrolled as the listener left it, so that
- * coming back to it rebuilds nothing: it is only hidden.
+ * coming back to it rebuilds nothing: it is only hidden. `Uncovered` is a
+ * kept page that is seen all the same: the one behind the expanded player,
+ * while the player's sheet is on its way off the screen. It is drawn as it
+ * was left, and is not yet a page to act on.
  */
-export type Presence = "OnScreen" | "Kept";
+export type Presence = "OnScreen" | "Uncovered" | "Kept";
 
 /**
  * What every page's root element carries. The root is the scrolling box, so
@@ -64,7 +83,7 @@ export const pageAttributes = (
   h.Role("region"),
   h.AriaLabelledBy(pageTitleIdOf(pageId)),
   h.Tabindex(0),
-  h.Inert(presence === "Kept"),
+  h.Inert(presence !== "OnScreen"),
   h.Class(
     "relative h-full overflow-y-auto px-5 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] scroll-pb-24 group-data-player/shell:scroll-pb-40 group-data-player/shell:pb-[calc(10rem+env(safe-area-inset-bottom))] md:scroll-pb-0 md:pb-12 md:group-data-player/shell:scroll-pb-28 md:group-data-player/shell:pb-28 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:px-10 md:pt-10",
   ),

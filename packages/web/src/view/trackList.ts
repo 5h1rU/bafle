@@ -1,4 +1,5 @@
-import type { Track, TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
+import type { AlbumId } from "@bafle/domain/Catalog/Album";
+import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
 import { Button, type Menu } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
@@ -8,18 +9,20 @@ import { childAttributes, type Html, type HtmlBuilder } from "foldkit/html";
 import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "../catalog.ts";
 import { Message, type PlayOrigin } from "../message.ts";
-import type { TrackData } from "../model.ts";
+import { type AlbumData, isKnownMissing, type TrackData } from "../model.ts";
 import { isPlayable, type QueuePlace, type TrackStatus } from "../player/model.ts";
 import { type RowAction, RowMenu, rowMenuId } from "../rowMenu.ts";
 import { artworkView, coverTransitionStyle } from "./artwork.ts";
 import { reason } from "./feedback.ts";
 import {
+  albumIcon,
   checkIcon,
   detailsIcon,
   moreIcon,
   playLastIcon,
   playNextIcon,
   spinnerIcon,
+  retryIcon,
 } from "./icon.ts";
 import { type Presence, SECTION_HEADING_CLASS, TRACK_ROW_ATTRIBUTE } from "./layout.ts";
 import { formatDuration } from "./time.ts";
@@ -53,9 +56,10 @@ export const explicitMarkerView = (h: HtmlBuilder<Message>): Html =>
   );
 
 /**
- * What a row has to say about opening its track. It is read from what the
- * catalog said of the track, so a row is in one state at a time: it cannot
- * be loading and failed at once.
+ * What a row has to say about opening one of the pages it leads to: its
+ * track's, or the album's. It is read from what the catalog said of that
+ * page, so a row is in one state at a time for each: it cannot be loading
+ * and failed at once.
  */
 const RowState = defineTaggedUnion({
   Openable: {},
@@ -65,34 +69,38 @@ const RowState = defineTaggedUnion({
 });
 type RowState = typeof RowState.Type;
 
-/** A track held, or one being refreshed behind its page, opens at once: its row is a plain row. */
-const rowStateOf = (trackData: TrackData): RowState => {
-  const whenHeld = (maybeTrack: Option.Option<Track>): RowState =>
-    Option.match(maybeTrack, {
+/** A page held, or one being refreshed behind itself, opens at once: its row is a plain row. */
+const rowStateOf = <A>(data: AsyncData.AsyncData<Option.Option<A>, LoadError>): RowState => {
+  const whenHeld = (maybeFound: Option.Option<A>): RowState =>
+    Option.match(maybeFound, {
       onNone: () => RowState.NotAvailable(),
       onSome: () => RowState.Openable(),
     });
 
-  return AsyncData.match(trackData, {
+  return AsyncData.match(data, {
     onIdle: () => RowState.Openable(),
     onLoading: () => RowState.Opening(),
     onFailure: (error) => RowState.Failed({ error }),
     onRefreshing: whenHeld,
-    onStale: ({ data }) => whenHeld(data),
+    onStale: ({ data: held }) => whenHeld(held),
     onSuccess: whenHeld,
   });
 };
 
 /**
  * What a list of tracks needs to know of the page it is on: whether it is on
- * screen, which page it is, what the app holds about each of its tracks,
- * what the player is doing with each and whether it holds anything at all,
- * each row's menu, and whether a row has just had its track queued.
+ * screen, which page it is, what the app holds about each of its tracks and
+ * about the album each is on, which row an album was asked from, what the
+ * player is doing with each track and whether it holds anything at all, each
+ * row's menu, and whether a row has just had its track queued.
  */
 export type TrackListContext = Readonly<{
   presence: Presence;
   from: PlayOrigin;
   trackDataOf: (trackId: TrackId) => TrackData;
+  albumDataOf: (albumId: AlbumId) => AlbumData;
+  /** Whether this list's row for the track is the one its album was last asked from. */
+  isAlbumAskedFrom: (track: TrackSummary) => boolean;
   statusOf: (trackId: TrackId) => TrackStatus;
   isPlayerHolding: boolean;
   menuOf: (trackId: TrackId) => Menu.Model;
@@ -264,37 +272,116 @@ type ActionLook = Readonly<{ label: string; icon: (className: string) => Html }>
 const ACTION_LOOKS: Readonly<Record<RowAction, ActionLook>> = {
   PlayNext: { label: "Play next", icon: playNextIcon },
   AddToQueue: { label: "Add to queue", icon: playLastIcon },
+  OpenAlbum: { label: "Go to album", icon: albumIcon },
   OpenSong: { label: "Song details", icon: detailsIcon },
 };
 
 /**
+ * What a row has to say of the two pages its menu leads to. What is said of
+ * the album is said by one row, the one it was asked from: an album can be
+ * on every row of a list, and only one of them was used. That the catalog
+ * does not have the album is true of them all, and none of them offers it.
+ */
+type RowPages = Readonly<{ song: RowState; album: RowState; isAlbumOffered: boolean }>;
+
+const rowPagesOf = (track: TrackSummary, context: TrackListContext): RowPages => {
+  const album = context.albumDataOf(track.album.id);
+
+  return {
+    song: rowStateOf(context.trackDataOf(track.id)),
+    album: context.isAlbumAskedFrom(track) ? rowStateOf(album) : RowState.Openable(),
+    // On the album's own page there is no album to go to: the listener is there.
+    isAlbumOffered: context.from !== "Album" && !isKnownMissing(album),
+  };
+};
+
+const isOpening = (pages: RowPages): boolean =>
+  RowState.guards.Opening(pages.song) || RowState.guards.Opening(pages.album);
+
+/**
  * What a row's menu offers for its track, in the order it is offered. A
  * track is queued once something else is playing: a queue is what comes
- * after a track. Its page is offered for as long as the catalog has it.
+ * after a track. Its page and its album's are each offered for as long as
+ * the catalog has them.
  */
 const actionsOf = (
   track: TrackSummary,
-  state: RowState,
+  pages: RowPages,
   status: TrackStatus,
   context: TrackListContext,
 ): ReadonlyArray<RowAction> => [
   ...(isPlayable(track) && context.isPlayerHolding && !isInPlayer(status)
     ? (["PlayNext", "AddToQueue"] as const)
     : []),
-  ...(RowState.guards.NotAvailable(state) ? [] : (["OpenSong"] as const)),
+  ...(pages.isAlbumOffered ? (["OpenAlbum"] as const) : []),
+  ...(RowState.guards.NotAvailable(pages.song) ? [] : (["OpenSong"] as const)),
 ];
 
 /**
  * What the row's last control shows. It answers at once what was chosen
- * from its menu: a spinner while the track's page is on its way, since the
+ * from its menu: a spinner while the page chosen is on its way, since the
  * URL does not move until the page takes the screen, and a tick for a moment
  * when the track was queued.
  */
-const moreContentView = (state: RowState, maybeQueued: Option.Option<QueuePlace>): Html => {
-  if (RowState.guards.Opening(state)) {
+const moreContentView = (
+  pages: RowPages,
+  maybeQueued: Option.Option<QueuePlace>,
+  isMenuOpen: boolean,
+): Html => {
+  // An open menu says it itself, on the item that was chosen.
+  if (isOpening(pages) && !isMenuOpen) {
     return spinnerIcon("size-5 animate-spin motion-reduce:animate-pulse");
   }
   return Option.isSome(maybeQueued) ? checkIcon("size-5 text-accent") : moreIcon("size-5");
+};
+
+/** What a row has to say of the page an item of its menu leads to, if it leads to one. */
+const pageStateOf = (action: RowAction, pages: RowPages): RowState => {
+  if (action === "OpenSong") {
+    return pages.song;
+  }
+  return action === "OpenAlbum" ? pages.album : RowState.Openable();
+};
+
+const ITEM_ICON_CLASS = "size-5 shrink-0 text-muted";
+
+/**
+ * One item of the menu. An item that leads to a page answers a press where
+ * it was pressed: the menu stays open, the item's mark turns while the page
+ * is on its way, and if the page fails to open the item says so and is the
+ * way to try again. Nobody has to open the menu a second time to do that.
+ */
+const menuItemView = (action: RowAction, pages: RowPages, h: HtmlBuilder<Message>): Html => {
+  const look = ACTION_LOOKS[action];
+
+  return RowState.match(pageStateOf(action, pages), {
+    Openable: () =>
+      h.div([h.Class("contents")], [h.span([], [look.label]), look.icon(ITEM_ICON_CLASS)]),
+    NotAvailable: () =>
+      h.div([h.Class("contents")], [h.span([], [look.label]), look.icon(ITEM_ICON_CLASS)]),
+    Opening: () =>
+      h.div(
+        [h.DataAttribute("item-state", "opening"), h.Class("contents")],
+        [
+          h.span([], [look.label]),
+          spinnerIcon(clsx(ITEM_ICON_CLASS, "animate-spin motion-reduce:animate-pulse")),
+        ],
+      ),
+    Failed: () =>
+      h.div(
+        [h.DataAttribute("item-state", "failed"), h.Class("contents")],
+        [
+          h.span(
+            [h.Class("flex flex-col")],
+            [
+              h.span([], [look.label]),
+              h.span([h.Class("text-sm text-accent")], ["Could not open. Try again"]),
+            ],
+          ),
+          retryIcon("size-5 shrink-0 text-accent"),
+        ],
+      ),
+  });
 };
 
 /**
@@ -304,7 +391,7 @@ const moreContentView = (state: RowState, maybeQueued: Option.Option<QueuePlace>
 const rowMenuView = (
   track: TrackSummary,
   actions: Array.NonEmptyReadonlyArray<RowAction>,
-  state: RowState,
+  pages: RowPages,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): Html =>
@@ -316,21 +403,19 @@ const rowMenuView = (
       items: actions,
       itemToConfig: (action) => ({
         className: MENU_ITEM_CLASS,
-        content: h.div(
-          [h.Class("contents")],
-          [
-            h.span([], [ACTION_LOOKS[action].label]),
-            ACTION_LOOKS[action].icon("size-5 shrink-0 text-muted"),
-          ],
-        ),
+        content: menuItemView(action, pages, h),
       }),
       itemToSearchText: (action) => ACTION_LOOKS[action].label,
       ariaLabel: `More: ${track.title}`,
-      buttonContent: moreContentView(state, context.queuedOf(track.id)),
+      buttonContent: moreContentView(
+        pages,
+        context.queuedOf(track.id),
+        context.menuOf(track.id).isOpen,
+      ),
       buttonClassName: MORE_CLASS,
       buttonAttributes: childAttributes([
         h.DataAttribute(TRACK_ROW_ATTRIBUTE, track.id),
-        h.AriaBusy(RowState.guards.Opening(state)),
+        h.AriaBusy(isOpening(pages)),
       ]),
       itemsClassName: MENU_CLASS,
       backdropClassName: MENU_BACKDROP_CLASS,
@@ -363,7 +448,7 @@ type Sentence = Readonly<{ words: string; isShown: boolean }>;
 
 const sentences = (
   track: TrackSummary,
-  state: RowState,
+  pages: RowPages,
   status: TrackStatus,
   maybeQueued: Option.Option<QueuePlace>,
 ): ReadonlyArray<Sentence> =>
@@ -376,12 +461,19 @@ const sentences = (
       { words: "This song could not be played.", isShown: true },
       () => status === "Failed",
     ),
-    RowState.match<Option.Option<Sentence>>(state, {
+    RowState.match<Option.Option<Sentence>>(pages.song, {
       Openable: () => Option.none(),
       Opening: () => Option.some({ words: "Opening…", isShown: false }),
       Failed: ({ error }) =>
         Option.some({ words: `This song could not be opened. ${reason(error)}`, isShown: true }),
       NotAvailable: () => Option.some({ words: "This song is not available.", isShown: true }),
+    }),
+    RowState.match<Option.Option<Sentence>>(pages.album, {
+      Openable: () => Option.none(),
+      Opening: () => Option.some({ words: "Opening the album…", isShown: false }),
+      Failed: ({ error }) =>
+        Option.some({ words: `This album could not be opened. ${reason(error)}`, isShown: true }),
+      NotAvailable: () => Option.some({ words: "This album is not available.", isShown: true }),
     }),
     Option.map(maybeQueued, (place) => ({
       words: place === "Next" ? "Plays next." : "Added to the queue.",
@@ -389,41 +481,77 @@ const sentences = (
     })),
   ]);
 
-/** There can be several on a page, so each says which track it tries again. */
-const tryAgainView = (track: TrackSummary, h: HtmlBuilder<Message>): Html =>
+/** What a row's Try again tries: there can be several on a page, so each is named for it. */
+type Retry = Readonly<{ onClick: Message; name: string; words: string }>;
+
+/**
+ * The ways to try again a row offers: one for its song's page and one for
+ * its album's, each when that page failed to open. A row that offers both
+ * says on each which it is; alone, "Try again" is enough beside what failed.
+ */
+const retriesOf = (
+  track: TrackSummary,
+  pages: RowPages,
+  context: TrackListContext,
+): ReadonlyArray<Retry> => {
+  const isBoth = RowState.guards.Failed(pages.song) && RowState.guards.Failed(pages.album);
+
+  return Array.getSomes([
+    Option.liftPredicate<Retry>(
+      {
+        onClick: Message.ClickedTryAgainOnTrack({ trackId: track.id }),
+        name: `Try again: ${track.title}`,
+        words: isBoth ? "Try the song again" : "Try again",
+      },
+      () => RowState.guards.Failed(pages.song),
+    ),
+    Option.liftPredicate<Retry>(
+      {
+        onClick: Message.ClickedTryAgainOnAlbum({ from: context.from, trackId: track.id }),
+        name: `Try again: the album ${track.album.title}`,
+        words: isBoth ? "Try the album again" : "Try again",
+      },
+      () => RowState.guards.Failed(pages.album),
+    ),
+  ]);
+};
+
+const tryAgainView = (retry: Retry, h: HtmlBuilder<Message>): Html =>
   Button.view(
     {
-      onClick: Message.ClickedTryAgainOnTrack({ trackId: track.id }),
+      onClick: retry.onClick,
       toView: (attributes) =>
-        h.button(
+        h.keyed("button")(
+          retry.name,
           [
             ...attributes.button,
-            h.AriaLabel(`Try again: ${track.title}`),
+            h.AriaLabel(retry.name),
             h.Class(
               "cursor-pointer rounded-full font-semibold text-accent underline underline-offset-2 hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
             ),
           ],
-          ["Try again"],
+          [retry.words],
         ),
     },
     h,
   );
 
 /**
- * Where a row says what became of its track: that its page is opening, that
- * it failed to open, that the track is gone, that it has nothing to play,
- * that it could not be played, or that it was queued. The words are a status: said politely when
- * they change, without taking the focus. The place is there whether or not
- * there is anything to say, so that what is said is heard as a change.
+ * Where a row says what became of its track: that its page or its album's
+ * is opening, that it failed to open, that the track or the album is gone,
+ * that it has nothing to play, that it could not be played, or that it was
+ * queued. The words are a status: said politely when they change, without
+ * taking the focus. The place is there whether or not there is anything to
+ * say, so that what is said is heard as a change.
  */
 const noticeView = (
   track: TrackSummary,
-  state: RowState,
+  pages: RowPages,
   status: TrackStatus,
-  maybeQueued: Option.Option<QueuePlace>,
+  context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const said = sentences(track, state, status, maybeQueued);
+  const said = sentences(track, pages, status, context.queuedOf(track.id));
   const isShown = Array.some(said, (sentence) => sentence.isShown);
 
   return h.div(
@@ -439,7 +567,7 @@ const noticeView = (
         [h.Role("status"), h.Class(clsx({ "sr-only": !isShown }))],
         [Array.join(Array.map(said, (sentence) => sentence.words), " ")],
       ),
-      RowState.guards.Failed(state) ? tryAgainView(track, h) : h.empty,
+      ...Array.map(retriesOf(track, pages, context), (retry) => tryAgainView(retry, h)),
     ],
   );
 };
@@ -456,7 +584,7 @@ const trackRowView = (
   context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const state = rowStateOf(context.trackDataOf(track.id));
+  const pages = rowPagesOf(track, context);
   const status = context.statusOf(track.id);
 
   return h.keyed("li")(
@@ -473,13 +601,13 @@ const trackRowView = (
           isPlayable(track)
             ? playRowView(track, maybePosition, status, context, h)
             : silentRowView(track, maybePosition, context, h),
-          Array.match(actionsOf(track, state, status, context), {
+          Array.match(actionsOf(track, pages, status, context), {
             onEmpty: () => noMenuView(track, h),
-            onNonEmpty: (actions) => rowMenuView(track, actions, state, context, h),
+            onNonEmpty: (actions) => rowMenuView(track, actions, pages, context, h),
           }),
         ],
       ),
-      noticeView(track, state, status, context.queuedOf(track.id), h),
+      noticeView(track, pages, status, context, h),
     ],
   );
 };

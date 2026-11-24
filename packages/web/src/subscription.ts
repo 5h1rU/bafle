@@ -1,3 +1,4 @@
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -15,6 +16,9 @@ export const DRAWS_BACK_AFTER_PIXELS = 48;
 
 /** How near its top a page has to be for the navigation to come out again. */
 export const TOP_WITHIN_PIXELS = 16;
+
+/** How long a page has to keep still for the scroll that was moving it to be over. */
+export const SCROLL_ENDS_AFTER = Duration.millis(150);
 
 /** Where a page stands: which page, and how far down from its top. */
 export type PagePosition = Readonly<{ pageId: string; top: number }>;
@@ -77,7 +81,8 @@ const standingOf = (pageId: string): Effect.Effect<PagePosition> =>
     return page === null ? { pageId, top: 0 } : positionOf(page);
   });
 
-const wentDown = (pageId: string): Stream.Stream<Message> =>
+/** The page going down from where it stands now: told once it has gone far enough. */
+const followingDown = (pageId: string): Stream.Stream<Message> =>
   Stream.unwrap(
     Effect.map(standingOf(pageId), (standing) =>
       pagePositions.pipe(
@@ -89,6 +94,45 @@ const wentDown = (pageId: string): Stream.Stream<Message> =>
           },
         ),
       ),
+    ),
+  );
+
+/** A touch laid on the page: whatever was moving it before is over, and this is a scroll of its own. */
+const touches = Stream.suspend(() =>
+  Dom.streamFromEventFilterMap({
+    target: document,
+    type: "touchstart",
+    options: { capture: true, passive: true },
+    filterMapEvent: () => Option.some(true),
+  }),
+);
+
+/**
+ * The scroll under way has come to its end: no page has moved for a moment,
+ * or the listener has laid a finger on the screen again. Told once. A page
+ * that is standing still says so after that same moment.
+ */
+const scrollUnderWayEnds: Stream.Stream<boolean> = Stream.merge(
+  touches,
+  Stream.concat(
+    Stream.make(true),
+    Stream.map(pagePositions, () => true),
+  ).pipe(Stream.debounce(SCROLL_ENDS_AFTER)),
+).pipe(Stream.take(1));
+
+// NOTE: the navigation is out in the middle of a page only because the
+// listener pressed its circle, and they may have pressed it while the page
+// was still running on from a flick. That run is not a wish to send the
+// navigation away again: it was under way before the press. So the following
+// waits for it to end, and starts from where the page has come to rest. At
+// the top of a page there is nothing to wait for: the navigation came out by
+// the page getting there, and the next way down is the listener's.
+const wentDown = (pageId: string): Stream.Stream<Message> =>
+  Stream.unwrap(
+    Effect.map(standingOf(pageId), (standing) =>
+      isAtTop(standing)
+        ? followingDown(pageId)
+        : Stream.flatMap(scrollUnderWayEnds, () => followingDown(pageId)),
     ),
   );
 

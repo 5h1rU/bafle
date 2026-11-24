@@ -1,8 +1,14 @@
 import * as DomainFoldkit from "@alchemy.run/domain/Foldkit";
+import type { AlbumId } from "@bafle/domain/Catalog/Album";
+import type { ArtistId } from "@bafle/domain/Catalog/Artist";
+import type { Album } from "@bafle/domain/Catalog/FullAlbum";
+import type { Artist } from "@bafle/domain/Catalog/FullArtist";
+import type { Playlist } from "@bafle/domain/Catalog/FullPlaylist";
 import type {
   FeaturedMusic,
   TrendingMusic,
 } from "@bafle/domain/Catalog/MusicCatalog.external";
+import type { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import type { Track, TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
 import * as Array from "effect/Array";
 import { identity, pipe } from "effect/Function";
@@ -20,16 +26,25 @@ import {
   Catalog,
   type CatalogClient,
   type LoadError,
+  toAlbumOutcome,
+  toArtistOutcome,
   toLoadError,
+  toPlaylistOutcome,
   toTrackOutcome,
 } from "./catalog.ts";
 import {
+  askAlbumDetail,
+  askArtistDetail,
   askCatalogSearch,
   askHomeFeed,
   askNewMusic,
+  askPlaylistDetail,
   askTrackDetail,
+  FocusAlbumTile,
+  FocusArtistTile,
   FocusNavigation,
   FocusPage,
+  FocusPlaylistTile,
   FocusSearchField,
   FocusTrackRow,
   LoadExternal,
@@ -45,20 +60,30 @@ import {
 import { Message, type PlayOrigin } from "./message.ts";
 import {
   addressOf,
+  albumData,
+  artistData,
   Awaiting,
   canShow,
   type Entrance,
+  maybeAlbumIdInDocument,
+  maybeArtistIdInDocument,
   maybeHeadedFor,
+  maybePlaylistIdInDocument,
+  isKnownMissing,
   isLoaded,
+  initialPlayerSheet,
   isPlayerExpanded,
   isPlayersTrack,
   Model,
   type Navigation,
+  playlistData,
   type SearchAnswer,
   trackData,
+  wayBackOn,
 } from "./model.ts";
 import type { AudioEngine } from "./player/audioEngine.ts";
 import * as Player from "./player/index.ts";
+import * as Sheet from "./sheet/index.ts";
 import {
   AppRoute,
   isSamePage,
@@ -101,16 +126,36 @@ const searchPage: Page<SearchAnswer> = {
   write: (model, nextSearch) => modifyFields(model, { search: () => nextSearch }),
 };
 
-/** A track's page keeps what the catalog told it under the track's id. Nothing held is no entry. */
+/** What one of many pages of a kind holds, under its id. Nothing held is no entry. */
+const heldUnder =
+  <Id, A>(id: Id, next: PageData<A>) =>
+  (held: HashMap.HashMap<Id, PageData<A>>): HashMap.HashMap<Id, PageData<A>> =>
+    AsyncData.isIdle(next) ? HashMap.remove(held, id) : HashMap.set(held, id, next);
+
+/** A track's page keeps what the catalog told it under the track's id. */
 const trackPage = (trackId: TrackId): Page<Option.Option<Track>> => ({
   read: (model) => trackData(model, trackId),
-  write: (model, nextTrack) =>
-    modifyFields(model, {
-      tracks: (tracks) =>
-        AsyncData.isIdle(nextTrack)
-          ? HashMap.remove(tracks, trackId)
-          : HashMap.set(tracks, trackId, nextTrack),
-    }),
+  write: (model, nextTrack) => modifyFields(model, { tracks: heldUnder(trackId, nextTrack) }),
+});
+
+/** An album's page keeps what the catalog told it under the album's id. */
+const albumPage = (albumId: AlbumId): Page<Option.Option<Album>> => ({
+  read: (model) => albumData(model, albumId),
+  write: (model, nextAlbum) => modifyFields(model, { albums: heldUnder(albumId, nextAlbum) }),
+});
+
+/** An artist's page keeps what the catalog told it under the artist's id. */
+const artistPage = (artistId: ArtistId): Page<Option.Option<Artist>> => ({
+  read: (model) => artistData(model, artistId),
+  write: (model, nextArtist) =>
+    modifyFields(model, { artists: heldUnder(artistId, nextArtist) }),
+});
+
+/** A playlist's page keeps what the catalog told it under the playlist's id. */
+const playlistPage = (playlistId: PlaylistId): Page<Option.Option<Playlist>> => ({
+  read: (model) => playlistData(model, playlistId),
+  write: (model, nextPlaylist) =>
+    modifyFields(model, { playlists: heldUnder(playlistId, nextPlaylist) }),
 });
 
 /** Loading for the first time, or again over what is already held. */
@@ -130,9 +175,31 @@ const standDown = <A>(data: PageData<A>): PageData<A> =>
 
 const forgetAnswer = (model: Model): Model => searchPage.write(model, AsyncData.Idle());
 
-/** The catalog has already said it has no such track: asking again would say the same. */
-const isKnownMissing = (track: PageData<Option.Option<Track>>): boolean =>
-  Option.exists(AsyncData.getData(track), Option.isNone);
+/** The answer the page holds is one more the app has seen: it is kept under its term. */
+const rememberAnswer = (model: Model): Model =>
+  Option.match(AsyncData.getData(model.search), {
+    onNone: () => model,
+    onSome: ({ term, results }) =>
+      Option.contains(HashMap.get(model.searched, term), results)
+        ? model
+        : modifyFields(model, { searched: HashMap.set(term, results) }),
+  });
+
+/**
+ * Put on the page what an earlier search for this term found, if there was
+ * one. The page then has that list to show at once, as the listener left
+ * it, and what the catalog says now replaces it when it comes.
+ */
+const recallAnswerFor =
+  (term: string) =>
+  (model: Model): Option.Option<Model> =>
+    Option.map(HashMap.get(model.searched, term), (results) =>
+      searchPage.write(model, AsyncData.Success({ data: { term, results } })),
+    );
+
+/** The catalog has the track or the album, and the app holds it. */
+const isHeld = <A>(data: PageData<Option.Option<A>>): boolean =>
+  Option.exists(AsyncData.getData(data), Option.isSome);
 
 // UPDATE
 
@@ -174,23 +241,57 @@ const awaitedRoute = (model: Model): AppRoute => Option.getOrElse(maybeHeadedFor
 const focusSearchFieldOnSearch: Step = (model) =>
   model.route._tag === "Search" ? { model, commands: [FocusSearchField()] } : { model };
 
+/** The sections: the pages the navigation leads to. */
+const isSection = (route: AppRoute): boolean =>
+  route._tag === "Home" || route._tag === "New" || route._tag === "Search";
+
+/**
+ * The pages an album is opened from: a section, an artist's page, a
+ * playlist's. Each has rows whose menu asks for an album, or a shelf of them.
+ */
+const leadsToAlbums = (route: AppRoute): boolean =>
+  isSection(route) || route._tag === "Artist" || route._tag === "Playlist";
+
 /**
  * What takes the focus when another page takes the screen. Back from a track
  * it is the row that opened it, so the list is as the listener left it, down
- * to where the keyboard was. A track's page takes it itself: the row that
- * held it is now behind the page. Search gives it to its field.
+ * to where the keyboard was. Back from an album it is what opened the album:
+ * the row whose menu it was asked from, else its tile on a shelf. Back from
+ * an artist or a playlist it is the tile, the only way to either. A track's
+ * page takes it itself, and so does an album's, an artist's and a
+ * playlist's: what held it is now behind the page. Search gives it to its
+ * field.
  */
-const focusOn = (left: AppRoute, entered: AppRoute, entrance: Entrance) =>
-  left._tag === "Track" && entered._tag !== "Track" && entrance === "Returning"
-    ? [FocusTrackRow({ pageId: pageIdOf(entered), trackId: left.trackId })]
-    : AppRoute.matchOrElse(
-        entered,
-        {
-          Search: () => [FocusSearchField()],
-          Track: () => [FocusPage({ pageId: pageIdOf(entered) })],
-        },
-        () => [],
-      );
+const focusOn = (model: Model, entered: AppRoute, entrance: Entrance) => {
+  const left = model.route;
+  const pageId = pageIdOf(entered);
+  if (entrance === "Returning" && left._tag === "Track" && entered._tag !== "Track") {
+    return [FocusTrackRow({ pageId, trackId: left.trackId })];
+  }
+  if (entrance === "Returning" && left._tag === "Album" && leadsToAlbums(entered)) {
+    return Option.match(HashMap.get(model.albumRows, left.albumId), {
+      onNone: () => [FocusAlbumTile({ pageId, albumId: left.albumId })],
+      onSome: (row) => [FocusTrackRow({ pageId, trackId: row.trackId })],
+    });
+  }
+  if (entrance === "Returning" && left._tag === "Artist" && isSection(entered)) {
+    return [FocusArtistTile({ pageId, artistId: left.artistId })];
+  }
+  if (entrance === "Returning" && left._tag === "Playlist" && isSection(entered)) {
+    return [FocusPlaylistTile({ pageId, playlistId: left.playlistId })];
+  }
+  return AppRoute.matchOrElse(
+    entered,
+    {
+      Search: () => [FocusSearchField()],
+      Track: () => [FocusPage({ pageId })],
+      Album: () => [FocusPage({ pageId })],
+      Artist: () => [FocusPage({ pageId })],
+      Playlist: () => [FocusPage({ pageId })],
+    },
+    () => [],
+  );
+};
 
 /** Send a query and await its reply. Any earlier request stops being the one awaited. */
 const send = (model: Model, ask: Request, expecting: Expecting): UpdateReturn => {
@@ -231,6 +332,24 @@ const load =
           ? { model }
           : requestPage(model, page, askTrackDetail(trackId), expecting);
       },
+      Album: ({ albumId }) => {
+        const page = albumPage(albumId);
+        return isKnownMissing(page.read(model))
+          ? { model }
+          : requestPage(model, page, askAlbumDetail(albumId), expecting);
+      },
+      Artist: ({ artistId }) => {
+        const page = artistPage(artistId);
+        return isKnownMissing(page.read(model))
+          ? { model }
+          : requestPage(model, page, askArtistDetail(artistId), expecting);
+      },
+      Playlist: ({ playlistId }) => {
+        const page = playlistPage(playlistId);
+        return isKnownMissing(page.read(model))
+          ? { model }
+          : requestPage(model, page, askPlaylistDetail(playlistId), expecting);
+      },
       NotFound: () => ({ model }),
     });
 
@@ -252,22 +371,33 @@ const waitForTypingPause: Step = (model) => {
  * typed: it waits for a pause instead of asking on every letter. A blank
  * field asks nothing and goes back to the prompt.
  */
+// NOTE: a term searched for before shows what was found for it at once,
+// whether the listener typed it again or went Back to it within Search. The
+// catalog is still asked only after the pause, so typing through terms
+// already seen asks no more than typing through new ones.
 const followTyping: Step = (model) =>
   Option.match(searchedTerm(model.route), {
     onNone: () => ({ model: forgetAnswer(model) }),
-    onSome: () => waitForTypingPause(model),
+    onSome: (term) => waitForTypingPause(Option.getOrElse(recallAnswerFor(term)(model), () => model)),
   });
 
 /**
- * A search reached from another page starts from the answer on hand only if
- * it is for the same term: any other answer is for something else.
+ * A search reached from another page starts from an answer for its own term:
+ * the one on hand, or the one an earlier search for that term found. Any
+ * other answer is for something else, and is taken off the page.
  */
 const keepAnswerOnlyFor =
   (route: AppRoute) =>
   (model: Model): Model =>
-    route._tag === "Search" && !(Option.isSome(searchedTerm(route)) && isLoaded(model, route))
-      ? forgetAnswer(model)
-      : model;
+    route._tag !== "Search"
+      ? model
+      : Option.match(searchedTerm(route), {
+          onNone: () => forgetAnswer(model),
+          onSome: (term) =>
+            isLoaded(model, route)
+              ? model
+              : Option.getOrElse(recallAnswerFor(term)(model), () => forgetAnswer(model)),
+        });
 
 /**
  * Whether a page can take the screen without a wait: the Model holds what it
@@ -279,12 +409,17 @@ const keepAnswerOnlyFor =
 const needsNoWait = (model: Model, route: AppRoute): boolean =>
   isLoaded(model, route) || !canShow(model, model.route) || isPlayersTrack(model, route);
 
-/** Stop waiting for every track: at most one was being asked for, and only it changes. */
-const standDownTracks = (tracks: Model["tracks"]): Model["tracks"] =>
+/**
+ * Stop waiting for every track, or every album, artist or playlist: at most
+ * one was being asked for, and only it changes.
+ */
+const standDownEach = <Id, A>(
+  held: HashMap.HashMap<Id, PageData<A>>,
+): HashMap.HashMap<Id, PageData<A>> =>
   pipe(
-    tracks,
-    HashMap.map((track) => standDown(track)),
-    HashMap.filter((track) => !AsyncData.isIdle(track)),
+    held,
+    HashMap.map((data) => standDown(data)),
+    HashMap.filter((data) => !AsyncData.isIdle(data)),
   );
 
 /**
@@ -299,12 +434,11 @@ const abandon = (model: Model): Model =>
     home: standDown,
     newMusic: standDown,
     search: standDown,
-    tracks: standDownTracks,
+    tracks: standDownEach,
+    albums: standDownEach,
+    artists: standDownEach,
+    playlists: standDownEach,
   });
-
-/** The sections: the pages the navigation leads to. */
-const isSection = (route: AppRoute): boolean =>
-  route._tag === "Home" || route._tag === "New" || route._tag === "Search";
 
 const withNavigation =
   (navigation: Navigation) =>
@@ -323,6 +457,27 @@ const navigationOnEntering =
   (model: Model): Model =>
     entrance === "Arriving" && isSection(route) ? withNavigation("Open")(model) : model;
 
+/**
+ * No row's menu is open any more. One may be when a page takes the screen:
+ * a menu a page was chosen from stays open until the page arrives. It goes
+ * with the page it was on, so there is nothing to give the focus back to.
+ */
+const withRowMenusClosed = (model: Model): Model =>
+  HashMap.isEmpty(model.rowMenus) ? model : modifyFields(model, { rowMenus: () => HashMap.empty() });
+
+/**
+ * The player that takes the screen finds its sheet as a sheet is before the
+ * document has said anything of it: what was said of the last one, that it
+ * was swiped away, is not true of this one.
+ */
+// NOTE: this is done as the player opens and not as it closes. What the
+// sheet said last is what tells a player that was swiped away from one that
+// was closed (see `viewTransition`), and it has to outlive the close to do so.
+const withPlayerSheetAnew = (model: Model): Model =>
+  !isPlayerExpanded(model) || model.playerSheet === initialPlayerSheet
+    ? model
+    : modifyFields(model, { playerSheet: () => initialPlayerSheet });
+
 /** A page takes the screen. The focus follows, unless the screen only moved within the page. */
 const showPage =
   (route: AppRoute, entrance: Entrance): Step =>
@@ -331,8 +486,8 @@ const showPage =
     return isSamePage(model.route, route)
       ? { model: shown }
       : {
-          model: navigationOnEntering(route, entrance)(shown),
-          commands: focusOn(model.route, route, entrance),
+          model: navigationOnEntering(route, entrance)(withPlayerSheetAnew(withRowMenusClosed(shown))),
+          commands: focusOn(model, route, entrance),
         };
   };
 
@@ -362,14 +517,21 @@ const commit =
  * Whether a page chosen by a link can take the screen. A section does so
  * with its content or with its failure, since a navigation item has no room
  * to state one. A track does so only with the track itself: one that failed
- * to open, or that the catalog does not have, says so on its row.
+ * to open, or that the catalog does not have, says so on its row. So does an
+ * album asked from a row's menu. One chosen from a shelf is as a section is:
+ * a tile has no room to state a failure either, so its page takes the screen
+ * with what there is to say. An artist and a playlist are only ever chosen
+ * from a shelf, so theirs always does.
  */
 const canCommit = (model: Model, route: AppRoute): boolean =>
   AppRoute.matchOrElse(
     route,
     {
-      Track: ({ trackId }) =>
-        Option.exists(AsyncData.getData(trackData(model, trackId)), Option.isSome),
+      Track: ({ trackId }) => isHeld(trackData(model, trackId)),
+      Album: ({ albumId }) =>
+        HashMap.has(model.albumRows, albumId)
+          ? isHeld(albumData(model, albumId))
+          : canShow(model, route),
     },
     () => canShow(model, route),
   );
@@ -553,9 +715,10 @@ const focusTrackRow =
  * The reply to an intention has been settled into the Model. A page that can
  * take the screen does, and the URL with it. A track that cannot stays where
  * its row is, with what the catalog said: the list, the URL and the history
- * are as they were. A row that turns out to be for a track the catalog does
- * not have stops being a link, and a link that goes takes the focus with it:
- * the row is given it back.
+ * are as they were, and the same goes for an album asked from a row. A row
+ * that turns out to be for a track or an album the catalog does not have
+ * stops offering it, and what goes from a row's control can take the focus
+ * with it: the row is given it back.
  */
 const commitIfOpenable =
   (route: AppRoute): Step =>
@@ -563,9 +726,21 @@ const commitIfOpenable =
     if (canCommit(model, route)) {
       return commit(route, model.route)(model);
     }
-    return route._tag === "Track" && isKnownMissing(trackData(model, route.trackId))
-      ? focusTrackRow(route.trackId)(model)
-      : { model };
+    return AppRoute.matchOrElse<UpdateReturn>(
+      route,
+      {
+        Track: ({ trackId }) =>
+          isKnownMissing(trackData(model, trackId)) ? focusTrackRow(trackId)(model) : { model },
+        Album: ({ albumId }) =>
+          isKnownMissing(albumData(model, albumId))
+            ? Option.match(HashMap.get(model.albumRows, albumId), {
+                onNone: () => ({ model }),
+                onSome: (row) => focusTrackRow(row.trackId)(model),
+              })
+            : { model },
+      },
+      () => ({ model }),
+    );
   };
 
 /**
@@ -607,6 +782,45 @@ const receiveTrack = (
     () => ({ model }),
   );
 
+/** A reply about an artist is about the one awaited, as a reply about a track is. */
+const receiveArtist = (
+  model: Model,
+  requestId: string,
+  outcome: Result.Result<Option.Option<Artist>, LoadError>,
+): UpdateReturn =>
+  AppRoute.matchOrElse<UpdateReturn>(
+    awaitedRoute(model),
+    { Artist: ({ artistId }) => receive(model, artistPage(artistId), requestId, outcome) },
+    () => ({ model }),
+  );
+
+/** A reply about a playlist is about the one awaited, as a reply about a track is. */
+const receivePlaylist = (
+  model: Model,
+  requestId: string,
+  outcome: Result.Result<Option.Option<Playlist>, LoadError>,
+): UpdateReturn =>
+  AppRoute.matchOrElse<UpdateReturn>(
+    awaitedRoute(model),
+    {
+      Playlist: ({ playlistId }) =>
+        receive(model, playlistPage(playlistId), requestId, outcome),
+    },
+    () => ({ model }),
+  );
+
+/** A reply about an album is about the one awaited, as a reply about a track is. */
+const receiveAlbum = (
+  model: Model,
+  requestId: string,
+  outcome: Result.Result<Option.Option<Album>, LoadError>,
+): UpdateReturn =>
+  AppRoute.matchOrElse<UpdateReturn>(
+    awaitedRoute(model),
+    { Album: ({ albumId }) => receive(model, albumPage(albumId), requestId, outcome) },
+    () => ({ model }),
+  );
+
 const receiveCatalogMessage = (model: Model, message: typeof Catalog.Message.Type): UpdateReturn =>
   Catalog.Message.match<UpdateReturn>(message, {
     SucceededHomeFeed: ({ requestId, result }) =>
@@ -620,8 +834,15 @@ const receiveCatalogMessage = (model: Model, message: typeof Catalog.Message.Typ
     SucceededCatalogSearch: ({ requestId, result }) =>
       Option.match(searchedTerm(awaitedRoute(model)), {
         onNone: () => ({ model }),
-        onSome: (term) =>
-          receive(model, searchPage, requestId, Result.succeed({ term, results: result })),
+        onSome: (term) => {
+          const received = receive(
+            model,
+            searchPage,
+            requestId,
+            Result.succeed({ term, results: result }),
+          );
+          return { ...received, model: rememberAnswer(received.model) };
+        },
       }),
     FailedCatalogSearch: ({ requestId, failure }) =>
       receive(model, searchPage, requestId, Result.fail(toLoadError(failure))),
@@ -629,6 +850,18 @@ const receiveCatalogMessage = (model: Model, message: typeof Catalog.Message.Typ
       receiveTrack(model, requestId, Result.succeed(Option.some(result))),
     FailedTrackDetail: ({ requestId, failure }) =>
       receiveTrack(model, requestId, toTrackOutcome(failure)),
+    SucceededAlbumDetail: ({ requestId, result }) =>
+      receiveAlbum(model, requestId, Result.succeed(Option.some(result))),
+    FailedAlbumDetail: ({ requestId, failure }) =>
+      receiveAlbum(model, requestId, toAlbumOutcome(failure)),
+    SucceededArtistDetail: ({ requestId, result }) =>
+      receiveArtist(model, requestId, Result.succeed(Option.some(result))),
+    FailedArtistDetail: ({ requestId, failure }) =>
+      receiveArtist(model, requestId, toArtistOutcome(failure)),
+    SucceededPlaylistDetail: ({ requestId, result }) =>
+      receivePlaylist(model, requestId, Result.succeed(Option.some(result))),
+    FailedPlaylistDetail: ({ requestId, failure }) =>
+      receivePlaylist(model, requestId, toPlaylistOutcome(failure)),
   });
 
 /**
@@ -689,9 +922,91 @@ const foldPlayerQueue = Update.foldChild({
   toParentMessage: toGotPlayerMessage,
 });
 
+// PLAYER SHEET
+
+/**
+ * The way out of the expanded player, whoever asks for it: back through the
+ * browser's history to the page it was opened over when the app knows of
+ * one, and to Home when the player's page was reached directly. It is what
+ * the player's close control does.
+ */
+const closePlayer: Step = (model) =>
+  Option.match(wayBackOn(model.trail), {
+    onNone: () => follow(AppRoute.Home())(model),
+    onSome: () => ({ model, commands: [NavigateBack()] }),
+  });
+
+/**
+ * The sheet is off the screen, swiped away by the listener: what was behind
+ * it is what they see, and it has to be the page on screen at once. With a
+ * page behind in the history, that page is the one the sheet uncovered. With
+ * none, the player's page having been reached directly, there was nothing
+ * under the sheet: Home takes the screen without a wait, in placeholders
+ * until its answer comes, since an empty screen is nothing to hold.
+ */
+const leavePlayer: Step = (model) =>
+  Option.match(wayBackOn(model.trail), {
+    onNone: () =>
+      Update.combine(abandon(model), [
+        commit(AppRoute.Home(), addressOf(model)),
+        load(AppRoute.Home(), forTheScreen),
+        // What held the focus left with the sheet.
+        focusPage,
+      ]),
+    onSome: () => ({ model, commands: [NavigateBack()] }),
+  });
+
+// NOTE: the sheet says two things, and both close the player. Swiped off
+// the screen (`Left`), there is nothing left to see go: `viewTransition`
+// reads that from the sheet's reach and asks for no transition. Asked to go
+// with Escape (`RequestedClose`), it is still whole, and shrinks back into
+// the island as it does for its close control.
+const foldPlayerSheet = Update.foldChild({
+  update: Sheet.update,
+  read: (model: Model) => Option.some(model.playerSheet),
+  write: (model: Model, nextSheet: Sheet.Model): Model =>
+    nextSheet === model.playerSheet ? model : modifyFields(model, { playerSheet: () => nextSheet }),
+  toParentMessage: (message: Sheet.Message): Message =>
+    Message.GotPlayerSheetMessage({ message }),
+  foldOutMessage: (said: Sheet.OutMessage): Step =>
+    Sheet.OutMessage.match(said, {
+      Left: () => leavePlayer,
+      RequestedClose: () => closePlayer,
+    }),
+});
+
+/** The tracks of the album whose page is in the document: the list its rows are drawn from. */
+const albumTracksInDocument = (model: Model): ReadonlyArray<TrackSummary> =>
+  pipe(
+    maybeAlbumIdInDocument(model.route, model.trail),
+    Option.flatMap((albumId) => Option.flatten(AsyncData.getData(albumData(model, albumId)))),
+    Option.match({ onNone: () => [], onSome: (album) => album.tracks }),
+  );
+
+/** The most played tracks of the artist whose page is in the document: the list its rows are drawn from. */
+const artistTopTracksInDocument = (model: Model): ReadonlyArray<TrackSummary> =>
+  pipe(
+    maybeArtistIdInDocument(model.route, model.trail),
+    Option.flatMap((artistId) => Option.flatten(AsyncData.getData(artistData(model, artistId)))),
+    Option.match({ onNone: () => [], onSome: (artist) => artist.topTracks }),
+  );
+
+/** The tracks of the playlist whose page is in the document: the list its rows are drawn from. */
+const playlistTracksInDocument = (model: Model): ReadonlyArray<TrackSummary> =>
+  pipe(
+    maybePlaylistIdInDocument(model.route, model.trail),
+    Option.flatMap((playlistId) =>
+      Option.flatten(AsyncData.getData(playlistData(model, playlistId))),
+    ),
+    Option.match({ onNone: () => [], onSome: (playlist) => playlist.tracks }),
+  );
+
 /**
  * The list a track was played from, as the page it is on holds it: what
- * plays after it. A track played from its own page is a list of one.
+ * plays after it. A track played from its own page is a list of one, and
+ * one played from its album's page is followed by the rest of the album.
+ * From an artist's page it is their most played tracks, and from a
+ * playlist's the playlist.
  */
 const listPlayedFrom = (
   model: Model,
@@ -715,6 +1030,9 @@ const listPlayedFrom = (
     Match.when("Track", () =>
       Array.fromOption(Option.flatten(AsyncData.getData(trackData(model, trackId)))),
     ),
+    Match.when("Album", () => albumTracksInDocument(model)),
+    Match.when("Artist", () => artistTopTracksInDocument(model)),
+    Match.when("Playlist", () => playlistTracksInDocument(model)),
     Match.exhaustive,
   );
 
@@ -792,38 +1110,80 @@ const showQueued =
     };
   };
 
-/** The track of a row goes into the queue, as the page it is listed on holds it. */
+/** The track of a row, as the page it is listed on holds it. */
+const maybeTrackOfRow = (model: Model, row: RowRef): Option.Option<TrackSummary> =>
+  Array.findFirst(
+    listPlayedFrom(model, row.from, row.trackId),
+    (track) => track.id === row.trackId,
+  );
+
+/** The track of a row goes into the queue. */
 const queueFromRow =
   (row: RowRef, place: Player.QueuePlace): Step =>
   (model) =>
-    Option.match(
-      Array.findFirst(
-        listPlayedFrom(model, row.from, row.trackId),
-        (track) => track.id === row.trackId,
-      ),
-      {
-        onNone: () => ({ model }),
-        onSome: (track) =>
-          Update.combine(model, [
-            foldPlayerQueue({ track, place }),
-            showQueued(model.player, row, place),
-          ]),
-      },
-    );
+    Option.match(maybeTrackOfRow(model, row), {
+      onNone: () => ({ model }),
+      onSome: (track) =>
+        Update.combine(model, [
+          foldPlayerQueue({ track, place }),
+          showQueued(model.player, row, place),
+        ]),
+    });
+
+/**
+ * A row asks for the page of its track's album. It is followed as a link to
+ * the page would be, and the row is noted as the one that asked: of all the
+ * rows the album is on, it is the one that says the album is opening, or
+ * that it could not be. An album the catalog is known not to have is no
+ * longer something to open, so asking for it changes nothing.
+ */
+const openAlbumFromRow =
+  (row: RowRef): Step =>
+  (model) =>
+    Option.match(maybeTrackOfRow(model, row), {
+      onNone: () => ({ model }),
+      onSome: (track) =>
+        isKnownMissing(albumData(model, track.album.id))
+          ? { model }
+          : follow(AppRoute.Album({ albumId: track.album.id }))(
+              modifyFields(model, { albumRows: HashMap.set(track.album.id, row) }),
+            ),
+    });
+
+/**
+ * An album chosen by a link was not asked from a row: no row speaks for it,
+ * whatever one said of it before.
+ */
+const forgetAlbumRow =
+  (route: AppRoute): Step =>
+  (model) => ({
+    model:
+      route._tag === "Album" && HashMap.has(model.albumRows, route.albumId)
+        ? modifyFields(model, { albumRows: HashMap.remove(route.albumId) })
+        : model,
+  });
 
 /**
  * What was chosen from a row's menu. Opening the song is the row's way to
- * its track's page, and is followed as a link to it would be: the page on
- * screen is held and the row says that it is opening.
+ * its track's page, and opening the album its way to the album's: each is
+ * followed as a link to the page would be, so the page on screen is held and
+ * the row says that it is opening.
  */
 const chooseFromRow = (row: RowRef, action: RowAction): Step =>
   Match.value(action).pipe(
     Match.withReturnType<Step>(),
     Match.when("PlayNext", () => queueFromRow(row, "Next")),
     Match.when("AddToQueue", () => queueFromRow(row, "Last")),
+    Match.when("OpenAlbum", () => openAlbumFromRow(row)),
     Match.when("OpenSong", () => follow(AppRoute.Track({ trackId: row.trackId }))),
     Match.exhaustive,
   );
+
+/** The page a Message of a row's menu chooses, when it chooses one: the song's, or its album's. */
+const maybePageChosen = (message: Menu.Message): Option.Option<"OpenSong" | "OpenAlbum"> =>
+  message._tag === "SelectedItem" && (message.item === "OpenSong" || message.item === "OpenAlbum")
+    ? Option.some(message.item)
+    : Option.none();
 
 const foldRowMenu = Update.foldChildAt({
   update: RowMenu.update,
@@ -842,7 +1202,11 @@ export const update = (model: Model, message: Message) =>
       UrlRequest.match<UpdateReturn>(request, {
         Internal: ({ url }) => {
           const route = urlToAppRoute(url);
-          return Update.combine(model, [scrollToTopWhenChosenAgain(route), follow(route)]);
+          return Update.combine(model, [
+            forgetAlbumRow(route),
+            scrollToTopWhenChosenAgain(route),
+            follow(route),
+          ]);
         },
         External: ({ href }) => ({ model, commands: [LoadExternal({ href })] }),
       }),
@@ -855,6 +1219,9 @@ export const update = (model: Model, message: Message) =>
 
     ClickedTryAgainOnTrack: ({ trackId }) =>
       Update.combine(model, [follow(AppRoute.Track({ trackId })), focusTrackRow(trackId)]),
+
+    ClickedTryAgainOnAlbum: ({ from, trackId }) =>
+      Update.combine(model, [openAlbumFromRow({ from, trackId }), focusTrackRow(trackId)]),
 
     UpdatedSearchField: ({ value }) =>
       rewriteSearchTerm(Option.liftPredicate(value, String.isNonEmpty))(model),
@@ -898,8 +1265,22 @@ export const update = (model: Model, message: Message) =>
     GotPlayerMessage: ({ message }) =>
       Update.combine(model, [foldPlayer(message), keepUpWithPlayer(model)]),
 
+    // NOTE: a sheet's word counts only while the player is expanded. One
+    // that comes after the player closed, from a sheet on its way out of the
+    // document, would otherwise close whatever page came next.
+    GotPlayerSheetMessage: ({ message }) =>
+      isPlayerExpanded(model) ? foldPlayerSheet(model, message) : { model },
+
+    // NOTE: choosing a page from a row's menu is heard here and not by the
+    // menu, which would close on it. The menu stays open while the page is on
+    // its way: the item that was chosen says so, and says it if the page
+    // fails to open, where a second press tries again. It closes when the
+    // page takes the screen.
     GotRowMenuMessage: ({ from, trackId, message }) =>
-      foldRowMenu(model, { from, trackId }, message),
+      Option.match(maybePageChosen(message), {
+        onNone: () => foldRowMenu(model, { from, trackId }, message),
+        onSome: (action) => chooseFromRow({ from, trackId }, action)(model),
+      }),
 
     CompletedWaitToClearRowDone: ({ turn }) => ({
       model:
@@ -916,6 +1297,9 @@ export const update = (model: Model, message: Message) =>
     CompletedFocusSearchField: () => ({ model }),
     CompletedFocusPage: () => ({ model }),
     CompletedFocusTrackRow: () => ({ model }),
+    CompletedFocusAlbumTile: () => ({ model }),
+    CompletedFocusArtistTile: () => ({ model }),
+    CompletedFocusPlaylistTile: () => ({ model }),
     CompletedFocusNavigation: () => ({ model }),
     CompletedScrollPageToTop: () => ({ model }),
   });
@@ -940,7 +1324,12 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       home: AsyncData.Idle(),
       newMusic: AsyncData.Idle(),
       search: AsyncData.Idle(),
+      searched: HashMap.empty(),
       tracks: HashMap.empty(),
+      albums: HashMap.empty(),
+      albumRows: HashMap.empty(),
+      artists: HashMap.empty(),
+      playlists: HashMap.empty(),
       maybeAskedRoute: Option.none(),
       // A fresh load knows nothing of the history behind it, so no page has a way back yet.
       trail: [],
@@ -948,12 +1337,17 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       rowMenus: HashMap.empty(),
       rowDone: { turn: 0, maybeRow: Option.none() },
       player: Player.init(),
+      playerSheet: initialPlayerSheet,
     }),
     [load(route, forTheScreen), focusSearchFieldOnSearch],
   );
 };
 
 // VIEW TRANSITION
+
+/** What a transition is called when the island grows into the player, and when the player shrinks back. */
+export const PLAYER_OPENS = "player-opens";
+export const PLAYER_CLOSES = "player-closes";
 
 /**
  * A view transition when the page on screen changes, and when the listener
@@ -973,9 +1367,32 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
 export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   previousModel,
   model,
-}) =>
+}) => {
+  const wasExpanded = isPlayerExpanded(previousModel);
+  const isExpanded = isPlayerExpanded(model);
   // NOTE: an expanded player that goes on to another track changes route,
   // and is the same sheet: its words and its picture change where they stand.
-  !(isPlayerExpanded(previousModel) && isPlayerExpanded(model)) &&
-  (!isSamePage(previousModel.route, model.route) ||
-    Player.choseAnotherTrack(previousModel.player, model.player));
+  if (wasExpanded && isExpanded) {
+    return false;
+  }
+  const isAsked =
+    !isSamePage(previousModel.route, model.route) ||
+    Player.choseAnotherTrack(previousModel.player, model.player);
+  if (!isAsked || wasExpanded === isExpanded) {
+    return isAsked;
+  }
+  // NOTE: a sheet the listener swiped off the screen has already gone, and
+  // the page behind it is what they see: there is nothing to shrink back
+  // into the island, and a transition would bring the sheet back to do it.
+  // It is read from the Model as it is now, since the sheet's last word and
+  // the page change it caused can reach one frame together.
+  if (wasExpanded && model.playerSheet.reach === "Gone") {
+    return false;
+  }
+  // NOTE: opening and closing the player are told apart by name, since the
+  // style sheet has to know which of the two pictures is the island's: it
+  // keeps that one where the island stands, at the foot of the box that
+  // grows into the sheet, instead of letting it ride the box's top corner
+  // up the screen.
+  return { types: [isExpanded ? PLAYER_OPENS : PLAYER_CLOSES] };
+};

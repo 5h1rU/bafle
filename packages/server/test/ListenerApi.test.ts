@@ -1,5 +1,9 @@
 import * as Domain from "@alchemy.run/domain";
 import { Bafle, BafleHandlers } from "@bafle/domain/Bafle.model";
+import { AlbumId } from "@bafle/domain/Catalog/Album";
+import { ArtistId } from "@bafle/domain/Catalog/Artist";
+import { TOP_TRACKS } from "@bafle/domain/Catalog/ArtistDetail.query";
+import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import { ListenerApi } from "@bafle/domain/ListenerApi.api";
 import { expect, it } from "@effect/vitest";
@@ -67,5 +71,65 @@ it.live("a listener opens a track, and is told when it does not exist", () => {
 
     const missing = yield* bafle.TrackDetail({ trackId: TrackId.make("404") }).pipe(Effect.flip);
     expect(missing).toMatchObject({ _tag: "TrackNotFound", trackId: "404" });
+  }).pipe(Effect.scoped, Effect.provide(layer));
+});
+
+it.live("a listener opens an album, and is told when it does not exist", () => {
+  const { layer } = worldOver(stocked);
+  return Effect.gen(function* () {
+    const bafle = yield* ListenerApi.clientInProcess;
+    const album = yield* bafle.AlbumDetail({ albumId: AlbumId.make("302127") });
+    expect(album.title).toBe("Discovery");
+    expect(album.artist.name).toBe("Daft Punk");
+    expect(album.tracks.map((track) => track.title)).toEqual([
+      "One More Time",
+      "Harder, Better, Faster, Stronger",
+    ]);
+    expect(album.releaseDate).toBe("2001-03-07");
+
+    const missing = yield* bafle.AlbumDetail({ albumId: AlbumId.make("404") }).pipe(Effect.flip);
+    expect(missing).toMatchObject({ _tag: "AlbumNotFound", albumId: "404" });
+  }).pipe(Effect.scoped, Effect.provide(layer));
+});
+
+it.live("a listener opens an artist, and is told when they do not exist", () => {
+  const { deezer, layer } = worldOver(stocked);
+  return Effect.gen(function* () {
+    const bafle = yield* ListenerApi.clientInProcess;
+    const artist = yield* bafle.ArtistDetail({ artistId: ArtistId.make("27") });
+    expect(artist.name).toBe("Daft Punk");
+    expect(artist.topTracks.map((track) => track.title)).toEqual([
+      "One More Time",
+      "Harder, Better, Faster, Stronger",
+    ]);
+    expect(artist.albums.map((album) => album.title)).toEqual([
+      "Discovery",
+      "Random Access Memories",
+    ]);
+    // The page says how many of their tracks it lists, and Deezer is asked for that many.
+    const top = deezer.asked.find((url) => url.pathname === "/artist/27/top");
+    expect(top?.searchParams.get("limit")).toBe(String(TOP_TRACKS));
+
+    const missing = yield* bafle.ArtistDetail({ artistId: ArtistId.make("404") }).pipe(Effect.flip);
+    expect(missing).toMatchObject({ _tag: "ArtistNotFound", artistId: "404" });
+  }).pipe(Effect.scoped, Effect.provide(layer));
+});
+
+it.live("a listener opens a playlist, and is told when it does not exist", () => {
+  const { layer } = worldOver(stocked);
+  return Effect.gen(function* () {
+    const bafle = yield* ListenerApi.clientInProcess;
+    const playlist = yield* bafle.PlaylistDetail({ playlistId: PlaylistId.make("908622995") });
+    expect(playlist.title).toBe("Chill Hits");
+    expect(playlist.curator).toBe("Deezer Editors");
+    expect(playlist.tracks.map((track) => track.title)).toEqual([
+      "One More Time",
+      "Harder, Better, Faster, Stronger",
+    ]);
+
+    const missing = yield* bafle
+      .PlaylistDetail({ playlistId: PlaylistId.make("404") })
+      .pipe(Effect.flip);
+    expect(missing).toMatchObject({ _tag: "PlaylistNotFound", playlistId: "404" });
   }).pipe(Effect.scoped, Effect.provide(layer));
 });

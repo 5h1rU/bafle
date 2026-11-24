@@ -1,28 +1,54 @@
+import type { AlbumId } from "@bafle/domain/Catalog/Album";
+import type { ArtistId } from "@bafle/domain/Catalog/Artist";
+import type { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
 import { Button, Nav } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import { pipe } from "effect/Function";
+import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import { AsyncData } from "foldkit";
-import { createLazy, type Document, type Html, type HtmlBuilder } from "foldkit/html";
+import {
+  childAttributes,
+  createLazy,
+  type Document,
+  type Html,
+  type HtmlBuilder,
+} from "foldkit/html";
 import { Message, type PlayOrigin } from "./message.ts";
 import {
+  albumData,
+  albumDataIn,
+  artistData,
+  artistDataIn,
   Awaiting,
   canShow,
+  hasWayBackFromAlbum,
+  hasWayBackFromArtist,
+  hasWayBackFromPlaylist,
   isPlayerExpanded,
   isPlayersTrack,
+  maybeAlbumIdInDocument,
+  maybeArtistIdInDocument,
   maybeHeadedFor,
+  maybePlaylistIdInDocument,
   type Model,
+  playlistData,
+  playlistDataIn,
   trackData,
   trackDataIn,
   wayBackOn,
 } from "./model.ts";
 import * as Player from "./player/index.ts";
+import * as Sheet from "./sheet/index.ts";
 import { rowMenuIn } from "./rowMenu.ts";
+import * as Album from "./page/album.ts";
+import * as Artist from "./page/artist.ts";
 import * as Home from "./page/home.ts";
 import * as NewMusic from "./page/newMusic.ts";
 import * as NotFound from "./page/notFound.ts";
+import * as Playlist from "./page/playlist.ts";
 import * as Search from "./page/search.ts";
 import * as Track from "./page/track.ts";
 import {
@@ -41,6 +67,7 @@ import {
   pageTitleIdOf,
   type Presence,
 } from "./view/layout.ts";
+import type { IsAlbumOpening, TilesOpening } from "./view/shelf.ts";
 import type { TrackListContext } from "./view/trackList.ts";
 
 // VIEW
@@ -48,7 +75,10 @@ import type { TrackListContext } from "./view/trackList.ts";
 const APP_NAME = "Bafle";
 
 /** The pages the navigation leads to: the sections of the app, each kept once it has loaded. */
-type Destination = Exclude<AppRoute["_tag"], "Track" | "NotFound">;
+type Destination = Exclude<
+  AppRoute["_tag"],
+  "Track" | "Album" | "Artist" | "Playlist" | "NotFound"
+>;
 
 const DESTINATIONS: ReadonlyArray<Destination> = ["Home", "New", "Search"];
 
@@ -82,13 +112,17 @@ const pageName = (model: Model, route: AppRoute): string =>
             onSome: (session) => session.current.title,
           })
         : Track.titleOf(trackData(model, trackId)),
+    Album: ({ albumId }) => Album.titleOf(albumData(model, albumId)),
+    Artist: ({ artistId }) => Artist.titleOf(artistData(model, artistId)),
+    Playlist: ({ playlistId }) => Playlist.titleOf(playlistData(model, playlistId)),
     NotFound: () => NotFound.TITLE,
   });
 
 /**
  * The app is heading for this destination and its page is not on screen yet.
- * A track is no destination of the navigation: the row it was opened from
- * says that it is loading.
+ * A track is no destination of the navigation, and neither is an album, an
+ * artist or a playlist: the row it was opened from says that it is loading,
+ * or the tile.
  */
 const isLoadingDestination = (model: Model, destination: Destination): boolean =>
   model.route._tag !== destination &&
@@ -106,8 +140,9 @@ const maybeMenuSection = (route: AppRoute): Option.Option<MenuSection> =>
 
 /**
  * What the circle shows when the menu has drawn back to it: the section on
- * screen. On a page that is none of the menu's, Search or a track, it shows
- * the nearest one behind the page, and Home when there is none.
+ * screen. On a page that is none of the menu's, Search, a track, an album,
+ * an artist or a playlist, it shows the nearest one behind the page, and
+ * Home when there is none.
  */
 const circleSection = (model: Model): MenuSection =>
   Option.getOrElse(maybeMenuSection(model.route), () =>
@@ -151,6 +186,16 @@ const MENU_LINK_CLASS = clsx(
   WIDE_LINK_CLASS,
 );
 
+// NOTE: drawn back, the item in the circle is a picture of where the listener
+// is and no longer a way there: the control that brings the menu out lies
+// over it and is the one thing in the circle to press or to focus. A link
+// that only ignored the pointer would still be reached with the keyboard,
+// and Enter on it would open its section again, from the top. So the link
+// stops being there (`invisible` takes it out of the order of focus and out
+// of what is said aloud) and its icon alone is still drawn.
+const CIRCLE_LINK_CLASS = "minimized:invisible";
+const CIRCLE_ICON_CLASS = "minimized:visible";
+
 /** An item's name under its icon. Drawn back, the circle has room for the icon alone. */
 const MENU_NAME_CLASS =
   "dock-name max-h-4 text-[0.625rem] leading-4 font-medium minimized:max-h-0 minimized:opacity-0 md:max-h-none md:text-sm md:leading-normal";
@@ -179,6 +224,7 @@ const destinationView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const isSearch = item.value === "Search";
+  const iconClass = { [CIRCLE_ICON_CLASS]: isShownInCircle && !isSearch };
 
   return h.keyed("li")(
     item.value,
@@ -194,13 +240,19 @@ const destinationView = (
         [
           ...item.link,
           h.AriaBusy(isLoading),
-          h.Class(isSearch ? SEARCH_LINK_CLASS : MENU_LINK_CLASS),
+          h.Class(
+            isSearch
+              ? SEARCH_LINK_CLASS
+              : clsx(MENU_LINK_CLASS, { [CIRCLE_LINK_CLASS]: isShownInCircle }),
+          ),
         ],
         [
           // The spinner takes the icon's place, so the item keeps its size while it loads.
           isLoading
-            ? spinnerIcon("size-6 animate-spin motion-reduce:animate-pulse md:size-5")
-            : DESTINATION_ICONS[item.value]("size-6 md:size-5"),
+            ? spinnerIcon(
+                clsx("size-6 animate-spin motion-reduce:animate-pulse md:size-5", iconClass),
+              )
+            : DESTINATION_ICONS[item.value](clsx("size-6 md:size-5", iconClass)),
           // NOTE: at the foot of a narrow screen Search is its icon alone: its name is still said.
           h.span(
             [h.Class(isSearch ? "max-md:sr-only md:text-sm md:font-medium" : MENU_NAME_CLASS)],
@@ -294,8 +346,28 @@ const navigationView = (model: Model, h: HtmlBuilder<Message>): Html => {
   });
 };
 
-const presenceOf = (model: Model, destination: Destination): Presence =>
-  model.route._tag === destination ? "OnScreen" : "Kept";
+/**
+ * Whether the expanded player's sheet is short of whole: on its way off the
+ * screen under the listener's finger, or already off it. What is behind the
+ * sheet is drawn only then. With the sheet whole nothing of it could be seen,
+ * and it stays as it is behind any other page: hidden, and out of reach.
+ */
+const isSheetAway = (model: Model): boolean =>
+  isPlayerExpanded(model) && model.playerSheet.reach !== "Whole";
+
+/**
+ * How the page of one kind stands: on screen, kept, or uncovered by the
+ * player's sheet as it goes. The page a sheet uncovers is the one the player
+ * was opened over, which is where closing it leads.
+ */
+const presenceOf = (model: Model, kind: AppRoute["_tag"]): Presence => {
+  if (model.route._tag === kind) {
+    return "OnScreen";
+  }
+  return isSheetAway(model) && Option.exists(wayBackOn(model.trail), (behind) => behind._tag === kind)
+    ? "Uncovered"
+    : "Kept";
+};
 
 /**
  * A section is in the document while it is on screen and, once it holds
@@ -313,19 +385,35 @@ const isInDocument = <A, E>(presence: Presence, data: AsyncData.AsyncData<A, E>)
 // compare by `===`, the id of the track it holds and that track's status: an
 // `Option` made on each draw would be a new object and miss every time.
 
-/** What a list reads of the Model, from the parts a kept drawing is checked against. */
+/**
+ * What the pages read of the Model to draw their rows and their tiles: the
+ * parts a kept drawing is checked against, each as the Model holds it.
+ */
+type Listed = Readonly<{
+  tracks: Model["tracks"];
+  albums: Model["albums"];
+  albumRows: Model["albumRows"];
+  rowMenus: Model["rowMenus"];
+  rowDone: Model["rowDone"];
+}>;
+
+/** What a list reads of the Model. */
 const listContext = (
   presence: Presence,
   from: PlayOrigin,
-  tracks: Model["tracks"],
+  { tracks, albums, albumRows, rowMenus, rowDone }: Listed,
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
-  rowMenus: Model["rowMenus"],
-  rowDone: Model["rowDone"],
 ): TrackListContext => ({
   presence,
   from,
   trackDataOf: (trackId) => trackDataIn(tracks, trackId),
+  albumDataOf: (albumId) => albumDataIn(albums, albumId),
+  isAlbumAskedFrom: (track) =>
+    Option.exists(
+      HashMap.get(albumRows, track.album.id),
+      (row) => row.from === from && row.trackId === track.id,
+    ),
   statusOf: (trackId) => Player.statusFor(playingTrackId, playingStatus, trackId),
   isPlayerHolding: playingTrackId !== undefined,
   menuOf: (trackId) => rowMenuIn(rowMenus, { from, trackId }),
@@ -337,13 +425,55 @@ const listContext = (
     ),
 });
 
-const homePlaceView = (home: Model["home"], presence: Presence, h: HtmlBuilder<Message>): Html =>
-  pagePlaceView(presence, isInDocument(presence, home) ? [Home.view(home, presence, h)] : [], h);
+/**
+ * Whether an album chosen from a shelf is on its way: the catalog is being
+ * asked for it for the first time, and no row asked. An album asked from a
+ * row's menu is that row's to speak for.
+ */
+const isAlbumOpeningIn =
+  (albums: Model["albums"], albumRows: Model["albumRows"]): IsAlbumOpening =>
+  (albumId) =>
+    AsyncData.isLoading(albumDataIn(albums, albumId)) && !HashMap.has(albumRows, albumId);
+
+/**
+ * Whether each kind of thing chosen from a shelf is on its way. An artist
+ * and a playlist are only ever chosen from one, so each is opening whenever
+ * the catalog is being asked for it for the first time.
+ */
+const tilesOpeningIn = (
+  albums: Model["albums"],
+  albumRows: Model["albumRows"],
+  artists: Model["artists"],
+  playlists: Model["playlists"],
+): TilesOpening => ({
+  isAlbumOpening: isAlbumOpeningIn(albums, albumRows),
+  isArtistOpening: (artistId) => AsyncData.isLoading(artistDataIn(artists, artistId)),
+  isPlaylistOpening: (playlistId) => AsyncData.isLoading(playlistDataIn(playlists, playlistId)),
+});
+
+const homePlaceView = (
+  home: Model["home"],
+  presence: Presence,
+  albums: Model["albums"],
+  albumRows: Model["albumRows"],
+  artists: Model["artists"],
+  playlists: Model["playlists"],
+  h: HtmlBuilder<Message>,
+): Html =>
+  pagePlaceView(
+    presence,
+    isInDocument(presence, home)
+      ? [Home.view(home, presence, tilesOpeningIn(albums, albumRows, artists, playlists), h)]
+      : [],
+    h,
+  );
 
 const newPlaceView = (
   newMusic: Model["newMusic"],
   presence: Presence,
   tracks: Model["tracks"],
+  albums: Model["albums"],
+  albumRows: Model["albumRows"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
   rowMenus: Model["rowMenus"],
@@ -359,12 +489,11 @@ const newPlaceView = (
             listContext(
               presence,
               "New",
-              tracks,
+              { tracks, albums, albumRows, rowMenus, rowDone },
               playingTrackId,
               playingStatus,
-              rowMenus,
-              rowDone,
             ),
+            isAlbumOpeningIn(albums, albumRows),
             h,
           ),
         ]
@@ -379,24 +508,27 @@ const newPlaceView = (
  */
 const searchPlaceView = (
   route: AppRoute,
+  presence: Presence,
   search: Model["search"],
   tracks: Model["tracks"],
+  albums: Model["albums"],
+  albumRows: Model["albumRows"],
+  artists: Model["artists"],
+  playlists: Model["playlists"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
   rowMenus: Model["rowMenus"],
   rowDone: Model["rowDone"],
   h: HtmlBuilder<Message>,
 ): Html => {
-  const presence: Presence = route._tag === "Search" ? "OnScreen" : "Kept";
   const context = listContext(
     presence,
     "Search",
-    tracks,
+    { tracks, albums, albumRows, rowMenus, rowDone },
     playingTrackId,
     playingStatus,
-    rowMenus,
-    rowDone,
   );
+  const opening = tilesOpeningIn(albums, albumRows, artists, playlists);
 
   return pagePlaceView(
     presence,
@@ -404,17 +536,154 @@ const searchPlaceView = (
       route,
       {
         Search: (shown) => [
-          Search.view(shown.maybeTerm, searchedTerm(shown), search, context, h),
+          Search.view(shown.maybeTerm, searchedTerm(shown), search, context, opening, h),
         ],
       },
       () =>
         Option.match(AsyncData.getData(search), {
           onNone: () => [],
           onSome: ({ term }) => [
-            Search.view(Option.some(term), Option.some(term), search, context, h),
+            Search.view(Option.some(term), Option.some(term), search, context, opening, h),
           ],
         }),
     ),
+    h,
+  );
+};
+
+/**
+ * The album's place. Its page is a list, so it is in the document while it
+ * is on screen and, once it holds data, while the listener is on a page
+ * reached from it: hidden behind that page, to be found as it was left.
+ */
+const albumPlaceView = (
+  albumId: AlbumId | undefined,
+  presence: Presence,
+  hasWayBack: boolean,
+  tracks: Model["tracks"],
+  albums: Model["albums"],
+  albumRows: Model["albumRows"],
+  playingTrackId: TrackId | undefined,
+  playingStatus: Player.TrackStatus,
+  rowMenus: Model["rowMenus"],
+  rowDone: Model["rowDone"],
+  h: HtmlBuilder<Message>,
+): Html => {
+  if (albumId === undefined) {
+    return pagePlaceView("Kept", [], h);
+  }
+  const album = albumDataIn(albums, albumId);
+
+  return pagePlaceView(
+    presence,
+    isInDocument(presence, album)
+      ? [
+          Album.view(
+            albumId,
+            album,
+            hasWayBack,
+            listContext(
+              presence,
+              "Album",
+              { tracks, albums, albumRows, rowMenus, rowDone },
+              playingTrackId,
+              playingStatus,
+            ),
+            h,
+          ),
+        ]
+      : [],
+    h,
+  );
+};
+
+/**
+ * The artist's place. Their page is a list and a shelf, so it is kept as an
+ * album's is: in the document while it is on screen and, once it holds data,
+ * while the listener is on a page reached from it.
+ */
+const artistPlaceView = (
+  artistId: ArtistId | undefined,
+  presence: Presence,
+  hasWayBack: boolean,
+  artists: Model["artists"],
+  tracks: Model["tracks"],
+  albums: Model["albums"],
+  albumRows: Model["albumRows"],
+  playingTrackId: TrackId | undefined,
+  playingStatus: Player.TrackStatus,
+  rowMenus: Model["rowMenus"],
+  rowDone: Model["rowDone"],
+  h: HtmlBuilder<Message>,
+): Html => {
+  if (artistId === undefined) {
+    return pagePlaceView("Kept", [], h);
+  }
+  const artist = artistDataIn(artists, artistId);
+
+  return pagePlaceView(
+    presence,
+    isInDocument(presence, artist)
+      ? [
+          Artist.view(
+            artistId,
+            artist,
+            hasWayBack,
+            listContext(
+              presence,
+              "Artist",
+              { tracks, albums, albumRows, rowMenus, rowDone },
+              playingTrackId,
+              playingStatus,
+            ),
+            isAlbumOpeningIn(albums, albumRows),
+            h,
+          ),
+        ]
+      : [],
+    h,
+  );
+};
+
+/** The playlist's place. Its page is a list, so it is kept as an album's is. */
+const playlistPlaceView = (
+  playlistId: PlaylistId | undefined,
+  presence: Presence,
+  hasWayBack: boolean,
+  playlists: Model["playlists"],
+  tracks: Model["tracks"],
+  albums: Model["albums"],
+  albumRows: Model["albumRows"],
+  playingTrackId: TrackId | undefined,
+  playingStatus: Player.TrackStatus,
+  rowMenus: Model["rowMenus"],
+  rowDone: Model["rowDone"],
+  h: HtmlBuilder<Message>,
+): Html => {
+  if (playlistId === undefined) {
+    return pagePlaceView("Kept", [], h);
+  }
+  const playlist = playlistDataIn(playlists, playlistId);
+
+  return pagePlaceView(
+    presence,
+    isInDocument(presence, playlist)
+      ? [
+          Playlist.view(
+            playlistId,
+            playlist,
+            hasWayBack,
+            listContext(
+              presence,
+              "Playlist",
+              { tracks, albums, albumRows, rowMenus, rowDone },
+              playingTrackId,
+              playingStatus,
+            ),
+            h,
+          ),
+        ]
+      : [],
     h,
   );
 };
@@ -453,23 +722,37 @@ const passingPlaceView = (
 const lazyHomePlace = createLazy();
 const lazyNewPlace = createLazy();
 const lazySearchPlace = createLazy();
+const lazyAlbumPlace = createLazy();
+const lazyArtistPlace = createLazy();
+const lazyPlaylistPlace = createLazy();
 const lazyPassingPlace = createLazy();
 
 /**
  * Every page has its place, always in the same order, and the sections stay
- * in theirs once loaded. Going from one to another, or back from a track,
- * changes which place is drawn and rebuilds nothing.
+ * in theirs once loaded, as an album, an artist and a playlist do while a
+ * page reached from them is on screen. Going from one to another, or back
+ * from a track, changes which place is drawn and rebuilds nothing.
  */
 const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> => {
   const playingTrackId = Option.getOrUndefined(Player.maybeCurrentTrackId(model.player));
   const playingStatus = Player.currentTrackStatus(model.player);
 
   return [
-    lazyHomePlace(homePlaceView, [model.home, presenceOf(model, "Home"), h]),
+    lazyHomePlace(homePlaceView, [
+      model.home,
+      presenceOf(model, "Home"),
+      model.albums,
+      model.albumRows,
+      model.artists,
+      model.playlists,
+      h,
+    ]),
     lazyNewPlace(newPlaceView, [
       model.newMusic,
       presenceOf(model, "New"),
       model.tracks,
+      model.albums,
+      model.albumRows,
       playingTrackId,
       playingStatus,
       model.rowMenus,
@@ -478,8 +761,56 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
     ]),
     lazySearchPlace(searchPlaceView, [
       model.route,
+      presenceOf(model, "Search"),
       model.search,
       model.tracks,
+      model.albums,
+      model.albumRows,
+      model.artists,
+      model.playlists,
+      playingTrackId,
+      playingStatus,
+      model.rowMenus,
+      model.rowDone,
+      h,
+    ]),
+    // NOTE: an `Option` made on each draw would be a new object, so the
+    // album in the document is passed as its id, or as nothing.
+    lazyAlbumPlace(albumPlaceView, [
+      Option.getOrUndefined(maybeAlbumIdInDocument(model.route, model.trail)),
+      presenceOf(model, "Album"),
+      hasWayBackFromAlbum(model.route, model.trail),
+      model.tracks,
+      model.albums,
+      model.albumRows,
+      playingTrackId,
+      playingStatus,
+      model.rowMenus,
+      model.rowDone,
+      h,
+    ]),
+    lazyArtistPlace(artistPlaceView, [
+      Option.getOrUndefined(maybeArtistIdInDocument(model.route, model.trail)),
+      presenceOf(model, "Artist"),
+      hasWayBackFromArtist(model.route, model.trail),
+      model.artists,
+      model.tracks,
+      model.albums,
+      model.albumRows,
+      playingTrackId,
+      playingStatus,
+      model.rowMenus,
+      model.rowDone,
+      h,
+    ]),
+    lazyPlaylistPlace(playlistPlaceView, [
+      Option.getOrUndefined(maybePlaylistIdInDocument(model.route, model.trail)),
+      presenceOf(model, "Playlist"),
+      hasWayBackFromPlaylist(model.route, model.trail),
+      model.playlists,
+      model.tracks,
+      model.albums,
+      model.albumRows,
       playingTrackId,
       playingStatus,
       model.rowMenus,
@@ -529,47 +860,76 @@ const trackPageLinkView =
  * knows of the track. It is not keyed by the track: another track becoming
  * the current one is the same sheet with other words.
  */
+// NOTE: the sheet is the shell's and what is on it is the player's, so the
+// two meet here: the sheet draws the box that scrolls and asks for the piece
+// that travels, and the player draws that piece with what the sheet hands it.
+// The page's id, its name and its focus go on the one piece in the sheet that
+// scrolls, since arrow keys and Space scroll whatever holds the focus.
 const expandedPlaceView = (model: Model, h: HtmlBuilder<Message>): Html =>
   pagePlaceView(
     "OnScreen",
     [
-      h.div(
-        [
-          h.Id(PAGE_IDS.Track),
-          h.Role("region"),
-          h.AriaLabelledBy(pageTitleIdOf(PAGE_IDS.Track)),
-          h.Tabindex(0),
-          h.Class(
-            "relative h-full overflow-y-auto pt-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:pt-6",
-          ),
-        ],
-        [
-          h.submodel({
-            slotId: "player-expanded",
-            model: model.player,
-            view: Player.expandedView,
-            viewInputs: {
-              titleId: pageTitleIdOf(PAGE_IDS.Track),
-              toCollapseControl: () => Track.collapseControlView(wayBackOn(model.trail), h),
-              toDetail: (track) => Track.expandedDetailView(trackData(model, track.id), h),
-            },
-            toParentMessage: (message) => Message.GotPlayerMessage({ message }),
-          }),
-        ],
-      ),
+      h.submodel({
+        slotId: model.playerSheet.id,
+        model: model.playerSheet,
+        view: Sheet.view,
+        viewInputs: {
+          continuesPastEdge: true,
+          // Over the navigation and the island, which float over the pages.
+          overlayAttributes: childAttributes([h.Class("z-40")]),
+          backdropClassName: "bg-canvas",
+          backdropFollows: { keyframes: "sheet-backdrop" },
+          stageClassName: "pt-3 md:pt-6",
+          toView: (sheet) =>
+            h.submodel({
+              slotId: "player-expanded",
+              model: model.player,
+              view: Player.expandedView,
+              viewInputs: {
+                titleId: pageTitleIdOf(PAGE_IDS.Track),
+                toCollapseControl: () => Track.collapseControlView(wayBackOn(model.trail), h),
+                toDetail: (track) => Track.expandedDetailView(trackData(model, track.id), h),
+                sheetAttributes: sheet.sheet,
+                contentAttributes: [
+                  ...sheet.content,
+                  ...childAttributes([
+                    h.Id(PAGE_IDS.Track),
+                    h.Role("region"),
+                    h.AriaLabelledBy(pageTitleIdOf(PAGE_IDS.Track)),
+                    h.Tabindex(0),
+                  ]),
+                ],
+                isSheetWhole: sheet.isWhole,
+              },
+              toParentMessage: (message) => Message.GotPlayerMessage({ message }),
+            }),
+        },
+        toParentMessage: (message) => Message.GotPlayerSheetMessage({ message }),
+      }),
     ],
     h,
   );
 
+/** A page a row speaks for while it opens: its track's, or the album's when the row asked for it. */
+const isRowsToSay = (model: Model, route: AppRoute): boolean =>
+  AppRoute.matchOrElse(
+    route,
+    {
+      Track: () => true,
+      Album: ({ albumId }) => HashMap.has(model.albumRows, albumId),
+    },
+    () => false,
+  );
+
 /**
- * The page said to be loading. A track opened from a row is not: its row
- * says that it is opening, and how that ended, so the two never speak of the
- * same thing at once.
+ * The page said to be loading. A track opened from a row is not, nor an
+ * album asked from one: the row says that it is opening, and how that ended,
+ * so the two never speak of the same thing at once.
  */
 const maybeAnnouncedDestination = (model: Model): Option.Option<AppRoute> =>
   Option.filter(
     maybeHeadedFor(model),
-    (route) => !(Awaiting.guards.Intention(model.awaiting) && route._tag === "Track"),
+    (route) => !(Awaiting.guards.Intention(model.awaiting) && isRowsToSay(model, route)),
   );
 
 /**
@@ -606,7 +966,9 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
   title: documentTitle(model),
   body: h.div(
     [
-      ...(Player.hasSession(model.player) && !isPlayerExpanded(model)
+      // NOTE: a page the sheet uncovers leaves room for the island as it
+      // did before the player was opened over it, and will once it is closed.
+      ...(Player.hasSession(model.player) && (!isPlayerExpanded(model) || isSheetAway(model))
         ? [h.DataAttribute("player", "")]
         : []),
       h.DataAttribute("navigation", model.navigation === "Minimized" ? "minimized" : "open"),
@@ -619,8 +981,13 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
         [
           h.Class(
             clsx(
-              "pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-canvas/90 to-transparent px-5 pt-8 pb-3.5 [view-transition-name:navigation] md:pointer-events-auto md:static md:w-60 md:shrink-0 md:border-r md:border-line md:bg-panel md:bg-none md:px-3 md:py-6",
-              { "max-md:hidden": isPlayerExpanded(model) },
+              "pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-canvas/90 to-transparent px-5 pt-8 pb-3.5 md:pointer-events-auto md:static md:w-60 md:shrink-0 md:border-r md:border-line md:bg-panel md:bg-none md:px-3 md:py-6",
+              {
+                // Under the player there is no navigation. It is drawn again,
+                // out of reach, as the player's sheet uncovers it.
+                "max-md:hidden": isPlayerExpanded(model) && !isSheetAway(model),
+                "[view-transition-name:navigation]": !isPlayerExpanded(model),
+              },
             ),
           ),
         ],
@@ -637,14 +1004,20 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
         [
           h.main([h.Class("absolute inset-0")], pagesView(model, h)),
           // NOTE: expanded, the player is the page on screen and is drawn in
-          // its place among the pages: there is no island under itself.
-          isPlayerExpanded(model)
+          // its place among the pages: there is no island under itself. The
+          // island is drawn again as the player's sheet uncovers the page it
+          // stands on, so that a sheet swiped away leaves the screen as it
+          // will be, with nothing to come in after it.
+          isPlayerExpanded(model) && !isSheetAway(model)
             ? h.empty
             : h.submodel({
                 slotId: Player.PLAYER_ID,
                 model: model.player,
                 view: Player.view,
-                viewInputs: { toTrackPageLink: trackPageLinkView(h) },
+                viewInputs: {
+                  toTrackPageLink: trackPageLinkView(h),
+                  isUnderSheet: isPlayerExpanded(model),
+                },
                 toParentMessage: (message) => Message.GotPlayerMessage({ message }),
               }),
         ],

@@ -1,9 +1,15 @@
 import * as Domain from "@alchemy.run/domain";
 import * as Schema from "effect/Schema";
-import { AlbumSummary } from "./Album.ts";
-import { ArtistSummary } from "./Artist.ts";
+import { AlbumId, AlbumSummary } from "./Album.ts";
+import { AlbumNotFound } from "./AlbumNotFound.rejection.ts";
+import { ArtistId, ArtistSummary } from "./Artist.ts";
+import { ArtistNotFound } from "./ArtistNotFound.rejection.ts";
 import { CatalogUnavailable } from "./CatalogUnavailable.rejection.ts";
-import { PlaylistSummary } from "./Playlist.ts";
+import { Album } from "./FullAlbum.ts";
+import { Artist } from "./FullArtist.ts";
+import { Playlist } from "./FullPlaylist.ts";
+import { PlaylistId, PlaylistSummary } from "./Playlist.ts";
+import { PlaylistNotFound } from "./PlaylistNotFound.rejection.ts";
 import { Track, TrackId, TrackSummary } from "./Track.ts";
 import { TrackNotFound } from "./TrackNotFound.rejection.ts";
 
@@ -54,6 +60,24 @@ export class MusicCatalog extends Domain.ExternalSystem(
       args: { trackId: TrackId },
       success: Track,
       error: [TrackNotFound, CatalogUnavailable],
+    },
+    /** One album, in full, with its tracks. */
+    album: {
+      args: { albumId: AlbumId },
+      success: Album,
+      error: [AlbumNotFound, CatalogUnavailable],
+    },
+    /** One artist, in full, with at most `topTracks` of their most played tracks and their albums. */
+    artist: {
+      args: { artistId: ArtistId, topTracks: Schema.Int },
+      success: Artist,
+      error: [ArtistNotFound, CatalogUnavailable],
+    },
+    /** One playlist, in full, with its tracks. */
+    playlist: {
+      args: { playlistId: PlaylistId },
+      success: Playlist,
+      error: [PlaylistNotFound, CatalogUnavailable],
     },
   },
   { description: "The music provider whose catalog Bafle browses and searches." },

@@ -14,7 +14,7 @@ import type { TrackData } from "../model.ts";
 import { isPlayable, type TrackStatus } from "../player/model.ts";
 import { type AppRoute, homeRouter } from "../route.ts";
 import { artworkView, coverView } from "../view/artwork.ts";
-import { backIcon, pauseIcon, playIcon, retryIcon, spinnerIcon } from "../view/icon.ts";
+import { pauseIcon, playIcon, retryIcon, spinnerIcon } from "../view/icon.ts";
 import {
   PAGE_IDS,
   PAGE_TITLE_CLASS,
@@ -26,6 +26,7 @@ import { pageDataView } from "../view/pageData.ts";
 import { BLOCK_CLASS } from "../view/placeholder.ts";
 import { formatDuration } from "../view/time.ts";
 import { explicitMarkerView } from "../view/trackList.ts";
+import { wayBackView } from "../view/wayBack.ts";
 
 // VIEW
 
@@ -38,33 +39,6 @@ export const titleOf = (track: TrackData): string =>
   Option.match(AsyncData.getData(track), {
     onNone: () => TITLE,
     onSome: Option.match({ onNone: () => NOT_AVAILABLE, onSome: (found) => found.title }),
-  });
-
-const WAY_BACK_CLASS =
-  "-ml-2 inline-flex h-10 cursor-pointer items-center gap-1 rounded-full pr-4 pl-2 text-sm font-semibold text-accent hover:bg-accent-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-accent-wash";
-
-/**
- * The way out of the page. When the app knows the page the listener came
- * from, it goes back to it through the browser's history, so that page is
- * found as it was left and the history gains no entry. On a direct link
- * there is nothing behind, and it is a plain link to Home.
- */
-const wayBackView = (maybeWayBack: Option.Option<AppRoute>, h: HtmlBuilder<Message>): Html =>
-  Option.match(maybeWayBack, {
-    onNone: () =>
-      h.a([h.Href(homeRouter()), h.Class(WAY_BACK_CLASS)], [backIcon("size-5"), "Home"]),
-    onSome: () =>
-      Button.view(
-        {
-          onClick: Message.ClickedBack(),
-          toView: (attributes) =>
-            h.button(
-              [...attributes.button, h.Class(WAY_BACK_CLASS)],
-              [backIcon("size-5"), "Back"],
-            ),
-        },
-        h,
-      ),
   });
 
 /** The cover beside the rest on a wide screen, above it on a narrow one. */
@@ -296,7 +270,7 @@ export const view = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.keyed("div")(trackId, pageAttributes(PAGE_ID, "OnScreen", h), [
-    wayBackView(maybeWayBack, h),
+    wayBackView(Option.isSome(maybeWayBack), h),
     h.div(
       [h.AriaBusy(AsyncData.isPending(track)), h.Class("mt-4")],
       [

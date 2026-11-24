@@ -188,7 +188,7 @@ export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
 /**
  * Sets the light's animations, as the island enters the document, to what
  * the Model says the light is doing: travelling, or held where it is drawn.
- * From then on the Subscription `islandLightPace` follows the Model.
+ * From then on the Command `ChangeIslandLightPace` follows the Model.
  */
 export const StartIslandLight = Mount.define("StartIslandLight", {
   args: { initialLight: IslandLight },

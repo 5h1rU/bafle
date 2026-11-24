@@ -1,12 +1,18 @@
 import { AlbumId, type AlbumSummary } from "@bafle/domain/Catalog/Album";
+import { AlbumNotFound } from "@bafle/domain/Catalog/AlbumNotFound.rejection";
 import { ArtistId, type ArtistSummary } from "@bafle/domain/Catalog/Artist";
+import { ArtistNotFound } from "@bafle/domain/Catalog/ArtistNotFound.rejection";
 import { CatalogUnavailable } from "@bafle/domain/Catalog/CatalogUnavailable.rejection";
+import type { Album } from "@bafle/domain/Catalog/FullAlbum";
+import type { Artist } from "@bafle/domain/Catalog/FullArtist";
+import type { Playlist } from "@bafle/domain/Catalog/FullPlaylist";
 import type {
   FeaturedMusic,
   SearchResults,
   TrendingMusic,
 } from "@bafle/domain/Catalog/MusicCatalog.external";
 import { PlaylistId, type PlaylistSummary } from "@bafle/domain/Catalog/Playlist";
+import { PlaylistNotFound } from "@bafle/domain/Catalog/PlaylistNotFound.rejection";
 import { type Track, TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
 import { TrackNotFound } from "@bafle/domain/Catalog/TrackNotFound.rejection";
 import * as DomainFoldkit from "@alchemy.run/domain/Foldkit";
@@ -98,6 +104,24 @@ export const bareTrack: Track = {
 
 export const trackPath = (trackId: TrackId): string => `/track/${trackId}`;
 
+/** The album's opening track: on no chart, so only the album's own page lists it. */
+export const albumOpener: TrackSummary = {
+  ...track,
+  id: TrackId.make("tr-4"),
+  title: "One More Time",
+  durationSeconds: 320,
+  previewUrl: "https://audio.test/tr-4.mp3",
+};
+
+/** The first album, as its own page shows it: three tracks, the last with nothing to play. */
+export const fullAlbum: Album = {
+  ...album,
+  tracks: [albumOpener, track, silentTrack],
+  releaseDate: "2001-03-07",
+};
+
+export const albumPath = (albumId: AlbumId): string => `/album/${albumId}`;
+
 export const playlist: PlaylistSummary = {
   id: PlaylistId.make("pl-1"),
   title: "French Touch",
@@ -105,6 +129,29 @@ export const playlist: PlaylistSummary = {
   picture: null,
   trackCount: 50,
 };
+
+/**
+ * The first artist, as their own page shows them: two tracks played most,
+ * each on an album of its own, and one album out.
+ */
+export const fullArtist: Artist = {
+  ...artist,
+  topTracks: [track, explicitTrack],
+  albums: [album],
+};
+
+export const artistPath = (artistId: ArtistId): string => `/artist/${artistId}`;
+
+/** The playlist, as its own page shows it: three tracks, the last with nothing to play. */
+export const fullPlaylist: Playlist = {
+  id: playlist.id,
+  title: playlist.title,
+  curator: playlist.curator,
+  picture: playlist.picture,
+  tracks: [explicitTrack, track, silentTrack],
+};
+
+export const playlistPath = (playlistId: PlaylistId): string => `/playlist/${playlistId}`;
 
 export const featured: FeaturedMusic = {
   albums: [album],
@@ -203,6 +250,42 @@ export const reply = {
     Catalog.Message.FailedTrackDetail({ requestId, failure: refused }),
   trackLost: (requestId: string) =>
     Catalog.Message.FailedTrackDetail({ requestId, failure: lost }),
+  album: (requestId: string, result: Album = fullAlbum) =>
+    Catalog.Message.SucceededAlbumDetail({ requestId, result }),
+  /** The catalog has no such album: a final refusal, as for a track. */
+  albumMissing: (requestId: string, albumId: AlbumId = album.id) =>
+    Catalog.Message.FailedAlbumDetail({
+      requestId,
+      failure: { _tag: "Rejected", rejection: new AlbumNotFound({ albumId }) },
+    }),
+  albumRefused: (requestId: string) =>
+    Catalog.Message.FailedAlbumDetail({ requestId, failure: refused }),
+  albumLost: (requestId: string) =>
+    Catalog.Message.FailedAlbumDetail({ requestId, failure: lost }),
+  artist: (requestId: string, result: Artist = fullArtist) =>
+    Catalog.Message.SucceededArtistDetail({ requestId, result }),
+  /** The catalog has no such artist: a final refusal, as for a track. */
+  artistMissing: (requestId: string, artistId: ArtistId = artist.id) =>
+    Catalog.Message.FailedArtistDetail({
+      requestId,
+      failure: { _tag: "Rejected", rejection: new ArtistNotFound({ artistId }) },
+    }),
+  artistRefused: (requestId: string) =>
+    Catalog.Message.FailedArtistDetail({ requestId, failure: refused }),
+  artistLost: (requestId: string) =>
+    Catalog.Message.FailedArtistDetail({ requestId, failure: lost }),
+  playlist: (requestId: string, result: Playlist = fullPlaylist) =>
+    Catalog.Message.SucceededPlaylistDetail({ requestId, result }),
+  /** The catalog has no such playlist: a final refusal, as for a track. */
+  playlistMissing: (requestId: string, playlistId: PlaylistId = playlist.id) =>
+    Catalog.Message.FailedPlaylistDetail({
+      requestId,
+      failure: { _tag: "Rejected", rejection: new PlaylistNotFound({ playlistId }) },
+    }),
+  playlistRefused: (requestId: string) =>
+    Catalog.Message.FailedPlaylistDetail({ requestId, failure: refused }),
+  playlistLost: (requestId: string) =>
+    Catalog.Message.FailedPlaylistDetail({ requestId, failure: lost }),
 };
 
 /** A reply as `update` receives it. A late reply is sent this way: its Command is long gone. */
@@ -268,3 +351,28 @@ export const onTrack: Model = answered(openingTrack, reply.track, trackPath(trac
 
 /** Search on screen with the results for "daft", reached by a direct link. */
 export const onSearch: Model = answered(opened("/search?q=daft"), reply.search);
+
+/** New still on screen; "Go to album" was chosen from the menu of its first row. The album has never loaded. */
+export const openingAlbumFromRow: Model = after(onNew, choseFromRow("New", track.id, "OpenAlbum"));
+
+/** The first album's page on screen, opened from that row: New is behind it, as it was left. */
+export const onAlbum: Model = answered(openingAlbumFromRow, reply.album, albumPath(album.id));
+
+/** Home still on screen; the listener chose the first album's tile, which has never loaded. */
+export const openingAlbumFromTile: Model = chose(onHome, albumPath(album.id));
+
+/** Home still on screen; the listener chose the first artist's tile, who has never loaded. */
+export const openingArtistFromTile: Model = chose(onHome, artistPath(artist.id));
+
+/** The first artist's page on screen, opened from that tile: Home is behind it, as it was left. */
+export const onArtist: Model = answered(openingArtistFromTile, reply.artist, artistPath(artist.id));
+
+/** Home still on screen; the listener chose the playlist's tile, which has never loaded. */
+export const openingPlaylistFromTile: Model = chose(onHome, playlistPath(playlist.id));
+
+/** The playlist's page on screen, opened from that tile: Home is behind it, as it was left. */
+export const onPlaylist: Model = answered(
+  openingPlaylistFromTile,
+  reply.playlist,
+  playlistPath(playlist.id),
+);

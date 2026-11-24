@@ -1,4 +1,7 @@
+import type { AlbumId } from "@bafle/domain/Catalog/Album";
+import type { ArtistId } from "@bafle/domain/Catalog/Artist";
 import type { Artwork } from "@bafle/domain/Catalog/Artwork";
+import type { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import type { TrackId } from "@bafle/domain/Catalog/Track";
 import { clsx } from "clsx";
 import * as Option from "effect/Option";
@@ -59,11 +62,90 @@ export const artworkView = (
   );
 
 /**
- * A track's id as part of a CSS name. The catalog's ids are opaque, so every
- * character outside the plainest set is spelled by its code.
+ * The picture at the head of a page. The page is reached from a row, which
+ * has loaded the small rendition, or from a tile, which has loaded the
+ * medium one: the small one is drawn under the medium one, so whichever is
+ * on hand is on screen at once and the box never stands empty.
  */
-const trackIdent = (trackId: TrackId): string =>
-  trackId.replace(/[^A-Za-z0-9-]/g, (character) => `_${character.charCodeAt(0).toString(16)}_`);
+const headPictureView = (
+  shapeClass: string,
+  flightStyle: Readonly<Record<string, string>>,
+  maybeArtwork: Option.Option<Artwork>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.div(
+    [
+      h.Class(clsx("relative aspect-square overflow-hidden bg-tile", shapeClass)),
+      h.Style(flightStyle),
+    ],
+    Option.match(maybeArtwork, {
+      onNone: () => [missingPictureView(h)],
+      onSome: (artwork) => [
+        h.img([
+          h.Decoding("sync"),
+          h.Src(artwork.small),
+          h.Alt(""),
+          h.Class("absolute inset-0 size-full object-cover"),
+        ]),
+        h.img([
+          h.Decoding("async"),
+          h.Fetchpriority("high"),
+          h.Src(artwork.medium),
+          h.Alt(""),
+          h.Class("absolute inset-0 size-full object-cover"),
+        ]),
+      ],
+    }),
+  );
+
+/**
+ * An album's cover at the head of its page. The page is on screen whenever
+ * it is drawn: the cover arrives from the tile it was chosen by.
+ */
+export const albumCoverView = (
+  albumId: AlbumId,
+  maybeArtwork: Option.Option<Artwork>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  headPictureView(
+    "rounded-xl",
+    albumCoverTransitionStyle(albumId, "OnScreen"),
+    maybeArtwork,
+    h,
+  );
+
+/** An artist's picture at the head of their page: round, as their tile is, which it arrives from. */
+export const artistPictureView = (
+  artistId: ArtistId,
+  maybeArtwork: Option.Option<Artwork>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  headPictureView(
+    "rounded-full",
+    artistPictureTransitionStyle(artistId, "OnScreen"),
+    maybeArtwork,
+    h,
+  );
+
+/** A playlist's picture at the head of its page, which arrives from its tile as an album's cover does. */
+export const playlistPictureView = (
+  playlistId: PlaylistId,
+  maybeArtwork: Option.Option<Artwork>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  headPictureView(
+    "rounded-xl",
+    playlistPictureTransitionStyle(playlistId, "OnScreen"),
+    maybeArtwork,
+    h,
+  );
+
+/**
+ * One of the catalog's ids as part of a CSS name. The ids are opaque, so
+ * every character outside the plainest set is spelled by its code.
+ */
+const ident = (id: string): string =>
+  id.replace(/[^A-Za-z0-9-]/g, (character) => `_${character.charCodeAt(0).toString(16)}_`);
 
 /**
  * The name a track's cover travels under in a view transition. One element
@@ -71,7 +153,59 @@ const trackIdent = (trackId: TrackId): string =>
  * else the one on the page on screen.
  */
 export const coverTransitionName = (trackId: TrackId): string =>
-  `track-cover-${trackIdent(trackId)}`;
+  `track-cover-${ident(trackId)}`;
+
+/**
+ * The name an album's cover travels under in a view transition: from its
+ * tile on a shelf to the head of its page, and back. One element carries it
+ * at a time, the one on the page on screen.
+ */
+export const albumCoverTransitionName = (albumId: AlbumId): string =>
+  `album-cover-${ident(albumId)}`;
+
+/** What makes an album's cover one element to a view transition, on the page on screen only. */
+export const albumCoverTransitionStyle = (
+  albumId: AlbumId,
+  presence: Presence,
+): Readonly<Record<string, string>> =>
+  presence === "OnScreen"
+    ? { viewTransitionName: albumCoverTransitionName(albumId), viewTransitionClass: "album-cover" }
+    : {};
+
+/**
+ * The name an artist's picture travels under, as an album's cover does: from
+ * their tile on a shelf to the head of their page, and back.
+ */
+export const artistPictureTransitionName = (artistId: ArtistId): string =>
+  `artist-picture-${ident(artistId)}`;
+
+/** What makes an artist's picture one element to a view transition, on the page on screen only. */
+export const artistPictureTransitionStyle = (
+  artistId: ArtistId,
+  presence: Presence,
+): Readonly<Record<string, string>> =>
+  presence === "OnScreen"
+    ? {
+        viewTransitionName: artistPictureTransitionName(artistId),
+        viewTransitionClass: "artist-picture",
+      }
+    : {};
+
+/** The name a playlist's picture travels under, as an album's cover does. */
+export const playlistPictureTransitionName = (playlistId: PlaylistId): string =>
+  `playlist-picture-${ident(playlistId)}`;
+
+/** What makes a playlist's picture one element to a view transition, on the page on screen only. */
+export const playlistPictureTransitionStyle = (
+  playlistId: PlaylistId,
+  presence: Presence,
+): Readonly<Record<string, string>> =>
+  presence === "OnScreen"
+    ? {
+        viewTransitionName: playlistPictureTransitionName(playlistId),
+        viewTransitionClass: "playlist-picture",
+      }
+    : {};
 
 /** Where a track's cover is, for a page that draws it. */
 export type CoverPlace = Readonly<{ presence: Presence; isInPlayer: boolean }>;

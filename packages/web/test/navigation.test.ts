@@ -4,6 +4,7 @@ import {
   expect as see,
   given,
   inside,
+  Mount,
   role,
   scene,
   selector,
@@ -14,6 +15,7 @@ import { FocusNavigation } from "../src/command.ts";
 import { update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import type { Model } from "../src/model.ts";
+import * as Sheet from "../src/sheet/index.ts";
 import {
   DRAWS_BACK_AFTER_PIXELS,
   followDown,
@@ -166,6 +168,24 @@ describe("the navigation on screen", () => {
       see(shell).toHaveAttr("data-navigation", "open"),
     ));
 
+  // NOTE: what a class does is the style sheet's, and a scene has no style
+  // sheet: these say which element carries the class that takes it out of the
+  // order of focus on a narrow screen (`visibility: hidden`), and which keeps
+  // being drawn inside it.
+  test("drawn back, the circle has one thing to focus: the item it shows is a picture, not a link to follow", () =>
+    scene(
+      app,
+      given(drawnBack),
+      inside(
+        navigation,
+        // The item for where the listener is: gone as a link, its icon still drawn.
+        see(role("link", { name: "New" })).toHaveClass("minimized:invisible"),
+        see(selector('a[aria-current] svg')).toHaveClass("minimized:visible"),
+        // Search is its own control, and stays one.
+        see(role("link", { name: "Search" })).not.toHaveClass("minimized:invisible"),
+      ),
+    ));
+
   test("on a page that is none of the menu's, the circle shows the nearest section behind it", () =>
     scene(
       app,
@@ -185,6 +205,7 @@ describe("the navigation on screen", () => {
     scene(
       app,
       given(expanded),
+      Mount.resolveAll([Sheet.FollowSheet, Sheet.Message.ChangedReach({ reach: "Whole" })]),
       see(selector("header")).toHaveClass("max-md:hidden"),
     ));
 

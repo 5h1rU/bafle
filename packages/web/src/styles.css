@@ -1,36 +1,38 @@
 @import "tailwindcss";
 
-/* One warm neutral scale and one accent. Each token is a variable, so the
-   dark scheme only has to change the values, never the classes. */
+/* Aubergine. One neutral scale that leans to it, and one accent taken from
+   the mark: the deep aubergine of the speaker (#46203f) and the pale orchid
+   it stands on (#efdfec). Each token is a variable, so the dark scheme only
+   has to change the values, never the classes. */
 @theme {
   --font-sans:
     system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
-  --color-canvas: #faf8f5;
-  --color-panel: #f1eee8;
-  --color-ink: #1d1b18;
-  --color-muted: #6a655d;
-  --color-line: #e0dbd2;
+  --color-canvas: #fbf7fa;
+  --color-panel: #f3eaf1;
+  --color-ink: #24121f;
+  --color-muted: #6e5c6a;
+  --color-line: #e4d6e1;
   /* The fill of a picture's box before the picture arrives, and of placeholders. */
-  --color-tile: #e4dfd6;
-  --color-accent: #b0410e;
-  --color-accent-wash: #f6e3d6;
+  --color-tile: #e9dce6;
+  --color-accent: #6e2763;
+  --color-accent-wash: #efdfec;
   --color-on-accent: #ffffff;
 
   /* The island has colours of its own: the figure, its words, the
-     terracotta of its main control, and the copper of the light that
+     aubergine of its main control, and the orchid of the light that
      travels its edge while there is sound. It is a light figure on the
      light page and a dark one on the dark page. On the light one the light's
      head is the deepest of its colours, since nothing can be brighter than
      white; and the figure, being so near the page in colour, is told from
      it by its shadow. */
   --color-island: #ffffff;
-  --color-on-island: #1d1b18;
-  --color-island-muted: #6a655d;
-  --color-island-control: #d4532f;
-  --color-on-island-control: #fbf3e6;
-  --color-island-light: #f0742a;
-  --color-island-light-head: #b8430e;
+  --color-on-island: #24121f;
+  --color-island-muted: #6e5c6a;
+  --color-island-control: #46203f;
+  --color-on-island-control: #f6e9f3;
+  --color-island-light: #c45bb4;
+  --color-island-light-head: #5e1f55;
 
   /* The bars of the "now playing" mark, each rising and falling out of step. */
   --animate-equalize: equalize 900ms ease-in-out infinite;
@@ -59,21 +61,24 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-canvas: #151412;
-    --color-panel: #1d1b18;
-    --color-ink: #f3f0ea;
-    --color-muted: #a8a196;
-    --color-line: #302d28;
-    --color-tile: #2b2824;
-    --color-accent: #ff9a52;
-    --color-accent-wash: #3a2616;
-    --color-on-accent: #1d1b18;
+    --color-canvas: #160f15;
+    --color-panel: #201620;
+    --color-ink: #f5edf3;
+    --color-muted: #b2a3af;
+    --color-line: #34262f;
+    --color-tile: #2c2029;
+    --color-accent: #e3a6d8;
+    --color-accent-wash: #3b2036;
+    --color-on-accent: #24121f;
     /* Lighter than the page, or the figure would be lost against it. */
-    --color-island: #2a2723;
-    --color-on-island: #f6f2ea;
-    --color-island-muted: #b3ab9f;
-    --color-island-light: #ff8a3c;
-    --color-island-light-head: #fff4e6;
+    --color-island: #2b1f29;
+    --color-on-island: #f7f0f5;
+    --color-island-muted: #b8aab5;
+    /* The mark's aubergine would be lost on a dark figure: its orchid stands in for it. */
+    --color-island-control: #dba3d0;
+    --color-on-island-control: #2a1326;
+    --color-island-light: #e48ad6;
+    --color-island-light-head: #fff0fb;
     --island-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
   }
 }
@@ -93,7 +98,7 @@
    has, so each is written out as the places it is at, at even times; where
    a browser has no `linear()`, a curve that overshoots a little. */
 :root {
-  --island-shadow: 0 6px 16px rgb(70 50 30 / 0.18);
+  --island-shadow: 0 6px 16px rgb(70 32 63 / 0.18);
   /* For a part that moves within the island: it eases both ways, evenly. */
   --ease-dock-settle: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-island-out: cubic-bezier(0.3, 1.25, 0.5, 1);
@@ -332,6 +337,43 @@ body {
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* An album's cover travels the same way between its tile on a shelf and the
+   head of its page, growing as it goes and shrinking on the way back. It has
+   further to go and more to grow than a track's, so it is given a little
+   longer, and it arrives as the island does: a shade past its place, and
+   back. Its two pictures are the same picture at two sizes, so they are laid
+   one over the other at the box's own size and neither is seen to fade. */
+::view-transition-group(.album-cover) {
+  z-index: 1;
+  animation-duration: 420ms;
+  animation-timing-function: var(--ease-island-out);
+}
+
+::view-transition-old(.album-cover),
+::view-transition-new(.album-cover) {
+  block-size: 100%;
+  object-fit: cover;
+  animation-duration: 420ms;
+}
+
+/* An artist's picture and a playlist's travel as an album's cover does,
+   between the tile on a shelf and the head of the page. */
+::view-transition-group(.artist-picture),
+::view-transition-group(.playlist-picture) {
+  z-index: 1;
+  animation-duration: 420ms;
+  animation-timing-function: var(--ease-island-out);
+}
+
+::view-transition-old(.artist-picture),
+::view-transition-new(.artist-picture),
+::view-transition-old(.playlist-picture),
+::view-transition-new(.playlist-picture) {
+  block-size: 100%;
+  object-fit: cover;
+  animation-duration: 420ms;
+}
+
 /* The navigation is the same on both sides of a swap, so it does not fade
    with the page: its new state is simply there. It stays above a cover on
    its way to or from a row at the edge of the list. */
@@ -412,6 +454,42 @@ body {
   animation-duration: 380ms;
 }
 
+/* Opening and closing, one of the two pictures is the island's, and it is
+   not to travel with the box: pinned to the top corner it would be carried
+   up the screen as the box grows, and come down from there as it shrinks,
+   from a place the island never stood. It is kept at the foot of the box
+   instead, in the middle, which is where the island stands; and it is gone
+   early on the way out and back late on the way in, while the box is still
+   about the island's own size. The app names the two transitions
+   (`viewTransition` in main.ts), since both pictures carry the one name. */
+:root:active-view-transition-type(player-opens)::view-transition-old(player),
+:root:active-view-transition-type(player-closes)::view-transition-new(player) {
+  inset-block: auto 0;
+  inset-inline: 0;
+  margin-inline: auto;
+  object-position: bottom center;
+}
+
+:root:active-view-transition-type(player-opens)::view-transition-old(player) {
+  animation: 110ms ease-out both island-gives-way;
+}
+
+:root:active-view-transition-type(player-closes)::view-transition-new(player) {
+  animation: 130ms ease-out 250ms both island-takes-its-place;
+}
+
+@keyframes island-gives-way {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes island-takes-its-place {
+  from {
+    opacity: 0;
+  }
+}
+
 /* THE ISLAND'S FIGURE
 
    What the island is drawn on (player/islandFigure.ts): three layers the
@@ -438,6 +516,13 @@ body {
 
 .island-figure {
   z-index: -1;
+}
+
+/* Under the expanded player's sheet the island is a picture of the island to
+   come, and the player on the sheet carries the names: its light and its
+   shadow are then part of the page, with no picture of their own. */
+[data-under-sheet] :is(.island-shadow, .island-lights) {
+  view-transition-name: none;
 }
 
 .island-body {
@@ -614,4 +699,17 @@ body {
    it runs. The presses go through to the page underneath instead. */
 ::view-transition {
   pointer-events: none;
+}
+
+/* The sheet the expanded player is drawn on (`sheet/`). What is behind it
+   comes as the sheet goes: the backdrop follows the swipe, by the sheet's own
+   timeline in place of a clock, from nothing with the sheet gone to whole
+   with the sheet whole. */
+@keyframes sheet-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

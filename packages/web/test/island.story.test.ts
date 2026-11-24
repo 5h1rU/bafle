@@ -85,6 +85,35 @@ describe("the island's light follows the playback", () => {
   test("sound that ran out of data puts it to rest", () => {
     expect(after(sounding, report(1, "Waiting")).light).toBe("Resting");
   });
+
+  /** The paces the light is told to take, in the order it is told. */
+  const paces = (outcome: ReturnType<typeof Player.update>): ReadonlyArray<unknown> =>
+    (outcome.commands ?? [])
+      .filter((command) => command.name === Player.ChangeIslandLightPace({ pace: 0 }).name)
+      .map((command) => command.args);
+
+  test("the light is told its pace when the Model's word on it changes: full to travel, none to rest", () => {
+    expect(paces(Player.update(chosen, report(1, "Sounding")))).toEqual([{ pace: 1 }]);
+    expect(paces(Player.update(sounding, Message.ClickedPause()))).toEqual([{ pace: 0 }]);
+    expect(paces(Player.update(sounding, report(1, "Waiting")))).toEqual([{ pace: 0 }]);
+    const resumed = after(sounding, Message.ClickedPause(), Message.ClickedPlay());
+    expect(paces(Player.update(resumed, report(3, "Sounding")))).toEqual([{ pace: 1 }]);
+  });
+
+  test("and is told nothing while that word stands", () => {
+    // A tap not yet answered, a report that says what was already known, another track.
+    expect(paces(Player.choose(Player.init(), { trackId: track.id, list: [track] }))).toEqual([]);
+    expect(paces(Player.update(sounding, report(1, "Sounding")))).toEqual([]);
+    expect(paces(Player.update(sounding, Message.ClickedNext()))).toEqual([]);
+    const resting = after(sounding, Message.ClickedPause());
+    expect(paces(Player.update(resting, Message.ClickedPlay()))).toEqual([]);
+  });
+
+  test("a change of pace that is done changes nothing", () => {
+    const done = Player.update(sounding, Message.CompletedChangeIslandLightPace());
+    expect(done.model).toBe(sounding);
+    expect(done.commands ?? []).toEqual([]);
+  });
 });
 
 describe("the island's title", () => {
@@ -127,19 +156,84 @@ describe("the island's title", () => {
     expect(names(again)).toEqual([]);
   });
 
-  test("its place changing width makes it stand and starts the wait over", () => {
+  test("its place changing width alone disturbs nothing: the pass under way goes on", () => {
     const measured = Player.update(sounding, tooLong).model;
     const travelling = after(
       measured,
       Message.CompletedWaitToTravelTitle({ run: measured.title.run }),
     );
+    // The island narrowed under it: the title is as long as it was.
     const narrower = Player.update(
       travelling,
       Message.MeasuredTitle({ placePixels: 120, maybeTravelPixels: Option.some(270) }),
     );
-    expect(narrower.model.title.phase).toBe("Standing");
-    expect(narrower.model.title.run).toBe(measured.title.run + 1);
-    expect(names(narrower)).toEqual(["WaitToTravelTitle"]);
+    expect(narrower.model.title).toEqual({ ...travelling.title, placePixels: 120 });
+    expect(names(narrower)).toEqual([]);
+
+    // And the same while it waits: the wait is not started over.
+    const waiting = Player.update(
+      measured,
+      Message.MeasuredTitle({ placePixels: 120, maybeTravelPixels: Option.some(270) }),
+    );
+    expect(waiting.model.title).toEqual({ ...measured.title, placePixels: 120 });
+    expect(names(waiting)).toEqual([]);
+  });
+
+  test("a title that comes to fit in the middle of a pass ends that pass, and then stands for good", () => {
+    const measured = Player.update(sounding, tooLong).model;
+    const { run } = measured.title;
+    const travelling = after(measured, Message.CompletedWaitToTravelTitle({ run }));
+
+    // The island widened, and the title fits now.
+    const wider = Player.update(
+      travelling,
+      Message.MeasuredTitle({ placePixels: 300, maybeTravelPixels: Option.none() }),
+    );
+    // It is not stopped where it is: the pass keeps its way to go.
+    expect(wider.model.title).toEqual({
+      run,
+      placePixels: 300,
+      maybeTravelPixels: Option.some(270),
+      phase: "Finishing",
+    });
+    expect(names(wider)).toEqual([]);
+
+    const over = Player.update(wider.model, Message.CompletedTravelTitle({ run }));
+    expect(over.model.title).toEqual({
+      run: run + 1,
+      placePixels: 300,
+      maybeTravelPixels: Option.none(),
+      phase: "Standing",
+    });
+    // No wait: there is no next pass.
+    expect(names(over)).toEqual([]);
+  });
+
+  test("a title that stops fitting again before its last pass is over goes on as before", () => {
+    const measured = Player.update(sounding, tooLong).model;
+    const { run } = measured.title;
+    const finishing = after(
+      measured,
+      Message.CompletedWaitToTravelTitle({ run }),
+      Message.MeasuredTitle({ placePixels: 300, maybeTravelPixels: Option.none() }),
+    );
+    const narrowAgain = after(finishing, tooLong);
+    expect(narrowAgain.title.phase).toBe("Travelling");
+
+    const over = Player.update(narrowAgain, Message.CompletedTravelTitle({ run }));
+    expect(over.model.title.phase).toBe("Standing");
+    expect(names(over)).toEqual(["WaitToTravelTitle"]);
+  });
+
+  test("a title that fits while it stands simply stands, and what it waited for is dropped", () => {
+    const measured = Player.update(sounding, tooLong).model;
+    const fitting = Player.update(
+      measured,
+      Message.MeasuredTitle({ placePixels: 300, maybeTravelPixels: Option.none() }),
+    );
+    expect(fitting.model.title.phase).toBe("Standing");
+    expect(fitting.model.title.run).toBe(measured.title.run + 1);
+    expect(names(fitting)).toEqual([]);
   });
 
   test("a wait or a pass that ends for an earlier run is dropped", () => {

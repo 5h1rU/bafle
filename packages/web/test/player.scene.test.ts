@@ -21,6 +21,7 @@ import { Lazy } from "foldkit/test";
 import { describe, expect, test } from "vitest";
 import { Catalog } from "../src/catalog.ts";
 import {
+  FocusNavigation,
   FocusPage,
   FocusTrackRow,
   NavigateBack,
@@ -28,12 +29,13 @@ import {
   ReplaceTrackUrl,
   WaitToClearRowDone,
 } from "../src/command.ts";
-import { update, viewTransition } from "../src/main.ts";
+import { PLAYER_CLOSES, PLAYER_OPENS, update, viewTransition } from "../src/main.ts";
 import { Message } from "../src/message.ts";
-import { isPlayerExpanded, type Model } from "../src/model.ts";
+import { initialPlayerSheet, isPlayerExpanded, type Model, wayBack } from "../src/model.ts";
 import { AppRoute } from "../src/route.ts";
 import type { EnginePhase, EngineReport } from "../src/player/audioEngine.ts";
 import * as Player from "../src/player/index.ts";
+import * as Sheet from "../src/sheet/index.ts";
 import { view } from "../src/view.ts";
 import {
   after,
@@ -41,6 +43,7 @@ import {
   arrived,
   bareTrack,
   changedUrl,
+  choseFromRow,
   clickedLink,
   explicitTrack,
   fullTrack,
@@ -194,6 +197,20 @@ const islandEnters = Mount.resolveAll(
 const islandLeaves = () =>
   Mount.expectEnded(Player.DrawIslandFigure, Player.StartIslandLight, Player.MeasureTitle);
 
+/** The island's light was told its new pace, and has taken it. */
+const lightChangesPace = () =>
+  Command.resolve(
+    Player.ChangeIslandLightPace,
+    Player.Message.CompletedChangeIslandLightPace(),
+  );
+
+/**
+ * The expanded player's sheet entered the document: it was put where it is
+ * whole, and the document said that all of it is on screen.
+ */
+const sheetEnters = () =>
+  Mount.resolveAll([Sheet.FollowSheet, Sheet.Message.ChangedReach({ reach: "Whole" })]);
+
 /** The threshold passes with nothing heard from the engine. */
 const thresholdPasses = (order: number) =>
   Command.resolve(
@@ -297,6 +314,7 @@ describe("a row plays its track", () => {
     scene(
       app,
       given(expandedOnFirst),
+      sheetEnters(),
       Subscription.emit(
         said(1, "Sounding", {
           positionSeconds: 13,
@@ -318,8 +336,12 @@ describe("a row plays its track", () => {
       given(sounding),
       islandEnters,
       inside(island, click(control("Pause"))),
-      Command.expectExact(Player.PausePlayback({ order: 2 })),
+      Command.expectExact(
+        Player.PausePlayback({ order: 2 }),
+        Player.ChangeIslandLightPace({ pace: 0 }),
+      ),
       Command.resolve(Player.PausePlayback, Player.Message.CompletedPausePlayback()),
+      lightChangesPace(),
       inside(
         island,
         see(control("Play")).toExist(),
@@ -340,6 +362,7 @@ describe("a row plays its track", () => {
       Subscription.emit(
         said(1, "Waiting", { positionSeconds: 12, maybeDurationSeconds: Option.some(30) }),
       ),
+      lightChangesPace(),
       inside(
         island,
         // Still the control that stops it, with a mark that breathes instead of turning.
@@ -388,7 +411,11 @@ describe("a row plays its track", () => {
       islandEnters,
       Subscription.emit(said(1, "Failed", { positionSeconds: 12 })),
       // The catalog is asked for the track again before anything is called a failure.
-      Command.expectExact(Player.RefreshSource({ order: 1, trackId: track.id })),
+      Command.expectExact(
+        Player.RefreshSource({ order: 1, trackId: track.id }),
+        Player.ChangeIslandLightPace({ pace: 0 }),
+      ),
+      lightChangesPace(),
       see(text("This song could not be played.")).toBeAbsent(),
       Command.resolve(Player.RefreshSource, Player.Message.FailedRefreshSource({ order: 1 })),
       inside(
@@ -445,6 +472,7 @@ describe("the player expanded: the page of the track it holds", () => {
       islandEnters,
       Subscription.emit(clickedLink(trackPath(track.id))),
       islandLeaves(),
+      sheetEnters(),
       // The screen moved, so the history gains its entry now; the engine is asked nothing.
       Command.expectExact(NavigateInternal, FocusPage, Catalog.TrackDetail),
       // Before the catalog has said a word: the player, whole, from what the queue holds.
@@ -502,6 +530,7 @@ describe("the player expanded: the page of the track it holds", () => {
       islandEnters,
       inside(selector("#track-page"), click(control("Play", "Technologic"))),
       islandLeaves(),
+      sheetEnters(),
       // The engine is given its order, and the history is asked nothing.
       Command.expectExact(
         Player.StartPlayback({ order: 2, source: "https://audio.test/tr-2.mp3", positionSeconds: 0 }),
@@ -524,6 +553,7 @@ describe("the player expanded: the page of the track it holds", () => {
     scene(
       app,
       given(expandedOnFirst),
+      sheetEnters(),
       inside(expandedLayout, click(control("Next track", "Technologic"))),
       Command.expectExact(
         Player.StartPlayback({ order: 2, source: "https://audio.test/tr-2.mp3", positionSeconds: 0 }),
@@ -563,6 +593,7 @@ describe("the player expanded: the page of the track it holds", () => {
     scene(
       app,
       given(expandedOnFirst),
+      sheetEnters(),
       click(role("button", { name: "Close the player" })),
       Command.expectExact(NavigateBack),
       Command.resolve(NavigateBack, Message.CompletedNavigateBack()),
@@ -572,6 +603,8 @@ describe("the player expanded: the page of the track it holds", () => {
         [Catalog.NewMusic, reply.newMusic(nextId(expandedOnFirst))],
         [FocusTrackRow, Message.CompletedFocusTrackRow()],
       ),
+      // The sheet goes with the player, and what followed it ends with it.
+      Mount.expectEnded(Sheet.FollowSheet),
       islandEnters,
       see(role("heading", { name: "New", level: 1 })).toBeVisible(),
       see(expandedLayout).toBeAbsent(),
@@ -591,6 +624,7 @@ describe("the player expanded: the page of the track it holds", () => {
           Message.ClickedPlayTrack({ trackId: track.id, from: "Track" }),
         ),
       ),
+      sheetEnters(),
       see(expandedLayout).toExist(),
       see(role("link", { name: "Close the player" })).toHaveAttr("href", "/"),
     ));
@@ -602,6 +636,7 @@ describe("the player expanded: the page of the track it holds", () => {
       islandEnters,
       Subscription.emit(clickedLink(trackPath(track.id))),
       islandLeaves(),
+      sheetEnters(),
       resolveOpening(sounding, reply.trackRefused),
       inside(
         expandedLayout,
@@ -610,8 +645,12 @@ describe("the player expanded: the page of the track it holds", () => {
         see(role("heading", { name: TITLE, level: 1 })).toExist(),
         click(control("Pause")),
       ),
-      Command.expectExact(Player.PausePlayback({ order: 2 })),
+      Command.expectExact(
+        Player.PausePlayback({ order: 2 }),
+        Player.ChangeIslandLightPace({ pace: 0 }),
+      ),
       Command.resolve(Player.PausePlayback, Player.Message.CompletedPausePlayback()),
+      lightChangesPace(),
       inside(expandedLayout, see(control("Play")).toExist()),
     ));
 
@@ -622,6 +661,7 @@ describe("the player expanded: the page of the track it holds", () => {
       islandEnters,
       Subscription.emit(clickedLink(trackPath(track.id))),
       islandLeaves(),
+      sheetEnters(),
       resolveOpening(sounding, reply.trackMissing),
       inside(
         expandedLayout,
@@ -635,16 +675,179 @@ describe("the player expanded: the page of the track it holds", () => {
     const transition = (previousModel: Model, message: Message) =>
       viewTransition({ previousModel, model: update(previousModel, message).model, message });
 
-    expect(transition(sounding, clickedLink(trackPath(track.id)))).toBe(true);
+    // Each is told by name, so the island's picture is known from the sheet's and stays where the island stands.
+    expect(transition(sounding, clickedLink(trackPath(track.id)))).toEqual({
+      types: [PLAYER_OPENS],
+    });
     // The browser's own Back: the URL has already moved, and the app only follows.
-    expect(transition(expandedOnFirst, changedUrl("/new"))).toBe(true);
+    expect(transition(expandedOnFirst, changedUrl("/new"))).toEqual({ types: [PLAYER_CLOSES] });
     expect(
       transition(onOtherTracksPage, Message.ClickedPlayTrack({ trackId: explicitTrack.id, from: "Track" })),
-    ).toBe(true);
+    ).toEqual({ types: [PLAYER_OPENS] });
     expect(transition(expandedOnFirst, player(Player.Message.ClickedNext()))).toBe(false);
     expect(transition(expandedOnFirst, said(1, "Ended"))).toBe(false);
     expect(transition(expandedOnFirst, said(1, "Sounding", { positionSeconds: 14 }))).toBe(false);
   });
+});
+
+describe("the expanded player is on a sheet, and the sheet can be swiped away", () => {
+  const names = (outcome: ReturnType<typeof update>) =>
+    (outcome.commands ?? []).map((command) => command.name);
+  const sheet = (message: Sheet.Message): Message => Message.GotPlayerSheetMessage({ message });
+  /** The document's word on how much of the sheet is on screen. */
+  const reaches = (reach: Sheet.Reach): Message => sheet(Sheet.Message.ChangedReach({ reach }));
+
+  /** The listener's finger is taking the sheet down: some of it is off the screen. */
+  const swiping: Model = after(expandedOnFirst, reaches("Partly"));
+
+  /** The player's own page reached by its address, and played: no page of the app is behind it. */
+  const expandedAlone: Model = after(
+    answered(opened(trackPath(track.id)), reply.track),
+    Message.ClickedPlayTrack({ trackId: track.id, from: "Track" }),
+  );
+
+  test("it is whole as the player opens, whatever was said of the sheet before", () => {
+    expect(expandedOnFirst.playerSheet).toBe(initialPlayerSheet);
+    // Swiped away, closed, and opened again: the new sheet is not the one that left.
+    const closed = after(swiping, reaches("Gone"), changedUrl("/new"));
+    expect(closed.playerSheet.reach).toBe("Gone");
+    const again = after(
+      closed,
+      clickedLink(trackPath(track.id)),
+      changedUrl(trackPath(track.id)),
+    );
+    expect(isPlayerExpanded(again)).toBe(true);
+    expect(again.playerSheet).toBe(initialPlayerSheet);
+  });
+
+  test("a swipe that comes back changes nothing but what is drawn behind the sheet meanwhile", () => {
+    expect(names(update(expandedOnFirst, reaches("Partly")))).toEqual([]);
+    const back = update(swiping, reaches("Whole"));
+    expect(names(back)).toEqual([]);
+    expect(back.model.playerSheet.reach).toBe("Whole");
+    expect(back.model.route).toEqual(expandedOnFirst.route);
+  });
+
+  test("swiped off the screen, the player closes the way its control closes it: back through the history", () => {
+    const left = update(swiping, reaches("Gone"));
+    expect(names(left)).toEqual(["NavigateBack"]);
+    // Nothing moves until the browser has: the route is still the player's.
+    expect(left.model.route).toEqual(expandedOnFirst.route);
+    const closed = after(left.model, changedUrl("/new"));
+    expect(closed.route).toEqual(AppRoute.New());
+    expect(isPlayerExpanded(closed)).toBe(false);
+    expect(closed.player).toBe(expandedOnFirst.player);
+  });
+
+  test("a sheet that left is not brought back to shrink into the island: there is no transition", () => {
+    const left = after(swiping, reaches("Gone"));
+    const closed = after(left, changedUrl("/new"));
+    expect(
+      viewTransition({ previousModel: left, model: closed, message: changedUrl("/new") }),
+    ).toBe(false);
+    // Nor when the sheet's last word and the page change reach one frame together.
+    expect(
+      viewTransition({ previousModel: swiping, model: closed, message: changedUrl("/new") }),
+    ).toBe(false);
+    // Its close control, and Back with the sheet whole, still shrink it into the island.
+    expect(
+      viewTransition({
+        previousModel: expandedOnFirst,
+        model: after(expandedOnFirst, changedUrl("/new")),
+        message: changedUrl("/new"),
+      }),
+    ).toEqual({ types: [PLAYER_CLOSES] });
+  });
+
+  test("Escape asks for the player to close, and it closes as for its control, with the sheet still whole", () => {
+    const asked = update(expandedOnFirst, sheet(Sheet.Message.PressedEscape()));
+    expect(names(asked)).toEqual(["NavigateBack"]);
+    expect(asked.model.playerSheet.reach).toBe("Whole");
+    const closed = after(asked.model, changedUrl("/new"));
+    expect(
+      viewTransition({ previousModel: asked.model, model: closed, message: changedUrl("/new") }),
+    ).toEqual({ types: [PLAYER_CLOSES] });
+  });
+
+  test("with no page behind, a sheet swiped away leaves Home on screen at once: an empty screen is nothing to hold", () => {
+    expect(wayBack(expandedAlone)).toEqual(Option.none());
+    const left = update(after(expandedAlone, reaches("Partly")), reaches("Gone"));
+    // Home has never been loaded: it takes the screen in its placeholders, and is asked for.
+    expect(left.model.route).toEqual(AppRoute.Home());
+    expect(names(left).sort()).toEqual(["FocusPage", "HomeFeed", "NavigateInternal"]);
+    expect(left.model.trail).toEqual([AppRoute.Track({ trackId: track.id })]);
+  });
+
+  test("with no page behind, Escape follows the link Home that its close control is", () => {
+    const asked = update(expandedAlone, sheet(Sheet.Message.PressedEscape()));
+    const byLink = update(expandedAlone, clickedLink("/"));
+    expect(asked.model.awaiting).toEqual(byLink.model.awaiting);
+    expect(names(asked)).toEqual(names(byLink));
+  });
+
+  test("a sheet's word that comes after the player closed closes nothing else", () => {
+    const closed = after(expandedOnFirst, changedUrl("/new"));
+    const late = update(closed, reaches("Gone"));
+    expect(late.model).toBe(closed);
+    expect(names(late)).toEqual([]);
+  });
+
+  test("with the sheet whole, what is behind it is as behind any page: hidden, and no navigation under it", () =>
+    scene(
+      app,
+      given(expandedOnFirst),
+      sheetEnters(),
+      see(selector("header")).toHaveClass("max-md:hidden"),
+      see(islandLayout).toBeAbsent(),
+      see(selector("#new-page")).toHaveAttr("inert", "true"),
+      see(selector("[data-player]")).toBeAbsent(),
+      // The sheet's own piece that scrolls is the page: its id, its name, its focus.
+      see(selector("#track-page")).toHaveAttr("role", "region"),
+      see(selector("#track-page")).toHaveAttr("data-sheet-content", ""),
+      see(selector("#player-sheet")).toHaveAttr("data-reach", "Whole"),
+    ));
+
+  test("as the sheet goes, the page it was opened over is drawn behind it with its navigation and its island, out of reach", () =>
+    scene(
+      app,
+      given(expandedOnFirst),
+      sheetEnters(),
+      Subscription.emit(reaches("Partly")),
+      // The island that will be there when the sheet has gone.
+      islandEnters,
+      see(selector("#player-sheet")).toHaveAttr("data-reach", "Partly"),
+      // What is in the sheet no longer scrolls: a swipe on it is the sheet's.
+      see(selector("#track-page")).toHaveClass("overflow-hidden"),
+      see(selector("header")).not.toHaveClass("max-md:hidden"),
+      // The page behind is the one closing leads to. It is seen, and cannot be acted on.
+      see(selector("#new-page")).toHaveAttr("inert", "true"),
+      see(selector("[data-player]")).toExist(),
+      inside(
+        islandLayout,
+        see(text(TITLE)).toExist(),
+      ),
+      see(islandLayout).toHaveAttr("inert", "true"),
+      see(islandLayout).toHaveAttr("data-under-sheet", ""),
+      // One player by that id, and one piece by each name in a view transition: the one on the sheet.
+      see(selector("#player")).toHaveAttr("data-layout", "expanded"),
+      seeCarriers(coverName, { inAll: 1, inIsland: 1 }),
+      // The swipe comes back: the page behind is hidden again, and the island under the sheet is gone.
+      Subscription.emit(reaches("Whole")),
+      islandLeaves(),
+      see(islandLayout).toBeAbsent(),
+      see(selector("header")).toHaveClass("max-md:hidden"),
+    ));
+
+  test("Escape on the sheet closes the player", () =>
+    scene(
+      app,
+      given(expandedOnFirst),
+      sheetEnters(),
+      // Heard on the piece the sheet is drawn in, wherever in the player the focus is.
+      keydown(selector("#player-sheet"), "Escape"),
+      Command.expectExact(NavigateBack),
+      Command.resolve(NavigateBack, Message.CompletedNavigateBack()),
+    ));
 });
 
 describe("the player expanded, told from the two Models", () => {
@@ -749,6 +952,7 @@ describe("the island", () => {
     scene(
       app,
       given(expandedOnFirst),
+      sheetEnters(),
       inside(
         expandedLayout,
         // Each step names where it leads: the first track has only its own start behind it.
@@ -923,9 +1127,14 @@ describe("the island", () => {
     scene(
       app,
       given(expandedOnFirst),
+      sheetEnters(),
       keydown(seekBar, "ArrowRight"),
-      Command.expectExact(Player.SeekPlayback({ order: 2, positionSeconds: 13 })),
+      Command.expectExact(
+        Player.SeekPlayback({ order: 2, positionSeconds: 13 }),
+        Player.ChangeIslandLightPace({ pace: 0 }),
+      ),
       Command.resolve(Player.SeekPlayback, Player.Message.CompletedSeekPlayback()),
+      lightChangesPace(),
       // The bar stands at the wish, drawn as a wish, until the engine says it is there.
       see(seekBar).toHaveAttr("aria-valuenow", "13"),
       see(selector("[data-seek]")).toHaveAttr("data-seek", "Seeking"),
@@ -933,6 +1142,7 @@ describe("the island", () => {
       Subscription.emit(
         said(2, "Sounding", { positionSeconds: 13, maybeDurationSeconds: Option.some(30) }),
       ),
+      lightChangesPace(),
       see(selector("[data-seek]")).toHaveAttr("data-seek", "Settled"),
       see(selector('[data-elapsed="fact"]')).toHaveText("0:13"),
     ));
@@ -948,6 +1158,7 @@ describe("the island", () => {
           changedUrl(trackPath(track.id)),
         ),
       ),
+      sheetEnters(),
       inside(expandedLayout, see(role("slider")).toBeAbsent(), see(text("0:00")).toExist()),
     ));
 });
@@ -1010,6 +1221,7 @@ describe("the flight: a track's cover is one element on its way to the island", 
       given(onTrack),
       seeCarriers(coverName, { inAll: 1, inIsland: 0 }),
       click(control("Play")),
+      sheetEnters(),
       seeCarriers(coverName, { inAll: 1, inIsland: 1 }),
       resolveStart(1),
       thresholdPasses(1),
@@ -1023,6 +1235,7 @@ describe("the flight: a track's cover is one element on its way to the island", 
       inside(islandLayout, see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName)),
       Subscription.emit(clickedLink(trackPath(track.id))),
       islandLeaves(),
+      sheetEnters(),
       seeCarriers(coverName, { inAll: 1, inIsland: 1 }),
       inside(expandedLayout, see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName)),
       resolveOpening(sounding),
@@ -1079,12 +1292,13 @@ describe("a second of progress redraws no page", () => {
       tap((simulation) => drawn.push(places(simulation.html))),
       // A change of state is something a row shows: its page is drawn again.
       Subscription.emit(said(1, "Waiting", { positionSeconds: 13 })),
+      lightChangesPace(),
       tap((simulation) => drawn.push(places(simulation.html))),
     );
 
     const [before, afterProgress, afterStall] = drawn;
-    expect(before).toHaveLength(4);
-    // Home, New, Search and the passing place: each the same object, so nothing under it was diffed.
+    expect(before).toHaveLength(7);
+    // Home, New, Search, the album's place, the artist's, the playlist's and the passing place: each the same object, so nothing under it was diffed.
     before?.forEach((place, index) => expect(afterProgress?.[index]).toBe(place));
     // New lists the track that stalled: it is drawn again. Home has nothing to show of it.
     expect(afterStall?.[1]).not.toBe(before?.[1]);
@@ -1098,7 +1312,7 @@ describe("a second of progress redraws no page", () => {
 });
 
 describe("the menu at the end of a row", () => {
-  const item = (name: string) => role("menuitem", { name });
+  const item = (name: string | RegExp) => role("menuitem", { name });
   const items = all.role("menuitem");
   const openOn = (model: Model, trackId: typeof track.id): Model =>
     after(model, pressedMore("New", trackId));
@@ -1125,16 +1339,35 @@ describe("the menu at the end of a row", () => {
     Mount.expectEnded(Menu.PortalMenuBackdrop, Menu.AnchorMenu),
   ];
 
-  test("before anything is played it offers the track's page, and nothing of a queue", () =>
+  test("before anything is played it offers the album and the track's page, and nothing of a queue", () =>
     scene(
       app,
       given(openOn(onNew, track.id)),
       menuEnters,
       see(more(TITLE)).toHaveAttr("aria-expanded", "true"),
-      expectAll(items).toHaveCount(1),
+      expectAll(items).toHaveCount(2),
+      see(item("Go to album")).toExist(),
       see(item("Song details")).toExist(),
       // Only the menu that was opened is open.
       see(more("Technologic")).toHaveAttr("aria-expanded", "false"),
+    ));
+
+  test("Back to the page before: the menu is gone with the list it was on, and nothing of it is left on screen", () =>
+    scene(
+      app,
+      given(openOn(onNew, track.id)),
+      menuEnters,
+      see(item("Song details")).toExist(),
+      // The browser's Back, from New to Home.
+      Subscription.emit(changedUrl("/")),
+      // Home is shown at once from what it had, and asked for again behind the screen.
+      Command.resolveAll(
+        [FocusNavigation, Message.CompletedFocusNavigation()],
+        [Catalog.HomeFeed, reply.home(nextId(openOn(onNew, track.id)))],
+      ),
+      Mount.expectEnded(Menu.PortalMenuBackdrop, Menu.AnchorMenu),
+      expectAll(items).toHaveCount(0),
+      see(more(TITLE)).toHaveAttr("aria-expanded", "false"),
     ));
 
   test("once something is playing, another track can be queued: next, or after the rest", () =>
@@ -1143,9 +1376,10 @@ describe("the menu at the end of a row", () => {
       given(openOn(sounding, explicitTrack.id)),
       islandEnters,
       menuEnters,
-      expectAll(items).toHaveCount(3),
+      expectAll(items).toHaveCount(4),
       see(item("Play next")).toExist(),
       see(item("Add to queue")).toExist(),
+      see(item("Go to album")).toExist(),
       see(item("Song details")).toExist(),
     ));
 
@@ -1155,7 +1389,8 @@ describe("the menu at the end of a row", () => {
       given(openOn(sounding, track.id)),
       islandEnters,
       menuEnters,
-      expectAll(items).toHaveCount(1),
+      expectAll(items).toHaveCount(2),
+      see(item("Go to album")).toExist(),
       see(item("Song details")).toExist(),
     ));
 
@@ -1182,26 +1417,64 @@ describe("the menu at the end of a row", () => {
       see(text("Plays next.")).toBeAbsent(),
     ));
 
-  test("Song details: the list is held, the row's control turns, and the page opens when it arrives", () =>
+  test("Song details: the menu stays open, its item turns, and the page opens when it arrives", () =>
     scene(
       app,
       given(openOn(sounding, explicitTrack.id)),
       islandEnters,
       menuEnters,
       click(item("Song details")),
-      ...menuLeaves(),
-      // Held, as any page that was chosen: New stays, and the mark is on the control that was used.
+      // Held, as any page that was chosen: New stays. The menu stays open too, and the mark is on
+      // the item that was pressed, not on the row's control.
       see(role("heading", { name: "New", level: 1 })).toBeVisible(),
-      see(more("Technologic")).toHaveAttr("aria-busy", "true"),
-      inside(more("Technologic"), expectAll(all.selector("svg.animate-spin")).toHaveCount(1)),
+      see(more("Technologic")).toHaveAttr("aria-expanded", "true"),
+      inside(item("Song details"), expectAll(all.selector("svg.animate-spin")).toHaveCount(1)),
+      inside(more("Technologic"), expectAll(all.selector("svg.animate-spin")).toHaveCount(0)),
       Command.resolve(Catalog.TrackDetail, reply.track(nextId(sounding), bareTrack)),
       Command.resolveAll(
         [NavigateInternal, Message.CompletedNavigateInternal()],
         [FocusPage, Message.CompletedFocusPage()],
       ),
+      // The menu went with the page it was on.
+      Mount.expectEnded(Menu.PortalMenuBackdrop, Menu.AnchorMenu),
       inside(
         selector("#track-page"),
         see(role("heading", { name: /Technologic/, level: 1 })).toExist(),
       ),
     ));
+
+  test("a page that fails to open says so on the item, and the item tries again", () => {
+    // The Model the second request is named from: the first was asked, and was lost.
+    const asked = after(
+      openOn(sounding, explicitTrack.id),
+      choseFromRow("New", explicitTrack.id, "OpenSong"),
+    );
+    const lost = after(asked, arrived(reply.trackLost(nextId(sounding))));
+
+    scene(
+      app,
+      given(openOn(sounding, explicitTrack.id)),
+      islandEnters,
+      menuEnters,
+      click(item("Song details")),
+      Command.resolve(Catalog.TrackDetail, reply.trackLost(nextId(sounding))),
+      // Still open, and the way to try again is where the listener's finger is.
+      see(more("Technologic")).toHaveAttr("aria-expanded", "true"),
+      see(item(/Song details.*Could not open\. Try again/)).toExist(),
+      inside(role("menu"), expectAll(all.selector("svg.animate-spin")).toHaveCount(0)),
+      click(item(/Song details/)),
+      inside(item(/Song details/), expectAll(all.selector("svg.animate-spin")).toHaveCount(1)),
+      Command.expectHas(Catalog.TrackDetail),
+      Command.resolve(Catalog.TrackDetail, reply.track(nextId(lost), bareTrack)),
+      Command.resolveAll(
+        [NavigateInternal, Message.CompletedNavigateInternal()],
+        [FocusPage, Message.CompletedFocusPage()],
+      ),
+      Mount.expectEnded(Menu.PortalMenuBackdrop, Menu.AnchorMenu),
+      inside(
+        selector("#track-page"),
+        see(role("heading", { name: /Technologic/, level: 1 })).toExist(),
+      ),
+    );
+  });
 });

@@ -1,0 +1,23 @@
+{
+  "id": "/",
+  "name": "Bafle",
+  "short_name": "Bafle",
+  "description": "Discover albums, artists and playlists, and listen to music on Bafle.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#46203F",
+  "background_color": "#EFDFEC",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    { "src": "/icons/bafle.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-384.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/monochrome.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "monochrome" }
+  ]
+}

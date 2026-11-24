@@ -9,11 +9,14 @@ import * as Player from "../src/player/index.ts";
 import { rowMenuId, rowMenuIn } from "../src/rowMenu.ts";
 import {
   after,
+  awaitedId,
+  changedUrl,
   choseFromRow,
   clickedLink,
   explicitTrack,
   onNew,
   pressedMore,
+  reply,
   silentTrack,
   track,
   trackPath,
@@ -111,7 +114,8 @@ describe("a row's menu", () => {
     const chosen = update(opened, choseFromRow("New", track.id, "OpenSong"));
     const byLink = update(onNew, clickedLink(trackPath(track.id)));
 
-    expect(rowMenuIn(chosen.model.rowMenus, row).isOpen).toBe(false);
+    // The menu stays open while the page is on its way: its item says so.
+    expect(rowMenuIn(chosen.model.rowMenus, row).isOpen).toBe(true);
     // The page on screen stays, the URL stays, and the row's track is loading.
     expect(chosen.model.route).toEqual(byLink.model.route);
     expect(chosen.model.awaiting).toEqual(byLink.model.awaiting);
@@ -119,6 +123,47 @@ describe("a row's menu", () => {
     expect(trackData(chosen.model, track.id)).toEqual(trackData(byLink.model, track.id));
     expect(names(chosen)).toContain("TrackDetail");
     expect(names(chosen)).not.toContain("NavigateInternal");
+  });
+
+  test("the menu goes with the page it was on when the page chosen takes the screen", () => {
+    const opened = after(onNew, pressedMore("New", track.id));
+    const chosen = after(opened, choseFromRow("New", track.id, "OpenSong"));
+    const arrived = update(
+      chosen,
+      Message.GotCatalogMessage({ message: reply.track(awaitedId(chosen)) }),
+    );
+
+    expect(arrived.model.route._tag).toBe("Track");
+    expect(HashMap.size(arrived.model.rowMenus)).toBe(0);
+  });
+
+  test("Back to the page before takes the menu with the page it was on", () => {
+    // Home, then New, and a row's menu opened there: Back shows Home, which is loaded.
+    const opened = after(onNew, pressedMore("New", track.id));
+    const back = update(opened, changedUrl("/"));
+
+    expect(back.model.route._tag).toBe("Home");
+    expect(HashMap.size(back.model.rowMenus)).toBe(0);
+    // Forward again finds New as any visit does: its menus closed.
+    const forward = after(back.model, changedUrl("/new"));
+    expect(forward.route._tag).toBe("New");
+    expect(rowMenuIn(forward.rowMenus, row).isOpen).toBe(false);
+  });
+
+  test("a page that failed to open is asked for again by a second press of its item", () => {
+    const opened = after(onNew, pressedMore("New", track.id));
+    const chosen = after(opened, choseFromRow("New", track.id, "OpenSong"));
+    const failed = after(
+      chosen,
+      Message.GotCatalogMessage({ message: reply.trackLost(awaitedId(chosen)) }),
+    );
+    // Still on the list, with the menu open on the item that failed.
+    expect(failed.route._tag).toBe("New");
+    expect(rowMenuIn(failed.rowMenus, row).isOpen).toBe(true);
+
+    const again = update(failed, choseFromRow("New", track.id, "OpenSong"));
+    expect(names(again)).toContain("TrackDetail");
+    expect(Awaiting.guards.Intention(again.model.awaiting)).toBe(true);
   });
 
   test("Play next puts the row's track right after the current one, and the row shows it for a moment", () => {

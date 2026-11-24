@@ -1,7 +1,13 @@
 import * as Domain from "@alchemy.run/domain";
 import { Bafle, BafleHandlers } from "@bafle/domain/Bafle.model";
+import { AlbumId } from "@bafle/domain/Catalog/Album";
+import { AlbumNotFound } from "@bafle/domain/Catalog/AlbumNotFound.rejection";
+import { ArtistId } from "@bafle/domain/Catalog/Artist";
+import { ArtistNotFound } from "@bafle/domain/Catalog/ArtistNotFound.rejection";
 import { CatalogUnavailable } from "@bafle/domain/Catalog/CatalogUnavailable.rejection";
 import { MusicCatalog } from "@bafle/domain/Catalog/MusicCatalog.external";
+import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
+import { PlaylistNotFound } from "@bafle/domain/Catalog/PlaylistNotFound.rejection";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import { TrackNotFound } from "@bafle/domain/Catalog/TrackNotFound.rejection";
 import { ListenerApi } from "@bafle/domain/ListenerApi.api";
@@ -11,7 +17,15 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as HttpEffect from "effect/http/HttpEffect";
 import * as Layer from "effect/Layer";
 import { Catalog } from "../src/catalog.ts";
-import { featured, found, fullTrack, trending } from "./fixtures.ts";
+import {
+  featured,
+  found,
+  fullAlbum,
+  fullArtist,
+  fullPlaylist,
+  fullTrack,
+  trending,
+} from "./fixtures.ts";
 
 // The app reaches the Api over plain HTTP (see entry.ts). These run the app's own query Commands
 // through that protocol against the Api as the Worker serves it, with only the network replaced.
@@ -25,6 +39,18 @@ const WorkingCatalog = MusicCatalog.toLayer(
       trackId === fullTrack.id
         ? Effect.succeed(fullTrack)
         : Effect.fail(new TrackNotFound({ trackId })),
+    album: ({ albumId }) =>
+      albumId === fullAlbum.id
+        ? Effect.succeed(fullAlbum)
+        : Effect.fail(new AlbumNotFound({ albumId })),
+    artist: ({ artistId }) =>
+      artistId === fullArtist.id
+        ? Effect.succeed(fullArtist)
+        : Effect.fail(new ArtistNotFound({ artistId })),
+    playlist: ({ playlistId }) =>
+      playlistId === fullPlaylist.id
+        ? Effect.succeed(fullPlaylist)
+        : Effect.fail(new PlaylistNotFound({ playlistId })),
   }),
 );
 
@@ -34,6 +60,9 @@ const BrokenCatalog = MusicCatalog.toLayer(
     trending: () => Effect.fail(new CatalogUnavailable()),
     search: () => Effect.fail(new CatalogUnavailable()),
     track: () => Effect.fail(new CatalogUnavailable()),
+    album: () => Effect.fail(new CatalogUnavailable()),
+    artist: () => Effect.fail(new CatalogUnavailable()),
+    playlist: () => Effect.fail(new CatalogUnavailable()),
   }),
 );
 
@@ -60,7 +89,7 @@ const connectedTo = (catalog: typeof WorkingCatalog) =>
     ),
   );
 
-it.live("the four queries are answered over plain HTTP", () =>
+it.live("the queries are answered over plain HTTP", () =>
   Effect.gen(function* () {
     expect(yield* Catalog.HomeFeed({ input: {}, requestId: "page:0" }).effect).toEqual(
       Catalog.Message.SucceededHomeFeed({ requestId: "page:0", result: featured }),
@@ -74,6 +103,21 @@ it.live("the four queries are answered over plain HTTP", () =>
     expect(
       yield* Catalog.TrackDetail({ input: { trackId: fullTrack.id }, requestId: "page:3" }).effect,
     ).toEqual(Catalog.Message.SucceededTrackDetail({ requestId: "page:3", result: fullTrack }));
+    expect(
+      yield* Catalog.AlbumDetail({ input: { albumId: fullAlbum.id }, requestId: "page:4" }).effect,
+    ).toEqual(Catalog.Message.SucceededAlbumDetail({ requestId: "page:4", result: fullAlbum }));
+    expect(
+      yield* Catalog.ArtistDetail({ input: { artistId: fullArtist.id }, requestId: "page:5" })
+        .effect,
+    ).toEqual(Catalog.Message.SucceededArtistDetail({ requestId: "page:5", result: fullArtist }));
+    expect(
+      yield* Catalog.PlaylistDetail({
+        input: { playlistId: fullPlaylist.id },
+        requestId: "page:6",
+      }).effect,
+    ).toEqual(
+      Catalog.Message.SucceededPlaylistDetail({ requestId: "page:6", result: fullPlaylist }),
+    );
   }).pipe(Effect.provide(connectedTo(WorkingCatalog))),
 );
 
@@ -85,6 +129,42 @@ it.live("a track the catalog does not have is told apart from a catalog that can
       _tag: "FailedTrackDetail",
       requestId: "page:0",
       failure: { _tag: "Rejected", rejection: { _tag: "TrackNotFound", trackId } },
+    });
+  }).pipe(Effect.provide(connectedTo(WorkingCatalog))),
+);
+
+it.live("an album the catalog does not have is told apart too", () =>
+  Effect.gen(function* () {
+    const albumId = AlbumId.make("al-404");
+    const missing = yield* Catalog.AlbumDetail({ input: { albumId }, requestId: "page:0" }).effect;
+    expect(missing).toMatchObject({
+      _tag: "FailedAlbumDetail",
+      requestId: "page:0",
+      failure: { _tag: "Rejected", rejection: { _tag: "AlbumNotFound", albumId } },
+    });
+  }).pipe(Effect.provide(connectedTo(WorkingCatalog))),
+);
+
+it.live("so are an artist and a playlist the catalog does not have", () =>
+  Effect.gen(function* () {
+    const artistId = ArtistId.make("ar-404");
+    const noArtist = yield* Catalog.ArtistDetail({ input: { artistId }, requestId: "page:0" })
+      .effect;
+    expect(noArtist).toMatchObject({
+      _tag: "FailedArtistDetail",
+      requestId: "page:0",
+      failure: { _tag: "Rejected", rejection: { _tag: "ArtistNotFound", artistId } },
+    });
+
+    const playlistId = PlaylistId.make("pl-404");
+    const noPlaylist = yield* Catalog.PlaylistDetail({
+      input: { playlistId },
+      requestId: "page:1",
+    }).effect;
+    expect(noPlaylist).toMatchObject({
+      _tag: "FailedPlaylistDetail",
+      requestId: "page:1",
+      failure: { _tag: "Rejected", rejection: { _tag: "PlaylistNotFound", playlistId } },
     });
   }).pipe(Effect.provide(connectedTo(WorkingCatalog))),
 );

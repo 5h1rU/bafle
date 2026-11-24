@@ -118,14 +118,21 @@ export type IslandLight = typeof IslandLight.Type;
  * The island's title, when it is too long for its place: it stands, travels
  * across once, and stands again. `maybeTravelPixels` is how far one pass
  * takes it, as measured in the document, and nothing when the title fits.
- * Each time the title or its place changes the run takes the next number,
- * and a wait or a pass that ends for an earlier run is dropped.
+ * Each time the title changes length, or starts or stops fitting while it
+ * stands, the run takes the next number, and a wait or a pass that ends for
+ * an earlier run is dropped.
+ *
+ * The island changes width as the navigation comes and goes, and that alone
+ * is no reason to start over: a pass goes as far as the title is long,
+ * whatever the width of its place, so the wait or the pass under way goes
+ * on. A title that comes to fit in the middle of a pass is `Finishing`: it
+ * ends the pass it is on, and then stands for good.
  */
 export const TitleMarquee = Schema.Struct({
   run: Schema.Int,
   placePixels: Schema.Number,
   maybeTravelPixels: Schema.Option(Schema.Number),
-  phase: Schema.Literals(["Standing", "Travelling"]),
+  phase: Schema.Literals(["Standing", "Travelling", "Finishing"]),
 });
 export type TitleMarquee = typeof TitleMarquee.Type;
 

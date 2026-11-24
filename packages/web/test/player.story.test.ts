@@ -21,9 +21,21 @@ const list: ReadonlyArray<TrackSummary> = [track, explicitTrack, thirdTrack];
 
 type Outcome = ReturnType<typeof Player.update>;
 
-/** What a result asks the runtime to do, as name and args. */
+/** The Command that takes the island's light to another pace. Its own tests are with the island's. */
+const LIGHT_PACE = Player.ChangeIslandLightPace({ pace: 0 }).name;
+
+/**
+ * What a result asks the runtime to do, as name and args. The light's pace
+ * is left out: it follows what the engine says, whatever was asked of it.
+ */
 const asked = (outcome: Outcome) =>
-  (outcome.commands ?? []).map((command) => [command.name, command.args]);
+  (outcome.commands ?? [])
+    .filter((command) => command.name !== LIGHT_PACE)
+    .map((command) => [command.name, command.args]);
+
+/** The light is told to travel, or to come to rest, and that is done. */
+const lightChangesPace = () =>
+  Command.resolve(Player.ChangeIslandLightPace, Message.CompletedChangeIslandLightPace());
 
 /** The Model after these Messages, Commands unrun: an order given and never answered. */
 const after = (start: Player.Model, ...messages: ReadonlyArray<Player.Message>): Player.Model =>
@@ -127,6 +139,7 @@ describe("starting", () => {
       // Waiting for the first data is still only a wish to sound.
       model((player) => expect(playback(player)).toEqual(Playback.Acknowledged())),
       message(said(1, "Sounding", { maybeDurationSeconds: Option.some(30) })),
+      lightChangesPace(),
       model((player) => expect(playback(player)).toEqual(Playback.Sounding())),
       // The timer set at the tap goes off after the sound started: there is nothing left to say.
       message(Message.CompletedWaitBeforeShowingActivity({ order: 1 })),
@@ -142,6 +155,7 @@ describe("starting", () => {
       message(said(1, "Waiting")),
       model((player) => expect(playback(player)).toEqual(Playback.Starting())),
       message(said(1, "Sounding")),
+      lightChangesPace(),
       model((player) => expect(playback(player)).toEqual(Playback.Sounding())),
     ));
 
@@ -227,8 +241,10 @@ describe("sounding and waiting", () => {
       Player.update,
       given(sounding),
       message(said(1, "Waiting", { positionSeconds: 12, maybeDurationSeconds: Option.some(30) })),
+      lightChangesPace(),
       model((player) => expect(playback(player)).toEqual(Playback.Waiting())),
       message(said(1, "Sounding", { positionSeconds: 12, maybeDurationSeconds: Option.some(30) })),
+      lightChangesPace(),
       model((player) => expect(playback(player)).toEqual(Playback.Sounding())),
     ));
 });
@@ -243,8 +259,13 @@ describe("paused by the listener, stopped by the system", () => {
         expect(playback(player)).toEqual(Playback.Paused());
         expect(player.lastOrder).toBe(2);
       }),
-      Command.expectExact(Player.PausePlayback({ order: 2 })),
+      // The light comes to rest with the wish: it does not wait for the engine's word.
+      Command.expectExact(
+        Player.PausePlayback({ order: 2 }),
+        Player.ChangeIslandLightPace({ pace: 0 }),
+      ),
       Command.resolve(Player.PausePlayback, Message.CompletedPausePlayback()),
+      lightChangesPace(),
       message(said(2, "Paused", { positionSeconds: 12, maybeDurationSeconds: Option.some(30) })),
       model((player) => expect(playback(player)).toEqual(Playback.Paused())),
     ));
@@ -286,6 +307,7 @@ describe("paused by the listener, stopped by the system", () => {
         [Player.WaitBeforeShowingActivity, Message.CompletedWaitBeforeShowingActivity({ order: 2 })],
       ),
       message(said(2, "Sounding")),
+      lightChangesPace(),
       model((player) => expect(playback(player)).toEqual(Playback.Sounding())),
     ));
 
@@ -352,8 +374,12 @@ describe("seeking", () => {
         // Asked, and nothing heard back: the sound is not claimed to be at the new position.
         expect(playback(player)).toEqual(Playback.Waiting());
       }),
-      Command.expectExact(Player.SeekPlayback({ order: 2, positionSeconds: 22 })),
+      Command.expectExact(
+        Player.SeekPlayback({ order: 2, positionSeconds: 22 }),
+        Player.ChangeIslandLightPace({ pace: 0 }),
+      ),
       Command.resolve(Player.SeekPlayback, Message.CompletedSeekPlayback()),
+      lightChangesPace(),
       // Still on its way: the bar shows where the listener asked to be, and the sound is not claimed there.
       message(
         said(2, "Waiting", {
@@ -367,6 +393,7 @@ describe("seeking", () => {
         expect(playback(player)).toEqual(Playback.Waiting());
       }),
       message(said(2, "Sounding", { positionSeconds: 22, maybeDurationSeconds: Option.some(30) })),
+      lightChangesPace(),
       model((player) => {
         expect(session(player).seek).toEqual(Seek.Settled());
         expect(session(player).positionSeconds).toBe(22);
@@ -436,7 +463,11 @@ describe("a source that cannot be loaded", () => {
         expect(playback(player)).toEqual(Playback.Recovering());
         expect(session(player).current.id).toBe(track.id);
       }),
-      Command.expectExact(Player.RefreshSource({ order: 1, trackId: track.id })),
+      Command.expectExact(
+        Player.RefreshSource({ order: 1, trackId: track.id }),
+        Player.ChangeIslandLightPace({ pace: 0 }),
+      ),
+      lightChangesPace(),
       Command.resolve(
         Player.RefreshSource,
         Message.SucceededRefreshSource({ order: 1, track: refreshed }),
@@ -461,6 +492,7 @@ describe("a source that cannot be loaded", () => {
         [Player.PublishNowPlaying, Message.CompletedPublishNowPlaying()],
       ),
       message(said(2, "Sounding", { positionSeconds: 12 })),
+      lightChangesPace(),
       model((player) => {
         expect(playback(player)).toEqual(Playback.Sounding());
         // A source that sounds is a good one: a later failure may ask the catalog again.
@@ -525,6 +557,67 @@ describe("a source that cannot be loaded", () => {
       "StartPlayback",
       { order: 2, source: "https://audio.test/tr-1.mp3", positionSeconds: 0 },
     ]);
+  });
+});
+
+describe("what must not strand the player while a source is replaced", () => {
+  const recovering = Player.update(sounding, said(1, "Failed", { positionSeconds: 12 })).model;
+  const refreshed = { ...fullTrack, previewUrl: "https://audio.test/tr-1-fresh.mp3" };
+  const seekByKey = Message.GotSeekSliderMessage({
+    message: Slider.Message.PressedKeyboardNavigation({ direction: "StepIncrement", value: 12 }),
+  });
+
+  test("moving the progress bar while the catalog is asked gives the engine no order", () => {
+    const moved = Player.update(recovering, seekByKey);
+
+    // No order: the catalog's answer was made for the latest one, and still has to count.
+    expect(moved.model.lastOrder).toBe(recovering.lastOrder);
+    expect(asked(moved)).toEqual([]);
+    expect(playback(moved.model)).toEqual(Playback.Recovering());
+    // The wish is kept as the place to start from.
+    expect(session(moved.model).positionSeconds).toBe(13);
+    expect(session(moved.model).seek).toEqual(Seek.Settled());
+  });
+
+  test("the catalog's answer still counts after it, and the fresh source starts from where the bar was put", () => {
+    const moved = Player.update(recovering, seekByKey).model;
+    const answered = Player.update(
+      moved,
+      Message.SucceededRefreshSource({ order: 1, track: refreshed }),
+    );
+
+    expect(playback(answered.model)).toEqual(Playback.Starting());
+    expect(asked(answered)[0]).toEqual([
+      "StartPlayback",
+      { order: 2, source: "https://audio.test/tr-1-fresh.mp3", positionSeconds: 13 },
+    ]);
+  });
+
+  test("Try again on a track the catalog answered without a source asks the catalog again", () => {
+    // The catalog answered with nothing to play, and that answer is the track as it is held now.
+    const empty = after(
+      recovering,
+      Message.SucceededRefreshSource({ order: 1, track: { ...fullTrack, previewUrl: null } }),
+    );
+    expect(playback(empty)).toEqual(Playback.Failed());
+
+    const again = Player.update(empty, Message.ClickedTryAgain());
+    // Not failed on the spot with nobody asked: the catalog may have a source by now.
+    expect(playback(again.model)).toEqual(Playback.Recovering());
+    expect(asked(again)).toEqual([["RefreshSource", { order: 2, trackId: track.id }]]);
+
+    // With a source, it starts; without one again, it is a failure, said once more.
+    const started = Player.update(
+      again.model,
+      Message.SucceededRefreshSource({ order: 2, track: refreshed }),
+    );
+    expect(playback(started.model)).toEqual(Playback.Starting());
+    const stillEmpty = Player.update(
+      again.model,
+      Message.SucceededRefreshSource({ order: 2, track: { ...fullTrack, previewUrl: null } }),
+    );
+    expect(playback(stillEmpty.model)).toEqual(Playback.Failed());
+    expect(asked(stillEmpty)).toEqual([]);
   });
 });
 

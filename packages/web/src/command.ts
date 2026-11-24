@@ -1,3 +1,6 @@
+import { AlbumId } from "@bafle/domain/Catalog/Album";
+import { ArtistId } from "@bafle/domain/Catalog/Artist";
+import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -8,7 +11,14 @@ import { back, load, pushUrl, replaceUrl } from "foldkit/navigation";
 import { Catalog, type CatalogClient, REPLY_TIMEOUT } from "./catalog.ts";
 import { Message } from "./message.ts";
 import { searchRouter, trackRouter } from "./route.ts";
-import { NAVIGATION_ID, pageTitleIdOf, TRACK_ROW_ATTRIBUTE } from "./view/layout.ts";
+import {
+  ALBUM_TILE_ATTRIBUTE,
+  ARTIST_TILE_ATTRIBUTE,
+  NAVIGATION_ID,
+  pageTitleIdOf,
+  PLAYLIST_TILE_ATTRIBUTE,
+  TRACK_ROW_ATTRIBUTE,
+} from "./view/layout.ts";
 
 // COMMAND
 
@@ -117,6 +127,55 @@ export const FocusTrackRow = Command.define("FocusTrackRow", {
 });
 
 /**
+ * Focus goes to an album's tile without scrolling: back from the album, on
+ * the shelf it was chosen from. A page that no longer has the tile gives the
+ * focus to itself.
+ */
+export const FocusAlbumTile = Command.define("FocusAlbumTile", {
+  args: { pageId: Schema.String, albumId: AlbumId },
+  messages: [Message.CompletedFocusAlbumTile],
+  execute: ({ pageId, albumId }) =>
+    // A page shelves an album once.
+    Dom.focus(`#${pageId} [data-${ALBUM_TILE_ATTRIBUTE}="${albumId}"]`, {
+      preventScroll: true,
+    }).pipe(
+      Effect.catch(() => Dom.focus(`#${pageId}`, { preventScroll: true })),
+      Effect.ignore,
+      Effect.as(Message.CompletedFocusAlbumTile()),
+    ),
+});
+
+/** Focus goes to an artist's tile, as it goes to an album's: back from the artist, without scrolling. */
+export const FocusArtistTile = Command.define("FocusArtistTile", {
+  args: { pageId: Schema.String, artistId: ArtistId },
+  messages: [Message.CompletedFocusArtistTile],
+  execute: ({ pageId, artistId }) =>
+    // A page shelves an artist once.
+    Dom.focus(`#${pageId} [data-${ARTIST_TILE_ATTRIBUTE}="${artistId}"]`, {
+      preventScroll: true,
+    }).pipe(
+      Effect.catch(() => Dom.focus(`#${pageId}`, { preventScroll: true })),
+      Effect.ignore,
+      Effect.as(Message.CompletedFocusArtistTile()),
+    ),
+});
+
+/** Focus goes to a playlist's tile, as it goes to an album's: back from the playlist, without scrolling. */
+export const FocusPlaylistTile = Command.define("FocusPlaylistTile", {
+  args: { pageId: Schema.String, playlistId: PlaylistId },
+  messages: [Message.CompletedFocusPlaylistTile],
+  execute: ({ pageId, playlistId }) =>
+    // A page shelves a playlist once.
+    Dom.focus(`#${pageId} [data-${PLAYLIST_TILE_ATTRIBUTE}="${playlistId}"]`, {
+      preventScroll: true,
+    }).pipe(
+      Effect.catch(() => Dom.focus(`#${pageId}`, { preventScroll: true })),
+      Effect.ignore,
+      Effect.as(Message.CompletedFocusPlaylistTile()),
+    ),
+});
+
+/**
  * Focus goes to the navigation when its circle was pressed: the circle is
  * gone, and the item for where the listener is stands in its place. On a
  * page that is no section, the first item does.
@@ -196,4 +255,28 @@ export const askTrackDetail =
     asking(
       Catalog.TrackDetail({ input: { trackId }, requestId }),
       Catalog.Message.FailedTrackDetail({ requestId, failure: UNANSWERED }),
+    );
+
+export const askAlbumDetail =
+  (albumId: AlbumId): Request =>
+  (requestId) =>
+    asking(
+      Catalog.AlbumDetail({ input: { albumId }, requestId }),
+      Catalog.Message.FailedAlbumDetail({ requestId, failure: UNANSWERED }),
+    );
+
+export const askArtistDetail =
+  (artistId: ArtistId): Request =>
+  (requestId) =>
+    asking(
+      Catalog.ArtistDetail({ input: { artistId }, requestId }),
+      Catalog.Message.FailedArtistDetail({ requestId, failure: UNANSWERED }),
+    );
+
+export const askPlaylistDetail =
+  (playlistId: PlaylistId): Request =>
+  (requestId) =>
+    asking(
+      Catalog.PlaylistDetail({ input: { playlistId }, requestId }),
+      Catalog.Message.FailedPlaylistDetail({ requestId, failure: UNANSWERED }),
     );
