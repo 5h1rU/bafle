@@ -98,9 +98,15 @@ const TEMPLATE = `
     overflow: visible;
   }
 
-  /* NOTE: the figure casts no shadow. One would reach further out than
-     the cut the island is given while a song changes (see
-     ::view-transition-group(player) in styles.css) and be seen cut off. */
+  /* NOTE: the shadow is the figure once more, under the figure, in a
+     picture of its own: within the island's own picture it would be cut
+     where that picture is cut while a song changes (styles.css gives it its
+     own name for the transition, as it does the light). */
+  .shadow {
+    z-index: -2;
+    filter: drop-shadow(var(--island-shadow, none));
+  }
+
   .figure {
     z-index: -1;
   }
@@ -170,6 +176,9 @@ const TEMPLATE = `
     stroke-opacity: 0.3;
   }
 </style>
+<svg class="shadow" part="shadow" aria-hidden="true">
+  <path class="outline body" />
+</svg>
 <svg class="figure" aria-hidden="true">
   <defs>
     <clipPath id="within"><path class="outline" /></clipPath>
