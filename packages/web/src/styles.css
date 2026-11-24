@@ -79,26 +79,53 @@
 }
 
 /* The navigation and the island on their way between their two places.
-   Arriving is away at once and settles without a bounce; setting off is
-   slower to start, as a thing with weight is. */
+   They move on springs, as the app they are modelled on does: each piece
+   goes a little past its place and comes back to it, and that is what makes
+   the whole of it read as one soft movement instead of pieces arriving.
+
+   The springs were read off that app frame by frame, from where the
+   island's main control stood in each: how far past its place it went, and
+   how long it took to get there. Coming out, the island goes 4% past in a
+   fifth of a second and has settled in under half of one; drawing back,
+   2.5% past in three tenths. The menu and Search are stiffer: they go 1.5%
+   past coming out and barely half of one drawing back, since a circle that
+   overshot would be seen to lose its shape. A spring is not a curve CSS
+   has, so each is written out as the places it is at, at even times; where
+   a browser has no `linear()`, a curve that overshoots a little. */
 :root {
-  --ease-dock-arrive: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ease-dock-depart: cubic-bezier(0.45, 0, 0.2, 1);
   --island-shadow: 0 6px 16px rgb(70 50 30 / 0.18);
   /* For a part that moves within the island: it eases both ways, evenly. */
   --ease-dock-settle: cubic-bezier(0.4, 0, 0.2, 1);
-  /* For the island's own way between its two places: a spring with no
-     bounce. It leaves gently, is quick for a moment, and takes the second
-     half of its time over the last tenth of the way, so it is never seen to
-     stop. Where a browser has no `linear()`, a curve near it. */
-  --ease-dock-glide: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-island-out: cubic-bezier(0.3, 1.25, 0.5, 1);
+  --ease-island-back: cubic-bezier(0.3, 1.18, 0.5, 1);
+  --ease-menu-out: cubic-bezier(0.3, 1.1, 0.5, 1);
+  --ease-menu-back: cubic-bezier(0.3, 1.04, 0.5, 1);
+  /* How long each spring is given: until it has come to rest. */
+  --dock-out: 500ms;
+  --dock-back: 620ms;
 }
 
 @supports (transition-timing-function: linear(0, 1)) {
   :root {
-    --ease-dock-glide: linear(
-      0, 0.0537, 0.1698, 0.3046, 0.4355, 0.5519, 0.6503, 0.7307, 0.7948, 0.845, 0.8838,
-      0.9134, 0.9358, 0.9527, 0.9652, 0.9745, 0.9814, 0.9865, 0.9902, 0.9929, 1
+    --ease-island-out: linear(
+      0, 0.0541, 0.1807, 0.3379, 0.4975, 0.6428, 0.765, 0.8613, 0.9325, 0.9817, 1.0128,
+      1.0301, 1.0374, 1.038, 1.0346, 1.0291, 1.0229, 1.017, 1.0117, 1.0074, 1.0041, 1.0017,
+      1.0002, 0.9992, 0.9987, 0.9985, 0.9986, 0.9987, 0.999, 0.9992, 1
+    );
+    --ease-island-back: linear(
+      0, 0.044, 0.1488, 0.2823, 0.4225, 0.5554, 0.6731, 0.7718, 0.8508, 0.9114, 0.9557,
+      0.9865, 1.0064, 1.0181, 1.0238, 1.0254, 1.0243, 1.0216, 1.0182, 1.0147, 1.0113,
+      1.0083, 1.0058, 1.0038, 1.0022, 1.0011, 1.0003, 0.9998, 0.9995, 0.9994, 1
+    );
+    --ease-menu-out: linear(
+      0, 0.0611, 0.1978, 0.3601, 0.5182, 0.6566, 0.7689, 0.8549, 0.9172, 0.9599, 0.9873,
+      1.0034, 1.0117, 1.0148, 1.0149, 1.0133, 1.0109, 1.0085, 1.0062, 1.0043, 1.0028,
+      1.0017, 1.0009, 1.0004, 1.0001, 0.9999, 0.9998, 0.9998, 0.9998, 0.9998, 1
+    );
+    --ease-menu-back: linear(
+      0, 0.0631, 0.2014, 0.3624, 0.5165, 0.6498, 0.7573, 0.8395, 0.8995, 0.9415, 0.9694,
+      0.9871, 0.9976, 1.0032, 1.0057, 1.0063, 1.0059, 1.005, 1.004, 1.003, 1.0022, 1.0015,
+      1.001, 1.0006, 1.0004, 1.0002, 1.0001, 1, 1, 1, 1
     );
   }
 }
@@ -107,17 +134,17 @@
    places. The times were read off the app they are modelled on, frame by
    frame, and are not the same both ways.
 
-   Drawing back: the menu closes on its circle in about a fifth of a second.
-   The island does three things, one setting off after another so that each
-   can be followed: Next travels in under the main control as the tail is
-   drawn in; the island narrows; and, with the menu out of its way, it comes
-   down into the row. Narrowing and coming down are one long glide on the
-   same curve, the second a little behind the first, so the island is clear
-   of the circle and Search before it is level with them. The whole of it
-   is under half a second, most of the way in the first fifth of one, and
-   the rest is the island settling into its place instead of arriving. Coming out
-   is the same three the other way round: it rises, it widens, and Next
-   comes out from under the control once there is room for the tail.
+   Drawing back: the menu closes on its circle, most of the way in a fifth
+   of a second. The island does three things, one setting off after another
+   so that each can be followed: Next travels in under the main control as
+   the tail is drawn in; the island narrows; and, with the menu out of its
+   way, it comes down into the row. Narrowing and coming down are the same
+   spring, the second a little behind the first, so the island is clear of
+   the circle and Search before it is level with them. It is in its place in
+   a quarter of a second, a shade past it at three tenths, and at rest by
+   half of one. Coming out is the same three the other way round, and
+   quicker: it rises, it widens, and Next comes out from under the control
+   once there is room for the tail.
 
    A transition takes its times from the state it is going to, so each piece
    states them twice: as it stands whole, for coming out, and under
@@ -126,21 +153,21 @@
   @media (width < 48rem) and (prefers-reduced-motion: no-preference) {
     .dock-surface {
       transition:
-        top 180ms var(--ease-dock-arrive),
-        right 180ms var(--ease-dock-arrive),
-        bottom 180ms var(--ease-dock-arrive),
-        left 180ms var(--ease-dock-arrive);
+        top var(--dock-out) var(--ease-menu-out),
+        right var(--dock-out) var(--ease-menu-out),
+        bottom var(--dock-out) var(--ease-menu-out),
+        left var(--dock-out) var(--ease-menu-out);
     }
 
     .dock-menu {
-      transition: padding 180ms var(--ease-dock-arrive);
+      transition: padding var(--dock-out) var(--ease-menu-out);
     }
 
     .dock-item {
       transition:
-        flex-grow 180ms var(--ease-dock-arrive),
-        min-width 180ms var(--ease-dock-arrive),
-        padding 180ms var(--ease-dock-arrive),
+        flex-grow var(--dock-out) var(--ease-menu-out),
+        min-width var(--dock-out) var(--ease-menu-out),
+        padding var(--dock-out) var(--ease-menu-out),
         opacity 160ms ease-out 60ms,
         filter 160ms ease-out 60ms;
     }
@@ -148,20 +175,20 @@
     .dock-name {
       transition:
         opacity 140ms ease-out 100ms,
-        max-height 180ms var(--ease-dock-arrive);
+        max-height var(--dock-out) var(--ease-menu-out);
     }
 
     .dock-search {
       transition:
-        width 180ms var(--ease-dock-arrive),
-        height 180ms var(--ease-dock-arrive);
+        width var(--dock-out) var(--ease-menu-out),
+        height var(--dock-out) var(--ease-menu-out);
     }
 
     .dock-island {
       transition:
-        bottom 340ms var(--ease-dock-glide),
-        left 380ms var(--ease-dock-glide) 30ms,
-        right 380ms var(--ease-dock-glide) 30ms,
+        bottom var(--dock-out) var(--ease-island-out),
+        left var(--dock-out) var(--ease-island-out) 30ms,
+        right var(--dock-out) var(--ease-island-out) 30ms,
         margin-right 220ms var(--ease-dock-settle) 170ms;
     }
 
@@ -177,22 +204,22 @@
     [data-navigation="minimized"] {
       .dock-surface {
         transition:
-          top 220ms var(--ease-dock-depart),
-          right 220ms var(--ease-dock-depart),
-          bottom 220ms var(--ease-dock-depart),
-          left 220ms var(--ease-dock-depart);
+          top var(--dock-back) var(--ease-menu-back),
+          right var(--dock-back) var(--ease-menu-back),
+          bottom var(--dock-back) var(--ease-menu-back),
+          left var(--dock-back) var(--ease-menu-back);
       }
 
       .dock-menu {
-        transition: padding 220ms var(--ease-dock-depart);
+        transition: padding var(--dock-back) var(--ease-menu-back);
       }
 
       /* An item that leaves is gone from sight before it stops being there. */
       .dock-item {
         transition:
-          flex-grow 220ms var(--ease-dock-depart),
-          min-width 220ms var(--ease-dock-depart),
-          padding 220ms var(--ease-dock-depart),
+          flex-grow var(--dock-back) var(--ease-menu-back),
+          min-width var(--dock-back) var(--ease-menu-back),
+          padding var(--dock-back) var(--ease-menu-back),
           opacity 100ms ease-in,
           filter 100ms ease-in,
           visibility 0s 220ms;
@@ -201,21 +228,21 @@
       .dock-name {
         transition:
           opacity 60ms ease-in,
-          max-height 220ms var(--ease-dock-depart);
+          max-height var(--dock-back) var(--ease-menu-back);
       }
 
       .dock-search {
         transition:
-          width 220ms var(--ease-dock-depart),
-          height 220ms var(--ease-dock-depart);
+          width var(--dock-back) var(--ease-menu-back),
+          height var(--dock-back) var(--ease-menu-back);
       }
 
       .dock-island {
         transition:
           margin-right 180ms var(--ease-dock-settle),
-          left 360ms var(--ease-dock-glide) 50ms,
-          right 360ms var(--ease-dock-glide) 50ms,
-          bottom 380ms var(--ease-dock-glide) 90ms;
+          left var(--dock-back) var(--ease-island-back) 50ms,
+          right var(--dock-back) var(--ease-island-back) 50ms,
+          bottom var(--dock-back) var(--ease-island-back) 90ms;
       }
 
       .dock-island-next {
@@ -229,6 +256,55 @@
           visibility 0s 180ms;
       }
     }
+  }
+}
+
+/* THE ROWS OF A LIST
+
+   A row is one piece. The control that plays its track has no colour of its
+   own: pressing it, or holding a pointer over it, lights the row's whole
+   surface, the last control's place included. The surface of the track the
+   player holds is tinted for as long as the player holds it.
+
+   A surface has rounded corners and reaches a little past the lines between
+   the rows, so a line that ran up to a lit surface would meet a curve it
+   does not follow. A lit surface therefore stands free: the line under its
+   own row and the line under the row above it are not drawn. */
+@layer components {
+  .track-row {
+    border-bottom: 1px solid var(--color-line);
+    transition: border-color 150ms;
+  }
+
+  .track-row-surface {
+    border-radius: 0.5rem;
+    transition: background-color 150ms;
+  }
+
+  @media (hover: hover) {
+    .track-row-surface:has(.track-row-play:hover) {
+      background-color: var(--color-panel);
+    }
+
+    .track-row:has(.track-row-play:hover),
+    .track-row:has(+ .track-row .track-row-play:hover) {
+      border-bottom-color: transparent;
+    }
+  }
+
+  .track-row-surface[data-in-player] {
+    background-color: var(--color-accent-wash);
+  }
+
+  .track-row-surface:has(.track-row-play:active) {
+    background-color: var(--color-tile);
+  }
+
+  .track-row:has(> [data-in-player]),
+  .track-row:has(+ .track-row > [data-in-player]),
+  .track-row:has(.track-row-play:active),
+  .track-row:has(+ .track-row .track-row-play:active) {
+    border-bottom-color: transparent;
   }
 }
 

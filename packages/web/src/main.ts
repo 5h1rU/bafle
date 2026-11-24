@@ -11,6 +11,7 @@ import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as String from "effect/String";
+import type { Menu } from "@foldkit/ui";
 import { AsyncData, type Runtime, Update } from "foldkit";
 import { UrlRequest } from "foldkit/navigation";
 import { modifyFields } from "foldkit/struct";
@@ -39,6 +40,7 @@ import {
   type Request,
   ScrollPageToTop,
   WaitForTypingPause,
+  WaitToClearRowDone,
 } from "./command.ts";
 import { Message, type PlayOrigin } from "./message.ts";
 import {
@@ -65,6 +67,7 @@ import {
   searchedTerm,
   urlToAppRoute,
 } from "./route.ts";
+import { type RowAction, RowMenu, type RowRef, rowMenuId, rowMenuIn } from "./rowMenu.ts";
 import { pageIdOf } from "./view/layout.ts";
 
 /** What the app's Commands and Subscriptions need from the runtime. */
@@ -679,6 +682,13 @@ const foldPlayerChoice = Update.foldChild({
   toParentMessage: toGotPlayerMessage,
 });
 
+const foldPlayerQueue = Update.foldChild({
+  update: Player.enqueue,
+  read: readPlayer,
+  write: writePlayer,
+  toParentMessage: toGotPlayerMessage,
+});
+
 /**
  * The list a track was played from, as the page it is on holds it: what
  * plays after it. A track played from its own page is a list of one.
@@ -760,6 +770,72 @@ const keepUpWithPlayer =
         })
       : { model };
 
+// ROW MENU
+
+/**
+ * A row's control shows that its track was queued, for as long as
+ * `WaitToClearRowDone` waits. A player that is as it was queued nothing, and
+ * nothing is shown.
+ */
+const showQueued =
+  (before: Player.Model, row: RowRef, place: Player.QueuePlace): Step =>
+  (model) => {
+    if (model.player === before) {
+      return { model };
+    }
+    const turn = model.rowDone.turn + 1;
+    return {
+      model: modifyFields(model, {
+        rowDone: () => ({ turn, maybeRow: Option.some({ ...row, place }) }),
+      }),
+      commands: [WaitToClearRowDone({ turn })],
+    };
+  };
+
+/** The track of a row goes into the queue, as the page it is listed on holds it. */
+const queueFromRow =
+  (row: RowRef, place: Player.QueuePlace): Step =>
+  (model) =>
+    Option.match(
+      Array.findFirst(
+        listPlayedFrom(model, row.from, row.trackId),
+        (track) => track.id === row.trackId,
+      ),
+      {
+        onNone: () => ({ model }),
+        onSome: (track) =>
+          Update.combine(model, [
+            foldPlayerQueue({ track, place }),
+            showQueued(model.player, row, place),
+          ]),
+      },
+    );
+
+/**
+ * What was chosen from a row's menu. Opening the song is the row's way to
+ * its track's page, and is followed as a link to it would be: the page on
+ * screen is held and the row says that it is opening.
+ */
+const chooseFromRow = (row: RowRef, action: RowAction): Step =>
+  Match.value(action).pipe(
+    Match.withReturnType<Step>(),
+    Match.when("PlayNext", () => queueFromRow(row, "Next")),
+    Match.when("AddToQueue", () => queueFromRow(row, "Last")),
+    Match.when("OpenSong", () => follow(AppRoute.Track({ trackId: row.trackId }))),
+    Match.exhaustive,
+  );
+
+const foldRowMenu = Update.foldChildAt({
+  update: RowMenu.update,
+  readAt: (model: Model, row: RowRef) => Option.some(rowMenuIn(model.rowMenus, row)),
+  writeAt: (model: Model, row: RowRef, nextMenu: Menu.Model) =>
+    modifyFields(model, { rowMenus: HashMap.set(rowMenuId(row), nextMenu) }),
+  toParentMessage: (row: RowRef, message: Menu.Message): Message =>
+    Message.GotRowMenuMessage({ ...row, message }),
+  foldOutMessage: (row: RowRef) => (chosen: Menu.OutMessage<RowAction>) =>
+    chooseFromRow(row, chosen.value),
+});
+
 export const update = (model: Model, message: Message) =>
   Message.match<UpdateReturn>(message, {
     ClickedLink: ({ request }) =>
@@ -822,6 +898,16 @@ export const update = (model: Model, message: Message) =>
     GotPlayerMessage: ({ message }) =>
       Update.combine(model, [foldPlayer(message), keepUpWithPlayer(model)]),
 
+    GotRowMenuMessage: ({ from, trackId, message }) =>
+      foldRowMenu(model, { from, trackId }, message),
+
+    CompletedWaitToClearRowDone: ({ turn }) => ({
+      model:
+        model.rowDone.turn === turn && Option.isSome(model.rowDone.maybeRow)
+          ? modifyFields(model, { rowDone: () => ({ turn, maybeRow: Option.none() }) })
+          : model,
+    }),
+
     CompletedNavigateInternal: () => ({ model }),
     CompletedNavigateBack: () => ({ model }),
     CompletedLoadExternal: () => ({ model }),
@@ -859,6 +945,8 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       // A fresh load knows nothing of the history behind it, so no page has a way back yet.
       trail: [],
       navigation: "Open",
+      rowMenus: HashMap.empty(),
+      rowDone: { turn: 0, maybeRow: Option.none() },
       player: Player.init(),
     }),
     [load(route, forTheScreen), focusSearchFieldOnSearch],

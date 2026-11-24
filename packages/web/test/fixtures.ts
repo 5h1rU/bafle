@@ -10,13 +10,15 @@ import { PlaylistId, type PlaylistSummary } from "@bafle/domain/Catalog/Playlist
 import { type Track, TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
 import { TrackNotFound } from "@bafle/domain/Catalog/TrackNotFound.rejection";
 import * as DomainFoldkit from "@alchemy.run/domain/Foldkit";
+import { Menu } from "@foldkit/ui";
 import * as Option from "effect/Option";
 import { UrlRequest } from "foldkit/navigation";
 import { fromString, type Url } from "foldkit/url";
 import { Catalog } from "../src/catalog.ts";
 import { init, update } from "../src/main.ts";
-import { Message } from "../src/message.ts";
+import { Message, type PlayOrigin } from "../src/message.ts";
 import { Awaiting, type Model } from "../src/model.ts";
+import type { RowAction } from "../src/rowMenu.ts";
 
 // CATALOG
 
@@ -146,6 +148,18 @@ export const changedUrl = (path: string): Message => Message.ChangedUrl({ url: u
 /** The listener pressed a link. */
 export const clickedLink = (path: string): Message =>
   Message.ClickedLink({ request: UrlRequest.Internal({ url: url(path) }) });
+
+/** The listener pressed the control at the end of a row: its menu opens, or closes. */
+export const pressedMore = (from: PlayOrigin, trackId: TrackId): Message =>
+  Message.GotRowMenuMessage({ from, trackId, message: Menu.Message.ClickedButton() });
+
+/** The listener chose one of the things a row's menu offers. */
+export const choseFromRow = (from: PlayOrigin, trackId: TrackId, action: RowAction): Message =>
+  Message.GotRowMenuMessage({
+    from,
+    trackId,
+    message: Menu.Message.SelectedItem({ index: 0, item: action }),
+  });
 
 type QueryFailure = (typeof Catalog.Message.FailedHomeFeed.Type)["failure"];
 

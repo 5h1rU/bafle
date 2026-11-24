@@ -79,3 +79,31 @@ export const retryIcon = (className: string): Html =>
 /** Points onward, to a page with more. */
 export const forwardIcon = (className: string): Html =>
   outlineIcon(className, ["M9.5 5.5 16 12l-6.5 6.5"]);
+
+/** Three dots in a row: there is more that can be done here. */
+export const moreIcon = (className: string): Html =>
+  solidIcon(className, [
+    "M5.5 10.25a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5Z",
+    "M12 10.25a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5Z",
+    "M18.5 10.25a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5Z",
+  ]);
+
+/** Done. */
+export const checkIcon = (className: string): Html =>
+  outlineIcon(className, ["M5.5 12.5 10 17l8.5-10"]);
+
+/** A list with a track put at its head: it plays next. */
+export const playNextIcon = (className: string): Html =>
+  outlineIcon(className, ["M4 4.75v5.5l4.5-2.75L4 4.75Z", "M12 7.5h8", "M4 13h16", "M4 18h16"]);
+
+/** A list with a track put at its foot: it plays after the rest. */
+export const playLastIcon = (className: string): Html =>
+  outlineIcon(className, ["M4 6h16", "M4 11h16", "M4 13.75v5.5l4.5-2.75L4 13.75Z", "M12 16.5h8"]);
+
+/** More about this one thing. */
+export const detailsIcon = (className: string): Html =>
+  outlineIcon(className, [
+    "M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17Z",
+    "M12 11v5.5",
+    "M12 7.75v.01",
+  ]);

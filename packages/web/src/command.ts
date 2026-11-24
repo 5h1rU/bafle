@@ -67,6 +67,18 @@ export const WaitForTypingPause = Command.define("WaitForTypingPause", {
     Effect.sleep(TYPING_PAUSE).pipe(Effect.as(Message.CompletedWaitForTypingPause({ pauseId }))),
 });
 
+/** How long a row's control shows that what was chosen from its menu is done. */
+export const ROW_DONE_SHOWS_FOR = Duration.millis(1600);
+
+export const WaitToClearRowDone = Command.define("WaitToClearRowDone", {
+  args: { turn: Schema.Int },
+  messages: [Message.CompletedWaitToClearRowDone],
+  execute: ({ turn }) =>
+    Effect.sleep(ROW_DONE_SHOWS_FOR).pipe(
+      Effect.as(Message.CompletedWaitToClearRowDone({ turn })),
+    ),
+});
+
 /** Without scrolling: a page the listener comes back to stays where they left it. */
 export const FocusSearchField = Command.define("FocusSearchField", {
   messages: [Message.CompletedFocusSearchField],

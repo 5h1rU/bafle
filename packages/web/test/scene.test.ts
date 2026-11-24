@@ -71,8 +71,9 @@ const tryAgain = role("button", { name: "Try again" });
 const onScreen = selector('[role="region"]:not([inert])');
 const pages = all.selector('[role="region"]');
 const keptPages = all.selector('[role="region"][inert]');
-/** The way from a row to its track's page: the link at the row's end. */
-const trackRow = (title: string | RegExp) => role("link", { name: title });
+/** What else can be done with a row's track: the control at the row's end, which opens its menu. */
+const trackRow = (title: RegExp) =>
+  role("button", { name: new RegExp(`^More: .*${title.source}`) });
 /** A row's own control: pressing it plays the track, or stops it once it sounds. */
 const playRow = (title: string) => role("button", { name: new RegExp(`^(Play|Pause): ${title}`) });
 /** A row whole: its control, its link and what they hold. */
@@ -588,15 +589,19 @@ describe("the search field", () => {
 });
 
 describe("track rows", () => {
-  test("every row plays its track and ends with a link to its page, in New and in Search", () =>
+  test("every row plays its track and ends with a control for what else can be done with it", () =>
     scene(
       app,
       given(onNew),
       inside(
         role("list", { name: "Top songs" }),
-        expectAll(all.role("link")).toHaveCount(2),
-        see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("href", trackPath(track.id)),
-        see(trackRow(/Technologic/)).toHaveAttr("href", trackPath(explicitTrack.id)),
+        // A row is no link: its track's page is one of the things its menu offers.
+        expectAll(all.role("link")).toHaveCount(0),
+        see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-haspopup", "menu"),
+        see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-expanded", "false"),
+        see(trackRow(/Technologic/)).toHaveAttr("aria-haspopup", "menu"),
+        // Closed, a menu shows none of its items.
+        expectAll(all.role("menuitem")).toHaveCount(0),
         // The row is the control that plays: its artist and its length are inside it.
         see(playRow("Harder, Better, Faster, Stronger")).toContainText("Daft Punk"),
         see(playRow("Harder, Better, Faster, Stronger")).toContainText("3:44"),
@@ -604,18 +609,18 @@ describe("track rows", () => {
         see(playRow("Technologic")).toHaveAccessibleName(
           "Play: Technologic, explicit, by Daft Punk, 4:05",
         ),
-        // The way to the page is a control of its own, named for what it leads to.
-        see(trackRow(/Technologic/)).toHaveAccessibleName("Details: Technologic"),
+        // The menu's control is one of its own, named for the track it is about.
+        see(trackRow(/Technologic/)).toHaveAccessibleName("More: Technologic"),
       ),
     ));
 
-  test("a search result is a link to its track too", () =>
+  test("a search result ends with the same control", () =>
     scene(
       app,
       given(onSearch),
       inside(
         role("list", { name: "Songs" }),
-        see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("href", trackPath(track.id)),
+        see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-haspopup", "menu"),
       ),
     ));
 });
@@ -634,13 +639,11 @@ describe("A1: the row shows that its track is loading", () => {
         see(sectionTitle("Top albums")).toExist(),
         inside(
           trackRow(/Harder, Better, Faster, Stronger/),
-          // The spinner stands where the link's arrow was: the mark is on the control that was pressed.
+          // The spinner stands where the control's dots were: the mark is on the control that was used.
           expectAll(all.selector("svg.animate-spin")).toHaveCount(1),
         ),
         inside(rowOf(track.id), see(text("3:44")).toExist()),
         see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-busy", "true"),
-        // Still a link to its track: a new tab, or a long press, opens it as ever.
-        see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("href", trackPath(track.id)),
         // Only that row.
         see(trackRow(/Technologic/)).toHaveAttr("aria-busy", "false"),
         inside(rowOf(explicitTrack.id), see(text("4:05")).toExist()),
@@ -743,9 +746,8 @@ describe("A4: a row says that its track failed to open", () => {
         inside(
           topSongs,
           expectAll(all.role("listitem")).toHaveCount(2),
-          // The row is itself again: a link, its length back, nothing spinning.
+          // The row is itself again: its control at rest, its length back, nothing spinning.
           see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-busy", "false"),
-          see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("href", trackPath(track.id)),
           inside(rowOf(track.id), see(text("3:44")).toExist()),
           expectAll(all.selector("svg.animate-spin")).toHaveCount(0),
           see(text(failure)).toExist(),
@@ -798,10 +800,10 @@ describe("A4: a row says that its track failed to open", () => {
         see(tryAgainOn("Harder, Better, Faster, Stronger")).not.toHaveAttr("tabindex"),
         see(tryAgainOn("Harder, Better, Faster, Stronger")).not.toHaveAttr("disabled"),
         see(tryAgainOn("Harder, Better, Faster, Stronger")).toHaveClass("focus-visible:outline-2"),
-        // It is not inside the link: a button in a link is no button at all.
+        // It is not inside the row's last control: a button in a button is no button at all.
         inside(
           trackRow(/Harder, Better, Faster, Stronger/),
-          expectAll(all.role("button")).toHaveCount(0),
+          see(tryAgainOn("Harder, Better, Faster, Stronger")).toBeAbsent(),
         ),
       ),
     ));
@@ -857,8 +859,7 @@ describe("A5: a row says that the catalog does not have its track", () => {
           // Still listed, and still named.
           expectAll(all.role("listitem")).toHaveCount(2),
           see(text("Harder, Better, Faster, Stronger")).toExist(),
-          // The other row is the only link left, and nothing links to the missing track.
-          expectAll(all.role("link")).toHaveCount(1),
+          // There is nothing left to do with the missing track: its row has no control at its end.
           see(trackRow(/Harder, Better, Faster, Stronger/)).toBeAbsent(),
           expectAll(all.selector(`a[href="${trackPath(track.id)}"]`)).toHaveCount(0),
           expectAll(all.selector('[tabindex="0"]')).toHaveCount(0),
@@ -866,7 +867,7 @@ describe("A5: a row says that the catalog does not have its track", () => {
           expectAll(tryAgainButtons).toHaveCount(0),
           see(text("This song is not available.")).toHaveAttr("role", "status"),
           expectAll(all.selector("svg.animate-spin")).toHaveCount(0),
-          see(trackRow(/Technologic/)).toHaveAttr("href", trackPath(explicitTrack.id)),
+          see(trackRow(/Technologic/)).toHaveAttr("aria-haspopup", "menu"),
         ),
       ),
       see(role("alert")).toBeAbsent(),
@@ -880,7 +881,7 @@ describe("A5: a row says that the catalog does not have its track", () => {
       Subscription.emit(clickedLink(trackPath(track.id))),
       Command.resolve(Catalog.TrackDetail, reply.trackMissing(nextId(onNew))),
       see(text("This song is not available.")).toHaveAttr("role", "status"),
-      // The link the listener pressed is gone: what stands in its place takes the focus it held.
+      // The control the listener used is gone: what stands in its place takes the focus it held.
       Command.expectExact(FocusTrackRow),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
       inside(topSongs, expectAll(all.selector("span[data-track-row]")).toHaveCount(1)),
@@ -1119,7 +1120,7 @@ describe("rule f: the pages behind the one on screen are kept, and hidden", () =
       inside(
         selector("#new-page[inert]"),
         see(pageTitle("New")).toExist(),
-        expectAll(all.role("link")).toHaveCount(2),
+        expectAll(all.selector("[data-track]")).toHaveCount(2),
         expectAll(all.selector("img")).toHaveCount(2),
       ),
       see(selector("#home-page[inert]")).toExist(),

@@ -33,9 +33,11 @@ import {
   isUnderWay,
   lightAfter,
   maybeCurrentTrackId,
+  isPlayable,
   type Model,
   Playback,
   playableSource,
+  type QueuePlace,
   queueFrom,
   Seek,
   type Session,
@@ -664,3 +666,32 @@ export const choose = (
           onSome: (session) => startTrack(session, "Chosen")(model),
         }),
   );
+
+/**
+ * The listener put a track in the queue: next, right after the current
+ * track, or last, after all the rest. Nothing sounds differently for it. A
+ * queue holds a track once among those to come, so one already waiting there
+ * moves to where it was put. Three things cannot be queued: a track with
+ * nothing to play, the current track, and anything while nothing has been
+ * played, since a queue is what comes after a track.
+ */
+export const enqueue = (
+  model: Model,
+  entry: Readonly<{ track: TrackSummary; place: QueuePlace }>,
+): UpdateReturn =>
+  onSession((session) => (held) => {
+    if (!isPlayable(entry.track) || session.current.id === entry.track.id) {
+      return { model: held };
+    }
+    const rest = Array.filter(session.later, (queued) => queued.id !== entry.track.id);
+    const queued = toQueued(entry.track);
+    return {
+      model: withSession(
+        held,
+        modifyFields(session, {
+          later: () =>
+            entry.place === "Next" ? Array.prepend(rest, queued) : Array.append(rest, queued),
+        }),
+      ),
+    };
+  })(model);

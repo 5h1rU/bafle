@@ -1,19 +1,26 @@
 import type { Track, TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
-import { Button } from "@foldkit/ui";
+import { Button, type Menu } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { AsyncData } from "foldkit";
-import type { Html, HtmlBuilder } from "foldkit/html";
+import { childAttributes, type Html, type HtmlBuilder } from "foldkit/html";
 import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "../catalog.ts";
 import { Message, type PlayOrigin } from "../message.ts";
 import type { TrackData } from "../model.ts";
-import { isPlayable, type TrackStatus } from "../player/model.ts";
-import { trackRouter } from "../route.ts";
+import { isPlayable, type QueuePlace, type TrackStatus } from "../player/model.ts";
+import { type RowAction, RowMenu, rowMenuId } from "../rowMenu.ts";
 import { artworkView, coverTransitionStyle } from "./artwork.ts";
 import { reason } from "./feedback.ts";
-import { forwardIcon, spinnerIcon } from "./icon.ts";
+import {
+  checkIcon,
+  detailsIcon,
+  moreIcon,
+  playLastIcon,
+  playNextIcon,
+  spinnerIcon,
+} from "./icon.ts";
 import { type Presence, SECTION_HEADING_CLASS, TRACK_ROW_ATTRIBUTE } from "./layout.ts";
 import { formatDuration } from "./time.ts";
 
@@ -21,8 +28,12 @@ import { formatDuration } from "./time.ts";
 
 export const TRACK_ROW_CLASS = "flex items-center gap-4 py-2.5";
 
-/** The line under a row. It is not on the link itself, whose corners are rounded. */
-export const TRACK_ROW_LINE_CLASS = "border-b border-line";
+/**
+ * A row, with the line under it. The line is the row's and not its
+ * surface's, whose corners are rounded: styles.css hides it wherever it
+ * would run into a surface that is lit, under the `track-row` names.
+ */
+export const TRACK_ROW_LINE_CLASS = "track-row";
 
 export const TRACK_THUMBNAIL_CLASS = "w-11 shrink-0";
 
@@ -74,14 +85,18 @@ const rowStateOf = (trackData: TrackData): RowState => {
 
 /**
  * What a list of tracks needs to know of the page it is on: whether it is on
- * screen, which page it is, what the app holds about each of its tracks, and
- * what the player is doing with each.
+ * screen, which page it is, what the app holds about each of its tracks,
+ * what the player is doing with each and whether it holds anything at all,
+ * each row's menu, and whether a row has just had its track queued.
  */
 export type TrackListContext = Readonly<{
   presence: Presence;
   from: PlayOrigin;
   trackDataOf: (trackId: TrackId) => TrackData;
   statusOf: (trackId: TrackId) => TrackStatus;
+  isPlayerHolding: boolean;
+  menuOf: (trackId: TrackId) => Menu.Model;
+  queuedOf: (trackId: TrackId) => Option.Option<QueuePlace>;
 }>;
 
 const isInPlayer = (status: TrackStatus): boolean => status !== "Elsewhere";
@@ -182,7 +197,9 @@ const ROW_PART_CLASS = "flex min-w-0 flex-1 items-center gap-4 py-2.5 pl-2";
 /**
  * Pressing a row plays its track, and the whole row but its last control is
  * the target. For the track the player holds, the row is that track's own
- * control: a press stops the sound or brings it back.
+ * control: a press stops the sound or brings it back. The control has no
+ * colour of its own: a press, or a pointer over it, lights the whole row,
+ * the last control's place included, so the row answers as one piece.
  */
 const playRowView = (
   track: TrackSummary,
@@ -204,7 +221,8 @@ const playRowView = (
             h.Class(
               clsx(
                 ROW_PART_CLASS,
-                "cursor-pointer touch-manipulation rounded-l-lg hover:bg-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent active:bg-tile",
+                // A press held on the row is a press, not the start of picking out its words.
+                "track-row-play cursor-pointer touch-manipulation rounded-lg select-none [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
               ),
             ),
           ],
@@ -226,36 +244,108 @@ const silentRowView = (
     rowContentView(track, maybePosition, "Elsewhere", context.presence, h),
   );
 
-const DETAILS_CLASS =
-  "flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-full text-muted hover:bg-panel hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent active:bg-tile";
+const MORE_CLASS =
+  "flex size-11 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full text-muted hover:bg-panel hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent active:bg-tile data-[open]:bg-tile data-[open]:text-ink";
+
+/** Over the whole screen: nothing under it is pressed or scrolled while the menu is open. */
+const MENU_BACKDROP_CLASS = "fixed inset-0 z-40 touch-none";
+
+// NOTE: the menu is drawn in the document's body, over everything, and is
+// placed by the component under the row's control. It grows out of the
+// corner nearest that control.
+const MENU_CLASS =
+  "z-50 min-w-60 origin-top-right overflow-hidden rounded-2xl bg-canvas text-ink shadow-[0_10px_38px_rgb(0_0_0/0.22)] ring-1 ring-line outline-none transition duration-150 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 motion-reduce:transition-none";
+
+const MENU_ITEM_CLASS =
+  "flex cursor-pointer items-center justify-between gap-8 border-line px-4 py-3 select-none not-first:border-t data-[active]:bg-panel active:bg-tile";
+
+type ActionLook = Readonly<{ label: string; icon: (className: string) => Html }>;
+
+const ACTION_LOOKS: Readonly<Record<RowAction, ActionLook>> = {
+  PlayNext: { label: "Play next", icon: playNextIcon },
+  AddToQueue: { label: "Add to queue", icon: playLastIcon },
+  OpenSong: { label: "Song details", icon: detailsIcon },
+};
 
 /**
- * The way to the track's page: a real link, so it opens in a new tab too.
- * It answers a press at once, before anything has loaded, by turning its
- * arrow into a spinner: the URL does not move until the page takes the screen.
+ * What a row's menu offers for its track, in the order it is offered. A
+ * track is queued once something else is playing: a queue is what comes
+ * after a track. Its page is offered for as long as the catalog has it.
  */
-const detailsLinkView = (track: TrackSummary, state: RowState, h: HtmlBuilder<Message>): Html =>
-  h.a(
-    [
-      h.Href(trackRouter({ trackId: track.id })),
-      h.DataAttribute(TRACK_ROW_ATTRIBUTE, track.id),
-      h.AriaLabel(`Details: ${track.title}`),
-      h.AriaBusy(RowState.guards.Opening(state)),
-      h.Class(DETAILS_CLASS),
-    ],
-    [
-      RowState.guards.Opening(state)
-        ? spinnerIcon("size-5 animate-spin motion-reduce:animate-pulse")
-        : forwardIcon("size-5"),
-    ],
-  );
+const actionsOf = (
+  track: TrackSummary,
+  state: RowState,
+  status: TrackStatus,
+  context: TrackListContext,
+): ReadonlyArray<RowAction> => [
+  ...(isPlayable(track) && context.isPlayerHolding && !isInPlayer(status)
+    ? (["PlayNext", "AddToQueue"] as const)
+    : []),
+  ...(RowState.guards.NotAvailable(state) ? [] : (["OpenSong"] as const)),
+];
 
 /**
- * Where the way to the page was, for a track the catalog does not have. It
- * is no longer something to open, so there is no link: nothing to press,
- * nothing in the tab order. It can still be given the focus the link held.
+ * What the row's last control shows. It answers at once what was chosen
+ * from its menu: a spinner while the track's page is on its way, since the
+ * URL does not move until the page takes the screen, and a tick for a moment
+ * when the track was queued.
  */
-const noDetailsView = (track: TrackSummary, h: HtmlBuilder<Message>): Html =>
+const moreContentView = (state: RowState, maybeQueued: Option.Option<QueuePlace>): Html => {
+  if (RowState.guards.Opening(state)) {
+    return spinnerIcon("size-5 animate-spin motion-reduce:animate-pulse");
+  }
+  return Option.isSome(maybeQueued) ? checkIcon("size-5 text-accent") : moreIcon("size-5");
+};
+
+/**
+ * The row's last control: what else can be done with its track. It is where
+ * the row keeps the focus, so it carries the mark the focus is given back by.
+ */
+const rowMenuView = (
+  track: TrackSummary,
+  actions: Array.NonEmptyReadonlyArray<RowAction>,
+  state: RowState,
+  context: TrackListContext,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.submodel({
+    slotId: rowMenuId({ from: context.from, trackId: track.id }),
+    model: context.menuOf(track.id),
+    view: RowMenu.view,
+    viewInputs: {
+      items: actions,
+      itemToConfig: (action) => ({
+        className: MENU_ITEM_CLASS,
+        content: h.div(
+          [h.Class("contents")],
+          [
+            h.span([], [ACTION_LOOKS[action].label]),
+            ACTION_LOOKS[action].icon("size-5 shrink-0 text-muted"),
+          ],
+        ),
+      }),
+      itemToSearchText: (action) => ACTION_LOOKS[action].label,
+      ariaLabel: `More: ${track.title}`,
+      buttonContent: moreContentView(state, context.queuedOf(track.id)),
+      buttonClassName: MORE_CLASS,
+      buttonAttributes: childAttributes([
+        h.DataAttribute(TRACK_ROW_ATTRIBUTE, track.id),
+        h.AriaBusy(RowState.guards.Opening(state)),
+      ]),
+      itemsClassName: MENU_CLASS,
+      backdropClassName: MENU_BACKDROP_CLASS,
+      anchor: { placement: "bottom-end", gap: 4, padding: 12 },
+    },
+    toParentMessage: (message) =>
+      Message.GotRowMenuMessage({ from: context.from, trackId: track.id, message }),
+  });
+
+/**
+ * Where the row's last control was, for a track there is nothing left to do
+ * with but play it or read of it. There is nothing to press and nothing in
+ * the tab order. It can still be given the focus the control held.
+ */
+const noMenuView = (track: TrackSummary, h: HtmlBuilder<Message>): Html =>
   h.span([
     h.DataAttribute(TRACK_ROW_ATTRIBUTE, track.id),
     h.Tabindex(-1),
@@ -266,7 +356,8 @@ const noDetailsView = (track: TrackSummary, h: HtmlBuilder<Message>): Html =>
 
 /**
  * What a row has to say in words, each sentence with whether it is shown or
- * only said. That a page is opening is only said: the spinner shows it.
+ * only said. That a page is opening is only said: the spinner shows it. So
+ * is that the track was queued: the tick shows it.
  */
 type Sentence = Readonly<{ words: string; isShown: boolean }>;
 
@@ -274,6 +365,7 @@ const sentences = (
   track: TrackSummary,
   state: RowState,
   status: TrackStatus,
+  maybeQueued: Option.Option<QueuePlace>,
 ): ReadonlyArray<Sentence> =>
   Array.getSomes([
     Option.liftPredicate<Sentence>(
@@ -291,6 +383,10 @@ const sentences = (
         Option.some({ words: `This song could not be opened. ${reason(error)}`, isShown: true }),
       NotAvailable: () => Option.some({ words: "This song is not available.", isShown: true }),
     }),
+    Option.map(maybeQueued, (place) => ({
+      words: place === "Next" ? "Plays next." : "Added to the queue.",
+      isShown: false,
+    })),
   ]);
 
 /** There can be several on a page, so each says which track it tries again. */
@@ -315,8 +411,8 @@ const tryAgainView = (track: TrackSummary, h: HtmlBuilder<Message>): Html =>
 
 /**
  * Where a row says what became of its track: that its page is opening, that
- * it failed to open, that the track is gone, that it has nothing to play, or
- * that it could not be played. The words are a status: said politely when
+ * it failed to open, that the track is gone, that it has nothing to play,
+ * that it could not be played, or that it was queued. The words are a status: said politely when
  * they change, without taking the focus. The place is there whether or not
  * there is anything to say, so that what is said is heard as a change.
  */
@@ -324,9 +420,10 @@ const noticeView = (
   track: TrackSummary,
   state: RowState,
   status: TrackStatus,
+  maybeQueued: Option.Option<QueuePlace>,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const said = sentences(track, state, status);
+  const said = sentences(track, state, status, maybeQueued);
   const isShown = Array.some(said, (sentence) => sentence.isShown);
 
   return h.div(
@@ -348,9 +445,10 @@ const noticeView = (
 };
 
 /**
- * A row: its control, its link, and under them what it has to say. The row
- * of the track the player holds is tinted from the tap on, before the engine
- * has said anything: that is how it shows it was chosen.
+ * A row: its surface, with the control that plays and the control that
+ * opens the menu, and under it what the row has to say. The surface of the
+ * track the player holds is tinted from the tap on, before the engine has
+ * said anything: that is how it shows it was chosen.
  */
 const trackRowView = (
   track: TrackSummary,
@@ -368,22 +466,20 @@ const trackRowView = (
       h.div(
         [
           h.DataAttribute("track", track.id),
-          h.Class(
-            clsx("-mx-2 flex items-center rounded-lg transition-colors duration-150", {
-              "bg-accent-wash": isInPlayer(status),
-            }),
-          ),
+          ...(isInPlayer(status) ? [h.DataAttribute("in-player", "")] : []),
+          h.Class("track-row-surface -mx-2 flex items-center"),
         ],
         [
           isPlayable(track)
             ? playRowView(track, maybePosition, status, context, h)
             : silentRowView(track, maybePosition, context, h),
-          RowState.guards.NotAvailable(state)
-            ? noDetailsView(track, h)
-            : detailsLinkView(track, state, h),
+          Array.match(actionsOf(track, state, status, context), {
+            onEmpty: () => noMenuView(track, h),
+            onNonEmpty: (actions) => rowMenuView(track, actions, state, context, h),
+          }),
         ],
       ),
-      noticeView(track, state, status, h),
+      noticeView(track, state, status, context.queuedOf(track.id), h),
     ],
   );
 };

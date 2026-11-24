@@ -1,4 +1,5 @@
 import { TrackId } from "@bafle/domain/Catalog/Track";
+import { Menu } from "@foldkit/ui";
 import * as Schema from "effect/Schema";
 import { defineMessageUnion } from "foldkit/message";
 import { UrlRequest } from "foldkit/navigation";
@@ -20,6 +21,7 @@ export const Message = defineMessageUnion({
   ClickedTryAgainOnTrack: { trackId: TrackId },
   UpdatedSearchField: { value: Schema.String },
   ClickedPlayTrack: { trackId: TrackId, from: PlayOrigin },
+  GotRowMenuMessage: { from: PlayOrigin, trackId: TrackId, message: Menu.Message },
   ScrolledDown: {},
   ScrolledToTop: {},
   ClickedShowNavigation: {},
@@ -36,5 +38,6 @@ export const Message = defineMessageUnion({
   CompletedFocusTrackRow: {},
   CompletedFocusNavigation: {},
   CompletedScrollPageToTop: {},
+  CompletedWaitToClearRowDone: { turn: Schema.Int },
 });
 export type Message = typeof Message.Type;

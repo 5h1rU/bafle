@@ -16,6 +16,7 @@ import {
   tap,
   text,
 } from "foldkit/scene";
+import { Animation, Menu } from "@foldkit/ui";
 import { Lazy } from "foldkit/test";
 import { describe, expect, test } from "vitest";
 import { Catalog } from "../src/catalog.ts";
@@ -25,6 +26,7 @@ import {
   NavigateBack,
   NavigateInternal,
   ReplaceTrackUrl,
+  WaitToClearRowDone,
 } from "../src/command.ts";
 import { update, viewTransition } from "../src/main.ts";
 import { Message } from "../src/message.ts";
@@ -48,6 +50,7 @@ import {
   onSearch,
   onTrack,
   opened,
+  pressedMore,
   reply,
   silentTrack,
   track,
@@ -64,7 +67,7 @@ const topSongs = role("list", { name: "Top songs" });
 const rowOf = (trackId: string) => selector(`[data-track="${trackId}"]`);
 const playRow = (title: string) => role("button", { name: new RegExp(`^Play: ${title}`) });
 const pauseRow = (title: string) => role("button", { name: new RegExp(`^Pause: ${title}`) });
-const details = (title: string) => role("link", { name: `Details: ${title}` });
+const more = (title: string) => role("button", { name: `More: ${title}` });
 const control = (action: string, title: string = TITLE) =>
   role("button", { name: `${action}: ${title}` });
 const seekBar = role("slider", { name: `Seek: ${TITLE}` });
@@ -211,8 +214,8 @@ describe("a row plays its track", () => {
         see(playRow("Technologic")).toHaveAccessibleName(
           "Play: Technologic, explicit, by Daft Punk, 4:05",
         ),
-        // The way to the track's page is still there, a real link at the row's end.
-        see(details(TITLE)).toHaveAttr("href", trackPath(track.id)),
+        // What else can be done with the track is at the row's end, behind its menu.
+        see(more(TITLE)).toHaveAttr("aria-haspopup", "menu"),
         expectAll(rowMarks).toHaveCount(0),
       ),
     ));
@@ -694,15 +697,15 @@ describe("a track with nothing to play", () => {
     (requestId) => reply.newMusic(requestId, { ...trending, tracks: [track, silentTrack] }),
   );
 
-  test("its row says so plainly and is not a control; its page is still a link away", () =>
+  test("its row says so plainly and is not a control; its menu still leads to its page", () =>
     scene(
       app,
       given(withSilent),
       inside(
         topSongs,
-        see(role("button", { name: /Veridis Quo/ })).toBeAbsent(),
+        see(role("button", { name: /^(Play|Pause): Veridis Quo/ })).toBeAbsent(),
         see(text("This song has no audio to play.")).toBeVisible(),
-        see(details("Veridis Quo")).toHaveAttr("href", trackPath(silentTrack.id)),
+        see(more("Veridis Quo")).toHaveAttr("aria-haspopup", "menu"),
         // The row beside it plays as ever.
         see(playRow(TITLE)).toExist(),
       ),
@@ -1092,4 +1095,113 @@ describe("a second of progress redraws no page", () => {
     Lazy.expectAllReused({ view, model: sounding });
     Lazy.expectAllReused({ view, model: after(onHome, tappedFirstRow) });
   });
+});
+
+describe("the menu at the end of a row", () => {
+  const item = (name: string) => role("menuitem", { name });
+  const items = all.role("menuitem");
+  const openOn = (model: Model, trackId: typeof track.id): Model =>
+    after(model, pressedMore("New", trackId));
+  /** An open menu entered the document: its backdrop was put behind it and it was placed by its control. */
+  const menuEnters = Mount.resolveAll(
+    [Menu.PortalMenuBackdrop, Menu.Message.CompletedPortalMenuBackdrop()],
+    [Menu.AnchorMenu, Menu.Message.CompletedAnchorMenu()],
+  );
+
+  /**
+   * A menu that something was chosen from closes: the focus goes back to its
+   * control, and it is taken out of the document once it has faded.
+   */
+  // NOTE: a function, since a step that expects Mounts to have ended is used up by one scene.
+  const menuLeaves = () => [
+    Command.resolve(Menu.FocusButton, Menu.Message.CompletedFocusButton()),
+    Command.resolve(Animation.WaitForPaint, Animation.Message.CompletedWaitForPaint({ generation: 2 })),
+    Command.resolve(
+      Menu.DetectMovementOrAnimationEnd,
+      Menu.Message.GotAnimationMessage({
+        message: Animation.Message.EndedAnimation({ generation: 2 }),
+      }),
+    ),
+    Mount.expectEnded(Menu.PortalMenuBackdrop, Menu.AnchorMenu),
+  ];
+
+  test("before anything is played it offers the track's page, and nothing of a queue", () =>
+    scene(
+      app,
+      given(openOn(onNew, track.id)),
+      menuEnters,
+      see(more(TITLE)).toHaveAttr("aria-expanded", "true"),
+      expectAll(items).toHaveCount(1),
+      see(item("Song details")).toExist(),
+      // Only the menu that was opened is open.
+      see(more("Technologic")).toHaveAttr("aria-expanded", "false"),
+    ));
+
+  test("once something is playing, another track can be queued: next, or after the rest", () =>
+    scene(
+      app,
+      given(openOn(sounding, explicitTrack.id)),
+      islandEnters,
+      menuEnters,
+      expectAll(items).toHaveCount(3),
+      see(item("Play next")).toExist(),
+      see(item("Add to queue")).toExist(),
+      see(item("Song details")).toExist(),
+    ));
+
+  test("the track the player holds is not queued behind itself", () =>
+    scene(
+      app,
+      given(openOn(sounding, track.id)),
+      islandEnters,
+      menuEnters,
+      expectAll(items).toHaveCount(1),
+      see(item("Song details")).toExist(),
+    ));
+
+  test("Play next: the menu closes, and the row's control shows for a moment that it is done", () =>
+    scene(
+      app,
+      given(openOn(sounding, explicitTrack.id)),
+      islandEnters,
+      menuEnters,
+      see(text("Plays next.")).toBeAbsent(),
+      click(item("Play next")),
+      Command.expectHas(WaitToClearRowDone({ turn: 1 })),
+      ...menuLeaves(),
+      see(more("Technologic")).toHaveAttr("aria-expanded", "false"),
+      expectAll(items).toHaveCount(0),
+      // A tick where the dots were, and the same said in words to assistive technology only.
+      inside(more("Technologic"), expectAll(all.selector("svg.text-accent")).toHaveCount(1)),
+      see(text("Plays next.")).toHaveAttr("role", "status"),
+      see(text("Plays next.")).toHaveClass("sr-only"),
+      // Nothing sounds differently for it.
+      inside(islandLayout, see(text(TITLE)).toExist(), see(control("Pause")).toExist()),
+      Command.resolve(WaitToClearRowDone, Message.CompletedWaitToClearRowDone({ turn: 1 })),
+      inside(more("Technologic"), expectAll(all.selector("svg.text-accent")).toHaveCount(0)),
+      see(text("Plays next.")).toBeAbsent(),
+    ));
+
+  test("Song details: the list is held, the row's control turns, and the page opens when it arrives", () =>
+    scene(
+      app,
+      given(openOn(sounding, explicitTrack.id)),
+      islandEnters,
+      menuEnters,
+      click(item("Song details")),
+      ...menuLeaves(),
+      // Held, as any page that was chosen: New stays, and the mark is on the control that was used.
+      see(role("heading", { name: "New", level: 1 })).toBeVisible(),
+      see(more("Technologic")).toHaveAttr("aria-busy", "true"),
+      inside(more("Technologic"), expectAll(all.selector("svg.animate-spin")).toHaveCount(1)),
+      Command.resolve(Catalog.TrackDetail, reply.track(nextId(sounding), bareTrack)),
+      Command.resolveAll(
+        [NavigateInternal, Message.CompletedNavigateInternal()],
+        [FocusPage, Message.CompletedFocusPage()],
+      ),
+      inside(
+        selector("#track-page"),
+        see(role("heading", { name: /Technologic/, level: 1 })).toExist(),
+      ),
+    ));
 });

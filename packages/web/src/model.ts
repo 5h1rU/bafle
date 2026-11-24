@@ -5,6 +5,7 @@ import {
   TrendingMusic,
 } from "@bafle/domain/Catalog/MusicCatalog.external";
 import { Track, TrackId } from "@bafle/domain/Catalog/Track";
+import { Menu } from "@foldkit/ui";
 import * as Array from "effect/Array";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
@@ -12,7 +13,8 @@ import * as Schema from "effect/Schema";
 import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "./catalog.ts";
-import { maybeCurrentTrackId, Model as PlayerModel } from "./player/model.ts";
+import { PlayOrigin } from "./message.ts";
+import { maybeCurrentTrackId, Model as PlayerModel, QueuePlace } from "./player/model.ts";
 import { AppRoute, searchedTerm } from "./route.ts";
 
 // MODEL
@@ -75,6 +77,19 @@ export type Awaiting = typeof Awaiting.Type;
 export const Navigation = Schema.Literals(["Open", "Minimized"]);
 export type Navigation = typeof Navigation.Type;
 
+/**
+ * The row whose control shows, for a moment, that what was chosen from its
+ * menu is done: its track was put in the queue, and where. Each one takes
+ * the next turn, so the moment that ends for an earlier one clears nothing.
+ */
+export const RowDone = Schema.Struct({
+  turn: Schema.Int,
+  maybeRow: Schema.Option(
+    Schema.Struct({ from: PlayOrigin, trackId: TrackId, place: QueuePlace }),
+  ),
+});
+export type RowDone = typeof RowDone.Type;
+
 export const Model = Schema.Struct({
   /**
    * The route whose page is on screen. It is the browser's URL too, except
@@ -115,6 +130,12 @@ export const Model = Schema.Struct({
    * choosing a section brings it out again.
    */
   navigation: Navigation,
+  /**
+   * The menus at the end of the rows, each under its row's id: those that
+   * have been touched. Any other is a closed menu, and is not kept.
+   */
+  rowMenus: Schema.HashMap(Schema.String, Menu.Model),
+  rowDone: RowDone,
   /**
    * The player: what was asked to be heard, and what the engine says is
    * sounding. It belongs to no page, so no change of page touches it.

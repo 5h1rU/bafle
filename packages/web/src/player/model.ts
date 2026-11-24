@@ -214,6 +214,10 @@ export const queueFrom = (
   });
 };
 
+/** Where in the queue a track is put: right after the current one, or after all the rest. */
+export const QueuePlace = Schema.Literals(["Next", "Last"]);
+export type QueuePlace = typeof QueuePlace.Type;
+
 // READ
 
 export const hasSession = (model: Model): boolean => Option.isSome(model.maybeSession);

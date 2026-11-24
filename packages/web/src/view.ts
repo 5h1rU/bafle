@@ -2,6 +2,7 @@ import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
 import { Button, Nav } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
+import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import { AsyncData } from "foldkit";
 import { createLazy, type Document, type Html, type HtmlBuilder } from "foldkit/html";
@@ -18,6 +19,7 @@ import {
   wayBackOn,
 } from "./model.ts";
 import * as Player from "./player/index.ts";
+import { rowMenuIn } from "./rowMenu.ts";
 import * as Home from "./page/home.ts";
 import * as NewMusic from "./page/newMusic.ts";
 import * as NotFound from "./page/notFound.ts";
@@ -318,11 +320,21 @@ const listContext = (
   tracks: Model["tracks"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
+  rowMenus: Model["rowMenus"],
+  rowDone: Model["rowDone"],
 ): TrackListContext => ({
   presence,
   from,
   trackDataOf: (trackId) => trackDataIn(tracks, trackId),
   statusOf: (trackId) => Player.statusFor(playingTrackId, playingStatus, trackId),
+  isPlayerHolding: playingTrackId !== undefined,
+  menuOf: (trackId) => rowMenuIn(rowMenus, { from, trackId }),
+  queuedOf: (trackId) =>
+    pipe(
+      rowDone.maybeRow,
+      Option.filter((row) => row.from === from && row.trackId === trackId),
+      Option.map((row) => row.place),
+    ),
 });
 
 const homePlaceView = (home: Model["home"], presence: Presence, h: HtmlBuilder<Message>): Html =>
@@ -334,6 +346,8 @@ const newPlaceView = (
   tracks: Model["tracks"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
+  rowMenus: Model["rowMenus"],
+  rowDone: Model["rowDone"],
   h: HtmlBuilder<Message>,
 ): Html =>
   pagePlaceView(
@@ -342,7 +356,15 @@ const newPlaceView = (
       ? [
           NewMusic.view(
             newMusic,
-            listContext(presence, "New", tracks, playingTrackId, playingStatus),
+            listContext(
+              presence,
+              "New",
+              tracks,
+              playingTrackId,
+              playingStatus,
+              rowMenus,
+              rowDone,
+            ),
             h,
           ),
         ]
@@ -361,10 +383,20 @@ const searchPlaceView = (
   tracks: Model["tracks"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
+  rowMenus: Model["rowMenus"],
+  rowDone: Model["rowDone"],
   h: HtmlBuilder<Message>,
 ): Html => {
   const presence: Presence = route._tag === "Search" ? "OnScreen" : "Kept";
-  const context = listContext(presence, "Search", tracks, playingTrackId, playingStatus);
+  const context = listContext(
+    presence,
+    "Search",
+    tracks,
+    playingTrackId,
+    playingStatus,
+    rowMenus,
+    rowDone,
+  );
 
   return pagePlaceView(
     presence,
@@ -440,6 +472,8 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.tracks,
       playingTrackId,
       playingStatus,
+      model.rowMenus,
+      model.rowDone,
       h,
     ]),
     lazySearchPlace(searchPlaceView, [
@@ -448,6 +482,8 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.tracks,
       playingTrackId,
       playingStatus,
+      model.rowMenus,
+      model.rowDone,
       h,
     ]),
     // NOTE: the expanded player is drawn from the player itself, which
