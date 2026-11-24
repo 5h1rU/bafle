@@ -8,6 +8,7 @@ import {
   given,
   inside,
   keydown,
+  Mount,
   role,
   scene,
   selector,
@@ -76,6 +77,10 @@ const rowMarks = all.selector("[data-now-playing]");
 const coverName = `track-cover-${track.id}`;
 /** The player in its two shapes: the capsule over the foot of a page, and the page it grows into. */
 const islandLayout = selector('[data-layout="island"]');
+/** The island's title, the line of it that travels, and the layer its light is drawn in. */
+const title = selector("[data-title]");
+const titleLine = selector("[data-title-line]");
+const lights = selector("[data-island-lights]");
 const expandedLayout = selector('[data-layout="expanded"]');
 
 type Node = Readonly<{
@@ -166,6 +171,26 @@ const resolveStart = (order: number) =>
     [Player.PublishNowPlaying, Player.Message.CompletedPublishNowPlaying()],
   );
 
+/**
+ * The island entered the document: its figure was drawn, its light set to
+ * what the Model says, and its title measured and found to fit.
+ */
+const islandEnters = Mount.resolveAll(
+  [Player.DrawIslandFigure, Player.Message.CompletedDrawIslandFigure()],
+  [Player.StartIslandLight, Player.Message.CompletedStartIslandLight()],
+  [
+    Player.MeasureTitle,
+    Player.Message.MeasuredTitle({ placePixels: 0, maybeTravelPixels: Option.none() }),
+  ],
+);
+
+/** The island left the document, and what was bound to its pieces ended with them. */
+// NOTE: a function, not a step kept and used again. The step takes the
+// Mounts it is given out of its own list as it finds them, so a step used
+// in a second scene would have none left to look for.
+const islandLeaves = () =>
+  Mount.expectEnded(Player.DrawIslandFigure, Player.StartIslandLight, Player.MeasureTitle);
+
 /** The threshold passes with nothing heard from the engine. */
 const thresholdPasses = (order: number) =>
   Command.resolve(
@@ -197,6 +222,7 @@ describe("a row plays its track", () => {
       app,
       given(onNew),
       click(playRow(TITLE)),
+      islandEnters,
       Command.expectExact(
         Player.StartPlayback({ order: 1, source: "https://audio.test/tr-1.mp3", positionSeconds: 0 }),
         Player.WaitBeforeShowingActivity({ order: 1 }),
@@ -229,6 +255,7 @@ describe("a row plays its track", () => {
       app,
       given(onNew),
       click(playRow(TITLE)),
+      islandEnters,
       resolveStart(1),
       inside(island, expectAll(startingMark).toHaveCount(0)),
       thresholdPasses(1),
@@ -246,6 +273,7 @@ describe("a row plays its track", () => {
     scene(
       app,
       given(sounding),
+      islandEnters,
       inside(
         island,
         see(control("Pause")).toHaveAttr("data-playback", "Sounding"),
@@ -285,6 +313,7 @@ describe("a row plays its track", () => {
     scene(
       app,
       given(sounding),
+      islandEnters,
       inside(island, click(control("Pause"))),
       Command.expectExact(Player.PausePlayback({ order: 2 })),
       Command.resolve(Player.PausePlayback, Player.Message.CompletedPausePlayback()),
@@ -304,6 +333,7 @@ describe("a row plays its track", () => {
     scene(
       app,
       given(sounding),
+      islandEnters,
       Subscription.emit(
         said(1, "Waiting", { positionSeconds: 12, maybeDurationSeconds: Option.some(30) }),
       ),
@@ -323,6 +353,7 @@ describe("a row plays its track", () => {
       app,
       given(onNew),
       click(playRow(TITLE)),
+      islandEnters,
       Command.resolveAll(
         [Player.StartPlayback, Player.Message.CompletedStartPlayback({ order: 1, outcome: "Refused" })],
         [Player.PublishNowPlaying, Player.Message.CompletedPublishNowPlaying()],
@@ -351,6 +382,7 @@ describe("a row plays its track", () => {
     scene(
       app,
       given(sounding),
+      islandEnters,
       Subscription.emit(said(1, "Failed", { positionSeconds: 12 })),
       // The catalog is asked for the track again before anything is called a failure.
       Command.expectExact(Player.RefreshSource({ order: 1, trackId: track.id })),
@@ -407,7 +439,9 @@ describe("the player expanded: the page of the track it holds", () => {
     scene(
       app,
       given(sounding),
+      islandEnters,
       Subscription.emit(clickedLink(trackPath(track.id))),
+      islandLeaves(),
       // The screen moved, so the history gains its entry now; the engine is asked nothing.
       Command.expectExact(NavigateInternal, FocusPage, Catalog.TrackDetail),
       // Before the catalog has said a word: the player, whole, from what the queue holds.
@@ -440,6 +474,7 @@ describe("the player expanded: the page of the track it holds", () => {
     scene(
       app,
       given(sounding),
+      islandEnters,
       Subscription.emit(clickedLink(trackPath(explicitTrack.id))),
       // Held, as any page chosen by a link: New stays, and so does the island.
       see(role("heading", { name: "New", level: 1 })).toBeVisible(),
@@ -461,7 +496,9 @@ describe("the player expanded: the page of the track it holds", () => {
     scene(
       app,
       given(onOtherTracksPage),
+      islandEnters,
       inside(selector("#track-page"), click(control("Play", "Technologic"))),
+      islandLeaves(),
       // The engine is given its order, and the history is asked nothing.
       Command.expectExact(
         Player.StartPlayback({ order: 2, source: "https://audio.test/tr-2.mp3", positionSeconds: 0 }),
@@ -532,6 +569,7 @@ describe("the player expanded: the page of the track it holds", () => {
         [Catalog.NewMusic, reply.newMusic(nextId(expandedOnFirst))],
         [FocusTrackRow, Message.CompletedFocusTrackRow()],
       ),
+      islandEnters,
       see(role("heading", { name: "New", level: 1 })).toBeVisible(),
       see(expandedLayout).toBeAbsent(),
       inside(
@@ -558,7 +596,9 @@ describe("the player expanded: the page of the track it holds", () => {
     scene(
       app,
       given(sounding),
+      islandEnters,
       Subscription.emit(clickedLink(trackPath(track.id))),
+      islandLeaves(),
       resolveOpening(sounding, reply.trackRefused),
       inside(
         expandedLayout,
@@ -576,7 +616,9 @@ describe("the player expanded: the page of the track it holds", () => {
     scene(
       app,
       given(sounding),
+      islandEnters,
       Subscription.emit(clickedLink(trackPath(track.id))),
+      islandLeaves(),
       resolveOpening(sounding, reply.trackMissing),
       inside(
         expandedLayout,
@@ -684,6 +726,7 @@ describe("the island", () => {
     scene(
       app,
       given(sounding),
+      islandEnters,
       see(island).toHaveAccessibleName("Player"),
       inside(
         island,
@@ -717,39 +760,86 @@ describe("the island", () => {
       ),
     ));
 
-  test("its title is a marquee, so one too long for the capsule can travel across it", () =>
+  test("a title that fits stands as plain words, once", () =>
     scene(
       app,
       given(sounding),
-      inside(island, see(selector("bafle-marquee")).toHaveText(TITLE)),
-      // The artist, and what happened to the sound, are short: they are plain words.
-      inside(island, expectAll(all.selector("bafle-marquee")).toHaveCount(1)),
+      islandEnters,
+      inside(island, see(title).toHaveText(TITLE)),
+      inside(island, see(title).toHaveAttr("data-title", "Standing")),
+      inside(island, see(title).not.toHaveAttr("data-overflowing")),
+      inside(island, see(titleLine).toHaveStyle("transform", "translateX(0)")),
     ));
+
+  test("a title too long for its place waits, travels once with its copy behind it, and waits again", () => {
+    // The run the title is on once it has been measured: one more than it was on.
+    const run = sounding.player.title.run + 1;
+
+    return scene(
+      app,
+      given(sounding),
+      Mount.resolveAll(
+        [Player.DrawIslandFigure, Player.Message.CompletedDrawIslandFigure()],
+        [Player.StartIslandLight, Player.Message.CompletedStartIslandLight()],
+        [
+          Player.MeasureTitle,
+          Player.Message.MeasuredTitle({ placePixels: 180, maybeTravelPixels: Option.some(270) }),
+        ],
+      ),
+      // Measured and found too long: it stands, with its copy ready, for the first wait.
+      Command.expectExact(Player.WaitToTravelTitle({ run, milliseconds: 3500 })),
+      inside(island, see(title).toHaveAttr("data-overflowing", "")),
+      inside(island, see(title).toHaveText(`${TITLE}${TITLE}`)),
+      inside(island, see(titleLine).toHaveStyle("transform", "translateX(0)")),
+      Command.resolve(Player.WaitToTravelTitle, Player.Message.CompletedWaitToTravelTitle({ run })),
+      // One pass: the way measured, at 45 pixels a second.
+      Command.expectExact(Player.TravelTitle({ run, milliseconds: 6000 })),
+      inside(island, see(title).toHaveAttr("data-title", "Travelling")),
+      inside(island, see(titleLine).toHaveStyle("transform", "translateX(-270px)")),
+      inside(island, see(titleLine).toHaveStyle("transition", "transform 6000ms linear")),
+      Command.resolve(Player.TravelTitle, Player.Message.CompletedTravelTitle({ run })),
+      // Back where it began, at once, and the rest between two passes begins.
+      Command.expectExact(Player.WaitToTravelTitle({ run, milliseconds: 5000 })),
+      inside(island, see(titleLine).toHaveStyle("transform", "translateX(0)")),
+      inside(island, see(titleLine).toHaveStyle("transition", "none")),
+      // A wait that ends for a run that is no longer the title's is dropped: nothing follows it.
+      Command.resolve(
+        Player.WaitToTravelTitle,
+        Player.Message.CompletedWaitToTravelTitle({ run: run - 1 }),
+      ),
+      inside(island, see(title).toHaveAttr("data-title", "Standing")),
+    );
+  });
 
   test("it stands on one figure, and a tap alone sets no light going", () =>
     scene(
       app,
       given(after(onNew, Message.ClickedPlayTrack({ trackId: track.id, from: "New" }))),
-      inside(island, expectAll(all.selector("bafle-island-shape")).toHaveCount(1)),
-      // Acknowledged: a wish to sound. The light is told nothing new, and it has never travelled.
-      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "Holding")),
+      islandEnters,
+      inside(island, expectAll(all.selector("[data-island-lights]")).toHaveCount(1)),
+      // Acknowledged: a wish to sound. The light has never travelled, and stays dark.
+      inside(island, see(lights).toHaveAttr("data-light", "Dark")),
+      // Every path of the figure and of the light is one the outline is written to.
+      inside(island, expectAll(all.selector(".island-layer path:not([data-island-outline])")).toHaveCount(0)),
     ));
 
   test("the light travels on the engine's word that there is sound", () =>
     scene(
       app,
       given(sounding),
-      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "Travelling")),
+      islandEnters,
+      inside(island, see(lights).toHaveAttr("data-light", "Travelling")),
     ));
 
   test("paused, the light is put to rest", () =>
     scene(
       app,
       given(paused),
-      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "Resting")),
+      islandEnters,
+      inside(island, see(lights).toHaveAttr("data-light", "Resting")),
     ));
 
-  test("a start slow enough to be shown still tells the light nothing new", () =>
+  test("a start slow enough to be shown still does not halt the light", () =>
     scene(
       app,
       given(
@@ -759,21 +849,24 @@ describe("the island", () => {
           player(Player.Message.CompletedWaitBeforeShowingActivity({ order: sounding.player.lastOrder + 1 })),
         ),
       ),
+      islandEnters,
       inside(island, see(selector('[data-playback="Starting"]')).toExist()),
-      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "Holding")),
+      inside(island, see(lights).toHaveAttr("data-light", "Travelling")),
     ));
 
-  test("going on to another track does not halt the light: it holds until the engine answers", () =>
+  test("going on to another track does not halt the light: it travels on until the engine answers", () =>
     scene(
       app,
       given(after(sounding, player(Player.Message.ClickedNext()))),
-      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "Holding")),
+      islandEnters,
+      inside(island, see(lights).toHaveAttr("data-light", "Travelling")),
     ));
 
   test("Next stands in the island's tail, the piece the figure measures", () =>
     scene(
       app,
       given(sounding),
+      islandEnters,
       inside(
         selector("[data-island-tail]"),
         see(role("button", { name: "Next track: Technologic" })).toExist(),
@@ -784,6 +877,7 @@ describe("the island", () => {
     scene(
       app,
       given(after(onNew, Message.ClickedPlayTrack({ trackId: explicitTrack.id, from: "New" }))),
+      islandEnters,
       inside(island, see(role("button", { name: "Next track" })).toBeDisabled()),
     ));
 
@@ -791,6 +885,7 @@ describe("the island", () => {
     scene(
       app,
       given(sounding),
+      islandEnters,
       Subscription.emit(clickedLink("/")),
       // Going elsewhere asks nothing of the engine: the page takes the screen and refreshes, and that is all.
       Command.expectExact(Catalog.HomeFeed, NavigateInternal),
@@ -815,6 +910,7 @@ describe("the island", () => {
       given(onNew),
       see(selector("[data-player]")).toBeAbsent(),
       click(playRow(TITLE)),
+      islandEnters,
       see(selector("[data-player]")).toExist(),
       resolveStart(1),
       thresholdPasses(1),
@@ -876,6 +972,7 @@ describe("the flight: a track's cover is one element on its way to the island", 
       seeCarriers(coverName, { inAll: 1, inIsland: 0 }),
       inside(rowOf(track.id), see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName)),
       click(playRow(TITLE)),
+      islandEnters,
       // One element at a time: two with the same name and the browser drops the transition.
       seeCarriers(coverName, { inAll: 1, inIsland: 1 }),
       // The row keeps its own picture in the list.
@@ -894,6 +991,7 @@ describe("the flight: a track's cover is one element on its way to the island", 
     scene(
       app,
       given(sounding),
+      islandEnters,
       click(playRow("Technologic")),
       seeCarriers(`track-cover-${explicitTrack.id}`, { inAll: 1, inIsland: 1 }),
       // The track the island gave up has its name back on its row.
@@ -918,8 +1016,10 @@ describe("the flight: a track's cover is one element on its way to the island", 
     scene(
       app,
       given(sounding),
+      islandEnters,
       inside(islandLayout, see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName)),
       Subscription.emit(clickedLink(trackPath(track.id))),
+      islandLeaves(),
       seeCarriers(coverName, { inAll: 1, inIsland: 1 }),
       inside(expandedLayout, see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName)),
       resolveOpening(sounding),
@@ -964,6 +1064,7 @@ describe("a second of progress redraws no page", () => {
     scene(
       app,
       given(sounding),
+      islandEnters,
       tap((simulation) => drawn.push(places(simulation.html))),
       Subscription.emit(
         said(1, "Sounding", {

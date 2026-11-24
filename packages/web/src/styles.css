@@ -336,50 +336,188 @@ body {
   animation-duration: 380ms;
 }
 
-/* The island's shadow is a picture of its own for the same reason as its
-   light, below: inside the island's picture it would be cut where that
-   picture is cut. It lies under the island throughout. */
-bafle-island-shape::part(shadow) {
+/* THE ISLAND'S FIGURE
+
+   What the island is drawn on (player/islandFigure.ts): three layers the
+   size of the island's box, each free to draw outside it, since the cover
+   and the swell round the main control stand out of that box. */
+.island-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* The shadow is the figure once more, under the figure. It is a layer of
+   its own so that it can be a picture of its own in a view transition (see
+   below): inside the island's picture it would be cut where that picture is. */
+.island-shadow {
+  z-index: -2;
+  filter: drop-shadow(var(--island-shadow, none));
   view-transition-name: island-shadow;
 }
 
+.island-figure {
+  z-index: -1;
+}
+
+.island-body {
+  fill: var(--color-island);
+}
+
+/* The cover's colours, near the cover, as bright as they are. */
+.island-tint {
+  opacity: 0.85;
+}
+
+/* The light is dark until there has been sound. Then it is bright while it
+   travels and an ember while it rests, and takes as long to change from one
+   to the other as it takes to gather or lose its speed
+   (CHANGES_PACE_OVER_MILLISECONDS in player/islandLight.ts). */
+.island-lights {
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 1400ms ease-in-out;
+  view-transition-name: island-light;
+}
+
+.island-lights[data-light="Resting"] {
+  opacity: 0.3;
+}
+
+.island-lights[data-light="Travelling"] {
+  opacity: 1;
+}
+
+/* The glow is blurred as a whole, so it has no edge. */
+.island-light-soft {
+  filter: blur(3px);
+}
+
+/* Each stroke of the light is a stretch of the outline, and goes once round
+   it for ever. It is held still until it is set going: by the Mount
+   `StartIslandLight` as the island enters the document, and from then on by
+   the Subscription `islandLightPace`, which changes its speed little by
+   little. Under reduced motion there is no animation, and it stays where it
+   is drawn. */
+.island-light-stroke {
+  fill: none;
+  stroke-linecap: round;
+  stroke-dashoffset: var(--sets-out);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .island-light-stroke {
+    animation: island-light-travel 10s linear infinite paused;
+  }
+}
+
+@keyframes island-light-travel {
+  to {
+    stroke-dashoffset: calc(var(--sets-out) - 100);
+  }
+}
+
+.island-light-glow {
+  stroke: var(--color-island-light);
+  stroke-width: 7;
+}
+
+.island-light-glow-far {
+  stroke-opacity: 0.5;
+}
+
+.island-light-glow-near {
+  stroke-opacity: 0.9;
+}
+
+.island-light-tail {
+  stroke: var(--color-island-light);
+  stroke-width: 2;
+  stroke-opacity: 0.24;
+}
+
+.island-light-head {
+  stroke: var(--color-island-light-head);
+  stroke-width: 2;
+  stroke-opacity: 0.6;
+}
+
+.island-light-head-faint {
+  stroke-opacity: 0.3;
+}
+
+/* THE ISLAND'S TITLE
+
+   A line of words that may be longer than its place. The place reaches a
+   little further back than where the words begin, and fades over that reach:
+   standing, the words are clear of it; travelling, they fade into it. So the
+   fade can always be there, and nothing changes look as a pass starts. A
+   title that does not fit fades at the far end too. Where the line is, and
+   how it gets there, the view says (titleLineStyle in player/view.ts). */
+.island-title {
+  --lead: 0.5rem;
+  --tail: 1rem;
+  overflow: hidden;
+  margin-left: calc(-1 * var(--lead));
+  padding-left: var(--lead);
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, transparent, black var(--lead));
+}
+
+.island-title[data-overflowing] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black var(--lead),
+    black calc(100% - var(--tail)),
+    transparent
+  );
+}
+
+.island-title-line {
+  display: inline-flex;
+  gap: 2.5rem;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .island-title-line {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* The island's shadow and its light are pictures of their own in a view
+   transition. A transition fades a still picture of the island into the
+   live one: a light inside that picture would stand still for as long as the
+   fade lasts, and a shadow inside it would be cut where the picture is cut.
+   Of each, only the live one is shown, as it is; the shadow under the
+   island, the light above the cover on its way. When the player opens they
+   are on one side only and go at once; when it closes they come in once the
+   island is back. */
 ::view-transition-group(island-shadow) {
   z-index: 0;
-}
-
-::view-transition-old(island-shadow) {
-  display: none;
-}
-
-::view-transition-new(island-shadow) {
-  animation: none;
-}
-
-::view-transition-new(island-shadow):only-child {
-  animation: 200ms ease-out 300ms both navigation-arrive;
-}
-
-/* The light that travels the island's edge is a picture of its own, so that
-   a change of song does not fade a still copy of it into the live one: only
-   the live one is shown, as it is, above the cover on its way. When the
-   player opens there is no light on the far side, and it goes at once; when
-   the player closes it comes in once the island is back. */
-bafle-island-shape::part(lights) {
-  view-transition-name: island-light;
 }
 
 ::view-transition-group(island-light) {
   z-index: 3;
 }
 
+::view-transition-old(island-shadow),
 ::view-transition-old(island-light) {
   display: none;
 }
 
+::view-transition-new(island-shadow),
 ::view-transition-new(island-light) {
   animation: none;
 }
 
+::view-transition-new(island-shadow):only-child,
 ::view-transition-new(island-light):only-child {
   animation: 200ms ease-out 300ms both navigation-arrive;
 }

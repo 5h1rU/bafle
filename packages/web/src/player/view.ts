@@ -15,9 +15,8 @@ import {
   spinnerIcon,
 } from "../view/icon.ts";
 import { coverTransitionName } from "../view/artwork.ts";
-import { ISLAND_TAIL_ATTRIBUTE, type IslandLight, IslandShape } from "../view/islandShape.ts";
-import { Marquee } from "../view/marquee.ts";
 import { formatDuration } from "../view/time.ts";
+import { islandFigureView } from "./islandFigure.ts";
 import { Message } from "./message.ts";
 import {
   hasLater,
@@ -28,8 +27,17 @@ import {
   Seek,
   type Session,
   shownPositionSeconds,
+  type TitleMarquee,
   wantsToSound,
 } from "./model.ts";
+import {
+  DrawIslandFigure,
+  ISLAND_TAIL_ATTRIBUTE,
+  MeasureTitle,
+  TITLE_LINE_ATTRIBUTE,
+  TITLE_WORDS_ATTRIBUTE,
+} from "./mount.ts";
+import { TITLE_PIXELS_PER_SECOND } from "./command.ts";
 
 // VIEW
 
@@ -285,13 +293,66 @@ const maybeShortNotice = (playback: Playback): Option.Option<string> =>
   );
 
 /**
+ * Where the title's line is, and how it gets there. Standing, it is where it
+ * begins, at once. Travelling, it goes one pass's way at the title's speed:
+ * the transition is as long as the Command that says when the pass is over.
+ */
+const titleLineStyle = (title: TitleMarquee): Record<string, string> =>
+  Option.match(title.phase === "Travelling" ? title.maybeTravelPixels : Option.none(), {
+    onNone: () => ({ transform: "translateX(0)", transition: "none" }),
+    onSome: (travelPixels) => ({
+      transform: `translateX(${-travelPixels}px)`,
+      transition: `transform ${Math.round((travelPixels / TITLE_PIXELS_PER_SECOND) * 1000)}ms linear`,
+    }),
+  });
+
+/**
+ * The island's title. One that fits is just its words. One that does not
+ * waits, then travels across its place once, its copy following it in, until
+ * the copy stands where the words began; then it waits again. The words that
+ * reach an end of the place fade there.
+ *
+ * Whether it fits is a matter of pixels, known only in the document: the
+ * Mount `MeasureTitle` tells the Model, and from there the waits and the
+ * passes are the Model's (`title`), kept in time by Commands.
+ */
+const titleView = (trackTitle: string, title: TitleMarquee, h: HtmlBuilder<Message>): Html => {
+  const isOverflowing = Option.isSome(title.maybeTravelPixels);
+
+  return h.div(
+    [
+      h.DataAttribute("title", title.phase),
+      ...(isOverflowing ? [h.DataAttribute("overflowing", "")] : []),
+      h.Class("island-title text-[0.9375rem] leading-tight font-bold"),
+      h.OnMount(MeasureTitle()),
+    ],
+    [
+      h.div(
+        [
+          h.DataAttribute(TITLE_LINE_ATTRIBUTE, ""),
+          h.Class("island-title-line"),
+          h.Style(titleLineStyle(title)),
+        ],
+        [
+          h.span([h.DataAttribute(TITLE_WORDS_ATTRIBUTE, "")], [trackTitle]),
+          ...(isOverflowing ? [h.span([h.AriaHidden(true)], [trackTitle])] : []),
+        ],
+      ),
+    ],
+  );
+};
+
+/**
  * The words arrive with a short fade when the track changes; the island
  * itself stays where it is. Under the title stands the artist, or what
  * happened to the sound when that needs saying.
  */
-const trackWordsView = (session: Session, h: HtmlBuilder<Message>): ReadonlyArray<Html> => {
+const trackWordsView = (
+  session: Session,
+  title: TitleMarquee,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> => {
   const track = session.current;
-  const marquee = Marquee.withMessage(h);
 
   return [
     h.keyed("span")(
@@ -302,8 +363,7 @@ const trackWordsView = (session: Session, h: HtmlBuilder<Message>): ReadonlyArra
         ),
       ],
       [
-        // A title too long for the island travels across it, as a marquee.
-        marquee([h.Class("block text-[0.9375rem] leading-tight font-bold")], [track.title]),
+        titleView(track.title, title, h),
         Option.match(maybeShortNotice(session.playback), {
           onNone: () =>
             h.span(
@@ -558,7 +618,7 @@ const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>)
 // from under it the same way. The island's own right edge moves with the
 // tail (see `islandView`), so the control itself stays where it is while
 // this happens. The tail's width is the one thing the island's shape reads
-// from the document besides the island's own: see `islandShapeElement.ts`.
+// from the document besides the island's own: see `DrawIslandFigure` in `mount.ts`.
 const TAIL_CLASS =
   "dock-island-next flex h-9 w-[2.125rem] shrink-0 items-center justify-end minimized:pointer-events-none minimized:w-0";
 
@@ -606,27 +666,9 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
   h.p([h.Role("status"), h.Class("sr-only")], [announcement(session)]);
 
 /**
- * What the island's light is told. Only the engine's word that there is
- * sound sets it going, and a tap is only a wish: until it is answered it
- * changes nothing, however long the start takes, so going on to another
- * track does not halt the light, and a first track does not light it.
- * Anything else puts it to rest: a pause, a stop, a failure, and sound that
- * had started and ran out of data.
- */
-export const islandLight = (playback: Playback): IslandLight =>
-  Playback.matchOrElse<IslandLight>(
-    playback,
-    {
-      Sounding: () => "Travelling",
-      Acknowledged: () => "Holding",
-      Starting: () => "Holding",
-    },
-    () => "Resting",
-  );
-
-/**
- * The island: one dark figure over the foot of the page, the same in a
- * light scheme and a dark one. The cover is a disc at its left end and
+ * The island: one dark figure over the foot of the page,/**
+ * The island: one figure over the foot of the page, light on the light page
+ * and dark on the dark one. The cover is a disc at its left end and
  * stands out a little above and below; the body curves up to meet it. The
  * main control sits in a swell at the other end, and Next in a tail past
  * it. The figure takes the cover's colours near the cover, and while there
@@ -642,13 +684,16 @@ export const islandLight = (playback: Playback): IslandLight =>
 // In the navigation's row its right end is brought in by two things that
 // move at different moments: a margin as wide as the tail, in step with the
 // tail being drawn in, and then the rest as the island narrows.
-// The section has no background of its own: the figure is drawn by the
-// shape element behind its pieces, whose sizes here are the ones the
-// outline is worked out from in `islandOutline.ts`.
-const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Message>): Html => {
-  const shape = IslandShape.withMessage(h);
+// The section has no background of its own: the figure is drawn behind its
+// pieces (`islandFigure.ts`), and the Mount `DrawIslandFigure` gives it its
+// outline, worked out in `islandOutline.ts` from the sizes these pieces have.
+const islandView = (
+  model: Model,
+  session: Session,
+  viewInputs: ViewInputs,
+  h: HtmlBuilder<Message>,
+): Html => {
   const { current, playback } = session;
-  const light = islandLight(playback);
 
   return h.section(
     [
@@ -656,18 +701,15 @@ const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Mes
       h.AriaLabel("Player"),
       h.DataAttribute("layout", "island"),
       h.DataAttribute("playback", playback._tag),
+      h.OnMount(DrawIslandFigure()),
       h.Class(
         "dock-island absolute right-5 bottom-[5.125rem] left-5 z-30 flex h-11 items-center text-on-island [view-transition-name:player] minimized:right-11 minimized:bottom-5 minimized:left-[4.875rem] minimized:mr-[2.125rem] md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
       ),
     ],
     [
-      shape([
-        shape.Cover(current.album.cover?.small ?? ""),
-        shape.Light(light),
-        h.DataAttribute("light", light),
-      ]),
+      ...islandFigureView(current.album.cover?.small, model.light, h),
       coverView(current, "-my-[3px] size-[3.125rem] rounded-full", "small", h),
-      viewInputs.toTrackPageLink(current, trackWordsView(session, h)),
+      viewInputs.toTrackPageLink(current, trackWordsView(session, model.title, h)),
       islandControlsView(session, h),
       announcementView(session, h),
     ],
@@ -678,7 +720,7 @@ const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Mes
 export const view = Submodel.defineView<Model, Message, ViewInputs>((model, viewInputs, h) =>
   Option.match(model.maybeSession, {
     onNone: () => h.empty,
-    onSome: (session) => islandView(session, viewInputs, h),
+    onSome: (session) => islandView(model, session, viewInputs, h),
   }),
 );
 

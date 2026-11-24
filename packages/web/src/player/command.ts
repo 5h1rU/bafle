@@ -77,6 +77,46 @@ export const WaitBeforeShowingActivity = Command.define("WaitBeforeShowingActivi
     ),
 });
 
+// The title's times and speed were read off the app the island is modelled
+// on, frame by frame: a title starts to move about three and a half seconds
+// after its place last changed, and crosses it at about 45 points a second.
+// The wait between two passes is five seconds.
+
+/** How long the title stands before its first pass, counted from when its place last changed. */
+export const TITLE_STARTS_AFTER = Duration.millis(3500);
+
+/** How long the title stands between one pass and the next. */
+export const TITLE_RESTS_FOR = Duration.seconds(5);
+
+export const TITLE_PIXELS_PER_SECOND = 45;
+
+/** How long one pass takes: the way it goes, at the title's speed. */
+export const titlePassDuration = (travelPixels: number): Duration.Duration =>
+  Duration.millis((travelPixels / TITLE_PIXELS_PER_SECOND) * 1000);
+
+/** The title stands for a while before it travels: before its first pass, and between passes. */
+export const WaitToTravelTitle = Command.define("WaitToTravelTitle", {
+  args: { run: Schema.Int, milliseconds: Schema.Number },
+  messages: [Message.CompletedWaitToTravelTitle],
+  execute: ({ run, milliseconds }) =>
+    Effect.sleep(Duration.millis(milliseconds)).pipe(
+      Effect.as(Message.CompletedWaitToTravelTitle({ run })),
+    ),
+});
+
+/**
+ * One pass of the title. The view moves it, with a transition as long as
+ * this; the Command is the clock that says when the pass is over.
+ */
+export const TravelTitle = Command.define("TravelTitle", {
+  args: { run: Schema.Int, milliseconds: Schema.Number },
+  messages: [Message.CompletedTravelTitle],
+  execute: ({ run, milliseconds }) =>
+    Effect.sleep(Duration.millis(milliseconds)).pipe(
+      Effect.as(Message.CompletedTravelTitle({ run })),
+    ),
+});
+
 /**
  * Ask the catalog for the track again: the source a list gave can have gone
  * stale since the list loaded, and the catalog's answer carries a fresh one.

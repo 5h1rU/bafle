@@ -106,6 +106,29 @@ export const Session = Schema.Struct({
 });
 export type Session = typeof Session.Type;
 
+/**
+ * The light that travels the island's edge. It is dark until there has been
+ * sound. From then on it travels while there is sound and rests, dimmed,
+ * where it stopped when there is not.
+ */
+export const IslandLight = Schema.Literals(["Dark", "Travelling", "Resting"]);
+export type IslandLight = typeof IslandLight.Type;
+
+/**
+ * The island's title, when it is too long for its place: it stands, travels
+ * across once, and stands again. `maybeTravelPixels` is how far one pass
+ * takes it, as measured in the document, and nothing when the title fits.
+ * Each time the title or its place changes the run takes the next number,
+ * and a wait or a pass that ends for an earlier run is dropped.
+ */
+export const TitleMarquee = Schema.Struct({
+  run: Schema.Int,
+  placePixels: Schema.Number,
+  maybeTravelPixels: Schema.Option(Schema.Number),
+  phase: Schema.Literals(["Standing", "Travelling"]),
+});
+export type TitleMarquee = typeof TitleMarquee.Type;
+
 export const Model = Schema.Struct({
   /**
    * The number of the latest order given to the engine. A report counts only
@@ -115,8 +138,36 @@ export const Model = Schema.Struct({
   lastOrder: Schema.Int,
   /** Nothing until the first track is played; from then on, for the life of the page. */
   maybeSession: Schema.Option(Session),
+  light: IslandLight,
+  title: TitleMarquee,
 });
 export type Model = typeof Model.Type;
+
+export const initialTitle: TitleMarquee = {
+  run: 0,
+  placePixels: 0,
+  maybeTravelPixels: Option.none(),
+  phase: "Standing",
+};
+
+/**
+ * What the light does once the playback is `playback`. Only the engine's
+ * word that there is sound sets it going, and a tap is only a wish: until it
+ * is answered it changes nothing, however long the start takes, so going on
+ * to another track does not halt the light and a first track does not light
+ * it. Anything else puts a light that has travelled to rest: a pause, a
+ * stop, a failure, sound that had started and ran out of data.
+ */
+export const lightAfter = (light: IslandLight, playback: Playback): IslandLight =>
+  Playback.matchOrElse<IslandLight>(
+    playback,
+    {
+      Sounding: () => "Travelling",
+      Acknowledged: () => light,
+      Starting: () => light,
+    },
+    () => (light === "Dark" ? "Dark" : "Resting"),
+  );
 
 export const SEEK_SLIDER_ID = "player-seek";
 

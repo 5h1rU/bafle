@@ -6,8 +6,9 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Subscription } from "foldkit";
 import { AudioEngine } from "./audioEngine.ts";
+import { changePace, ISLAND_LIGHTS_ATTRIBUTE } from "./islandLight.ts";
 import { type MediaKey, Message } from "./message.ts";
-import type { Model } from "./model.ts";
+import { IslandLight, type Model } from "./model.ts";
 
 // SUBSCRIPTION
 
@@ -80,6 +81,41 @@ const engineSubscriptions = Subscription.make<Model, Message, AudioEngine>()((en
   ),
 }));
 
+/**
+ * The pace of the island's light, for as long as the Model says the same of
+ * it. Travelling, the light gathers speed; resting, it loses it and stops
+ * where it is. A change of mind part of the way through ends the one change
+ * of pace and starts the other from the pace the light had reached. The
+ * light's animations are the document's, so this is done to the document:
+ * nothing is told to the Model, which already knows.
+ */
+const lightSubscriptions = Subscription.make<Model, Message>()((entry) => ({
+  islandLightPace: entry(
+    { light: IslandLight },
+    {
+      modelToDependencies: (model) => ({ light: model.light }),
+      dependenciesToStream: ({ light }) =>
+        light === "Dark"
+          ? Stream.empty
+          : Stream.drain(
+              Stream.fromEffect(
+                Effect.suspend(() =>
+                  Option.match(
+                    Option.fromNullishOr(
+                      document.querySelector(`[data-${ISLAND_LIGHTS_ATTRIBUTE}]`),
+                    ),
+                    {
+                      onNone: () => Effect.void,
+                      onSome: (lights) => changePace(lights, light === "Travelling" ? 1 : 0),
+                    },
+                  ),
+                ),
+              ),
+            ),
+    },
+  ),
+}));
+
 /** Dragging the progress bar is followed on the whole document: the pointer leaves the bar. */
 const seekSliderSubscriptions = Subscription.lift({
   seekPointer: Slider.subscriptions.dragPointer,
@@ -89,4 +125,8 @@ const seekSliderSubscriptions = Subscription.lift({
   toParentMessage: (message) => Message.GotSeekSliderMessage({ message }),
 });
 
-export const subscriptions = Subscription.aggregate(engineSubscriptions, seekSliderSubscriptions);
+export const subscriptions = Subscription.aggregate(
+  engineSubscriptions,
+  lightSubscriptions,
+  seekSliderSubscriptions,
+);

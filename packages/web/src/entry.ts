@@ -8,8 +8,6 @@ import { Model } from "./model.ts";
 import * as HtmlAudioEngine from "./player/htmlAudioEngine.ts";
 import { subscriptions } from "./subscription.ts";
 import { view } from "./view.ts";
-import { defineIslandShapeElement } from "./view/islandShapeElement.ts";
-import { defineMarqueeElement } from "./view/marqueeElement.ts";
 
 /**
  * The Api client for the life of the app, over plain HTTP on the app's own
@@ -26,11 +24,6 @@ const CatalogConnection = ListenerApi.layerClientHttp(`${location.origin}/api`).
  * own player, takes its place by being named instead.
  */
 const resources = Layer.mergeAll(CatalogConnection, HtmlAudioEngine.layer);
-
-// The marquee and the island's shape are elements of their own, registered
-// before the app draws either.
-defineMarqueeElement();
-defineIslandShapeElement();
 
 const application = Runtime.makeApplication({
   Model,

@@ -1,6 +1,7 @@
 import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
 import { Slider } from "@foldkit/ui";
 import * as Array from "effect/Array";
+import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
 import { pipe } from "effect/Function";
 import * as Match from "effect/Match";
@@ -16,14 +17,21 @@ import {
   ResumePlayback,
   SeekPlayback,
   StartPlayback,
+  TITLE_RESTS_FOR,
+  TITLE_STARTS_AFTER,
+  titlePassDuration,
+  TravelTitle,
   WaitBeforeShowingActivity,
+  WaitToTravelTitle,
 } from "./command.ts";
 import { type MediaKey, Message } from "./message.ts";
 import {
   type Cue,
   initialSeekSlider,
+  initialTitle,
   isAwaitingFirstSound,
   isUnderWay,
+  lightAfter,
   maybeCurrentTrackId,
   type Model,
   Playback,
@@ -44,7 +52,12 @@ export const RESTART_AFTER_SECONDS = 3;
 
 // INIT
 
-export const init = (): Model => ({ lastOrder: 0, maybeSession: Option.none() });
+export const init = (): Model => ({
+  lastOrder: 0,
+  maybeSession: Option.none(),
+  light: "Dark",
+  title: initialTitle,
+});
 
 // UPDATE
 
@@ -485,7 +498,110 @@ const gotSeekSliderMessage = (model: Model, message: Slider.Message): UpdateRetu
   ]);
 };
 
-export const update = (model: Model, message: Message) =>
+// TITLE
+
+/**
+ * The title's place or its length changed. It stands, and if it does not
+ * fit, the wait before its first pass starts over.
+ */
+const measuredTitle =
+  (placePixels: number, maybeTravelPixels: Option.Option<number>): Step =>
+  (model) => {
+    const { title } = model;
+    if (
+      title.placePixels === placePixels &&
+      Equal.equals(title.maybeTravelPixels, maybeTravelPixels)
+    ) {
+      return { model };
+    }
+    const run = title.run + 1;
+    return {
+      model: modifyFields(model, {
+        title: () => ({ run, placePixels, maybeTravelPixels, phase: "Standing" }),
+      }),
+      commands: Option.match(maybeTravelPixels, {
+        onNone: () => [],
+        onSome: () => [
+          WaitToTravelTitle({ run, milliseconds: Duration.toMillis(TITLE_STARTS_AFTER) }),
+        ],
+      }),
+    };
+  };
+
+/** A wait or a pass of the title counts only for the run it was started for. */
+const forTitleRun =
+  (run: number, act: (travelPixels: number) => Step): Step =>
+  (model) =>
+    run === model.title.run
+      ? Option.match(model.title.maybeTravelPixels, {
+          onNone: () => ({ model }),
+          onSome: (travelPixels) => act(travelPixels)(model),
+        })
+      : { model };
+
+const startTitlePass =
+  (travelPixels: number): Step =>
+  (model) => ({
+    model: modifyFields(model, {
+      title: (title) => modifyFields(title, { phase: () => "Travelling" as const }),
+    }),
+    commands: [
+      TravelTitle({
+        run: model.title.run,
+        milliseconds: Duration.toMillis(titlePassDuration(travelPixels)),
+      }),
+    ],
+  });
+
+const restTitle = (): Step => (model) => ({
+  model: modifyFields(model, {
+    title: (title) => modifyFields(title, { phase: () => "Standing" as const }),
+  }),
+  commands: [
+    WaitToTravelTitle({
+      run: model.title.run,
+      milliseconds: Duration.toMillis(TITLE_RESTS_FOR),
+    }),
+  ],
+});
+
+// WHAT FOLLOWS FROM THE REST
+
+/**
+ * Two things follow from whatever a Message did, and are settled in one
+ * place instead of in every handler: what the island's light does, which
+ * follows the playback; and the title's standing still again, when another
+ * track has become the current one and its title is another title.
+ */
+const withWhatFollows =
+  (previous: Model) =>
+  (result: UpdateReturn): UpdateReturn => {
+    const { model } = result;
+    const light = Option.match(model.maybeSession, {
+      onNone: () => model.light,
+      onSome: (session) => lightAfter(model.light, session.playback),
+    });
+    const isAnotherTrack = !Equal.equals(
+      maybeCurrentTrackId(previous),
+      maybeCurrentTrackId(model),
+    );
+    if (light === model.light && !isAnotherTrack) {
+      return result;
+    }
+    return {
+      ...result,
+      model: modifyFields(model, {
+        light: () => light,
+        title: (title) =>
+          isAnotherTrack ? { ...initialTitle, run: title.run + 1 } : title,
+      }),
+    };
+  };
+
+export const update = (model: Model, message: Message): UpdateReturn =>
+  withWhatFollows(model)(handle(model, message));
+
+const handle = (model: Model, message: Message) =>
   Message.match<UpdateReturn>(message, {
     ClickedPlay: () => onSession(play)(model),
     ClickedPause: () => onSession(silence)(model),
@@ -512,9 +628,16 @@ export const update = (model: Model, message: Message) =>
     SucceededRefreshSource: ({ order, track }) => retryWithFreshSource(order, track)(model),
     FailedRefreshSource: ({ order }) => giveUpOnSource(order)(model),
 
+    MeasuredTitle: ({ placePixels, maybeTravelPixels }) =>
+      measuredTitle(placePixels, maybeTravelPixels)(model),
+    CompletedWaitToTravelTitle: ({ run }) => forTitleRun(run, startTitlePass)(model),
+    CompletedTravelTitle: ({ run }) => forTitleRun(run, restTitle)(model),
+
     CompletedPausePlayback: () => ({ model }),
     CompletedSeekPlayback: () => ({ model }),
     CompletedPublishNowPlaying: () => ({ model }),
+    CompletedDrawIslandFigure: () => ({ model }),
+    CompletedStartIslandLight: () => ({ model }),
   });
 
 // ENTRY
@@ -533,9 +656,11 @@ export const choose = (
   model: Model,
   choice: Readonly<{ trackId: TrackId; list: ReadonlyArray<TrackSummary> }>,
 ): UpdateReturn =>
-  Option.contains(maybeCurrentTrackId(model), choice.trackId)
-    ? onSession(toggle)(model)
-    : Option.match(queueFrom(choice.list, choice.trackId), {
-        onNone: () => ({ model }),
-        onSome: (session) => startTrack(session, "Chosen")(model),
-      });
+  withWhatFollows(model)(
+    Option.contains(maybeCurrentTrackId(model), choice.trackId)
+      ? onSession(toggle)(model)
+      : Option.match(queueFrom(choice.list, choice.trackId), {
+          onNone: () => ({ model }),
+          onSome: (session) => startTrack(session, "Chosen")(model),
+        }),
+  );

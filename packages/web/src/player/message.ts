@@ -28,5 +28,14 @@ export const Message = defineMessageUnion({
   SucceededRefreshSource: { order: Schema.Int, track: Track },
   FailedRefreshSource: { order: Schema.Int },
   CompletedPublishNowPlaying: {},
+  /**
+   * The island's title as it lies in the document: how wide its place is,
+   * and how far one pass takes it, or nothing when it fits.
+   */
+  MeasuredTitle: { placePixels: Schema.Number, maybeTravelPixels: Schema.Option(Schema.Number) },
+  CompletedWaitToTravelTitle: { run: Schema.Int },
+  CompletedTravelTitle: { run: Schema.Int },
+  CompletedDrawIslandFigure: {},
+  CompletedStartIslandLight: {},
 });
 export type Message = typeof Message.Type;
