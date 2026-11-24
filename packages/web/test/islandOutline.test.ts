@@ -75,19 +75,36 @@ describe("the island's outline", () => {
     expect(startX).toBeLessThan(WIDTH - TAIL_WIDTH - SWELL_RADIUS);
   });
 
-  test("a tail on its way in is only its round end, and takes no level edge yet", () => {
+  test("a tail on its way in is only its round end, joined to the swell by a curve, with no level edge yet", () => {
     const tailTop = BODY_HEIGHT / 2 - TAIL_HALF_HEIGHT;
-    const points = pointsOf(islandOutline(WIDTH, 6));
-    expect(points.some(([, y]) => y === tailTop)).toBe(false);
-    // One more arc pair than with no tail at all.
-    expect(islandOutline(WIDTH, 6).split("A").length).toBe(islandOutline(WIDTH, 0).split("A").length + 2);
+    const path = islandOutline(WIDTH, 6);
+    expect(pointsOf(path).some(([, y]) => y === tailTop)).toBe(false);
+    // The round end and a join above and below it: four more arcs than with no tail.
+    expect(path.split("A").length).toBe(islandOutline(WIDTH, 0).split("A").length + 4);
+    expect(path.split("L").length).toBe(islandOutline(WIDTH, 0).split("L").length);
   });
 
-  test("the outline changes little across the point where the tail gains its edges", () => {
-    // Just below and just above: the swell's start differs by the step in width alone.
-    const before = pointsOf(islandOutline(WIDTH, 15.8))[0]!;
-    const after = pointsOf(islandOutline(WIDTH, 16))[0]!;
-    expect(Math.abs(before[0] - after[0])).toBeLessThan(0.3);
-    expect(before[1]).toBe(after[1]);
+  test("a tail hardly begun changes the outline hardly at all", () => {
+    const none = pointsOf(islandOutline(WIDTH, 0));
+    const begun = pointsOf(islandOutline(WIDTH + 0.5, 0.5));
+    // The swell has not moved, and what was added lies within a pixel or so of its end.
+    expect(begun[0]).toEqual(none[0]);
+    const added = begun.slice(1, 5);
+    added.forEach(([x]) => expect(x).toBeGreaterThan(WIDTH - 12));
+  });
+
+  test("where the tail gains its level edge, both ways of drawing it meet", () => {
+    // Just below and just above that length, with the swell held in place.
+    const swellAt = WIDTH - SWELL_RADIUS;
+    const before = pointsOf(islandOutline(swellAt + SWELL_RADIUS + 15.85, 15.85));
+    const after = pointsOf(islandOutline(swellAt + SWELL_RADIUS + 15.95, 15.95));
+    expect(before[0]).toEqual(after[0]);
+    // The join leaves the swell at the same point either way.
+    expect(Math.abs(before[1]![0] - after[1]![0])).toBeLessThan(0.1);
+    expect(Math.abs(before[1]![1] - after[1]![1])).toBeLessThan(0.1);
+    // And reaches the tail at its top, where the edge is about to begin.
+    const tailTop = BODY_HEIGHT / 2 - TAIL_HALF_HEIGHT;
+    expect(Math.abs(before[2]![1] - tailTop)).toBeLessThan(0.1);
+    expect(after[2]![1]).toBe(tailTop);
   });
 });

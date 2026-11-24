@@ -13,17 +13,23 @@ import { ISLAND_SHAPE_TAG, ISLAND_TAIL_ATTRIBUTE } from "./islandShape.ts";
 // pieces and the light over them, so the light is seen all the way round,
 // across the rim of the cover too, where the figure's own edge is hidden.
 
-// The island has an edge two pixels wide, a little lighter than itself and
-// always there. The light is a comet that runs inside that edge: a head
-// that is almost white and a copper tail that thins out behind it.
+// The island has no edge of another colour: at rest it is one flat figure.
+// The light is a comet that runs along the inside of its outline, two
+// pixels wide: a head that is almost white and a copper tail that thins out
+// behind it.
 //
 // The tail is the same stroke laid many times over one stretch of the
 // outline, each time shorter and each ending at the head: where more of them
 // lie on top of one another the tail is brighter, so it fades away from the
 // head with no gradient, which a stroke cannot have along its length.
 // Lengths are in hundredths of the whole outline.
+//
+// The comet never starts or stops at once. When the sound stops it slows to
+// a halt where it is and dims to an ember that stays there; when the sound
+// comes back it brightens and gathers speed from that same place. Taking the
+// animation away would put it back where it set out, in one frame.
 
-/** How wide the edge is, and the comet in it. */
+/** How wide the comet is. */
 const EDGE_WIDTH = 2;
 
 /** How much of the outline the comet covers, from the end of its tail to its head. */
@@ -31,11 +37,18 @@ const COMET_LENGTH = 9;
 
 const TAIL_LAYERS = 12;
 
-const LOOP_SECONDS = 4;
+/** How long the comet takes to go once round, at full speed. */
+const LOOP_MILLISECONDS = 10_000;
+
+/** How long it takes to gather speed, or to lose it. */
+const CHANGES_PACE_OVER_MILLISECONDS = 1400;
+
+/** Below this share of its full speed the comet is taken to have stopped. */
+const STOPPED_BELOW = 0.001;
 
 /** One stroke of the comet, `length` long, ending where the head is. */
 const cometStroke = (className: string, length: number): string =>
-  `<path class="outline ${className}" pathLength="100" stroke-dasharray="${length} ${100 - length}" style="--sets-out: ${length - COMET_LENGTH}" />`;
+  `<path class="outline comet ${className}" pathLength="100" stroke-dasharray="${length} ${100 - length}" data-sets-out="${length - COMET_LENGTH}" stroke-dashoffset="${length - COMET_LENGTH}" />`;
 
 const COMET = [
   ...Array.from({ length: TAIL_LAYERS }, (_, layer) =>
@@ -46,8 +59,8 @@ const COMET = [
 ].join("\n    ");
 
 // NOTE: a stroke is drawn half to each side of its path. Each one here is
-// twice the width wanted and cut to the inside of the outline, so the edge
-// and the comet lie within the figure, as a border does.
+// twice the width wanted and cut to the inside of the outline, so the comet
+// lies within the figure, as a border does.
 const TEMPLATE = `
 <style>
   :host {
@@ -79,16 +92,14 @@ const TEMPLATE = `
     opacity: 0.85;
   }
 
-  .edge {
-    fill: none;
-    stroke: var(--color-island-edge);
-    stroke-width: ${2 * EDGE_WIDTH};
-  }
-
   .light {
     z-index: 1;
     opacity: 0;
-    transition: opacity 500ms ease-out;
+    transition: opacity ${CHANGES_PACE_OVER_MILLISECONDS}ms ease-in-out;
+  }
+
+  .light.resting {
+    opacity: 0.3;
   }
 
   .light.sounding {
@@ -98,7 +109,6 @@ const TEMPLATE = `
   .light path {
     fill: none;
     stroke-width: ${2 * EDGE_WIDTH};
-    stroke-dashoffset: var(--sets-out);
   }
 
   .tail {
@@ -109,18 +119,6 @@ const TEMPLATE = `
   .head {
     stroke: var(--color-island-light-head);
     stroke-opacity: 0.7;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .light.sounding path {
-      animation: travel ${LOOP_SECONDS}s linear infinite;
-    }
-  }
-
-  @keyframes travel {
-    to {
-      stroke-dashoffset: calc(var(--sets-out) - 100);
-    }
   }
 </style>
 <svg class="figure" aria-hidden="true">
@@ -142,7 +140,6 @@ const TEMPLATE = `
     <g mask="url(#fade)">
       <image class="tint" x="-40" y="-68" width="180" height="180" preserveAspectRatio="xMidYMid slice" filter="url(#blur)" />
     </g>
-    <path class="outline edge" />
   </g>
 </svg>
 <svg class="light" aria-hidden="true">
@@ -165,8 +162,14 @@ export const defineIslandShapeElement = (): void => {
     return;
   }
 
+  const prefersReducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+  /** Slow to leave one pace and slow to reach the other. */
+  const eased = (share: number): number => share * share * (3 - 2 * share);
+
   class IslandShapeElement extends HTMLElement {
     readonly #outlines: ReadonlyArray<SVGPathElement>;
+    readonly #comet: ReadonlyArray<SVGPathElement>;
     readonly #tint: SVGImageElement;
     readonly #light: SVGSVGElement;
     readonly #sizes = new ResizeObserver(() => this.#draw());
@@ -174,12 +177,17 @@ export const defineIslandShapeElement = (): void => {
     #drawn = "";
     #cover = "";
     #sounding = false;
+    #travels: ReadonlyArray<Animation> = [];
+    /** The comet's speed, as a share of its full speed. */
+    #pace = 0;
+    #paceChange: number | undefined;
 
     constructor() {
       super();
       const root = this.attachShadow({ mode: "open" });
       root.innerHTML = TEMPLATE;
       this.#outlines = Array.from(root.querySelectorAll<SVGPathElement>(".outline"));
+      this.#comet = Array.from(root.querySelectorAll<SVGPathElement>(".comet"));
       // The template above is this element's own: both of these are in it.
       this.#tint = root.querySelector(".tint") as SVGImageElement;
       this.#light = root.querySelector(".light") as SVGSVGElement;
@@ -205,8 +213,14 @@ export const defineIslandShapeElement = (): void => {
     }
 
     set sounding(value: boolean) {
+      if (value === this.#sounding) {
+        return;
+      }
       this.#sounding = value;
       this.#light.classList.toggle("sounding", value);
+      // Once there has been sound, the comet rests where it stopped instead of going out.
+      this.#light.classList.toggle("resting", !value);
+      this.#changePace(value ? 1 : 0);
     }
 
     connectedCallback(): void {
@@ -217,6 +231,60 @@ export const defineIslandShapeElement = (): void => {
     disconnectedCallback(): void {
       this.#sizes.disconnect();
       this.#maybeTail = null;
+      if (this.#paceChange !== undefined) {
+        cancelAnimationFrame(this.#paceChange);
+        this.#paceChange = undefined;
+      }
+      this.#travels.forEach((travel) => travel.cancel());
+      this.#travels = [];
+      this.#pace = 0;
+    }
+
+    /**
+     * The comet's strokes, each going once round the outline for ever, made
+     * the first time the comet is to move and held still until then. Under
+     * reduced motion there are none: the comet stays where it is drawn.
+     */
+    #travelling(): ReadonlyArray<Animation> {
+      if (this.#travels.length === 0 && !prefersReducedMotion.matches) {
+        this.#travels = this.#comet.map((stroke) => {
+          const setsOut = Number(stroke.dataset["setsOut"]);
+          const travel = stroke.animate(
+            [{ strokeDashoffset: setsOut }, { strokeDashoffset: setsOut - 100 }],
+            { duration: LOOP_MILLISECONDS, iterations: Infinity },
+          );
+          travel.pause();
+          return travel;
+        });
+      }
+      return this.#travels;
+    }
+
+    #setPace(pace: number): void {
+      this.#pace = pace;
+      this.#travelling().forEach((travel) => {
+        if (pace < STOPPED_BELOW) {
+          travel.pause();
+        } else {
+          travel.playbackRate = pace;
+          travel.play();
+        }
+      });
+    }
+
+    /** Gather speed, or lose it, from whatever pace the comet has now. */
+    #changePace(to: number): void {
+      if (this.#paceChange !== undefined) {
+        cancelAnimationFrame(this.#paceChange);
+      }
+      const from = this.#pace;
+      const began = performance.now();
+      const step = (now: number): void => {
+        const share = Math.min(1, (now - began) / CHANGES_PACE_OVER_MILLISECONDS);
+        this.#setPace(from + (to - from) * eased(share));
+        this.#paceChange = share < 1 ? requestAnimationFrame(step) : undefined;
+      };
+      this.#paceChange = requestAnimationFrame(step);
     }
 
     /**

@@ -552,20 +552,23 @@ const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>)
  * the tail is drawn in, and the swell is the island's end. Previous, and the
  * progress bar, are the expanded player's.
  */
-// NOTE: the tail gives up its room as the island narrows, Next fading as it
-// goes, and only then stops being there; it is there at once when the island
-// widens. Its width is the one thing the island's shape reads from the
-// document besides the island's own: see `islandShapeElement.ts`.
+// NOTE: drawn in, the tail has no width and Next lies under the main
+// control. Next is held to the tail's far end, so as the tail is drawn in it
+// travels left with that end and goes in under the control, and comes out
+// from under it the same way. The island's own right edge moves with the
+// tail (see `islandView`), so the control itself stays where it is while
+// this happens. The tail's width is the one thing the island's shape reads
+// from the document besides the island's own: see `islandShapeElement.ts`.
 const TAIL_CLASS =
-  "dock-island-next flex h-9 w-[2.125rem] shrink-0 items-center overflow-hidden minimized:invisible minimized:w-0 minimized:opacity-0";
+  "dock-island-next flex h-9 w-[2.125rem] shrink-0 items-center justify-end minimized:pointer-events-none minimized:w-0";
 
 const NEXT_IN_ISLAND_CLASS =
-  "h-9 w-[2.125rem] pr-1 text-on-island hover:bg-on-island/10 active:bg-on-island/10";
+  "dock-island-next-control h-9 w-[2.125rem] shrink-0 pr-1 text-on-island hover:bg-on-island/10 active:bg-on-island/10 minimized:invisible minimized:opacity-0";
 
 // NOTE: the swell is 54 pixels across and the body 44: the control's place
 // stands out of the row by five above and below, and the control sits in it
-// with three of island all round.
-const SWELL_CLASS = "-my-[5px] flex size-[3.375rem] shrink-0 items-center justify-center";
+// with three of island all round. It is drawn over Next.
+const SWELL_CLASS = "relative z-10 -my-[5px] flex size-[3.375rem] shrink-0 items-center justify-center";
 
 const islandControlsView = (session: Session, h: HtmlBuilder<Message>): Html =>
   h.div(
@@ -617,6 +620,9 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
  */
 // NOTE: how it moves is in styles.css, as `dock-island`. The places are
 // given as `left`, `right` and `bottom`, the very properties named there.
+// In the navigation's row its right end is brought in by two things that
+// move at different moments: a margin as wide as the tail, in step with the
+// tail being drawn in, and then the rest as the island narrows.
 // The section has no background of its own: the figure is drawn by the
 // shape element behind its pieces, whose sizes here are the ones the
 // outline is worked out from in `islandOutline.ts`.
@@ -632,7 +638,7 @@ const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Mes
       h.DataAttribute("layout", "island"),
       h.DataAttribute("playback", playback._tag),
       h.Class(
-        "dock-island absolute right-5 bottom-[5.125rem] left-5 z-30 flex h-11 items-center text-on-island [view-transition-name:player] minimized:right-[4.875rem] minimized:bottom-5 minimized:left-[4.875rem] md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
+        "dock-island absolute right-5 bottom-[5.125rem] left-5 z-30 flex h-11 items-center text-on-island [view-transition-name:player] minimized:right-11 minimized:bottom-5 minimized:left-[4.875rem] minimized:mr-[2.125rem] md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
       ),
     ],
     [

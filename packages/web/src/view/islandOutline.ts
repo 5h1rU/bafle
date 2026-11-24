@@ -75,10 +75,13 @@ const TAIL_JOIN_REACH = joinReach(SWELL_RADIUS, TAIL_JOIN_RADIUS, TAIL_HALF_HEIG
 const TAIL_NEEDS = TAIL_JOIN_REACH + TAIL_HALF_HEIGHT - SWELL_RADIUS;
 
 /**
- * The right end, from the top of the swell round to its underside. A tail
- * long enough is joined to the swell by a curve. One on its way in or out is
- * only its round end showing from behind the swell, and one that is gone
- * leaves the swell as the end of the island.
+ * The right end, from the top of the swell round to its underside. With no
+ * tail, the swell is the end of the island. A tail is joined to the swell by
+ * a curve at every length, so that it can be drawn in and out without a
+ * corner appearing: while it is too short to have a level edge it is only
+ * its round end showing from behind the swell, and the curve joins the two
+ * discs. At the length where the edge begins, both ways of drawing it give
+ * the same outline.
  */
 const rightEnd = (swell: Point, width: number, tailWidth: number, endsAt: Point): ReadonlyArray<string> => {
   if (tailWidth <= 0) {
@@ -86,21 +89,29 @@ const rightEnd = (swell: Point, width: number, tailWidth: number, endsAt: Point)
   }
 
   const tailEnd: Point = { x: width - TAIL_HALF_HEIGHT, y: MIDDLE };
+  const tailTop = MIDDLE - TAIL_HALF_HEIGHT;
 
   if (tailWidth < TAIL_NEEDS) {
-    // Two discs side by side: they cross on a line this far from the swell's centre.
+    // The join touches both discs: its centre is the sum of the radii away
+    // from each of their centres, which fixes it by the three sides of a
+    // triangle.
     const apart = tailEnd.x - swell.x;
-    const along = (apart ** 2 + SWELL_RADIUS ** 2 - TAIL_HALF_HEIGHT ** 2) / (2 * apart);
-    const up = Math.sqrt(Math.max(0, SWELL_RADIUS ** 2 - along ** 2));
-    const crossing: Point = { x: swell.x + along, y: MIDDLE - up };
+    const fromSwell = SWELL_RADIUS + TAIL_JOIN_RADIUS;
+    const fromTailEnd = TAIL_HALF_HEIGHT + TAIL_JOIN_RADIUS;
+    const along = (apart ** 2 + fromSwell ** 2 - fromTailEnd ** 2) / (2 * apart);
+    const up = Math.sqrt(Math.max(0, fromSwell ** 2 - along ** 2));
+    const join: Point = { x: swell.x + along, y: MIDDLE - up };
+    const onSwell = touchPoint(swell, SWELL_RADIUS, join, TAIL_JOIN_RADIUS);
+    const onTailEnd = touchPoint(tailEnd, TAIL_HALF_HEIGHT, join, TAIL_JOIN_RADIUS);
     return [
-      around(SWELL_RADIUS, crossing),
-      around(TAIL_HALF_HEIGHT, below(crossing), crossing.x < tailEnd.x),
+      around(SWELL_RADIUS, onSwell),
+      joining(TAIL_JOIN_RADIUS, onTailEnd),
+      around(TAIL_HALF_HEIGHT, below(onTailEnd)),
+      joining(TAIL_JOIN_RADIUS, below(onSwell)),
       around(SWELL_RADIUS, endsAt),
     ];
   }
 
-  const tailTop = MIDDLE - TAIL_HALF_HEIGHT;
   const join: Point = { x: swell.x + TAIL_JOIN_REACH, y: tailTop - TAIL_JOIN_RADIUS };
   const onSwell = touchPoint(swell, SWELL_RADIUS, join, TAIL_JOIN_RADIUS);
   const onEdge: Point = { x: join.x, y: tailTop };

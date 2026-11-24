@@ -11,9 +11,9 @@ export const ISLAND_TAIL_ATTRIBUTE = "island-tail";
 /**
  * What the island is drawn on: one dark figure whose outline runs round the
  * cover, the body, the swell under the main control and the tail that holds
- * Next. Near the cover the figure takes the cover's colours. It has an edge a
- * little lighter than itself, and while `sounding` is true a copper light
- * travels the whole of that edge.
+ * Next. Near the cover the figure takes the cover's colours. Its edge is its
+ * own colour, and while `sounding` is true a copper light travels the whole
+ * of it.
  *
  * The Model says only those two things. The outline itself depends on how
  * wide the island is at this moment, on this screen, halfway through a
