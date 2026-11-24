@@ -56,6 +56,127 @@
   }
 }
 
+/* The navigation and the island on their way between their two places.
+   Arriving is away at once and settles without a bounce; setting off is
+   slower to start, as a thing with weight is. */
+:root {
+  --ease-dock-arrive: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-dock-depart: cubic-bezier(0.45, 0, 0.2, 1);
+}
+
+/* How the pieces at the foot of a narrow screen move between their two
+   places. The times were read off the app they are modelled on, frame by
+   frame, and are not the same both ways.
+
+   Drawing back: the menu closes on its circle in about a fifth of a second.
+   The island narrows with it, but only starts down once the menu is out of
+   its way, and lands last. Coming out: the menu and the island's rise are
+   quick, and the island is still widening after both are in place.
+
+   A transition takes its times from the state it is going to, so each piece
+   states them twice: as it stands whole, for coming out, and under
+   `data-navigation="minimized"`, for drawing back. */
+@layer components {
+  @media (width < 48rem) and (prefers-reduced-motion: no-preference) {
+    .dock-surface {
+      transition:
+        top 180ms var(--ease-dock-arrive),
+        right 180ms var(--ease-dock-arrive),
+        bottom 180ms var(--ease-dock-arrive),
+        left 180ms var(--ease-dock-arrive);
+    }
+
+    .dock-menu {
+      transition: padding 180ms var(--ease-dock-arrive);
+    }
+
+    .dock-item {
+      transition:
+        flex-grow 180ms var(--ease-dock-arrive),
+        min-width 180ms var(--ease-dock-arrive),
+        padding 180ms var(--ease-dock-arrive),
+        opacity 160ms ease-out 60ms,
+        filter 160ms ease-out 60ms;
+    }
+
+    .dock-name {
+      transition:
+        opacity 140ms ease-out 100ms,
+        max-height 180ms var(--ease-dock-arrive);
+    }
+
+    .dock-search {
+      transition:
+        width 180ms var(--ease-dock-arrive),
+        height 180ms var(--ease-dock-arrive);
+    }
+
+    .dock-island {
+      transition:
+        bottom 200ms var(--ease-dock-arrive),
+        left 320ms var(--ease-dock-arrive),
+        right 320ms var(--ease-dock-arrive);
+    }
+
+    .dock-island-next {
+      transition:
+        width 240ms var(--ease-dock-arrive),
+        opacity 160ms ease-out 120ms;
+    }
+
+    [data-navigation="minimized"] {
+      .dock-surface {
+        transition:
+          top 220ms var(--ease-dock-depart),
+          right 220ms var(--ease-dock-depart),
+          bottom 220ms var(--ease-dock-depart),
+          left 220ms var(--ease-dock-depart);
+      }
+
+      .dock-menu {
+        transition: padding 220ms var(--ease-dock-depart);
+      }
+
+      /* An item that leaves is gone from sight before it stops being there. */
+      .dock-item {
+        transition:
+          flex-grow 220ms var(--ease-dock-depart),
+          min-width 220ms var(--ease-dock-depart),
+          padding 220ms var(--ease-dock-depart),
+          opacity 100ms ease-in,
+          filter 100ms ease-in,
+          visibility 0s 220ms;
+      }
+
+      .dock-name {
+        transition:
+          opacity 60ms ease-in,
+          max-height 220ms var(--ease-dock-depart);
+      }
+
+      .dock-search {
+        transition:
+          width 220ms var(--ease-dock-depart),
+          height 220ms var(--ease-dock-depart);
+      }
+
+      .dock-island {
+        transition:
+          left 240ms var(--ease-dock-depart),
+          right 240ms var(--ease-dock-depart),
+          bottom 260ms var(--ease-dock-depart) 60ms;
+      }
+
+      .dock-island-next {
+        transition:
+          width 200ms var(--ease-dock-depart),
+          opacity 80ms ease-in,
+          visibility 0s 200ms;
+      }
+    }
+  }
+}
+
 /* Before the app has drawn anything, the page is already its own colour, not white. */
 body {
   background-color: var(--color-canvas);

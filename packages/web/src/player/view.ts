@@ -519,6 +519,11 @@ const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>)
  * Search the island is narrower, and holds the one control. Previous, and
  * the progress bar, are the expanded player's.
  */
+// NOTE: Next gives up its room as the island narrows, fading as it goes, and
+// only then stops being there; it is there at once when the island widens.
+const NEXT_IN_ISLAND_CLASS =
+  "dock-island-next size-9 overflow-hidden minimized:invisible minimized:w-0 minimized:opacity-0";
+
 const islandControlsView = (session: Session, h: HtmlBuilder<Message>): Html =>
   h.div(
     [h.Role("group"), h.AriaLabel("Playback"), h.Class("flex shrink-0 items-center gap-0.5")],
@@ -529,7 +534,7 @@ const islandControlsView = (session: Session, h: HtmlBuilder<Message>): Html =>
         Message.ClickedNext(),
         hasLater(session),
         nextIcon("size-5"),
-        "size-9 minimized:hidden",
+        NEXT_IN_ISLAND_CLASS,
         h,
       ),
     ],
@@ -553,8 +558,11 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
  * The island: one capsule over the foot of the page. On a narrow screen it
  * stands above the navigation while that is whole, and comes down into the
  * navigation's row, between its circle and Search, when the menu has drawn
- * back: the shell says which in `data-navigation`, and the island moves.
+ * back: the shell says which in `data-navigation`, and the island moves. It
+ * keeps its height on the way; the circles at its two ends are that height.
  */
+// NOTE: how it moves is in styles.css, as `dock-island`. The places are
+// given as `left`, `right` and `bottom`, the very properties named there.
 const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Message>): Html =>
   h.section(
     [
@@ -563,11 +571,11 @@ const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Mes
       h.DataAttribute("layout", "island"),
       h.DataAttribute("playback", session.playback._tag),
       h.Class(
-        "absolute inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 flex h-12 items-center gap-2 rounded-full border border-line bg-panel/85 px-1.5 shadow-lg backdrop-blur-xl transition-[left,right,bottom] duration-300 ease-out [view-transition-name:player] minimized:inset-x-17 minimized:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] motion-reduce:transition-none md:inset-x-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:mx-auto md:max-w-2xl",
+        "dock-island absolute right-5 bottom-[4.875rem] left-5 z-30 flex h-11 items-center gap-2 rounded-full border border-line bg-panel/85 pr-1 pl-2 shadow-lg backdrop-blur-xl [view-transition-name:player] minimized:right-[4.875rem] minimized:bottom-5 minimized:left-[4.875rem] md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
       ),
     ],
     [
-      coverView(session.current, "size-9 rounded-full", "small", h),
+      coverView(session.current, "size-8 rounded-md", "small", h),
       viewInputs.toTrackPageLink(session.current, trackWordsView(session, h)),
       islandControlsView(session, h),
       announcementView(session, h),

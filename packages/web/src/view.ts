@@ -107,14 +107,10 @@ const maybeMenuSection = (route: AppRoute): Option.Option<MenuSection> =>
  * screen. On a page that is none of the menu's, Search or a track, it shows
  * the nearest one behind the page, and Home when there is none.
  */
-const circleSection = (model: Model): Readonly<{ section: MenuSection; isCurrent: boolean }> =>
-  Option.match(maybeMenuSection(model.route), {
-    onSome: (section) => ({ section, isCurrent: true }),
-    onNone: () => ({
-      section: Option.getOrElse(Array.findLast(model.trail, maybeMenuSection), () => "Home" as const),
-      isCurrent: false,
-    }),
-  });
+const circleSection = (model: Model): MenuSection =>
+  Option.getOrElse(maybeMenuSection(model.route), () =>
+    Option.getOrElse(Array.findLast(model.trail, maybeMenuSection), () => "Home" as const),
+  );
 
 /** A surface that floats over the page: the page is seen through it, blurred. */
 const FLOATING_CLASS = "border border-line bg-panel/85 shadow-lg backdrop-blur-xl";
@@ -123,44 +119,74 @@ const ITEM_FOCUS_CLASS =
   "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent";
 
 /** Beside the page, on a wide screen, every item is a row of the same kind. */
-const WIDE_ITEM_CLASS =
-  "md:h-auto md:w-auto md:flex-row md:justify-start md:gap-3 md:rounded-lg md:border-0 md:bg-transparent md:px-3 md:py-2 md:text-sm md:font-medium md:text-muted md:shadow-none md:backdrop-blur-none md:hover:text-ink md:data-current:bg-accent-wash md:data-current:text-accent";
+const WIDE_LINK_CLASS =
+  "md:h-auto md:w-auto md:flex-row md:justify-start md:gap-3 md:rounded-lg md:border-0 md:bg-transparent md:px-3 md:py-2 md:text-muted md:shadow-none md:backdrop-blur-none md:hover:text-ink md:data-current:bg-accent-wash md:data-current:text-accent";
 
-/**
- * An item of the menu. Drawn back, the menu's items are not on screen and
- * cannot be reached: the circle stands for them.
- */
-// NOTE: an item fades out and only then stops being there, but is there at
-// once when the menu comes out again: the focus is given to it in that same
-// moment, and an element still on its way to being visible does not take it.
+// NOTE: the menu's items share its width by `flex-grow`, half each, and the
+// menu draws back by that share going to nothing: what is left over is then
+// empty row, which is where the island comes down. The shares add up to one
+// so that the row starts emptying at once; were each item given a whole
+// share, the first half of the way would move nothing. The share is one over
+// the number of items in the menu: two.
+// How each piece moves is in styles.css, under the `dock-` names: the times
+// differ by piece and by direction, which is more than a class list can say.
 const MENU_ITEM_CLASS =
-  "flex-1 p-1 transition-opacity duration-200 minimized:invisible minimized:opacity-0 motion-safe:minimized:[transition:opacity_200ms,visibility_0s_200ms] motion-reduce:transition-none md:flex-none md:p-0";
+  "dock-item min-w-0 grow-[0.5] basis-0 p-1 max-md:overflow-hidden md:grow-0 md:basis-auto md:p-0";
+
+/** Drawn back, the item for where the listener is stays: it is what the circle shows. */
+const CIRCLE_ITEM_CLASS = "minimized:min-w-11 minimized:grow-0 minimized:p-0";
+
+// NOTE: every other item blurs and fades as its share goes, and only then
+// stops being there. It is there at once when the menu comes out again: the
+// focus is given to the menu in that same moment, and an element still on
+// its way to being visible does not take it.
+const LEAVING_ITEM_CLASS =
+  "minimized:invisible minimized:grow-0 minimized:p-0 minimized:opacity-0 minimized:blur-sm";
 
 const MENU_LINK_CLASS = clsx(
-  "pointer-events-auto flex h-full touch-manipulation flex-col items-center justify-center gap-0.5 rounded-full px-3 text-[0.625rem] font-medium text-muted hover:text-ink data-current:bg-ink/10 data-current:text-accent",
+  "pointer-events-auto flex h-full touch-manipulation flex-col items-center justify-center rounded-full text-muted transition-colors duration-200 hover:text-ink data-current:bg-ink/10 data-current:text-accent minimized:pointer-events-none minimized:text-ink minimized:data-current:bg-transparent minimized:data-current:text-accent",
   ITEM_FOCUS_CLASS,
-  WIDE_ITEM_CLASS,
+  WIDE_LINK_CLASS,
 );
 
-const SEARCH_ITEM_CLASS = "ml-2 shrink-0 md:ml-0";
+/** An item's name under its icon. Drawn back, the circle has room for the icon alone. */
+const MENU_NAME_CLASS =
+  "dock-name max-h-4 text-[0.625rem] leading-4 font-medium minimized:max-h-0 minimized:opacity-0 md:max-h-none md:text-sm md:leading-normal";
+
+/**
+ * Search keeps its place at the far end, and is a little smaller while the
+ * menu is drawn back: the row is then the island's, with a circle at each end.
+ */
+// NOTE: the margin before Search takes whatever of the row the menu does not:
+// nothing while the menu is whole, and the island's room once it has drawn
+// back. Search itself never moves.
+const SEARCH_ITEM_CLASS =
+  "ml-auto flex h-14 w-16 shrink-0 items-center justify-center pl-2 md:ml-0 md:block md:h-auto md:w-auto md:pl-0";
 
 const SEARCH_LINK_CLASS = clsx(
-  "pointer-events-auto flex size-12 touch-manipulation items-center justify-center rounded-full text-ink data-current:text-accent",
+  "dock-search pointer-events-auto flex size-14 touch-manipulation items-center justify-center rounded-full text-ink data-current:text-accent minimized:size-11",
   FLOATING_CLASS,
   ITEM_FOCUS_CLASS,
-  WIDE_ITEM_CLASS,
+  WIDE_LINK_CLASS,
 );
 
 const destinationView = (
   item: Nav.ItemInfo<Destination>,
   isLoading: boolean,
+  isShownInCircle: boolean,
   h: HtmlBuilder<Message>,
 ): Html => {
   const isSearch = item.value === "Search";
 
   return h.keyed("li")(
     item.value,
-    [h.Class(isSearch ? SEARCH_ITEM_CLASS : MENU_ITEM_CLASS)],
+    [
+      h.Class(
+        isSearch
+          ? SEARCH_ITEM_CLASS
+          : clsx(MENU_ITEM_CLASS, isShownInCircle ? CIRCLE_ITEM_CLASS : LEAVING_ITEM_CLASS),
+      ),
+    ],
     [
       h.a(
         [
@@ -171,10 +197,13 @@ const destinationView = (
         [
           // The spinner takes the icon's place, so the item keeps its size while it loads.
           isLoading
-            ? spinnerIcon("size-5 animate-spin motion-reduce:animate-pulse")
-            : DESTINATION_ICONS[item.value]("size-5"),
+            ? spinnerIcon("size-6 animate-spin motion-reduce:animate-pulse md:size-5")
+            : DESTINATION_ICONS[item.value]("size-6 md:size-5"),
           // NOTE: at the foot of a narrow screen Search is its icon alone: its name is still said.
-          h.span([h.Class(clsx({ "max-md:sr-only": isSearch }))], [DESTINATION_NAMES[item.value]]),
+          h.span(
+            [h.Class(isSearch ? "max-md:sr-only md:text-sm md:font-medium" : MENU_NAME_CLASS)],
+            [DESTINATION_NAMES[item.value]],
+          ),
         ],
       ),
     ],
@@ -183,29 +212,29 @@ const destinationView = (
 
 /**
  * The menu's own surface on a narrow screen: one piece behind its items,
- * which draws back to a circle at the near end and leaves the row to the
- * island.
+ * which draws back to a circle around the item that stays. The circle is a
+ * little smaller than the menu is tall, and stands where the menu's near
+ * end was, so nothing is seen to jump.
  */
 const menuSurfaceView = (h: HtmlBuilder<Message>): Html =>
   h.div([
     h.AriaHidden(true),
     h.Class(
       clsx(
-        "absolute inset-y-0 right-14 left-0 rounded-full transition-[right] duration-300 ease-out minimized:right-[calc(100%-3rem)] motion-reduce:transition-none md:hidden",
+        "dock-surface absolute inset-y-0 right-16 left-0 rounded-full minimized:top-1.5 minimized:right-[calc(100%-3.125rem)] minimized:bottom-1.5 minimized:left-1.5 md:hidden",
         FLOATING_CLASS,
       ),
     ),
   ]);
 
 /**
- * The circle the menu draws back to. It shows where the listener is and
- * leads nowhere: a press brings the menu out again, where the page stands.
- * It is only there while the menu is drawn back, on a narrow screen.
+ * What a press of the circle does. The circle shows the item for where the
+ * listener is and leads nowhere: a press brings the menu out again, where
+ * the page stands. This control lies over the circle, and is only there
+ * while the menu is drawn back, on a narrow screen.
  */
-const showNavigationView = (model: Model, h: HtmlBuilder<Message>): Html => {
-  const { section, isCurrent } = circleSection(model);
-
-  return Button.view(
+const showNavigationView = (model: Model, h: HtmlBuilder<Message>): Html =>
+  Button.view(
     {
       onClick: Message.ClickedShowNavigation(),
       toView: (attributes) =>
@@ -214,47 +243,54 @@ const showNavigationView = (model: Model, h: HtmlBuilder<Message>): Html => {
             ...attributes.button,
             h.AriaLabel("Show navigation"),
             h.AriaExpanded(false),
-            h.DataAttribute("section", section),
+            h.DataAttribute("section", circleSection(model)),
             h.Class(
-              clsx(
-                "pointer-events-auto absolute inset-y-0 left-0 hidden w-12 cursor-pointer touch-manipulation items-center justify-center rounded-full transition-opacity duration-200 starting:opacity-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent minimized:flex motion-reduce:transition-none",
-                isCurrent ? "text-accent" : "text-ink",
-              ),
+              "pointer-events-auto absolute top-1.5 left-1.5 hidden size-11 cursor-pointer touch-manipulation rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent minimized:block",
             ),
           ],
-          [DESTINATION_ICONS[section]("size-5")],
+          [],
         ),
     },
     h,
   );
-};
 
 /**
  * The current item is the page on screen: while a destination loads, the
  * listener is still where they were, and the item they chose is the one
  * marked busy.
  */
-const navigationView = (model: Model, h: HtmlBuilder<Message>): Html =>
-  Nav.view<Destination>({
+const navigationView = (model: Model, h: HtmlBuilder<Message>): Html => {
+  const inCircle = circleSection(model);
+
+  return Nav.view<Destination>({
     items: DESTINATIONS,
     ariaLabel: "Main",
     toHref: (destination) => DESTINATION_HREFS[destination],
     isItemCurrent: (destination) => model.route._tag === destination,
     toView: ({ nav, items }) =>
       h.nav(
-        [...nav, h.Id(NAVIGATION_ID), h.Class("relative max-md:h-12")],
+        [...nav, h.Id(NAVIGATION_ID), h.Class("relative max-md:h-14")],
         [
           menuSurfaceView(h),
           h.ul(
-            [h.Role("list"), h.Class("relative flex h-full md:flex-col md:gap-1")],
+            [
+              h.Role("list"),
+              h.Class("dock-menu relative flex h-full minimized:pl-1.5 md:flex-col md:gap-1"),
+            ],
             Array.map(items, (item) =>
-              destinationView(item, isLoadingDestination(model, item.value), h),
+              destinationView(
+                item,
+                isLoadingDestination(model, item.value),
+                item.value === inCircle,
+                h,
+              ),
             ),
           ),
           showNavigationView(model, h),
         ],
       ),
   });
+};
 
 const presenceOf = (model: Model, destination: Destination): Presence =>
   model.route._tag === destination ? "OnScreen" : "Kept";
@@ -547,7 +583,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
         [
           h.Class(
             clsx(
-              "pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-canvas/90 to-transparent px-3 pt-8 pb-[calc(0.75rem+env(safe-area-inset-bottom))] [view-transition-name:navigation] md:pointer-events-auto md:static md:w-60 md:shrink-0 md:border-r md:border-line md:bg-panel md:bg-none md:px-3 md:py-6",
+              "pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-canvas/90 to-transparent px-5 pt-8 pb-3.5 [view-transition-name:navigation] md:pointer-events-auto md:static md:w-60 md:shrink-0 md:border-r md:border-line md:bg-panel md:bg-none md:px-3 md:py-6",
               { "max-md:hidden": isPlayerExpanded(model) },
             ),
           ),
