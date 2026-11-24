@@ -726,27 +726,34 @@ describe("the island", () => {
       inside(island, expectAll(all.selector("bafle-marquee")).toHaveCount(1)),
     ));
 
-  test("it stands on one figure, whose light travels only while the engine says there is sound", () =>
+  test("it stands on one figure, and a tap alone sets no light going", () =>
     scene(
       app,
       given(after(onNew, Message.ClickedPlayTrack({ trackId: track.id, from: "New" }))),
-      // Acknowledged: a wish to sound, and no light yet.
       inside(island, expectAll(all.selector("bafle-island-shape")).toHaveCount(1)),
-      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "still")),
+      // Acknowledged: a wish to sound. The light is told nothing new, and it has never travelled.
+      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "Holding")),
     ));
 
-  test("the light travels while it sounds, and stops when the listener pauses", () =>
+  test("the light travels on the engine's word that there is sound", () =>
     scene(
       app,
       given(sounding),
-      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "travelling")),
+      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "Travelling")),
     ));
 
-  test("paused, the figure is there and its light is still", () =>
+  test("paused, the light is put to rest", () =>
     scene(
       app,
       given(paused),
-      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "still")),
+      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "Resting")),
+    ));
+
+  test("going on to another track does not halt the light: it holds until the engine answers", () =>
+    scene(
+      app,
+      given(after(sounding, player(Player.Message.ClickedNext()))),
+      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "Holding")),
     ));
 
   test("Next stands in the island's tail, the piece the figure measures", () =>

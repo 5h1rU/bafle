@@ -1,5 +1,5 @@
 import { islandOutline } from "./islandOutline.ts";
-import { ISLAND_SHAPE_TAG, ISLAND_TAIL_ATTRIBUTE } from "./islandShape.ts";
+import { ISLAND_SHAPE_TAG, ISLAND_TAIL_ATTRIBUTE, type IslandLight } from "./islandShape.ts";
 
 // NOTE: like the marquee, this is a custom element outside the architecture,
 // and for the same reason: what it draws depends on how wide the island is
@@ -7,60 +7,70 @@ import { ISLAND_SHAPE_TAG, ISLAND_TAIL_ATTRIBUTE } from "./islandShape.ts";
 // keeps no state of the app's. The Model tells it two things, through its
 // two properties, and it tells the Model nothing.
 
-// NOTE: the figure and the light are two pictures. The light moves on every
-// frame; the figure, with its blurred copy of the cover, would be drawn
-// again with it if they were one. The figure lies behind the island's
+// NOTE: the figure and the light are separate pictures. The light moves on
+// every frame; the figure, with its blurred copy of the cover, would be
+// drawn again with it if they were one. The figure lies behind the island's
 // pieces and the light over them, so the light is seen all the way round,
-// across the rim of the cover too, where the figure's own edge is hidden.
+// across the rim of the cover too, and falls a little on what it passes.
 
 // The island has no edge of another colour: at rest it is one flat figure.
-// The light is a comet that runs along the inside of its outline, two
-// pixels wide: a head that is almost white and a copper tail that thins out
-// behind it.
+// What travels its outline is a light, not a line, and it is made of two
+// things. The glow is a short, wide stroke in a picture of its own that is
+// blurred, so it has no edge and spills to both sides of the outline. The
+// beam is thin and lies on the outline itself: the same stroke laid many
+// times over one stretch, each time shorter and each ending at the head, so
+// that it is brightest at the head and thins out behind with no gradient,
+// which a stroke cannot have along its length; and over its head a few
+// strokes that are almost white. Lengths are in hundredths of the whole
+// outline.
 //
-// The tail is the same stroke laid many times over one stretch of the
-// outline, each time shorter and each ending at the head: where more of them
-// lie on top of one another the tail is brighter, so it fades away from the
-// head with no gradient, which a stroke cannot have along its length.
-// Lengths are in hundredths of the whole outline.
-//
-// The comet never starts or stops at once. When the sound stops it slows to
-// a halt where it is and dims to an ember that stays there; when the sound
-// comes back it brightens and gathers speed from that same place. Taking the
-// animation away would put it back where it set out, in one frame.
+// The light never starts or stops at once. Put to rest, it slows to a halt
+// where it is and dims to an ember that stays there; set going again, it
+// brightens and gathers speed from that same place. Taking the animation
+// away would put it back where it set out, in one frame.
 
-/** How wide the comet is. */
-const EDGE_WIDTH = 2;
+/** How wide the beam is. */
+const BEAM_WIDTH = 2;
 
-/** How much of the outline the comet covers, from the end of its tail to its head. */
-const COMET_LENGTH = 9;
+/** How wide the glow is before it is blurred, and by how much it is blurred. */
+const GLOW_WIDTH = 7;
+const GLOW_BLUR = 3;
 
-const TAIL_LAYERS = 12;
+/** How much of the outline the light covers, from the end of its tail to its head. */
+const LIGHT_LENGTH = 5;
 
-/** How long the comet takes to go once round, at full speed. */
+const TAIL_LAYERS = 10;
+
+/** How long the light takes to go once round, at full speed. */
 const LOOP_MILLISECONDS = 10_000;
 
 /** How long it takes to gather speed, or to lose it. */
 const CHANGES_PACE_OVER_MILLISECONDS = 1400;
 
-/** Below this share of its full speed the comet is taken to have stopped. */
+/** Below this share of its full speed the light is taken to have stopped. */
 const STOPPED_BELOW = 0.001;
 
-/** One stroke of the comet, `length` long, ending where the head is. */
-const cometStroke = (className: string, length: number): string =>
-  `<path class="outline comet ${className}" pathLength="100" stroke-dasharray="${length} ${100 - length}" data-sets-out="${length - COMET_LENGTH}" stroke-dashoffset="${length - COMET_LENGTH}" />`;
+/** One stroke of the light, `length` long, ending `behind` the head. */
+const lightStroke = (className: string, length: number, behind = 0): string => {
+  const setsOut = length + behind - LIGHT_LENGTH;
+  return `<path class="outline travels ${className}" pathLength="100" stroke-dasharray="${length} ${100 - length}" data-sets-out="${setsOut}" stroke-dashoffset="${setsOut}" />`;
+};
 
-const COMET = [
+const BEAM = [
   ...Array.from({ length: TAIL_LAYERS }, (_, layer) =>
-    cometStroke("tail", COMET_LENGTH * (1 - layer / TAIL_LAYERS)),
+    lightStroke("tail", LIGHT_LENGTH * (1 - layer / TAIL_LAYERS) ** 1.6),
   ),
-  cometStroke("head", COMET_LENGTH * 0.16),
-  cometStroke("head", COMET_LENGTH * 0.07),
-].join("\n    ");
+  lightStroke("head faint", LIGHT_LENGTH * 0.2),
+  lightStroke("head", LIGHT_LENGTH * 0.11),
+  lightStroke("head", LIGHT_LENGTH * 0.05),
+].join("\n  ");
 
-// NOTE: a stroke is drawn half to each side of its path. Each one here is
-// twice the width wanted and cut to the inside of the outline, so the comet
-// lies within the figure, as a border does.
+// The glow is widest about the head and reaches a little ahead of it.
+const GLOW = [
+  lightStroke("glow far", LIGHT_LENGTH * 0.8, -LIGHT_LENGTH * 0.04),
+  lightStroke("glow near", LIGHT_LENGTH * 0.32, -LIGHT_LENGTH * 0.04),
+].join("\n  ");
+
 const TEMPLATE = `
 <style>
   :host {
@@ -79,9 +89,11 @@ const TEMPLATE = `
     overflow: visible;
   }
 
+  /* NOTE: the figure casts no shadow. One would reach further out than
+     the cut the island is given while a song changes (see
+     ::view-transition-group(player) in styles.css) and be seen cut off. */
   .figure {
     z-index: -1;
-    filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.28));
   }
 
   .body {
@@ -102,23 +114,46 @@ const TEMPLATE = `
     opacity: 0.3;
   }
 
-  .light.sounding {
+  .light.travelling {
     opacity: 1;
+  }
+
+  .light.soft {
+    filter: blur(${GLOW_BLUR}px);
   }
 
   .light path {
     fill: none;
-    stroke-width: ${2 * EDGE_WIDTH};
+    stroke-linecap: round;
+  }
+
+  .glow {
+    stroke: var(--color-island-light);
+    stroke-width: ${GLOW_WIDTH};
+  }
+
+  .glow.far {
+    stroke-opacity: 0.5;
+  }
+
+  .glow.near {
+    stroke-opacity: 0.9;
   }
 
   .tail {
     stroke: var(--color-island-light);
-    stroke-opacity: 0.2;
+    stroke-width: ${BEAM_WIDTH};
+    stroke-opacity: 0.24;
   }
 
   .head {
     stroke: var(--color-island-light-head);
-    stroke-opacity: 0.7;
+    stroke-width: ${BEAM_WIDTH};
+    stroke-opacity: 0.6;
+  }
+
+  .head.faint {
+    stroke-opacity: 0.3;
   }
 </style>
 <svg class="figure" aria-hidden="true">
@@ -142,13 +177,11 @@ const TEMPLATE = `
     </g>
   </g>
 </svg>
+<svg class="light soft" aria-hidden="true">
+  ${GLOW}
+</svg>
 <svg class="light" aria-hidden="true">
-  <defs>
-    <clipPath id="inside"><path class="outline" /></clipPath>
-  </defs>
-  <g clip-path="url(#inside)">
-    ${COMET}
-  </g>
+  ${BEAM}
 </svg>
 `;
 
@@ -169,16 +202,17 @@ export const defineIslandShapeElement = (): void => {
 
   class IslandShapeElement extends HTMLElement {
     readonly #outlines: ReadonlyArray<SVGPathElement>;
-    readonly #comet: ReadonlyArray<SVGPathElement>;
+    readonly #strokes: ReadonlyArray<SVGPathElement>;
+    readonly #lights: ReadonlyArray<SVGSVGElement>;
     readonly #tint: SVGImageElement;
-    readonly #light: SVGSVGElement;
     readonly #sizes = new ResizeObserver(() => this.#draw());
     #maybeTail: Element | null = null;
     #drawn = "";
     #cover = "";
-    #sounding = false;
+    #light: IslandLight = "Resting";
+    #hasTravelled = false;
     #travels: ReadonlyArray<Animation> = [];
-    /** The comet's speed, as a share of its full speed. */
+    /** The light's speed, as a share of its full speed. */
     #pace = 0;
     #paceChange: number | undefined;
 
@@ -187,10 +221,10 @@ export const defineIslandShapeElement = (): void => {
       const root = this.attachShadow({ mode: "open" });
       root.innerHTML = TEMPLATE;
       this.#outlines = Array.from(root.querySelectorAll<SVGPathElement>(".outline"));
-      this.#comet = Array.from(root.querySelectorAll<SVGPathElement>(".comet"));
-      // The template above is this element's own: both of these are in it.
+      this.#strokes = Array.from(root.querySelectorAll<SVGPathElement>(".travels"));
+      this.#lights = Array.from(root.querySelectorAll<SVGSVGElement>(".light"));
+      // The template above is this element's own: the picture is in it.
       this.#tint = root.querySelector(".tint") as SVGImageElement;
-      this.#light = root.querySelector(".light") as SVGSVGElement;
     }
 
     /** The picture the figure takes its colours from near the cover; empty for none. */
@@ -207,20 +241,30 @@ export const defineIslandShapeElement = (): void => {
       }
     }
 
-    /** Whether the light travels: true only while the engine says there is sound. */
-    get sounding(): boolean {
-      return this.#sounding;
+    /**
+     * What the light is to do. `Travelling` sets it going and `Resting` slows
+     * it to a halt. `Holding` changes nothing: whatever it was doing, it goes
+     * on doing. A light that has never travelled stays dark until it does.
+     */
+    get light(): IslandLight {
+      return this.#light;
     }
 
-    set sounding(value: boolean) {
-      if (value === this.#sounding) {
+    set light(value: IslandLight) {
+      if (value === this.#light) {
         return;
       }
-      this.#sounding = value;
-      this.#light.classList.toggle("sounding", value);
-      // Once there has been sound, the comet rests where it stopped instead of going out.
-      this.#light.classList.toggle("resting", !value);
-      this.#changePace(value ? 1 : 0);
+      this.#light = value;
+      if (value === "Holding" || (value === "Resting" && !this.#hasTravelled)) {
+        return;
+      }
+      const isTravelling = value === "Travelling";
+      this.#hasTravelled = true;
+      this.#lights.forEach((light) => {
+        light.classList.toggle("travelling", isTravelling);
+        light.classList.toggle("resting", !isTravelling);
+      });
+      this.#changePace(isTravelling ? 1 : 0);
     }
 
     connectedCallback(): void {
@@ -241,13 +285,13 @@ export const defineIslandShapeElement = (): void => {
     }
 
     /**
-     * The comet's strokes, each going once round the outline for ever, made
-     * the first time the comet is to move and held still until then. Under
-     * reduced motion there are none: the comet stays where it is drawn.
+     * The light's strokes, each going once round the outline for ever, made
+     * the first time the light is to move and held still until then. Under
+     * reduced motion there are none: the light stays where it is drawn.
      */
     #travelling(): ReadonlyArray<Animation> {
       if (this.#travels.length === 0 && !prefersReducedMotion.matches) {
-        this.#travels = this.#comet.map((stroke) => {
+        this.#travels = this.#strokes.map((stroke) => {
           const setsOut = Number(stroke.dataset["setsOut"]);
           const travel = stroke.animate(
             [{ strokeDashoffset: setsOut }, { strokeDashoffset: setsOut - 100 }],
@@ -272,7 +316,7 @@ export const defineIslandShapeElement = (): void => {
       });
     }
 
-    /** Gather speed, or lose it, from whatever pace the comet has now. */
+    /** Gather speed, or lose it, from whatever pace the light has now. */
     #changePace(to: number): void {
       if (this.#paceChange !== undefined) {
         cancelAnimationFrame(this.#paceChange);

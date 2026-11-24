@@ -25,8 +25,8 @@
   --color-island-muted: #b3ab9f;
   --color-island-control: #d4532f;
   --color-on-island-control: #fbf3e6;
-  --color-island-light: #ff9d5c;
-  --color-island-light-head: #fff1e2;
+  --color-island-light: #ff8a3c;
+  --color-island-light-head: #fff4e6;
 
   /* The bars of the "now playing" mark, each rising and falling out of step. */
   --animate-equalize: equalize 900ms ease-in-out infinite;
@@ -77,6 +77,20 @@
   --ease-dock-depart: cubic-bezier(0.45, 0, 0.2, 1);
   /* For a part that moves within the island: it eases both ways, evenly. */
   --ease-dock-settle: cubic-bezier(0.4, 0, 0.2, 1);
+  /* For the island's own way between its two places: a spring with no
+     bounce. It leaves gently, is quick for a moment, and takes the second
+     half of its time over the last tenth of the way, so it is never seen to
+     stop. Where a browser has no `linear()`, a curve near it. */
+  --ease-dock-glide: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --ease-dock-glide: linear(
+      0, 0.0537, 0.1698, 0.3046, 0.4355, 0.5519, 0.6503, 0.7307, 0.7948, 0.845, 0.8838,
+      0.9134, 0.9358, 0.9527, 0.9652, 0.9745, 0.9814, 0.9865, 0.9902, 0.9929, 1
+    );
+  }
 }
 
 /* How the pieces at the foot of a narrow screen move between their two
@@ -86,10 +100,13 @@
    Drawing back: the menu closes on its circle in about a fifth of a second.
    The island does three things, one setting off after another so that each
    can be followed: Next travels in under the main control as the tail is
-   drawn in; the island narrows; and only then, with the menu out of its way,
-   it comes down into the row, and lands last. Coming out is the same three
-   the other way round: it rises, it widens, and Next comes out from under
-   the control once there is room for the tail.
+   drawn in; the island narrows; and, with the menu out of its way, it comes
+   down into the row. Narrowing and coming down are one long glide on the
+   same curve, the second a little behind the first, so the island is clear
+   of the circle and Search before it is level with them, and it settles
+   into its place over a third of a second instead of arriving. Coming out
+   is the same three the other way round: it rises, it widens, and Next
+   comes out from under the control once there is room for the tail.
 
    A transition takes its times from the state it is going to, so each piece
    states them twice: as it stands whole, for coming out, and under
@@ -131,19 +148,19 @@
 
     .dock-island {
       transition:
-        bottom 220ms var(--ease-dock-arrive),
-        left 300ms var(--ease-dock-arrive) 60ms,
-        right 300ms var(--ease-dock-arrive) 60ms,
-        margin-right 260ms var(--ease-dock-settle) 240ms;
+        bottom 560ms var(--ease-dock-glide),
+        left 600ms var(--ease-dock-glide) 60ms,
+        right 600ms var(--ease-dock-glide) 60ms,
+        margin-right 320ms var(--ease-dock-settle) 280ms;
     }
 
     /* The tail and the island's margin are one movement: same time, same curve. */
     .dock-island-next {
-      transition: width 260ms var(--ease-dock-settle) 240ms;
+      transition: width 320ms var(--ease-dock-settle) 280ms;
     }
 
     .dock-island-next-control {
-      transition: opacity 160ms ease-out 300ms;
+      transition: opacity 200ms ease-out 360ms;
     }
 
     [data-navigation="minimized"] {
@@ -184,21 +201,21 @@
 
       .dock-island {
         transition:
-          margin-right 220ms var(--ease-dock-settle),
-          left 240ms var(--ease-dock-depart) 120ms,
-          right 240ms var(--ease-dock-depart) 120ms,
-          bottom 260ms var(--ease-dock-depart) 180ms;
+          margin-right 280ms var(--ease-dock-settle),
+          left 600ms var(--ease-dock-glide) 120ms,
+          right 600ms var(--ease-dock-glide) 120ms,
+          bottom 640ms var(--ease-dock-glide) 200ms;
       }
 
       .dock-island-next {
-        transition: width 220ms var(--ease-dock-settle);
+        transition: width 280ms var(--ease-dock-settle);
       }
 
       /* Next is under the control by the time it fades, and gone when the tail is. */
       .dock-island-next-control {
         transition:
-          opacity 100ms ease-in 110ms,
-          visibility 0s 220ms;
+          opacity 120ms ease-in 140ms,
+          visibility 0s 280ms;
       }
     }
   }
@@ -287,12 +304,13 @@ body {
    pictures are kept at their own size, pinned to its top corner and clipped
    by it: the capsule fades out as the sheet is uncovered, never stretched
    into its shape. */
+/* NOTE: the box is cut with `clip-path`, not `overflow`, because the island's
+   cover and the swell round its control stand out of its box, and the cut
+   has to leave room for them: it is drawn that much outside the box. An
+   `overflow-clip-margin` would say the same, and WebKit does not read it. */
 ::view-transition-group(player) {
   z-index: 1;
-  overflow: clip;
-  /* The island's cover and the swell round its control stand out of its box. */
-  overflow-clip-margin: 6px;
-  border-radius: 1.5rem;
+  clip-path: inset(-0.5rem round 2rem);
   animation-duration: 380ms;
   animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);
 }

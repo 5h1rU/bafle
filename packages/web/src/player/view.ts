@@ -15,7 +15,7 @@ import {
   spinnerIcon,
 } from "../view/icon.ts";
 import { coverTransitionName } from "../view/artwork.ts";
-import { ISLAND_TAIL_ATTRIBUTE, IslandShape } from "../view/islandShape.ts";
+import { ISLAND_TAIL_ATTRIBUTE, type IslandLight, IslandShape } from "../view/islandShape.ts";
 import { Marquee } from "../view/marquee.ts";
 import { formatDuration } from "../view/time.ts";
 import { Message } from "./message.ts";
@@ -606,6 +606,20 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
   h.p([h.Role("status"), h.Class("sr-only")], [announcement(session)]);
 
 /**
+ * What the island's light is told. Only the engine's word that there is
+ * sound sets it going, and a tap is only a wish: one not answered yet
+ * changes nothing, so going on to another track does not halt the light for
+ * the moment the next one takes to start. Anything else puts it to rest: a
+ * pause, a stop, a failure, and a wait long enough to be shown.
+ */
+export const islandLight = (playback: Playback): IslandLight =>
+  Playback.matchOrElse<IslandLight>(
+    playback,
+    { Sounding: () => "Travelling", Acknowledged: () => "Holding" },
+    () => "Resting",
+  );
+
+/**
  * The island: one dark figure over the foot of the page, the same in a
  * light scheme and a dark one. The cover is a disc at its left end and
  * stands out a little above and below; the body curves up to meet it. The
@@ -629,7 +643,7 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
 const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Message>): Html => {
   const shape = IslandShape.withMessage(h);
   const { current, playback } = session;
-  const isSounding = Playback.guards.Sounding(playback);
+  const light = islandLight(playback);
 
   return h.section(
     [
@@ -642,11 +656,10 @@ const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Mes
       ),
     ],
     [
-      // The light travels on the engine's word alone: a wish to sound lights nothing.
       shape([
         shape.Cover(current.album.cover?.small ?? ""),
-        shape.Sounding(isSounding),
-        h.DataAttribute("light", isSounding ? "travelling" : "still"),
+        shape.Light(light),
+        h.DataAttribute("light", light),
       ]),
       coverView(current, "-my-[3px] size-[3.125rem] rounded-full", "small", h),
       viewInputs.toTrackPageLink(current, trackWordsView(session, h)),
