@@ -1,5 +1,5 @@
 import type { Html, HtmlBuilder } from "foldkit/html";
-import { ISLAND_LIGHTS_ATTRIBUTE } from "./islandLight.ts";
+import { ISLAND_LIGHTS_ATTRIBUTE, LIGHT_LENGTH } from "./islandLight.ts";
 import type { Message } from "./message.ts";
 import type { IslandLight } from "./model.ts";
 import { ISLAND_OUTLINE_ATTRIBUTE, StartIslandLight } from "./mount.ts";
@@ -27,9 +27,6 @@ import { ISLAND_OUTLINE_ATTRIBUTE, StartIslandLight } from "./mount.ts";
 // behind with no gradient, which a stroke cannot have along its length; and
 // over its head a few strokes that are almost white. Lengths are in
 // hundredths of the whole outline.
-
-/** How much of the outline the light covers, from the end of its tail to its head. */
-const LIGHT_LENGTH = 5;
 
 const TAIL_LAYERS = 10;
 

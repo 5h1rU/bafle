@@ -6,7 +6,7 @@ import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 import { Mount } from "foldkit";
 import { islandOutline } from "../view/islandOutline.ts";
-import { setPace } from "./islandLight.ts";
+import { ISLAND_LIGHTS_ATTRIBUTE, lightPlace, putLightNear, setPace } from "./islandLight.ts";
 import { Message } from "./message.ts";
 import { IslandLight } from "./model.ts";
 
@@ -100,6 +100,18 @@ export const MeasureTitle = Mount.defineStream("MeasureTitle", {
     ).pipe(Stream.debounce(MEASURES_AFTER), Stream.changesWith<Measure>(Equal.equals)),
 });
 
+/** The light on an island, and one of the paths that have its outline to measure it by. */
+const lightOn = (
+  island: Element,
+): Option.Option<Readonly<{ lights: Element; path: SVGGeometryElement }>> =>
+  Option.all({
+    lights: Option.fromNullishOr(island.querySelector(`[data-${ISLAND_LIGHTS_ATTRIBUTE}]`)),
+    path: Option.liftPredicate(
+      island.querySelector(`[data-${ISLAND_OUTLINE_ATTRIBUTE}]`),
+      (path): path is SVGGeometryElement => path instanceof SVGGeometryElement,
+    ),
+  });
+
 /**
  * Draws the island's outline for the width the island has, and again on
  * every change of that width or of the tail's. It writes the outline straight
@@ -108,6 +120,10 @@ export const MeasureTitle = Mount.defineStream("MeasureTitle", {
  * never a frame behind the cover and the controls, which are laid out by the
  * style sheet. A width sent to the Model and drawn by the view would be
  * painted a frame late, since the view is drawn at the start of a frame.
+ *
+ * The light is placed in shares of the outline, so an outline that grows or
+ * shrinks would carry it along the edge. In that same callback it is put
+ * back where the listener saw it.
  */
 export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
   messages: [Message.CompletedDrawIslandFigure],
@@ -115,12 +131,12 @@ export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
     Effect.gen(function* () {
       yield* Effect.acquireRelease(
         Effect.sync(() => {
-          const drawn = { outline: "" };
+          const drawn = { outline: "", left: 0 };
           const maybeTail = Option.fromNullishOr(
             element.querySelector(`[data-${ISLAND_TAIL_ATTRIBUTE}]`),
           );
           const draw = (): void => {
-            const width = element.getBoundingClientRect().width;
+            const { width, left } = element.getBoundingClientRect();
             if (width === 0) {
               return;
             }
@@ -132,10 +148,27 @@ export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
             if (outline === drawn.outline) {
               return;
             }
-            drawn.outline = outline;
+            // Where the light is on the outline about to be replaced: across the
+            // page as the listener sees it, and up and down as the island has it,
+            // since the island goes up and down whole and the light with it.
+            const maybeLight = lightOn(element);
+            const maybeHeld =
+              drawn.outline === ""
+                ? Option.none()
+                : Option.flatMap(maybeLight, ({ lights, path }) => lightPlace(lights, path));
             element
               .querySelectorAll(`[data-${ISLAND_OUTLINE_ATTRIBUTE}]`)
               .forEach((path) => path.setAttribute("d", outline));
+            Option.match(Option.all({ light: maybeLight, held: maybeHeld }), {
+              onNone: () => undefined,
+              onSome: ({ light, held }) =>
+                putLightNear(light.lights, light.path, {
+                  x: held.x + drawn.left - left,
+                  y: held.y,
+                }),
+            });
+            drawn.outline = outline;
+            drawn.left = left;
           };
           const sizes = new ResizeObserver(draw);
           sizes.observe(element);
