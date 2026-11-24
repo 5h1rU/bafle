@@ -214,6 +214,18 @@ const playControlView = (track: Track, status: TrackStatus, h: HtmlBuilder<Messa
   );
 };
 
+/** Who is credited on the track, and what the catalog knows of it. */
+const creditsView = (track: Track, h: HtmlBuilder<Message>): ReadonlyArray<Html> => [
+  h.ul(
+    [h.Role("list"), h.AriaLabel("Artists"), h.Class("mt-6 flex flex-col gap-3")],
+    Array.map(track.artists, (artist) => artistView(artist, h)),
+  ),
+  h.dl(
+    [h.Class("mt-8 flex flex-col gap-2 text-sm")],
+    Array.map(factsOf(track, h), (fact) => factView(fact, h)),
+  ),
+];
+
 const foundView = (track: Track, status: TrackStatus, h: HtmlBuilder<Message>): Html =>
   h.div(
     [h.Class(LAYOUT_CLASS)],
@@ -238,14 +250,7 @@ const foundView = (track: Track, status: TrackStatus, h: HtmlBuilder<Message>): 
           ),
           h.p([h.Class("mt-1 text-lg text-muted")], [track.album.title]),
           playControlView(track, status, h),
-          h.ul(
-            [h.Role("list"), h.AriaLabel("Artists"), h.Class("mt-6 flex flex-col gap-3")],
-            Array.map(track.artists, (artist) => artistView(artist, h)),
-          ),
-          h.dl(
-            [h.Class("mt-8 flex flex-col gap-2 text-sm")],
-            Array.map(factsOf(track, h), (fact) => factView(fact, h)),
-          ),
+          ...creditsView(track, h),
         ],
       ),
     ],
@@ -309,3 +314,85 @@ export const view = (
       ],
     ),
   ]);
+
+// EXPANDED PLAYER
+
+const COLLAPSE_CLASS =
+  "mx-auto flex h-11 w-24 cursor-pointer touch-manipulation items-center justify-center rounded-full hover:bg-tile focus-visible:outline-2 focus-visible:outline-accent active:bg-tile";
+
+/** The handle a sheet is closed by: a short bar, wide enough for a finger. */
+const grabberView = (h: HtmlBuilder<Message>): Html =>
+  h.span([h.AriaHidden(true), h.Class("h-1.5 w-10 rounded-full bg-muted/50")]);
+
+/**
+ * The way out of the expanded player: it shrinks back into the island over
+ * the page it was opened from. Like the track page's own way back, it goes
+ * back through the browser's history when the app knows of a page behind,
+ * and is a plain link to Home when the player's page was reached directly.
+ */
+export const collapseControlView = (
+  maybeWayBack: Option.Option<AppRoute>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  Option.match(maybeWayBack, {
+    onNone: () =>
+      h.a(
+        [h.Href(homeRouter()), h.AriaLabel("Close the player"), h.Class(COLLAPSE_CLASS)],
+        [grabberView(h)],
+      ),
+    onSome: () =>
+      Button.view(
+        {
+          onClick: Message.ClickedBack(),
+          toView: (attributes) =>
+            h.button(
+              [...attributes.button, h.AriaLabel("Close the player"), h.Class(COLLAPSE_CLASS)],
+              [grabberView(h)],
+            ),
+        },
+        h,
+      ),
+  });
+
+/** Lines the size of the detail to come: an album, two artists, three facts. */
+const detailPlaceholderView = (h: HtmlBuilder<Message>): Html =>
+  h.div(
+    [h.AriaHidden(true)],
+    [
+      h.div([h.Class(clsx(BLOCK_CLASS, "h-5 w-2/5 rounded"))]),
+      h.div([h.Class(clsx(BLOCK_CLASS, "mt-6 h-10 w-3/5 rounded-full"))]),
+      h.div([h.Class(clsx(BLOCK_CLASS, "mt-8 h-4 w-40 rounded"))]),
+      h.div([h.Class(clsx(BLOCK_CLASS, "mt-3 h-4 w-52 rounded"))]),
+    ],
+  );
+
+/**
+ * What the catalog knows of the track in the player, under the player's own
+ * controls. The player never waits for it: it shows the track from what the
+ * queue holds, and this part fills in when the catalog answers, fails in its
+ * own place with a way to try again, or says the catalog has no more to say.
+ */
+export const expandedDetailView = (track: TrackData, h: HtmlBuilder<Message>): Html =>
+  h.div(
+    [h.AriaBusy(AsyncData.isPending(track)), h.DataAttribute("detail", track._tag)],
+    [
+      pageDataView(
+        track,
+        "The song's details",
+        () => detailPlaceholderView(h),
+        Option.match({
+          onNone: () =>
+            h.p([h.Class("text-sm text-muted")], ["The catalog has nothing more about this song."]),
+          onSome: (found) =>
+            h.div(
+              [],
+              [
+                h.p([h.Class("text-lg text-muted")], [found.album.title]),
+                ...creditsView(found, h),
+              ],
+            ),
+        }),
+        h,
+      ),
+    ],
+  );

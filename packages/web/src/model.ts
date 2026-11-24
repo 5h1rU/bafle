@@ -12,7 +12,7 @@ import * as Schema from "effect/Schema";
 import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "./catalog.ts";
-import { Model as PlayerModel } from "./player/model.ts";
+import { maybeCurrentTrackId, Model as PlayerModel } from "./player/model.ts";
 import { AppRoute, searchedTerm } from "./route.ts";
 
 // MODEL
@@ -123,14 +123,16 @@ const hasSomethingToShow = <A>(data: AsyncData.AsyncData<A, LoadError>): boolean
 
 /**
  * Whether a route's page has more than placeholders to show. Search with a
- * blank field always has: its prompt needs nothing from the catalog.
+ * blank field always has: its prompt needs nothing from the catalog. So has
+ * the page of the track the player holds, which is the player itself.
  */
 export const canShow = (model: Model, route: AppRoute): boolean =>
   AppRoute.match(route, {
     Home: () => hasSomethingToShow(model.home),
     New: () => hasSomethingToShow(model.newMusic),
     Search: () => Option.isNone(searchedTerm(route)) || hasSomethingToShow(model.search),
-    Track: ({ trackId }) => hasSomethingToShow(trackData(model, trackId)),
+    Track: ({ trackId }) =>
+      hasSomethingToShow(trackData(model, trackId)) || isPlayersTrack(model, route),
     NotFound: () => true,
   });
 
@@ -152,6 +154,22 @@ export const isLoaded = (model: Model, route: AppRoute): boolean =>
     Track: ({ trackId }) => AsyncData.hasData(trackData(model, trackId)),
     NotFound: () => true,
   });
+
+/**
+ * Whether a route is the page of the track the player holds. That page is
+ * the player itself, expanded: the queue already holds what it shows, so it
+ * never has to be waited for.
+ */
+export const isPlayersTrack = (model: Model, route: AppRoute): boolean =>
+  route._tag === "Track" && Option.contains(maybeCurrentTrackId(model.player), route.trackId);
+
+/**
+ * Whether the player is expanded: the screen is the page of the track it
+ * holds. Nothing records this. The route says which track is on screen, the
+ * player says which is current, and the two are compared: on any other
+ * track's page, and on every other page, the player is its island.
+ */
+export const isPlayerExpanded = (model: Model): boolean => isPlayersTrack(model, model.route);
 
 /**
  * The page the app is waiting to put on screen in place of the one that is

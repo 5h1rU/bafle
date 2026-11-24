@@ -7,7 +7,7 @@ import { Command, Dom } from "foldkit";
 import { back, load, pushUrl, replaceUrl } from "foldkit/navigation";
 import { Catalog, type CatalogClient, REPLY_TIMEOUT } from "./catalog.ts";
 import { Message } from "./message.ts";
-import { searchRouter } from "./route.ts";
+import { searchRouter, trackRouter } from "./route.ts";
 import { pageTitleIdOf, TRACK_ROW_ATTRIBUTE } from "./view/layout.ts";
 
 // COMMAND
@@ -46,6 +46,18 @@ export const ReplaceSearchTerm = Command.define("ReplaceSearchTerm", {
   messages: [Message.CompletedReplaceSearchTerm],
   execute: ({ maybeTerm }) =>
     replaceUrl(searchRouter({ maybeTerm })).pipe(Effect.as(Message.CompletedReplaceSearchTerm())),
+});
+
+/**
+ * The expanded player went on to another track: the entry it was opened
+ * with is rewritten for the track it shows now. No entry is added, so Back
+ * closes the player however many tracks went by.
+ */
+export const ReplaceTrackUrl = Command.define("ReplaceTrackUrl", {
+  args: { trackId: TrackId },
+  messages: [Message.CompletedReplaceTrackUrl],
+  execute: ({ trackId }) =>
+    replaceUrl(trackRouter({ trackId })).pipe(Effect.as(Message.CompletedReplaceTrackUrl())),
 });
 
 export const WaitForTypingPause = Command.define("WaitForTypingPause", {

@@ -18,10 +18,17 @@ import {
 import { Lazy } from "foldkit/test";
 import { describe, expect, test } from "vitest";
 import { Catalog } from "../src/catalog.ts";
-import { FocusPage, NavigateInternal } from "../src/command.ts";
+import {
+  FocusPage,
+  FocusTrackRow,
+  NavigateBack,
+  NavigateInternal,
+  ReplaceTrackUrl,
+} from "../src/command.ts";
 import { update, viewTransition } from "../src/main.ts";
 import { Message } from "../src/message.ts";
-import type { Model } from "../src/model.ts";
+import { isPlayerExpanded, type Model } from "../src/model.ts";
+import { AppRoute } from "../src/route.ts";
 import type { EnginePhase, EngineReport } from "../src/player/audioEngine.ts";
 import * as Player from "../src/player/index.ts";
 import { view } from "../src/view.ts";
@@ -29,6 +36,8 @@ import {
   after,
   answered,
   arrived,
+  bareTrack,
+  changedUrl,
   clickedLink,
   explicitTrack,
   fullTrack,
@@ -65,6 +74,9 @@ const waitingMark = all.selector('[data-activity="waiting"]');
 const rowMark = (status: string) => selector(`[data-now-playing="${status}"]`);
 const rowMarks = all.selector("[data-now-playing]");
 const coverName = `track-cover-${track.id}`;
+/** The player in its two shapes: the capsule over the foot of a page, and the page it grows into. */
+const islandLayout = selector('[data-layout="island"]');
+const expandedLayout = selector('[data-layout="expanded"]');
 
 type Node = Readonly<{
   sel?: string;
@@ -138,6 +150,14 @@ const sounding: Model = after(
 );
 
 const paused: Model = after(sounding, player(Player.Message.ClickedPause()));
+
+/** The first track sounding from New, and the second track's plain page opened by its row's Details. */
+const onOtherTracksPage: Model = after(
+  sounding,
+  clickedLink(trackPath(explicitTrack.id)),
+  arrived(reply.track(nextId(sounding), bareTrack)),
+  changedUrl(trackPath(explicitTrack.id)),
+);
 
 /** The engine took the order, and the system's display was told. The threshold's timer is still running. */
 const resolveStart = (order: number) =>
@@ -364,6 +384,269 @@ describe("a row plays its track", () => {
     ));
 });
 
+/** The player's page took the screen: the URL moves, the focus follows, the catalog answers. */
+const resolveOpening = (
+  from: Model,
+  answer: (
+    requestId: string,
+  ) =>
+    | typeof Catalog.Message.SucceededTrackDetail.Type
+    | typeof Catalog.Message.FailedTrackDetail.Type = reply.track,
+) =>
+  Command.resolveAll(
+    [Catalog.TrackDetail, answer(nextId(from))],
+    [NavigateInternal, Message.CompletedNavigateInternal()],
+    [FocusPage, Message.CompletedFocusPage()],
+  );
+
+/** New on screen with its first track sounding, and the island pressed: the player expanded on it. */
+const expandedOnFirst: Model = after(
+  sounding,
+  clickedLink(trackPath(track.id)),
+  arrived(reply.track(nextId(sounding))),
+  changedUrl(trackPath(track.id)),
+);
+
+describe("the player expanded: the page of the track it holds", () => {
+  test("the island pressed: the player is the screen at once, on the track's own route, waiting for nothing", () =>
+    scene(
+      app,
+      given(sounding),
+      Subscription.emit(clickedLink(trackPath(track.id))),
+      // The screen moved, so the history gains its entry now; the engine is asked nothing.
+      Command.expectExact(NavigateInternal, FocusPage, Catalog.TrackDetail),
+      // Before the catalog has said a word: the player, whole, from what the queue holds.
+      inside(
+        expandedLayout,
+        see(role("heading", { name: TITLE, level: 1 })).toExist(),
+        see(text("Daft Punk")).toExist(),
+        see(control("Pause")).toHaveAttr("data-playback", "Sounding"),
+        see(seekBar).toHaveAttr("aria-valuenow", "12"),
+        see(control("Next track", "Technologic")).toBeEnabled(),
+        // What the catalog adds is on its way, in its own place and its own shape.
+        see(selector("[data-detail]")).toHaveAttr("aria-busy", "true"),
+        see(text("Discovery")).toBeAbsent(),
+      ),
+      // It is the same piece as the island: there is no island under it.
+      see(islandLayout).toBeAbsent(),
+      expectAll(all.role("region", { name: "Player" })).toHaveCount(1),
+      inside(expandedLayout, see(text("Opening…")).toBeAbsent()),
+      see(text(`Showing ${TITLE}`)).toExist(),
+      resolveOpening(sounding),
+      inside(
+        expandedLayout,
+        see(text("Discovery")).toExist(),
+        see(text("Romanthony")).toExist(),
+        see(selector("[data-detail]")).toHaveAttr("aria-busy", "false"),
+      ),
+    ));
+
+  test("a row's Details for another track: its plain page once the data arrives, the island below", () =>
+    scene(
+      app,
+      given(sounding),
+      Subscription.emit(clickedLink(trackPath(explicitTrack.id))),
+      // Held, as any page chosen by a link: New stays, and so does the island.
+      see(role("heading", { name: "New", level: 1 })).toBeVisible(),
+      Command.resolve(Catalog.TrackDetail, reply.track(nextId(sounding), bareTrack)),
+      Command.resolveAll(
+        [NavigateInternal, Message.CompletedNavigateInternal()],
+        [FocusPage, Message.CompletedFocusPage()],
+      ),
+      inside(
+        selector("#track-page"),
+        see(role("heading", { name: /Technologic/, level: 1 })).toExist(),
+        see(control("Play", "Technologic")).toExist(),
+      ),
+      see(expandedLayout).toBeAbsent(),
+      inside(islandLayout, see(text(TITLE)).toExist(), see(control("Pause")).toExist()),
+    ));
+
+  test("Play on that plain page: the same screen becomes the player, and the route does not move", () =>
+    scene(
+      app,
+      given(onOtherTracksPage),
+      inside(selector("#track-page"), click(control("Play", "Technologic"))),
+      // The engine is given its order, and the history is asked nothing.
+      Command.expectExact(
+        Player.StartPlayback({ order: 2, source: "https://audio.test/tr-2.mp3", positionSeconds: 0 }),
+        Player.WaitBeforeShowingActivity({ order: 2 }),
+        Player.PublishNowPlaying,
+      ),
+      inside(
+        expandedLayout,
+        see(role("heading", { name: "Technologic", level: 1 })).toExist(),
+        see(control("Pause", "Technologic")).toHaveAttr("data-playback", "Acknowledged"),
+        // What the page had already loaded of the track is still there, under the controls.
+        see(text("Human After All")).toExist(),
+      ),
+      see(islandLayout).toBeAbsent(),
+      resolveStart(2),
+      thresholdPasses(2),
+    ));
+
+  test("Next inside it: the sheet stays, its words change, and the entry is rewritten for the new track", () =>
+    scene(
+      app,
+      given(expandedOnFirst),
+      inside(expandedLayout, click(control("Next track", "Technologic"))),
+      Command.expectExact(
+        Player.StartPlayback({ order: 2, source: "https://audio.test/tr-2.mp3", positionSeconds: 0 }),
+        Player.WaitBeforeShowingActivity({ order: 2 }),
+        Player.PublishNowPlaying,
+        ReplaceTrackUrl({ trackId: explicitTrack.id }),
+        Catalog.TrackDetail,
+      ),
+      inside(
+        expandedLayout,
+        see(role("heading", { name: "Technologic", level: 1 })).toExist(),
+        see(control("Previous track", TITLE)).toBeEnabled(),
+        see(selector("[data-detail]")).toHaveAttr("aria-busy", "true"),
+      ),
+      see(islandLayout).toBeAbsent(),
+      resolveStart(2),
+      thresholdPasses(2),
+      Command.resolveAll(
+        [ReplaceTrackUrl, Message.CompletedReplaceTrackUrl()],
+        [Catalog.TrackDetail, reply.track(nextId(expandedOnFirst), bareTrack)],
+      ),
+      // The browser says the URL is the new track's: that is the app's own doing, and changes nothing.
+      Subscription.emit(changedUrl(trackPath(explicitTrack.id))),
+      inside(expandedLayout, see(text("Human After All")).toExist()),
+    ));
+
+  test("a direct link to a track's page: the plain page with Play, whatever was playing before the reload", () =>
+    scene(
+      app,
+      given(onTrack),
+      inside(selector("#track-page"), see(control("Play")).toExist()),
+      see(expandedLayout).toBeAbsent(),
+      see(islandLayout).toBeAbsent(),
+    ));
+
+  test("its close control goes back through the history, and Back puts the page back with the island below", () =>
+    scene(
+      app,
+      given(expandedOnFirst),
+      click(role("button", { name: "Close the player" })),
+      Command.expectExact(NavigateBack),
+      Command.resolve(NavigateBack, Message.CompletedNavigateBack()),
+      // The browser goes back; the app follows.
+      Subscription.emit(changedUrl("/new")),
+      Command.resolveAll(
+        [Catalog.NewMusic, reply.newMusic(nextId(expandedOnFirst))],
+        [FocusTrackRow, Message.CompletedFocusTrackRow()],
+      ),
+      see(role("heading", { name: "New", level: 1 })).toBeVisible(),
+      see(expandedLayout).toBeAbsent(),
+      inside(islandLayout, see(text(TITLE)).toExist(), see(seekBar).toHaveAttr("aria-valuenow", "12")),
+    ));
+
+  test("with no page of the app behind it, its close control is a link Home", () =>
+    scene(
+      app,
+      given(
+        after(
+          answered(opened(trackPath(track.id)), reply.track),
+          Message.ClickedPlayTrack({ trackId: track.id, from: "Track" }),
+        ),
+      ),
+      see(expandedLayout).toExist(),
+      see(role("link", { name: "Close the player" })).toHaveAttr("href", "/"),
+    ));
+
+  test("a detail that cannot load says so in its own place, with a way to try again, and the controls go on working", () =>
+    scene(
+      app,
+      given(sounding),
+      Subscription.emit(clickedLink(trackPath(track.id))),
+      resolveOpening(sounding, reply.trackRefused),
+      inside(
+        expandedLayout,
+        see(text("The song's details could not load.")).toExist(),
+        see(role("button", { name: "Try again" })).toExist(),
+        see(role("heading", { name: TITLE, level: 1 })).toExist(),
+        click(control("Pause")),
+      ),
+      Command.expectExact(Player.PausePlayback({ order: 2 })),
+      Command.resolve(Player.PausePlayback, Player.Message.CompletedPausePlayback()),
+      inside(expandedLayout, see(control("Play")).toExist()),
+    ));
+
+  test("a track the catalog no longer has: the player says there is no more to say, with nothing to try again", () =>
+    scene(
+      app,
+      given(sounding),
+      Subscription.emit(clickedLink(trackPath(track.id))),
+      resolveOpening(sounding, reply.trackMissing),
+      inside(
+        expandedLayout,
+        see(text("The catalog has nothing more about this song.")).toExist(),
+        see(role("button", { name: "Try again" })).toBeAbsent(),
+        see(control("Pause")).toExist(),
+      ),
+    ));
+
+  test("opening, closing and Back are transitions; a track change inside the player is not", () => {
+    const transition = (previousModel: Model, message: Message) =>
+      viewTransition({ previousModel, model: update(previousModel, message).model, message });
+
+    expect(transition(sounding, clickedLink(trackPath(track.id)))).toBe(true);
+    // The browser's own Back: the URL has already moved, and the app only follows.
+    expect(transition(expandedOnFirst, changedUrl("/new"))).toBe(true);
+    expect(
+      transition(onOtherTracksPage, Message.ClickedPlayTrack({ trackId: explicitTrack.id, from: "Track" })),
+    ).toBe(true);
+    expect(transition(expandedOnFirst, player(Player.Message.ClickedNext()))).toBe(false);
+    expect(transition(expandedOnFirst, said(1, "Ended"))).toBe(false);
+    expect(transition(expandedOnFirst, said(1, "Sounding", { positionSeconds: 14 }))).toBe(false);
+  });
+});
+
+describe("the player expanded, told from the two Models", () => {
+  const names = (outcome: ReturnType<typeof update>) =>
+    (outcome.commands ?? []).map((command) => command.name);
+
+  test("opening adds one entry behind which the page it was opened from waits, and asks the engine nothing", () => {
+    const opening = update(sounding, clickedLink(trackPath(track.id)));
+
+    expect(opening.model.route).toEqual(AppRoute.Track({ trackId: track.id }));
+    expect(isPlayerExpanded(opening.model)).toBe(true);
+    expect(opening.model.trail).toEqual([...sounding.trail, AppRoute.New()]);
+    expect(opening.model.player).toBe(sounding.player);
+    expect(names(opening).sort()).toEqual(["FocusPage", "NavigateInternal", "TrackDetail"]);
+  });
+
+  test("a track that follows by itself while expanded rewrites the entry and adds none", () => {
+    const followed = update(expandedOnFirst, said(1, "Ended"));
+
+    expect(followed.model.route).toEqual(AppRoute.Track({ trackId: explicitTrack.id }));
+    expect(isPlayerExpanded(followed.model)).toBe(true);
+    expect(followed.model.trail).toEqual(expandedOnFirst.trail);
+    expect(names(followed)).toContain("ReplaceTrackUrl");
+    expect(names(followed)).not.toContain("NavigateInternal");
+  });
+
+  test("on the island, or on another track's page, a track change moves no route", () => {
+    const onIsland = update(sounding, said(1, "Ended"));
+    expect(onIsland.model.route).toEqual(sounding.route);
+    expect(names(onIsland)).not.toContain("ReplaceTrackUrl");
+
+    const elsewhere = update(onOtherTracksPage, player(Player.Message.ClickedNext()));
+    // The queue went on to the very track whose page is on screen: that page is now the player.
+    expect(elsewhere.model.route).toEqual(onOtherTracksPage.route);
+    expect(isPlayerExpanded(elsewhere.model)).toBe(true);
+    expect(names(elsewhere)).not.toContain("ReplaceTrackUrl");
+  });
+
+  test("Back out of an expanded player leaves the player as it was", () => {
+    const closed = update(expandedOnFirst, changedUrl("/new"));
+    expect(closed.model.route).toEqual(AppRoute.New());
+    expect(closed.model.player).toBe(expandedOnFirst.player);
+    expect(names(closed).filter((name) => /Playback|RefreshSource/.test(name))).toEqual([]);
+  });
+});
+
 describe("a track with nothing to play", () => {
   const withSilent = answered(
     opened("/new"),
@@ -409,7 +692,7 @@ describe("the island", () => {
         // Each step names where it leads: the first track has only its own start behind it.
         see(control("Back to the start")).toBeEnabled(),
         see(control("Next track", "Technologic")).toBeEnabled(),
-        see(role("link", { name: `Open the page of ${TITLE} by Daft Punk` })).toHaveAttr(
+        see(role("link", { name: `Open the player: ${TITLE} by Daft Punk` })).toHaveAttr(
           "href",
           trackPath(track.id),
         ),
@@ -486,50 +769,9 @@ describe("the island", () => {
       given(chosen),
       inside(island, see(role("slider")).toBeAbsent(), see(text("0:00")).toExist()),
     ));
-
-  test("its link to the track's page shows that the page is loading, and says when it cannot open", () =>
-    scene(
-      app,
-      given(after(sounding, clickedLink("/"), arrived(reply.home(nextId(sounding))))),
-      Subscription.emit(clickedLink(trackPath(track.id))),
-      inside(
-        island,
-        see(role("link", { name: /^Open the page of/ })).toHaveAttr("aria-busy", "true"),
-        // Said too, for those who do not see the link's spinner, in a place that was already there.
-        see(text("Opening…")).toHaveAttr("role", "status"),
-      ),
-      Command.resolve(Catalog.TrackDetail, reply.trackRefused("page:3")),
-      inside(
-        island,
-        see(role("link", { name: /^Open the page of/ })).toHaveAttr("aria-busy", "false"),
-        see(text(/^This song's page could not be opened\./)).toHaveAttr("role", "status"),
-      ),
-    ));
 });
 
 describe("the track's page", () => {
-  test("its control plays the track, and then is the track's own control", () =>
-    scene(
-      app,
-      given(onTrack),
-      click(control("Play")),
-      Command.expectHas(
-        Player.StartPlayback({ order: 1, source: "https://audio.test/tr-1.mp3", positionSeconds: 0 }),
-      ),
-      resolveStart(1),
-      thresholdPasses(1),
-      inside(
-        selector("#track-page"),
-        see(control("Starting…")).toHaveAttr("aria-busy", "true"),
-      ),
-      Subscription.emit(said(1, "Sounding")),
-      inside(selector("#track-page"), click(control("Pause"))),
-      Command.expectExact(Player.PausePlayback({ order: 2 })),
-      Command.resolve(Player.PausePlayback, Player.Message.CompletedPausePlayback()),
-      inside(selector("#track-page"), see(control("Play")).toExist()),
-      inside(island, see(control("Play")).toExist()),
-    ));
-
   test("played from its page, a track is a queue of one", () => {
     const played = after(onTrack, Message.ClickedPlayTrack({ trackId: track.id, from: "Track" }));
     const session = Option.getOrThrow(played.player.maybeSession);
@@ -590,17 +832,15 @@ describe("the flight: a track's cover is one element on its way to the island", 
       thresholdPasses(1),
     ));
 
-  test("opening the page of the track in the island moves nothing: the cover stays in the island", () =>
+  test("opening the player hands the cover's name from the island's cover to the expanded one", () =>
     scene(
       app,
       given(sounding),
+      inside(islandLayout, see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName)),
       Subscription.emit(clickedLink(trackPath(track.id))),
-      Command.resolve(Catalog.TrackDetail, reply.track(nextId(sounding))),
-      Command.resolveAll(
-        [NavigateInternal, Message.CompletedNavigateInternal()],
-        [FocusPage, Message.CompletedFocusPage()],
-      ),
       seeCarriers(coverName, { inAll: 1, inIsland: 1 }),
+      inside(expandedLayout, see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName)),
+      resolveOpening(sounding),
     ));
 
   test("a transition is asked for when the listener puts a track in the island, and only then", () => {

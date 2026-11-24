@@ -26,6 +26,7 @@ export const Message = defineMessageUnion({
   CompletedNavigateBack: {},
   CompletedLoadExternal: {},
   CompletedReplaceSearchTerm: {},
+  CompletedReplaceTrackUrl: {},
   CompletedWaitForTypingPause: { pauseId: Schema.String },
   CompletedFocusSearchField: {},
   CompletedFocusPage: {},

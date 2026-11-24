@@ -32,13 +32,23 @@ import {
 // VIEW
 
 /**
- * What the shell lends the island: its own way to the current track's page.
- * The link, how it shows that the page is loading, and what it says when the
- * page cannot be opened are the shell's, as they are on a row.
+ * What the shell lends the island: its own way to the expanded player, a
+ * link like any other, around the island's words for the track.
  */
 export type ViewInputs = Readonly<{
   toTrackPageLink: (track: TrackSummary, content: ReadonlyArray<Html>) => Html;
-  toTrackPageNotice: (track: TrackSummary) => Html;
+}>;
+
+/**
+ * What the shell lends the expanded player: the id its title goes by on the
+ * page, the way back to the island, and what the catalog knows of the track.
+ * The player draws the track from what its queue holds and waits for none of
+ * these.
+ */
+export type ExpandedViewInputs = Readonly<{
+  titleId: string;
+  toCollapseControl: () => Html;
+  toDetail: (track: TrackSummary) => Html;
 }>;
 
 export const PLAYER_ID = "player";
@@ -188,27 +198,51 @@ const nextLabel = (session: Session): string =>
  * already drawn, so it is there at once. A track of its own element: another
  * track's cover is another picture, not this one with its source changed.
  */
-const coverView = (track: TrackSummary, h: HtmlBuilder<Message>): Html =>
+const coverView = (
+  track: TrackSummary,
+  sizeClass: string,
+  rendition: "small" | "large",
+  h: HtmlBuilder<Message>,
+): Html =>
   h.keyed("div")(
     track.id,
     [
-      h.Class("size-12 shrink-0 overflow-hidden rounded-lg bg-tile"),
+      h.DataAttribute("cover", ""),
+      h.Class(clsx(sizeClass, "relative shrink-0 overflow-hidden bg-tile")),
       h.Style({
         viewTransitionName: coverTransitionName(track.id),
         viewTransitionClass: "track-cover island-cover",
       }),
     ],
-    [
-      Option.match(Option.fromNullishOr(track.album.cover), {
-        onNone: () =>
-          h.div(
-            [h.Class("flex size-full items-center justify-center text-muted")],
-            [noteIcon("size-2/5")],
-          ),
-        onSome: (cover) =>
-          h.img([h.Decoding("sync"), h.Src(cover.small), h.Alt(""), h.Class("size-full object-cover")]),
-      }),
-    ],
+    Option.match(Option.fromNullishOr(track.album.cover), {
+      onNone: () => [
+        h.div(
+          [h.Class("flex size-full items-center justify-center text-muted")],
+          [noteIcon("size-2/5")],
+        ),
+      ],
+      // NOTE: the small rendition is the one the row and the island have
+      // already drawn, so it is there at once; the large one is drawn over
+      // it when it arrives, and the cover is never an empty box on the way.
+      onSome: (cover) => [
+        h.img([
+          h.Decoding("sync"),
+          h.Src(cover.small),
+          h.Alt(""),
+          h.Class("absolute inset-0 size-full object-cover"),
+        ]),
+        ...(rendition === "large"
+          ? [
+              h.img([
+                h.Decoding("async"),
+                h.Src(cover.large),
+                h.Alt(""),
+                h.Class("absolute inset-0 size-full object-cover"),
+              ]),
+            ]
+          : []),
+      ],
+    }),
   );
 
 /** The words arrive with a short fade when the track changes; the island itself stays where it is. */
@@ -422,14 +456,43 @@ const announcement = (session: Session): string => {
   });
 };
 
-const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Message>): Html => {
-  const { current, playback } = session;
+const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>): Html =>
+  h.div(
+    [h.Role("group"), h.AriaLabel("Playback"), h.Class(className)],
+    [
+      stepControlView(
+        previousLabel(session),
+        Message.ClickedPrevious(),
+        true,
+        previousIcon("size-5"),
+        h,
+      ),
+      mainControlView(session, h),
+      stepControlView(nextLabel(session), Message.ClickedNext(), hasLater(session), nextIcon("size-5"), h),
+    ],
+  );
 
-  return h.section(
+/** The line under the controls: the progress bar, or the words of a state a control cannot explain. */
+const progressOrNoticeView = (session: Session, h: HtmlBuilder<Message>): Html =>
+  Option.match(maybeNotice(session.playback), {
+    onSome: (notice) => h.p([h.Class("flex h-11 items-center text-sm text-muted")], [notice]),
+    onNone: () =>
+      Option.match(session.maybeDurationSeconds, {
+        onNone: () => progressPlaceholderView(session, h),
+        onSome: (durationSeconds) => progressView(session, durationSeconds, h),
+      }),
+  });
+
+const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
+  h.p([h.Role("status"), h.Class("sr-only")], [announcement(session)]);
+
+const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Message>): Html =>
+  h.section(
     [
       h.Id(PLAYER_ID),
       h.AriaLabel("Player"),
-      h.DataAttribute("playback", playback._tag),
+      h.DataAttribute("layout", "island"),
+      h.DataAttribute("playback", session.playback._tag),
       h.Class(
         "absolute inset-x-2 bottom-2 z-10 mx-auto max-w-2xl rounded-2xl border border-line bg-panel px-3 pt-2 shadow-lg [view-transition-name:player] md:inset-x-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))]",
       ),
@@ -438,44 +501,15 @@ const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Mes
       h.div(
         [h.Class("flex h-12 items-center gap-3")],
         [
-          coverView(current, h),
-          viewInputs.toTrackPageLink(current, trackWordsView(current, h)),
-          h.div(
-            [h.Role("group"), h.AriaLabel("Playback"), h.Class("flex shrink-0 items-center")],
-            [
-              stepControlView(
-                previousLabel(session),
-                Message.ClickedPrevious(),
-                true,
-                previousIcon("size-5"),
-                h,
-              ),
-              mainControlView(session, h),
-              stepControlView(
-                nextLabel(session),
-                Message.ClickedNext(),
-                hasLater(session),
-                nextIcon("size-5"),
-                h,
-              ),
-            ],
-          ),
+          coverView(session.current, "size-12 rounded-lg", "small", h),
+          viewInputs.toTrackPageLink(session.current, trackWordsView(session.current, h)),
+          stepsView(session, "flex shrink-0 items-center", h),
         ],
       ),
-      Option.match(maybeNotice(playback), {
-        onSome: (notice) =>
-          h.p([h.Class("flex h-11 items-center text-sm text-muted")], [notice]),
-        onNone: () =>
-          Option.match(session.maybeDurationSeconds, {
-            onNone: () => progressPlaceholderView(session, h),
-            onSome: (durationSeconds) => progressView(session, durationSeconds, h),
-          }),
-      }),
-      viewInputs.toTrackPageNotice(current),
-      h.p([h.Role("status"), h.Class("sr-only")], [announcement(session)]),
+      progressOrNoticeView(session, h),
+      announcementView(session, h),
     ],
   );
-};
 
 /** Nothing until something is played: the island is no empty frame waiting for a track. */
 export const view = Submodel.defineView<Model, Message, ViewInputs>((model, viewInputs, h) =>
@@ -483,4 +517,67 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, view
     onNone: () => h.empty,
     onSome: (session) => islandView(session, viewInputs, h),
   }),
+);
+
+/**
+ * The player grown to the size of a page: the same piece as the island, with
+ * the same controls doing the same things, and room for the cover at full
+ * size. It carries the island's name in a view transition, and its cover the
+ * cover's, so the browser grows the one into the other and shrinks it back.
+ * Another track becoming the current one changes its words and its picture
+ * where they stand: the sheet does not move.
+ */
+const sheetView = (
+  session: Session,
+  viewInputs: ExpandedViewInputs,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const { current } = session;
+
+  return h.section(
+    [
+      h.Id(PLAYER_ID),
+      h.AriaLabel("Player"),
+      h.DataAttribute("layout", "expanded"),
+      h.DataAttribute("playback", session.playback._tag),
+      h.Class(
+        "mx-auto flex min-h-full w-full max-w-lg flex-col rounded-t-3xl border-x border-t border-line bg-panel px-6 pb-10 [view-transition-name:player]",
+      ),
+    ],
+    [
+      viewInputs.toCollapseControl(),
+      h.div(
+        [h.Class("mx-auto mt-2 w-full max-w-sm")],
+        [coverView(current, "aspect-square w-full rounded-2xl", "large", h)],
+      ),
+      h.keyed("div")(
+        current.id,
+        [
+          h.Class(
+            "mt-6 min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none",
+          ),
+        ],
+        [
+          h.h1(
+            [h.Id(viewInputs.titleId), h.Class("truncate text-2xl font-bold tracking-tight")],
+            [current.title],
+          ),
+          h.p([h.Class("truncate text-lg text-muted")], [current.artist.name]),
+        ],
+      ),
+      h.div([h.Class("mt-2")], [progressOrNoticeView(session, h)]),
+      stepsView(session, "mt-2 flex items-center justify-center gap-6", h),
+      h.div([h.Class("mt-8")], [viewInputs.toDetail(current)]),
+      announcementView(session, h),
+    ],
+  );
+};
+
+/** With nothing current there is no player to expand: the shell draws the track's own page instead. */
+export const expandedView = Submodel.defineView<Model, Message, ExpandedViewInputs>(
+  (model, viewInputs, h) =>
+    Option.match(model.maybeSession, {
+      onNone: () => h.empty,
+      onSome: (session) => sheetView(session, viewInputs, h),
+    }),
 );

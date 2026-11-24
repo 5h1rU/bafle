@@ -88,26 +88,38 @@ body {
    row, or on the track's page, before the tap and on the island after it, so
    the browser moves the one picture between the two. It is the thing to
    watch, so it takes longest, and it travels above the navigation and the
-   island it lands on. A cover going the other way, back to the row of a
+   island it lands on. The same cover grows into the expanded player's and
+   shrinks back, in step with the box around it. A cover going the other way, back to the row of a
    track the player gave up, travels under them like any other cover. */
 ::view-transition-group(.island-cover) {
   z-index: 2;
-  animation-duration: 350ms;
+  animation-duration: 380ms;
   animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);
 }
 
-/* The island is the same on both sides of every transition but its first, so
-   it neither fades nor moves: page swaps happen behind it. */
+/* The island and the expanded player are one piece under one name. On a
+   page swap behind the island the two sides are the same picture in the same
+   place, and nothing is seen to happen. When the player opens or closes, the
+   box grows from the capsule to the sheet or shrinks back, and the two
+   pictures are kept at their own size, pinned to its top corner and clipped
+   by it: the capsule fades out as the sheet is uncovered, never stretched
+   into its shape. */
 ::view-transition-group(player) {
   z-index: 1;
+  overflow: clip;
+  border-radius: 1.5rem;
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);
 }
 
-::view-transition-old(player) {
-  display: none;
-}
-
+::view-transition-old(player),
 ::view-transition-new(player) {
-  animation: none;
+  inline-size: auto;
+  block-size: auto;
+  max-inline-size: none;
+  object-fit: none;
+  object-position: top left;
+  animation-duration: 380ms;
 }
 
 /* Its first appearance, and only that: it rises into place once. */

@@ -13,6 +13,8 @@ import {
   addressOf,
   Awaiting,
   canShow,
+  isPlayerExpanded,
+  isPlayersTrack,
   maybeHeadedFor,
   type Model,
   trackData,
@@ -91,6 +93,12 @@ const PLAYABLE_IDS: Array.NonEmptyReadonlyArray<TrackId> = [
   MISSING_TRACK_ID,
 ];
 
+/** What moves an expanded player on to another track, or back. */
+const EXPANDED_CONTROLS: Array.NonEmptyReadonlyArray<Player.Message> = [
+  Player.Message.ClickedNext(),
+  Player.Message.ClickedPrevious(),
+];
+
 const PLAYER_CONTROLS: Array.NonEmptyReadonlyArray<Player.Message> = [
   Player.Message.ClickedPause(),
   Player.Message.ClickedPlay(),
@@ -131,6 +139,7 @@ const hasTrackInput = Schema.is(
 );
 const hasPauseId = Schema.is(Schema.Struct({ pauseId: Schema.String }));
 const hasUrl = Schema.is(Schema.Struct({ url: Schema.String }));
+const hasTrackId = Schema.is(Schema.Struct({ trackId: TrackId }));
 const hasOrder = Schema.is(Schema.Struct({ order: Schema.Number }));
 const hasOrderAndTrack = Schema.is(Schema.Struct({ order: Schema.Number, trackId: TrackId }));
 
@@ -347,6 +356,17 @@ const moveHistory = (history: History, command: Issued): Option.Option<Moved> =>
       violations: [],
     });
   }
+  if (name === "ReplaceTrackUrl" && hasTrackId(args)) {
+    return Option.some({
+      history: {
+        entries: Array.map(history.entries, (path, index) =>
+          index === history.index ? trackPath(args.trackId) : path,
+        ),
+        index: history.index,
+      },
+      violations: [],
+    });
+  }
   if (name === "NavigateBack") {
     return Option.some(
       history.index > 0
@@ -459,9 +479,13 @@ const broken = (model: Model): ReadonlyArray<string> => {
     ],
     [
       "a page is waited for only while the screen has something to show and the page has nothing",
+      // A track's page being waited for when its track becomes the current one goes on being
+      // waited for: the listener asked for it before it was the player's, and the reply is on its way.
       !Option.exists(
         maybeDestination,
-        (route) => !canShow(model, model.route) || canShow(model, route),
+        (route) =>
+          !isPlayersTrack(model, route) &&
+          (!canShow(model, model.route) || canShow(model, route)),
       ),
     ],
     [
@@ -624,15 +648,43 @@ const overstepping = (
           !Array.some(issued, (name) => PLAYER_COMMANDS.includes(name))),
     ],
     [
-      "playing never moves the screen, the URL, what is awaited or what the pages hold",
+      "playing moves the screen only to keep an expanded player on the track it holds",
       !isPlaying(message) ||
-        (after.route === before.route &&
-          after.awaiting === before.awaiting &&
-          after.trail === before.trail &&
-          after.tracks === before.tracks &&
+        after.route === before.route ||
+        (isPlayerExpanded(before) && isPlayerExpanded(after)),
+    ],
+    [
+      "playing never adds a history entry, and rewrites one only for an expanded player",
+      !isPlaying(message) ||
+        (!Array.some(issued, (name) => name === "NavigateInternal" || name === "NavigateBack") &&
+          (isPlayerExpanded(before) || !Array.some(issued, (name) => name === "ReplaceTrackUrl"))),
+    ],
+    [
+      "an expanded player stays expanded whatever track it goes on to, unless the browser has moved on",
+      !isPlaying(message) ||
+        !isPlayerExpanded(before) ||
+        isPlayerExpanded(after) ||
+        Option.isNone(after.player.maybeSession),
+    ],
+    [
+      "playing leaves the lists as they were, and the page the listener is waiting for",
+      !isPlaying(message) ||
+        (after.trail === before.trail &&
           after.newMusic === before.newMusic &&
-          after.search === before.search &&
-          Array.every(issued, (name) => PLAYER_COMMANDS.includes(name))),
+          after.home === before.home &&
+          (after.awaiting === before.awaiting || isPlayerExpanded(before))),
+    ],
+    [
+      "opening the player takes the screen at once, adds exactly one entry and asks the engine nothing",
+      !(
+        message._tag === "ClickedLink" &&
+        message.request._tag === "Internal" &&
+        isPlayersTrack(before, urlToAppRoute(message.request.url)) &&
+        !isPlayerExpanded(before)
+      ) ||
+        (isPlayerExpanded(after) &&
+          Array.filter(issued, (name) => name === "NavigateInternal").length === 1 &&
+          !Array.some(issued, (name) => PLAYER_COMMANDS.includes(name))),
     ],
     [
       "what the engine says of an earlier order changes nothing",
@@ -714,6 +766,22 @@ const acting = (walk: Walk, seed: number): Happening => {
     const control = pick(PLAYER_CONTROLS, playChoice);
     return {
       label: `presses the player's ${control._tag}`,
+      message: player(control),
+      ...unchanged,
+    };
+  }
+  const maybePlaying = Player.maybeCurrentTrackId(walk.model.player);
+  if (playRoll >= 30 && playRoll < 42 && Option.isSome(maybePlaying) && !isPlayerExpanded(walk.model)) {
+    return {
+      label: "presses the island to open the player",
+      message: clickedLink(trackPath(maybePlaying.value)),
+      ...unchanged,
+    };
+  }
+  if (playRoll >= 30 && playRoll < 65 && isPlayerExpanded(walk.model)) {
+    const control = pick(EXPANDED_CONTROLS, playChoice);
+    return {
+      label: `presses the expanded player's ${control._tag}`,
       message: player(control),
       ...unchanged,
     };
@@ -832,6 +900,11 @@ const step = (walk: Walk): Walk => {
     ...Array.filterMap(commands, ({ name, args }) =>
       name === "NavigateInternal" && hasUrl(args)
         ? Result.succeed(`pushes ${args.url}`)
+        : Result.failVoid,
+    ),
+    ...Array.filterMap(commands, ({ name, args }) =>
+      name === "ReplaceTrackUrl" && hasTrackId(args)
+        ? Result.succeed(`rewrites the entry for ${trackPath(args.trackId)}`)
         : Result.failVoid,
     ),
   ]);
@@ -958,6 +1031,9 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching('"outcome":"Refused"')).toBeGreaterThan(WALKS / 100);
   expect(reaching("SucceededRefreshSource")).toBeGreaterThan(WALKS / 200);
   expect(reaching("FailedRefreshSource")).toBeGreaterThan(WALKS / 200);
+  // The player expanded: opened from the island, and going on to another track while open.
+  expect(reaching("presses the island to open the player")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("rewrites the entry for /track/")).toBeGreaterThan(WALKS / 100);
 
   // And the walks end in every state the player has a look for.
   const endings = (tag: Player.Playback["_tag"]): number =>

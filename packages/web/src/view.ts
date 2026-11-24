@@ -8,6 +8,8 @@ import { Message, type PlayOrigin } from "./message.ts";
 import {
   Awaiting,
   canShow,
+  isPlayerExpanded,
+  isPlayersTrack,
   maybeHeadedFor,
   type Model,
   trackData,
@@ -28,9 +30,8 @@ import {
   searchRouter,
   trackRouter,
 } from "./route.ts";
-import { reason } from "./view/feedback.ts";
 import { homeIcon, newIcon, searchIcon, spinnerIcon } from "./view/icon.ts";
-import { pagePlaceView, type Presence } from "./view/layout.ts";
+import { PAGE_IDS, pagePlaceView, pageTitleIdOf, type Presence } from "./view/layout.ts";
 import type { TrackListContext } from "./view/trackList.ts";
 
 // VIEW
@@ -65,7 +66,13 @@ const pageName = (model: Model, route: AppRoute): string =>
     Home: () => DESTINATION_NAMES.Home,
     New: () => DESTINATION_NAMES.New,
     Search: () => DESTINATION_NAMES.Search,
-    Track: ({ trackId }) => Track.titleOf(trackData(model, trackId)),
+    Track: ({ trackId }) =>
+      isPlayersTrack(model, route)
+        ? Option.match(model.player.maybeSession, {
+            onNone: () => Track.titleOf(trackData(model, trackId)),
+            onSome: (session) => session.current.title,
+          })
+        : Track.titleOf(trackData(model, trackId)),
     NotFound: () => NotFound.TITLE,
   });
 
@@ -289,82 +296,80 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       playingStatus,
       h,
     ]),
-    lazyPassingPlace(passingPlaceView, [
-      model.route,
-      model.tracks,
-      model.trail,
-      playingTrackId,
-      playingStatus,
-      h,
-    ]),
+    // NOTE: the expanded player is drawn from the player itself, which
+    // changes every second: it is the one place that is never a kept drawing.
+    isPlayerExpanded(model)
+      ? expandedPlaceView(model, h)
+      : lazyPassingPlace(passingPlaceView, [
+          model.route,
+          model.tracks,
+          model.trail,
+          playingTrackId,
+          playingStatus,
+          h,
+        ]),
   ];
 };
 
 /**
- * The shell's way from the island to the page of the track it holds: a link
- * like a row's, around the island's words for the track. While that page
- * loads the link is busy and shows it, since no row may be on screen to do so.
+ * The shell's way from the island to the expanded player: a link to the page
+ * of the track the island holds, around the island's words for it. Nothing
+ * here waits or says that it is opening: that page is the player itself, and
+ * takes the screen as the link is pressed.
  */
 const trackPageLinkView =
-  (model: Model, h: HtmlBuilder<Message>) =>
-  (track: TrackSummary, content: ReadonlyArray<Html>): Html => {
-    const isOpening = AsyncData.isLoading(trackData(model, track.id));
-
-    return h.a(
+  (h: HtmlBuilder<Message>) =>
+  (track: TrackSummary, content: ReadonlyArray<Html>): Html =>
+    h.a(
       [
         h.Href(trackRouter({ trackId: track.id })),
-        h.AriaLabel(`Open the page of ${track.title} by ${track.artist.name}`),
-        h.AriaBusy(isOpening),
+        h.AriaLabel(`Open the player: ${track.title} by ${track.artist.name}`),
         h.Class(
           "flex h-12 min-w-0 flex-1 touch-manipulation items-center gap-2 rounded-lg px-1 hover:bg-tile focus-visible:outline-2 focus-visible:outline-accent active:bg-tile",
         ),
       ],
-      [
-        ...content,
-        isOpening
-          ? spinnerIcon("size-4 shrink-0 animate-spin text-muted motion-reduce:animate-pulse")
-          : h.empty,
-      ],
+      content,
     );
-  };
-
-/** What there is to say of opening the page of the island's track, and whether it is shown or only said. */
-const trackPageNotice = (
-  data: ReturnType<typeof trackData>,
-): Readonly<{ words: string; isShown: boolean }> =>
-  AsyncData.match(data, {
-    onIdle: () => ({ words: "", isShown: false }),
-    onLoading: () => ({ words: "Opening…", isShown: false }),
-    onRefreshing: () => ({ words: "", isShown: false }),
-    onStale: () => ({ words: "", isShown: false }),
-    onSuccess: () => ({ words: "", isShown: false }),
-    onFailure: (error) => ({
-      words: `This song's page could not be opened. ${reason(error)}`,
-      isShown: true,
-    }),
-  });
 
 /**
- * Where the island says what became of opening that page: that it is
- * opening, to assistive technology, which does not see the link's spinner;
- * that it failed, to everyone. A row says it too when one is on screen; from
- * any other page this is the only place. The place is always there, so that
- * what is said in it is heard as a change.
+ * The player's place among the pages when it is expanded: the page of the
+ * track it holds. The box is that page's, with its id, its name and its
+ * scrolling, so the focus and the title find it as they find any page; what
+ * is in it is the player's own view, lent the way back and what the catalog
+ * knows of the track. It is not keyed by the track: another track becoming
+ * the current one is the same sheet with other words.
  */
-const trackPageNoticeView =
-  (model: Model, h: HtmlBuilder<Message>) =>
-  (track: TrackSummary): Html => {
-    const notice = trackPageNotice(trackData(model, track.id));
-
-    return h.p(
-      [
-        h.Role("status"),
-        h.DataAttribute("track-page-notice", ""),
-        h.Class(notice.isShown ? "pb-2 text-sm text-muted" : "sr-only"),
-      ],
-      [notice.words],
-    );
-  };
+const expandedPlaceView = (model: Model, h: HtmlBuilder<Message>): Html =>
+  pagePlaceView(
+    "OnScreen",
+    [
+      h.div(
+        [
+          h.Id(PAGE_IDS.Track),
+          h.Role("region"),
+          h.AriaLabelledBy(pageTitleIdOf(PAGE_IDS.Track)),
+          h.Tabindex(0),
+          h.Class(
+            "relative h-full overflow-y-auto pt-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:pt-6",
+          ),
+        ],
+        [
+          h.submodel({
+            slotId: "player-expanded",
+            model: model.player,
+            view: Player.expandedView,
+            viewInputs: {
+              titleId: pageTitleIdOf(PAGE_IDS.Track),
+              toCollapseControl: () => Track.collapseControlView(wayBackOn(model.trail), h),
+              toDetail: (track) => Track.expandedDetailView(trackData(model, track.id), h),
+            },
+            toParentMessage: (message) => Message.GotPlayerMessage({ message }),
+          }),
+        ],
+      ),
+    ],
+    h,
+  );
 
 /**
  * The page said to be loading. A track opened from a row is not: its row
@@ -406,7 +411,9 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
   title: documentTitle(model),
   body: h.div(
     [
-      ...(Player.hasSession(model.player) ? [h.DataAttribute("player", "")] : []),
+      ...(Player.hasSession(model.player) && !isPlayerExpanded(model)
+        ? [h.DataAttribute("player", "")]
+        : []),
       h.Class(
         "group/shell flex h-dvh flex-col-reverse bg-canvas font-sans text-ink antialiased md:flex-row",
       ),
@@ -430,16 +437,17 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
         [h.Class("relative min-h-0 min-w-0 flex-1")],
         [
           h.main([h.Class("absolute inset-0")], pagesView(model, h)),
-          h.submodel({
-            slotId: Player.PLAYER_ID,
-            model: model.player,
-            view: Player.view,
-            viewInputs: {
-              toTrackPageLink: trackPageLinkView(model, h),
-              toTrackPageNotice: trackPageNoticeView(model, h),
-            },
-            toParentMessage: (message) => Message.GotPlayerMessage({ message }),
-          }),
+          // NOTE: expanded, the player is the page on screen and is drawn in
+          // its place among the pages: there is no island under itself.
+          isPlayerExpanded(model)
+            ? h.empty
+            : h.submodel({
+                slotId: Player.PLAYER_ID,
+                model: model.player,
+                view: Player.view,
+                viewInputs: { toTrackPageLink: trackPageLinkView(h) },
+                toParentMessage: (message) => Message.GotPlayerMessage({ message }),
+              }),
         ],
       ),
       h.p([h.Role("status"), h.Class("sr-only")], [pageStatus(model)]),

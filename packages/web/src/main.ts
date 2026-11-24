@@ -34,6 +34,7 @@ import {
   NavigateBack,
   NavigateInternal,
   ReplaceSearchTerm,
+  ReplaceTrackUrl,
   type Request,
   ScrollPageToTop,
   WaitForTypingPause,
@@ -46,6 +47,8 @@ import {
   type Entrance,
   maybeHeadedFor,
   isLoaded,
+  isPlayerExpanded,
+  isPlayersTrack,
   Model,
   type SearchAnswer,
   trackData,
@@ -264,10 +267,12 @@ const keepAnswerOnlyFor =
 /**
  * Whether a page can take the screen without a wait: the Model holds what it
  * shows, or the screen only holds placeholders, which is nothing worth
- * holding.
+ * holding. The page of the track the player holds is a third case: it is
+ * the player expanded, drawn from what the queue already holds, so it takes
+ * the screen at once and what the catalog adds fills in place.
  */
 const needsNoWait = (model: Model, route: AppRoute): boolean =>
-  isLoaded(model, route) || !canShow(model, model.route);
+  isLoaded(model, route) || !canShow(model, model.route) || isPlayersTrack(model, route);
 
 /** Stop waiting for every track: at most one was being asked for, and only it changes. */
 const standDownTracks = (tracks: Model["tracks"]): Model["tracks"] =>
@@ -484,7 +489,11 @@ const headFor =
 const follow =
   (route: AppRoute): Step =>
   (model) => {
-    if (route._tag === "Track" && isKnownMissing(trackData(model, route.trackId))) {
+    if (
+      route._tag === "Track" &&
+      isKnownMissing(trackData(model, route.trackId)) &&
+      !isPlayersTrack(model, route)
+    ) {
       return { model };
     }
     return isSameRoute(route, model.route) ? reload(model) : headFor(route)(model);
@@ -673,6 +682,58 @@ const listPlayedFrom = (
     Match.exhaustive,
   );
 
+/**
+ * The player was expanded and has gone on to another track: the screen and
+ * the URL follow it, and what the catalog knows of the new track is asked
+ * for. The history entry is rewritten, not added to, so Back still closes
+ * the player. Two things already under way are left alone: a page the
+ * listener chose and is waiting for keeps being waited for, and where the
+ * browser has already moved the URL to a page still loading, that URL is not
+ * this page's to rewrite.
+ */
+const followTrack =
+  (trackId: TrackId): Step =>
+  (model) => {
+    const route = AppRoute.Track({ trackId });
+    const shown = modifyFields(model, { route: () => route });
+    return Awaiting.match<UpdateReturn>(model.awaiting, {
+      Arrival: () => ({ model: shown }),
+      // NOTE: a page the listener is waiting for that turns out to be this
+      // very one has arrived by another way: its reply must not add an entry.
+      Intention: (awaited) =>
+        isSamePage(awaited.route, route)
+          ? Update.combine(abandon(shown), [rewriteUrlFor(route), load(route, forTheScreen)])
+          : rewriteUrlFor(route)(shown),
+      TypingPause: () => rewriteUrlFor(route)(shown),
+      Nothing: () => Update.combine(shown, [rewriteUrlFor(route), load(route, forTheScreen)]),
+      Reply: () =>
+        Update.combine(abandon(shown), [rewriteUrlFor(route), load(route, forTheScreen)]),
+    });
+  };
+
+const rewriteUrlFor =
+  (route: Extract<AppRoute, { _tag: "Track" }>): Step =>
+  (model) => ({
+    model: modifyFields(model, { maybeAskedRoute: () => Option.some(route) }),
+    commands: [ReplaceTrackUrl({ trackId: route.trackId })],
+  });
+
+/**
+ * After the player has had a Message: an expanded player that now holds
+ * another track takes the screen and the URL with it. It is told from the
+ * Model before and the Model after, not from the Message, so it holds for a
+ * press of Next and for a track that follows by itself alike.
+ */
+const keepUpWithPlayer =
+  (before: Model): Step =>
+  (model) =>
+    isPlayerExpanded(before) && !isPlayerExpanded(model)
+      ? Option.match(Player.maybeCurrentTrackId(model.player), {
+          onNone: () => ({ model }),
+          onSome: (trackId) => followTrack(trackId)(model),
+        })
+      : { model };
+
 export const update = (model: Model, message: Message) =>
   Message.match<UpdateReturn>(message, {
     ClickedLink: ({ request }) =>
@@ -707,17 +768,23 @@ export const update = (model: Model, message: Message) =>
 
     GotCatalogMessage: ({ message }) => receiveCatalogMessage(model, message),
 
-    // NOTE: playing is no navigation. Nothing here reads or writes the route,
-    // the URL or what is awaited, and no navigation Message reaches the player.
+    // NOTE: playing is no navigation, with one exception. No navigation
+    // Message reaches the player, and the player moves the route only while
+    // it is expanded, when its page is the page of the track it holds.
     ClickedPlayTrack: ({ trackId, from }) =>
-      foldPlayerChoice(model, { trackId, list: listPlayedFrom(model, from, trackId) }),
+      Update.combine(model, [
+        foldPlayerChoice({ trackId, list: listPlayedFrom(model, from, trackId) }),
+        keepUpWithPlayer(model),
+      ]),
 
-    GotPlayerMessage: ({ message }) => foldPlayer(model, message),
+    GotPlayerMessage: ({ message }) =>
+      Update.combine(model, [foldPlayer(message), keepUpWithPlayer(model)]),
 
     CompletedNavigateInternal: () => ({ model }),
     CompletedNavigateBack: () => ({ model }),
     CompletedLoadExternal: () => ({ model }),
     CompletedReplaceSearchTerm: () => ({ model }),
+    CompletedReplaceTrackUrl: () => ({ model }),
     CompletedFocusSearchField: () => ({ model }),
     CompletedFocusPage: () => ({ model }),
     CompletedFocusTrackRow: () => ({ model }),
@@ -767,11 +834,16 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
  * with a page already shown repaint plainly. Both are read from the two
  * Models, not from the Message: several Messages can share one frame, and
  * only the last is told. The runtime skips the transition under
- * `prefers-reduced-motion`.
+ * `prefers-reduced-motion`. Opening the player, closing it, and Back out of
+ * it are page changes like any other, so they are covered: the island and
+ * the expanded player share a name, and the browser grows one into the other.
  */
 export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   previousModel,
   model,
 }) =>
-  !isSamePage(previousModel.route, model.route) ||
-  Player.choseAnotherTrack(previousModel.player, model.player);
+  // NOTE: an expanded player that goes on to another track changes route,
+  // and is the same sheet: its words and its picture change where they stand.
+  !(isPlayerExpanded(previousModel) && isPlayerExpanded(model)) &&
+  (!isSamePage(previousModel.route, model.route) ||
+    Player.choseAnotherTrack(previousModel.player, model.player));
