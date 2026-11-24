@@ -17,6 +17,18 @@
   --color-accent-wash: #f6e3d6;
   --color-on-accent: #ffffff;
 
+  /* The island is a dark figure in both schemes, with colours of its own:
+     its words, the terracotta of its main control, its edge, and the copper
+     of the light that travels that edge while there is sound. */
+  --color-island: #12110f;
+  --color-on-island: #f6f2ea;
+  --color-island-muted: #b3ab9f;
+  --color-island-control: #d4532f;
+  --color-on-island-control: #fbf3e6;
+  --color-island-edge: #3a3631;
+  --color-island-light: #ff9d5c;
+  --color-island-light-head: #fff1e2;
+
   /* The bars of the "now playing" mark, each rising and falling out of step. */
   --animate-equalize: equalize 900ms ease-in-out infinite;
 
@@ -53,6 +65,9 @@
     --color-accent: #ff9a52;
     --color-accent-wash: #3a2616;
     --color-on-accent: #1d1b18;
+    /* Lighter than the page, or the figure would be lost against it. */
+    --color-island: #2a2723;
+    --color-island-edge: #4a453d;
   }
 }
 
@@ -263,6 +278,8 @@ body {
 ::view-transition-group(player) {
   z-index: 1;
   overflow: clip;
+  /* The island's cover and the swell round its control stand out of its box. */
+  overflow-clip-margin: 6px;
   border-radius: 1.5rem;
   animation-duration: 380ms;
   animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);

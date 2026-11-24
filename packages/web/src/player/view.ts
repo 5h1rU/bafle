@@ -15,6 +15,7 @@ import {
   spinnerIcon,
 } from "../view/icon.ts";
 import { coverTransitionName } from "../view/artwork.ts";
+import { ISLAND_TAIL_ATTRIBUTE, IslandShape } from "../view/islandShape.ts";
 import { Marquee } from "../view/marquee.ts";
 import { formatDuration } from "../view/time.ts";
 import { Message } from "./message.ts";
@@ -120,13 +121,33 @@ const mainGlyphView = (playback: Playback, h: HtmlBuilder<Message>): Html => {
   return Playback.guards.Failed(playback) ? retryGlyphView(h) : playGlyphView(h);
 };
 
+/** The main control's colours, and the ring it wears when the system stopped the sound. */
+type MainControlLook = Readonly<{ disc: string; stopped: string }>;
+
+const ON_PANEL: MainControlLook = {
+  disc: "bg-accent text-on-accent hover:opacity-90",
+  stopped: "ring-2 ring-accent ring-offset-2 ring-offset-panel",
+};
+
+// NOTE: on the island the ring has to fit in the rim of island around the
+// control, which is three pixels wide: one of gap and two of ring.
+const ON_ISLAND: MainControlLook = {
+  disc: "bg-island-control text-on-island-control hover:brightness-110",
+  stopped: "ring-2 ring-island-light ring-offset-1 ring-offset-island",
+};
+
 /**
  * The one control that starts and stops the sound. It shows what a press
  * will do, and around that, what is happening: nothing for sound, a turning
  * mark for a slow start, a breathing one for a stall, a ring when the system
  * stopped the sound and a press is what brings it back.
  */
-const mainControlView = (session: Session, sizeClass: string, h: HtmlBuilder<Message>): Html => {
+const mainControlView = (
+  session: Session,
+  sizeClass: string,
+  look: MainControlLook,
+  h: HtmlBuilder<Message>,
+): Html => {
   const { playback, current } = session;
   const action = mainAction(playback);
 
@@ -141,8 +162,8 @@ const mainControlView = (session: Session, sizeClass: string, h: HtmlBuilder<Mes
             h.AriaBusy(isShowingActivity(playback)),
             h.DataAttribute("playback", playback._tag),
             h.Class(
-              clsx(CONTROL_CLASS, sizeClass, "bg-accent text-on-accent hover:opacity-90", {
-                "ring-2 ring-accent ring-offset-2 ring-offset-panel": Playback.guards.Stopped(playback),
+              clsx(CONTROL_CLASS, sizeClass, look.disc, {
+                [look.stopped]: Playback.guards.Stopped(playback),
               }),
             ),
           ],
@@ -158,7 +179,7 @@ const stepControlView = (
   message: Message,
   isEnabled: boolean,
   icon: Html,
-  sizeClass: string,
+  lookClass: string,
   h: HtmlBuilder<Message>,
 ): Html =>
   Button.view(
@@ -171,8 +192,8 @@ const stepControlView = (
             ...attributes.button,
             h.AriaLabel(label),
             h.Class(
-              clsx(CONTROL_CLASS, sizeClass, "text-ink hover:bg-tile active:bg-tile", {
-                "cursor-default opacity-40 hover:bg-transparent": !isEnabled,
+              clsx(CONTROL_CLASS, lookClass, {
+                "cursor-default opacity-40 hover:bg-transparent active:bg-transparent": !isEnabled,
               }),
             ),
           ],
@@ -282,13 +303,19 @@ const trackWordsView = (session: Session, h: HtmlBuilder<Message>): ReadonlyArra
       ],
       [
         // A title too long for the island travels across it, as a marquee.
-        marquee([h.Class("block text-sm leading-tight font-semibold")], [track.title]),
+        marquee([h.Class("block text-[0.9375rem] leading-tight font-bold")], [track.title]),
         Option.match(maybeShortNotice(session.playback), {
           onNone: () =>
-            h.span([h.Class("block truncate text-xs leading-tight text-muted")], [track.artist.name]),
+            h.span(
+              [h.Class("mt-0.5 block truncate text-xs leading-tight tracking-wide text-island-muted")],
+              [track.artist.name],
+            ),
           onSome: (notice) =>
             h.span(
-              [h.DataAttribute("notice", ""), h.Class("block truncate text-xs leading-tight text-accent")],
+              [
+                h.DataAttribute("notice", ""),
+                h.Class("mt-0.5 block truncate text-xs leading-tight text-island-light"),
+              ],
               [notice],
             ),
         }),
@@ -492,6 +519,8 @@ const announcement = (session: Session): string => {
   });
 };
 
+const STEP_ON_PANEL_CLASS = "size-11 text-ink hover:bg-tile active:bg-tile";
+
 const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>): Html =>
   h.div(
     [h.Role("group"), h.AriaLabel("Playback"), h.Class(className)],
@@ -501,44 +530,60 @@ const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>)
         Message.ClickedPrevious(),
         true,
         previousIcon("size-5"),
-        "size-11",
+        STEP_ON_PANEL_CLASS,
         h,
       ),
-      mainControlView(session, "size-12", h),
+      mainControlView(session, "size-12", ON_PANEL, h),
       stepControlView(
         nextLabel(session),
         Message.ClickedNext(),
         hasLater(session),
         nextIcon("size-5"),
-        "size-11",
+        STEP_ON_PANEL_CLASS,
         h,
       ),
     ],
   );
 
 /**
- * The island's controls: the one that starts and stops the sound, and Next
- * while there is room for it. In the row with the navigation's circle and
- * Search the island is narrower, and holds the one control. Previous, and
- * the progress bar, are the expanded player's.
+ * The island's controls: the one that starts and stops the sound, in the
+ * swell of the island, and Next in the tail past it while there is room. In
+ * the row with the navigation's circle and Search the island is narrower:
+ * the tail is drawn in, and the swell is the island's end. Previous, and the
+ * progress bar, are the expanded player's.
  */
-// NOTE: Next gives up its room as the island narrows, fading as it goes, and
-// only then stops being there; it is there at once when the island widens.
+// NOTE: the tail gives up its room as the island narrows, Next fading as it
+// goes, and only then stops being there; it is there at once when the island
+// widens. Its width is the one thing the island's shape reads from the
+// document besides the island's own: see `islandShapeElement.ts`.
+const TAIL_CLASS =
+  "dock-island-next flex h-9 w-[2.125rem] shrink-0 items-center overflow-hidden minimized:invisible minimized:w-0 minimized:opacity-0";
+
 const NEXT_IN_ISLAND_CLASS =
-  "dock-island-next size-9 overflow-hidden minimized:invisible minimized:w-0 minimized:opacity-0";
+  "h-9 w-[2.125rem] pr-1 text-on-island hover:bg-on-island/10 active:bg-on-island/10";
+
+// NOTE: the swell is 54 pixels across and the body 44: the control's place
+// stands out of the row by five above and below, and the control sits in it
+// with three of island all round.
+const SWELL_CLASS = "-my-[5px] flex size-[3.375rem] shrink-0 items-center justify-center";
 
 const islandControlsView = (session: Session, h: HtmlBuilder<Message>): Html =>
   h.div(
-    [h.Role("group"), h.AriaLabel("Playback"), h.Class("flex shrink-0 items-center gap-0.5")],
+    [h.Role("group"), h.AriaLabel("Playback"), h.Class("flex shrink-0 items-center")],
     [
-      mainControlView(session, "size-9", h),
-      stepControlView(
-        nextLabel(session),
-        Message.ClickedNext(),
-        hasLater(session),
-        nextIcon("size-5"),
-        NEXT_IN_ISLAND_CLASS,
-        h,
+      h.div([h.Class(SWELL_CLASS)], [mainControlView(session, "size-12", ON_ISLAND, h)]),
+      h.div(
+        [h.DataAttribute(ISLAND_TAIL_ATTRIBUTE, ""), h.Class(TAIL_CLASS)],
+        [
+          stepControlView(
+            nextLabel(session),
+            Message.ClickedNext(),
+            hasLater(session),
+            nextIcon("size-5"),
+            NEXT_IN_ISLAND_CLASS,
+            h,
+          ),
+        ],
       ),
     ],
   );
@@ -558,32 +603,52 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
   h.p([h.Role("status"), h.Class("sr-only")], [announcement(session)]);
 
 /**
- * The island: one capsule over the foot of the page. On a narrow screen it
- * stands above the navigation while that is whole, and comes down into the
- * navigation's row, between its circle and Search, when the menu has drawn
- * back: the shell says which in `data-navigation`, and the island moves. It
- * keeps its height on the way; the circles at its two ends are that height.
+ * The island: one dark figure over the foot of the page, the same in a
+ * light scheme and a dark one. The cover is a disc at its left end and
+ * stands out a little above and below; the body curves up to meet it. The
+ * main control sits in a swell at the other end, and Next in a tail past
+ * it. The figure takes the cover's colours near the cover, and while there
+ * is sound a copper light travels its whole outline.
+ *
+ * On a narrow screen it stands above the navigation while that is whole, and
+ * comes down into the navigation's row, between its circle and Search, when
+ * the menu has drawn back: the shell says which in `data-navigation`, and
+ * the island moves. Its body keeps its height on the way.
  */
 // NOTE: how it moves is in styles.css, as `dock-island`. The places are
 // given as `left`, `right` and `bottom`, the very properties named there.
-const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Message>): Html =>
-  h.section(
+// The section has no background of its own: the figure is drawn by the
+// shape element behind its pieces, whose sizes here are the ones the
+// outline is worked out from in `islandOutline.ts`.
+const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Message>): Html => {
+  const shape = IslandShape.withMessage(h);
+  const { current, playback } = session;
+  const isSounding = Playback.guards.Sounding(playback);
+
+  return h.section(
     [
       h.Id(PLAYER_ID),
       h.AriaLabel("Player"),
       h.DataAttribute("layout", "island"),
-      h.DataAttribute("playback", session.playback._tag),
+      h.DataAttribute("playback", playback._tag),
       h.Class(
-        "dock-island absolute right-5 bottom-[4.875rem] left-5 z-30 flex h-11 items-center gap-2 rounded-full border border-line bg-panel/85 pr-1 pl-2 shadow-lg backdrop-blur-xl [view-transition-name:player] minimized:right-[4.875rem] minimized:bottom-5 minimized:left-[4.875rem] md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
+        "dock-island absolute right-5 bottom-[5.125rem] left-5 z-30 flex h-11 items-center text-on-island [view-transition-name:player] minimized:right-[4.875rem] minimized:bottom-5 minimized:left-[4.875rem] md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
       ),
     ],
     [
-      coverView(session.current, "size-8 rounded-md", "small", h),
-      viewInputs.toTrackPageLink(session.current, trackWordsView(session, h)),
+      // The light travels on the engine's word alone: a wish to sound lights nothing.
+      shape([
+        shape.Cover(current.album.cover?.small ?? ""),
+        shape.Sounding(isSounding),
+        h.DataAttribute("light", isSounding ? "travelling" : "still"),
+      ]),
+      coverView(current, "-my-[3px] size-[3.125rem] rounded-full", "small", h),
+      viewInputs.toTrackPageLink(current, trackWordsView(session, h)),
       islandControlsView(session, h),
       announcementView(session, h),
     ],
   );
+};
 
 /** Nothing until something is played: the island is no empty frame waiting for a track. */
 export const view = Submodel.defineView<Model, Message, ViewInputs>((model, viewInputs, h) =>

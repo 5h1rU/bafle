@@ -726,6 +726,39 @@ describe("the island", () => {
       inside(island, expectAll(all.selector("bafle-marquee")).toHaveCount(1)),
     ));
 
+  test("it stands on one figure, whose light travels only while the engine says there is sound", () =>
+    scene(
+      app,
+      given(after(onNew, Message.ClickedPlayTrack({ trackId: track.id, from: "New" }))),
+      // Acknowledged: a wish to sound, and no light yet.
+      inside(island, expectAll(all.selector("bafle-island-shape")).toHaveCount(1)),
+      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "still")),
+    ));
+
+  test("the light travels while it sounds, and stops when the listener pauses", () =>
+    scene(
+      app,
+      given(sounding),
+      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "travelling")),
+    ));
+
+  test("paused, the figure is there and its light is still", () =>
+    scene(
+      app,
+      given(paused),
+      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "still")),
+    ));
+
+  test("Next stands in the island's tail, the piece the figure measures", () =>
+    scene(
+      app,
+      given(sounding),
+      inside(
+        selector("[data-island-tail]"),
+        see(role("button", { name: "Next track: Technologic" })).toExist(),
+      ),
+    ));
+
   test("Next is not offered after the last track of the queue", () =>
     scene(
       app,
