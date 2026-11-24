@@ -12,6 +12,7 @@ import * as Schema from "effect/Schema";
 import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "./catalog.ts";
+import { Model as PlayerModel } from "./player/model.ts";
 import { AppRoute, searchedTerm } from "./route.ts";
 
 // MODEL
@@ -100,12 +101,21 @@ export const Model = Schema.Struct({
    * own way back relies on: see `retrace` in main.ts.
    */
   trail: Schema.Array(AppRoute),
+  /**
+   * The player: what was asked to be heard, and what the engine says is
+   * sounding. It belongs to no page, so no change of page touches it.
+   */
+  player: PlayerModel,
 });
 export type Model = typeof Model.Type;
 
-/** What the app holds about a track: nothing yet when it was never asked for. */
+/** What is held about a track among those asked for: nothing yet when it never was. */
+export const trackDataIn = (tracks: Model["tracks"], trackId: TrackId): TrackData =>
+  AsyncData.fromOptionOrIdle(HashMap.get(tracks, trackId));
+
+/** What the app holds about a track. */
 export const trackData = (model: Model, trackId: TrackId): TrackData =>
-  AsyncData.fromOptionOrIdle(HashMap.get(model.tracks, trackId));
+  trackDataIn(model.tracks, trackId);
 
 /** A page with data, or with a failure to state, has more to show than placeholders. */
 const hasSomethingToShow = <A>(data: AsyncData.AsyncData<A, LoadError>): boolean =>
@@ -165,4 +175,6 @@ export const addressOf = (model: Model): AppRoute =>
  * The page behind the current one in the browser's history, when the app
  * knows of one: where a page's own way back leads.
  */
-export const wayBack = (model: Model): Option.Option<AppRoute> => Array.last(model.trail);
+export const wayBackOn = (trail: Model["trail"]): Option.Option<AppRoute> => Array.last(trail);
+
+export const wayBack = (model: Model): Option.Option<AppRoute> => wayBackOn(model.trail);

@@ -46,7 +46,7 @@ export const track: TrackSummary = {
   artist: { id: artist.id, name: artist.name },
   album: { id: album.id, title: album.title, cover: album.cover },
   durationSeconds: 224,
-  previewUrl: null,
+  previewUrl: "https://audio.test/tr-1.mp3",
   explicit: false,
 };
 
@@ -56,8 +56,19 @@ export const explicitTrack: TrackSummary = {
   artist: { id: artist.id, name: artist.name },
   album: { id: AlbumId.make("al-2"), title: "Human After All", cover: null },
   durationSeconds: 245,
-  previewUrl: null,
+  previewUrl: "https://audio.test/tr-2.mp3",
   explicit: true,
+};
+
+/** A track the catalog lists and has nothing to play for. */
+export const silentTrack: TrackSummary = {
+  id: TrackId.make("tr-3"),
+  title: "Veridis Quo",
+  artist: { id: artist.id, name: artist.name },
+  album: { id: album.id, title: album.title, cover: album.cover },
+  durationSeconds: 345,
+  previewUrl: null,
+  explicit: false,
 };
 
 /** Credited on the track beside its main artist; the catalog has no picture of them. */

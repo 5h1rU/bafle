@@ -8,7 +8,7 @@ import * as Schema from "effect/Schema";
 import { AsyncData } from "foldkit";
 import { expect, test } from "vitest";
 import { init, update } from "../src/main.ts";
-import { Message } from "../src/message.ts";
+import { Message, type PlayOrigin } from "../src/message.ts";
 import {
   addressOf,
   Awaiting,
@@ -18,6 +18,8 @@ import {
   trackData,
   wayBack,
 } from "../src/model.ts";
+import type { EnginePhase } from "../src/player/audioEngine.ts";
+import * as Player from "../src/player/index.ts";
 import {
   AppRoute,
   isSamePage,
@@ -42,6 +44,14 @@ import {
 // and pauses arrive late, early, or after their request was abandoned. After every step the Model
 // must still be one the rules allow. The walks are seeded, so a failure names a sequence that
 // fails again.
+//
+// The listener also plays tracks while all of that goes on: taps rows and the track page's control,
+// pauses, skips, goes back, retries. Every order the app gives the engine is answered the way an
+// engine might, with reports that arrive in any order, late, after the listener has asked for
+// something else, or never. Three more things are held after every step: the app never says a
+// track is sounding unless the engine said so in answer to the latest order, the current track
+// changes only by the listener's choice or by the track before it ending, and playing and
+// navigating never reach into each other.
 //
 // The browser's history is walked along with the app: a page chosen by a link pushes an entry when
 // it takes the screen, typing rewrites one, Back, Forward and the history menu move through them.
@@ -72,6 +82,25 @@ const PATHS: Array.NonEmptyReadonlyArray<string> = [
 const LINKS: Array.NonEmptyReadonlyArray<string> = ["/", "/new", "/search", "/", "/new", "/nowhere"];
 const FIELD_TEXTS: Array.NonEmptyReadonlyArray<string> = ["", "a", "ab", "a ", " ", "b"];
 
+/** What a row can be tapped for: the tracks of the lists, and one no list has. */
+const PLAYABLE_IDS: Array.NonEmptyReadonlyArray<TrackId> = [
+  track.id,
+  explicitTrack.id,
+  track.id,
+  explicitTrack.id,
+  MISSING_TRACK_ID,
+];
+
+const PLAYER_CONTROLS: Array.NonEmptyReadonlyArray<Player.Message> = [
+  Player.Message.ClickedPause(),
+  Player.Message.ClickedPlay(),
+  Player.Message.ClickedNext(),
+  Player.Message.ClickedPrevious(),
+  Player.Message.ClickedTryAgain(),
+  Player.Message.ClickedPause(),
+  Player.Message.ClickedPlay(),
+];
+
 /** The browser's history for this tab since the app loaded: the paths, and which one is current. */
 type History = Readonly<{ entries: ReadonlyArray<string>; index: number }>;
 
@@ -82,6 +111,8 @@ type Walk = Readonly<{
   urlChanges: ReadonlyArray<Message>;
   /** Replies and pauses on their way. They arrive in any order, or never. */
   replies: ReadonlyArray<Message>;
+  /** The orders in answer to which the engine has said, and the app has heard, that it sounds. */
+  soundingSaidFor: ReadonlyArray<number>;
   seed: number;
   trace: ReadonlyArray<string>;
   violations: ReadonlyArray<string>;
@@ -100,6 +131,118 @@ const hasTrackInput = Schema.is(
 );
 const hasPauseId = Schema.is(Schema.Struct({ pauseId: Schema.String }));
 const hasUrl = Schema.is(Schema.Struct({ url: Schema.String }));
+const hasOrder = Schema.is(Schema.Struct({ order: Schema.Number }));
+const hasOrderAndTrack = Schema.is(Schema.Struct({ order: Schema.Number, trackId: TrackId }));
+
+/** A Message of the player's, as the app receives it. */
+const player = (message: Player.Message): Message => Message.GotPlayerMessage({ message });
+
+/** The engine's word, in answer to an order. */
+const said = (
+  order: number,
+  phase: EnginePhase,
+  positionSeconds: number,
+  isSeeking: boolean = false,
+): Message =>
+  player(
+    Player.Message.UpdatedEngineStatus({
+      report: {
+        order,
+        phase,
+        positionSeconds,
+        // The length is read with the first data: an engine waiting at the very start has none yet.
+        maybeDurationSeconds:
+          phase === "Waiting" && positionSeconds === 0 ? Option.none() : Option.some(30),
+        bufferedSeconds: positionSeconds,
+        isSeeking,
+      },
+    }),
+  );
+
+/** The orders the app gives the engine, and the rest of what only the player may ask for. */
+const PLAYER_COMMANDS: ReadonlyArray<string> = [
+  "StartPlayback",
+  "ResumePlayback",
+  "PausePlayback",
+  "SeekPlayback",
+  "WaitBeforeShowingActivity",
+  "RefreshSource",
+  "PublishNowPlaying",
+];
+
+const ENGINE_ORDERS: ReadonlyArray<string> = [
+  "StartPlayback",
+  "ResumePlayback",
+  "PausePlayback",
+  "SeekPlayback",
+];
+
+/**
+ * What an engine might say in answer to an order. It is all put in the same
+ * bag as the catalog's replies, to arrive in any order or never: an engine
+ * that says a track ended before it says it sounds is one the app must survive.
+ */
+const engineAnswers = (command: Issued, seed: number): ReadonlyArray<Message> => {
+  const { name, args } = command;
+  if (!hasOrder(args)) {
+    return [];
+  }
+  const { order } = args;
+  const roll = seed % 8;
+  if (name === "StartPlayback" || name === "ResumePlayback") {
+    const refusal =
+      name === "StartPlayback"
+        ? Player.Message.CompletedStartPlayback({ order, outcome: "Refused" })
+        : Player.Message.CompletedResumePlayback({ order, outcome: "Refused" });
+    if (roll === 0) {
+      return [player(refusal), said(order, "Paused", 0)];
+    }
+    if (roll === 1) {
+      return [said(order, "Waiting", 0), said(order, "Failed", 0)];
+    }
+    if (roll === 2) {
+      return [said(order, "Waiting", 0)];
+    }
+    return [
+      said(order, "Waiting", 0),
+      said(order, "Sounding", 0),
+      said(order, "Sounding", 5),
+      ...(roll === 3 ? [said(order, "Waiting", 5), said(order, "Paused", 6)] : []),
+      // A source that goes bad under way, after it has sounded.
+      ...(roll === 4 ? [said(order, "Failed", 5)] : []),
+      ...(roll > 5 ? [said(order, "Ended", 30)] : []),
+    ];
+  }
+  if (name === "PausePlayback") {
+    return [said(order, "Paused", 5)];
+  }
+  if (name === "SeekPlayback") {
+    return [
+      said(order, "Waiting", 9, true),
+      said(order, roll < 2 ? "Paused" : "Sounding", 9),
+    ];
+  }
+  if (name === "WaitBeforeShowingActivity") {
+    return [player(Player.Message.CompletedWaitBeforeShowingActivity({ order }))];
+  }
+  if (name === "RefreshSource" && hasOrderAndTrack(args)) {
+    return [
+      player(
+        roll % 2 === 0
+          ? Player.Message.FailedRefreshSource({ order })
+          : Player.Message.SucceededRefreshSource({
+              order,
+              track: {
+                ...fullTrack,
+                id: args.trackId,
+                previewUrl: `https://audio.test/fresh-${order}.mp3`,
+              },
+            }),
+      ),
+    ];
+  }
+  return [];
+};
 const hasMaybeTerm = Schema.is(Schema.Struct({ maybeTerm: Schema.Option(Schema.String) }));
 
 /**
@@ -401,6 +544,137 @@ const trespassing = (model: Model, commands: ReadonlyArray<Issued>): ReadonlyArr
   );
 };
 
+const playbackOf = (model: Model): Option.Option<Player.Playback> =>
+  Option.map(model.player.maybeSession, (session) => session.playback);
+
+/** The order a report answers, when the Message is the engine's word. */
+const reportOf = (message: Message) =>
+  message._tag === "GotPlayerMessage" && message.message._tag === "UpdatedEngineStatus"
+    ? Option.some(message.message.report)
+    : Option.none();
+
+const isPlaying = (message: Message): boolean =>
+  message._tag === "GotPlayerMessage" || message._tag === "ClickedPlayTrack";
+
+/** The Messages by which the listener puts another track in the player. */
+const isListenersChoice = (message: Message): boolean =>
+  message._tag === "ClickedPlayTrack" ||
+  (message._tag === "GotPlayerMessage" &&
+    ["ClickedNext", "ClickedPrevious", "PressedMediaKey"].includes(message.message._tag));
+
+/**
+ * What must be true of the player after any step, whatever came before:
+ * what it holds, and what it claims of the sound against what the engine has
+ * said in answer to the latest order.
+ */
+const mistaken = (model: Model, soundingSaidFor: ReadonlyArray<number>): ReadonlyArray<string> =>
+  Option.match(model.player.maybeSession, {
+    onNone: () => (model.player.lastOrder === 0 ? [] : ["orders were given with nothing to play"]),
+    onSome: (session) => {
+      const others = [...session.earlier, ...session.later];
+      const rules: ReadonlyArray<readonly [rule: string, holds: boolean]> = [
+        [
+          "the interface never shows sounding without the engine having said so since the last order",
+          !Player.Playback.guards.Sounding(session.playback) ||
+            soundingSaidFor.includes(model.player.lastOrder),
+        ],
+        [
+          "at most one track is current: the queue around it never holds it again",
+          Array.every(others, (queued) => queued.id !== session.current.id),
+        ],
+        [
+          "everything in the queue has something to play",
+          Array.every([session.current, ...others], Player.isPlayable),
+        ],
+        [
+          "the listener seeks only once the engine has read the length",
+          Player.Seek.guards.Settled(session.seek) || Option.isSome(session.maybeDurationSeconds),
+        ],
+      ];
+      return pipe(
+        rules,
+        Array.filter(([, holds]) => !holds),
+        Array.map(([rule]) => rule),
+      );
+    },
+  });
+
+/**
+ * What one step may do to the player, and what playing may do to the rest:
+ * read from the Model before it, the Message, the Model after it and the
+ * Commands it issued.
+ */
+const overstepping = (
+  before: Model,
+  message: Message,
+  after: Model,
+  commands: ReadonlyArray<Issued>,
+): ReadonlyArray<string> => {
+  const issued = Array.map(commands, ({ name }) => name);
+  const orders = Array.filter(commands, ({ name }) => ENGINE_ORDERS.includes(name));
+  const currentBefore = Option.getOrUndefined(Player.maybeCurrentTrackId(before.player));
+  const currentAfter = Option.getOrUndefined(Player.maybeCurrentTrackId(after.player));
+  const maybeReport = reportOf(message);
+  const isStale = Option.exists(maybeReport, (report) => report.order !== before.player.lastOrder);
+  const rules: ReadonlyArray<readonly [rule: string, holds: boolean]> = [
+    [
+      "navigation never issues an engine order, nor touches the player",
+      isPlaying(message) ||
+        (after.player === before.player &&
+          !Array.some(issued, (name) => PLAYER_COMMANDS.includes(name))),
+    ],
+    [
+      "playing never moves the screen, the URL, what is awaited or what the pages hold",
+      !isPlaying(message) ||
+        (after.route === before.route &&
+          after.awaiting === before.awaiting &&
+          after.trail === before.trail &&
+          after.tracks === before.tracks &&
+          after.newMusic === before.newMusic &&
+          after.search === before.search &&
+          Array.every(issued, (name) => PLAYER_COMMANDS.includes(name))),
+    ],
+    [
+      "what the engine says of an earlier order changes nothing",
+      !isStale || (after === before && Array.isReadonlyArrayEmpty(commands)),
+    ],
+    [
+      "every order given to the engine carries the latest number, and one step gives at most one",
+      orders.length <= 1 &&
+        Array.every(
+          orders,
+          ({ args }) =>
+            hasOrder(args) &&
+            args.order === after.player.lastOrder &&
+            args.order === before.player.lastOrder + 1,
+        ),
+    ],
+    [
+      "the order number moves only with an order to the engine",
+      after.player.lastOrder === before.player.lastOrder + orders.length,
+    ],
+    [
+      // Not a failure, not a refusal, not a stall: the queue never moves on by itself past a track that did not play.
+      "the current track changes only by the listener's choice, or by the one before it ending",
+      currentAfter === currentBefore ||
+        isListenersChoice(message) ||
+        Option.exists(
+          maybeReport,
+          (report) => report.phase === "Ended" && report.order === before.player.lastOrder,
+        ),
+    ],
+    [
+      "the player, once there, is never taken away",
+      Option.isNone(before.player.maybeSession) || Option.isSome(after.player.maybeSession),
+    ],
+  ];
+  return pipe(
+    rules,
+    Array.filter(([, holds]) => !holds),
+    Array.map(([rule]) => rule),
+  );
+};
+
 type Happening = Readonly<{
   label: string;
   message: Message;
@@ -433,6 +707,32 @@ const acting = (walk: Walk, seed: number): Happening => {
         ),
       ),
   );
+
+  const playRoll = nextSeed(choice) % 100;
+  const playChoice = nextSeed(nextSeed(choice));
+  if (playRoll < 12 && Option.isSome(walk.model.player.maybeSession)) {
+    const control = pick(PLAYER_CONTROLS, playChoice);
+    return {
+      label: `presses the player's ${control._tag}`,
+      message: player(control),
+      ...unchanged,
+    };
+  }
+  if (playRoll < 30 && listsTracks(walk.model)) {
+    const from: PlayOrigin = walk.model.route._tag === "Search" ? "Search" : "New";
+    return {
+      label: "taps a row to play",
+      message: Message.ClickedPlayTrack({ trackId: pick(PLAYABLE_IDS, playChoice), from }),
+      ...unchanged,
+    };
+  }
+  if (playRoll < 30 && walk.model.route._tag === "Track") {
+    return {
+      label: "presses Play on the track's page",
+      message: Message.ClickedPlayTrack({ trackId: walk.model.route.trackId, from: "Track" }),
+      ...unchanged,
+    };
+  }
 
   if (roll < 12 && walk.history.index > 0) {
     const history = { entries: walk.history.entries, index: walk.history.index - 1 };
@@ -553,9 +853,21 @@ const step = (walk: Walk): Walk => {
         }),
       }),
   );
-  const sent = Array.getSomes(
-    Array.map(commands, (command, index) => replyTo(command, fateOf(nextSeed(seed + index)))),
-  );
+  const sent = [
+    ...Array.getSomes(
+      Array.map(commands, (command, index) => replyTo(command, fateOf(nextSeed(seed + index)))),
+    ),
+    ...Array.flatMap(commands, (command, index) =>
+      engineAnswers(command, nextSeed(nextSeed(seed + index))),
+    ),
+  ];
+  const soundingSaidFor = Option.match(reportOf(happened.message), {
+    onNone: () => walk.soundingSaidFor,
+    onSome: (report) =>
+      report.phase === "Sounding"
+        ? Array.append(walk.soundingSaidFor, report.order)
+        : walk.soundingSaidFor,
+  });
   const isSettled = Array.isReadonlyArrayEmpty(moved.urlChanges);
 
   return {
@@ -563,6 +875,7 @@ const step = (walk: Walk): Walk => {
     history: moved.history,
     urlChanges: moved.urlChanges,
     replies: Array.appendAll(happened.replies, sent),
+    soundingSaidFor,
     seed: nextSeed(nextSeed(seed)),
     trace,
     violations: Array.appendAll(
@@ -570,6 +883,8 @@ const step = (walk: Walk): Walk => {
       Array.map(
         [
           ...broken(outcome.model),
+          ...mistaken(outcome.model, soundingSaidFor),
+          ...overstepping(walk.model, happened.message, outcome.model, commands),
           ...trespassing(outcome.model, commands),
           ...moved.violations,
           ...(isSettled ? astray(outcome.model, moved.history) : []),
@@ -591,6 +906,7 @@ const walkFrom = (seed: number): Walk => {
     replies: Array.getSomes(
       Array.map(opening.commands ?? [], (command) => replyTo(command, "Answered")),
     ),
+    soundingSaidFor: [],
     seed,
     trace: [`opens ${path}`],
     violations: [...broken(opening.model), ...astray(opening.model, history)],
@@ -602,7 +918,7 @@ const walkFrom = (seed: number): Walk => {
 
 const walks = Array.map(Array.makeBy(WALKS, (index) => index + 1), walkFrom);
 
-test("no sequence of navigating, opening tracks, going back, typing and late replies breaks the rules", () => {
+test("no sequence of navigating, opening tracks, playing, going back, typing and late replies breaks the rules", () => {
   const violations = Array.flatMap(walks, (walk) => Array.take(walk.violations, 1));
 
   expect(Array.take(violations, 3)).toEqual([]);
@@ -630,6 +946,31 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching("pushes /new")).toBeGreaterThan(WALKS / 10);
   // A request nobody answered: the Command's timeout, reported as a lost reply.
   expect(reaching('"failure":{"_tag":"Unknown"}')).toBeGreaterThan(WALKS / 10);
+  // Playing, and everything an engine can answer with, while all of the above goes on.
+  expect(reaching("taps a row to play")).toBeGreaterThan(WALKS / 10);
+  expect(reaching("presses Play on the track's page")).toBeGreaterThan(WALKS / 50);
+  expect(reaching("presses the player's ClickedPause")).toBeGreaterThan(WALKS / 50);
+  expect(reaching("presses the player's ClickedNext")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("presses the player's ClickedPrevious")).toBeGreaterThan(WALKS / 100);
+  expect(reaching('"phase":"Sounding"')).toBeGreaterThan(WALKS / 10);
+  expect(reaching('"phase":"Ended"')).toBeGreaterThan(WALKS / 50);
+  expect(reaching('"phase":"Failed"')).toBeGreaterThan(WALKS / 50);
+  expect(reaching('"outcome":"Refused"')).toBeGreaterThan(WALKS / 100);
+  expect(reaching("SucceededRefreshSource")).toBeGreaterThan(WALKS / 200);
+  expect(reaching("FailedRefreshSource")).toBeGreaterThan(WALKS / 200);
+
+  // And the walks end in every state the player has a look for.
+  const endings = (tag: Player.Playback["_tag"]): number =>
+    Array.filter(walks, (walk) =>
+      Option.exists(playbackOf(walk.model), (playback) => playback._tag === tag),
+    ).length;
+  expect(endings("Sounding")).toBeGreaterThan(0);
+  expect(endings("Acknowledged")).toBeGreaterThan(0);
+  expect(endings("Starting")).toBeGreaterThan(0);
+  expect(endings("Waiting")).toBeGreaterThan(0);
+  expect(endings("Paused")).toBeGreaterThan(0);
+  expect(endings("Stopped")).toBeGreaterThan(0);
+  expect(endings("Failed")).toBeGreaterThan(0);
 });
 
 test("taps that never receive a reply leave the history exactly as it was", () => {

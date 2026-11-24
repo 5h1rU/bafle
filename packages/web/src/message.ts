@@ -4,8 +4,13 @@ import { defineMessageUnion } from "foldkit/message";
 import { UrlRequest } from "foldkit/navigation";
 import { Url } from "foldkit/url";
 import { Catalog } from "./catalog.ts";
+import { Message as PlayerMessage } from "./player/message.ts";
 
 // MESSAGE
+
+/** The page a track was played from: its list there is what plays after it. */
+export const PlayOrigin = Schema.Literals(["New", "Search", "Track"]);
+export type PlayOrigin = typeof PlayOrigin.Type;
 
 export const Message = defineMessageUnion({
   ClickedLink: { request: UrlRequest },
@@ -14,6 +19,8 @@ export const Message = defineMessageUnion({
   ClickedTryAgain: {},
   ClickedTryAgainOnTrack: { trackId: TrackId },
   UpdatedSearchField: { value: Schema.String },
+  ClickedPlayTrack: { trackId: TrackId, from: PlayOrigin },
+  GotPlayerMessage: { message: PlayerMessage },
   GotCatalogMessage: { message: Catalog.Message },
   CompletedNavigateInternal: {},
   CompletedNavigateBack: {},

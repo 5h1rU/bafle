@@ -3,7 +3,7 @@ import type {
   FeaturedMusic,
   TrendingMusic,
 } from "@bafle/domain/Catalog/MusicCatalog.external";
-import type { Track, TrackId } from "@bafle/domain/Catalog/Track";
+import type { Track, TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
 import * as Array from "effect/Array";
 import { identity, pipe } from "effect/Function";
 import * as HashMap from "effect/HashMap";
@@ -38,7 +38,7 @@ import {
   ScrollPageToTop,
   WaitForTypingPause,
 } from "./command.ts";
-import { Message } from "./message.ts";
+import { Message, type PlayOrigin } from "./message.ts";
 import {
   addressOf,
   Awaiting,
@@ -50,6 +50,8 @@ import {
   type SearchAnswer,
   trackData,
 } from "./model.ts";
+import type { AudioEngine } from "./player/audioEngine.ts";
+import * as Player from "./player/index.ts";
 import {
   AppRoute,
   isSamePage,
@@ -60,8 +62,11 @@ import {
 } from "./route.ts";
 import { pageIdOf } from "./view/layout.ts";
 
-type UpdateReturn = Update.Return<Model, Message, CatalogClient>;
-type Step = Update.Step<Model, Message, CatalogClient>;
+/** What the app's Commands and Subscriptions need from the runtime. */
+export type Services = CatalogClient | AudioEngine;
+
+type UpdateReturn = Update.Return<Model, Message, Services>;
+type Step = Update.Step<Model, Message, Services>;
 
 // PAGE DATA
 
@@ -614,6 +619,60 @@ const rewriteSearchTerm =
     );
   };
 
+// PLAYER
+
+const readPlayer = (model: Model) => Option.some(model.player);
+
+/** A player left as it was leaves the Model as it was: nothing is drawn again for it. */
+const writePlayer = (model: Model, nextPlayer: Player.Model): Model =>
+  nextPlayer === model.player ? model : modifyFields(model, { player: () => nextPlayer });
+
+const toGotPlayerMessage = (message: Player.Message): Message =>
+  Message.GotPlayerMessage({ message });
+
+const foldPlayer = Update.foldChild({
+  update: Player.update,
+  read: readPlayer,
+  write: writePlayer,
+  toParentMessage: toGotPlayerMessage,
+});
+
+const foldPlayerChoice = Update.foldChild({
+  update: Player.choose,
+  read: readPlayer,
+  write: writePlayer,
+  toParentMessage: toGotPlayerMessage,
+});
+
+/**
+ * The list a track was played from, as the page it is on holds it: what
+ * plays after it. A track played from its own page is a list of one.
+ */
+const listPlayedFrom = (
+  model: Model,
+  from: PlayOrigin,
+  trackId: TrackId,
+): ReadonlyArray<TrackSummary> =>
+  Match.value(from).pipe(
+    Match.withReturnType<ReadonlyArray<TrackSummary>>(),
+    Match.when("New", () =>
+      Option.match(AsyncData.getData(model.newMusic), {
+        onNone: () => [],
+        onSome: (trending) => trending.tracks,
+      }),
+    ),
+    Match.when("Search", () =>
+      Option.match(AsyncData.getData(model.search), {
+        onNone: () => [],
+        onSome: (answer) => answer.results.tracks,
+      }),
+    ),
+    Match.when("Track", () =>
+      Array.fromOption(Option.flatten(AsyncData.getData(trackData(model, trackId)))),
+    ),
+    Match.exhaustive,
+  );
+
 export const update = (model: Model, message: Message) =>
   Message.match<UpdateReturn>(message, {
     ClickedLink: ({ request }) =>
@@ -648,6 +707,13 @@ export const update = (model: Model, message: Message) =>
 
     GotCatalogMessage: ({ message }) => receiveCatalogMessage(model, message),
 
+    // NOTE: playing is no navigation. Nothing here reads or writes the route,
+    // the URL or what is awaited, and no navigation Message reaches the player.
+    ClickedPlayTrack: ({ trackId, from }) =>
+      foldPlayerChoice(model, { trackId, list: listPlayedFrom(model, from, trackId) }),
+
+    GotPlayerMessage: ({ message }) => foldPlayer(model, message),
+
     CompletedNavigateInternal: () => ({ model }),
     CompletedNavigateBack: () => ({ model }),
     CompletedLoadExternal: () => ({ model }),
@@ -665,7 +731,7 @@ export const update = (model: Model, message: Message) =>
  * to abandon: the destination is shown at once, as placeholders in its
  * shape, and asks for its data without waiting for any typing to pause.
  */
-export const init: Runtime.RoutingApplicationInit<Model, Message, void, CatalogClient> = (
+export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services> = (
   url: Url,
 ) => {
   const route = urlToAppRoute(url);
@@ -682,6 +748,7 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, CatalogC
       maybeAskedRoute: Option.none(),
       // A fresh load knows nothing of the history behind it, so no page has a way back yet.
       trail: [],
+      player: Player.init(),
     }),
     [load(route, forTheScreen), focusSearchFieldOnSearch],
   );
@@ -690,12 +757,21 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, CatalogC
 // VIEW TRANSITION
 
 /**
- * Cross-fade when the page on screen changes, and only then: typing and
- * background refreshes repaint plainly, and so does the URL catching up with
- * a page already shown. The runtime skips the transition under
+ * A view transition when the page on screen changes, and when the listener
+ * puts another track in the player: the first cross-fades the pages, the
+ * second carries the track's cover from where it was pressed to the island.
+ * A track that followed the one before by itself asks for none: nobody
+ * tapped, and a transition would hold the page still for a moment under a
+ * listener who may be scrolling it.
+ * Typing, background refreshes, the engine's reports and the URL catching up
+ * with a page already shown repaint plainly. Both are read from the two
+ * Models, not from the Message: several Messages can share one frame, and
+ * only the last is told. The runtime skips the transition under
  * `prefers-reduced-motion`.
  */
 export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   previousModel,
   model,
-}) => !isSamePage(previousModel.route, model.route);
+}) =>
+  !isSamePage(previousModel.route, model.route) ||
+  Player.choseAnotherTrack(previousModel.player, model.player);

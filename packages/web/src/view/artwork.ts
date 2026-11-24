@@ -66,18 +66,31 @@ const trackIdent = (trackId: TrackId): string =>
   trackId.replace(/[^A-Za-z0-9-]/g, (character) => `_${character.charCodeAt(0).toString(16)}_`);
 
 /**
+ * The name a track's cover travels under in a view transition. One element
+ * carries it at a time: the player's while the track is the one it holds,
+ * else the one on the page on screen.
+ */
+export const coverTransitionName = (trackId: TrackId): string =>
+  `track-cover-${trackIdent(trackId)}`;
+
+/** Where a track's cover is, for a page that draws it. */
+export type CoverPlace = Readonly<{ presence: Presence; isInPlayer: boolean }>;
+
+/**
  * What makes a track's cover one element to a view transition, so the
- * browser moves it between its row and its page instead of fading one out
- * and the other in. The name must be on one element at a time: the page on
- * screen gives it, and pages kept behind it do not.
+ * browser moves it between its row and its page, or its row and the player,
+ * instead of fading one out and the other in. The name must be on one element
+ * at a time: the page on screen gives it, pages kept behind it do not, and
+ * neither does any page for the track the player holds, whose cover has
+ * travelled there.
  */
 export const coverTransitionStyle = (
   trackId: TrackId,
-  presence: Presence,
+  { presence, isInPlayer }: CoverPlace,
 ): Readonly<Record<string, string>> =>
-  presence === "OnScreen"
+  presence === "OnScreen" && !isInPlayer
     ? {
-        viewTransitionName: `track-cover-${trackIdent(trackId)}`,
+        viewTransitionName: coverTransitionName(trackId),
         viewTransitionClass: "track-cover",
       }
     : {};
@@ -91,12 +104,13 @@ export const coverTransitionStyle = (
 export const coverView = (
   trackId: TrackId,
   maybeArtwork: Option.Option<Artwork>,
+  isInPlayer: boolean,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
     [
       h.Class("relative aspect-square overflow-hidden rounded-2xl bg-tile"),
-      h.Style(coverTransitionStyle(trackId, "OnScreen")),
+      h.Style(coverTransitionStyle(trackId, { presence: "OnScreen", isInPlayer })),
     ],
     Option.match(maybeArtwork, {
       onNone: () => [missingPictureView(h)],

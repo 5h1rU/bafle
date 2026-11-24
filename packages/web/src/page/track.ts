@@ -4,15 +4,17 @@ import { Button } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
+import * as Match from "effect/Match";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import { AsyncData } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message.ts";
 import type { TrackData } from "../model.ts";
+import { isPlayable, type TrackStatus } from "../player/model.ts";
 import { type AppRoute, homeRouter } from "../route.ts";
 import { artworkView, coverView } from "../view/artwork.ts";
-import { backIcon } from "../view/icon.ts";
+import { backIcon, pauseIcon, playIcon, retryIcon, spinnerIcon } from "../view/icon.ts";
 import {
   PAGE_IDS,
   PAGE_TITLE_CLASS,
@@ -22,7 +24,8 @@ import {
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
 import { BLOCK_CLASS } from "../view/placeholder.ts";
-import { explicitMarkerView, formatDuration } from "../view/trackList.ts";
+import { formatDuration } from "../view/time.ts";
+import { explicitMarkerView } from "../view/trackList.ts";
 
 // VIEW
 
@@ -154,13 +157,77 @@ const factView = (fact: Fact, h: HtmlBuilder<Message>): Html =>
     ],
   );
 
-const foundView = (track: Track, h: HtmlBuilder<Message>): Html =>
+/** What the page's control shows: what a press will do, and a spinner while a start is slow. */
+const playControlFace = (status: TrackStatus): Readonly<{ icon: Html; words: string }> =>
+  Match.value(status).pipe(
+    Match.withReturnType<Readonly<{ icon: Html; words: string }>>(),
+    Match.whenOr("Sounding", "Waiting", () => ({ icon: pauseIcon("size-5"), words: "Pause" })),
+    Match.when("Starting", () => ({
+      icon: spinnerIcon("size-5 animate-spin motion-reduce:animate-pulse"),
+      words: "Starting…",
+    })),
+    Match.when("Failed", () => ({ icon: retryIcon("size-5"), words: "Try again" })),
+    Match.whenOr("Elsewhere", "Chosen", "Paused", "Stopped", () => ({
+      icon: playIcon("size-5"),
+      words: "Play",
+    })),
+    Match.exhaustive,
+  );
+
+/**
+ * The page's own control for its track. While the player holds the track it
+ * is that track's control: it shows what the player is doing and a press
+ * stops the sound or brings it back. A track with nothing to play has no
+ * control, and the page says why.
+ */
+const playControlView = (track: Track, status: TrackStatus, h: HtmlBuilder<Message>): Html => {
+  if (!isPlayable(track)) {
+    return h.p([h.Class("mt-6 text-sm text-muted")], ["This song has no audio to play."]);
+  }
+  const face = playControlFace(status);
+
+  return h.div(
+    [h.Class("mt-6 flex flex-wrap items-center gap-x-4 gap-y-2")],
+    [
+      Button.view(
+        {
+          onClick: Message.ClickedPlayTrack({ trackId: track.id, from: "Track" }),
+          toView: (attributes) =>
+            h.button(
+              [
+                ...attributes.button,
+                h.AriaLabel(`${face.words}: ${track.title}`),
+                h.AriaBusy(status === "Starting"),
+                h.Class(
+                  "inline-flex h-11 min-w-28 cursor-pointer touch-manipulation items-center justify-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                ),
+              ],
+              [face.icon, face.words],
+            ),
+        },
+        h,
+      ),
+      status === "Failed"
+        ? h.p([h.Class("text-sm text-muted")], ["This song could not be played."])
+        : h.empty,
+    ],
+  );
+};
+
+const foundView = (track: Track, status: TrackStatus, h: HtmlBuilder<Message>): Html =>
   h.div(
     [h.Class(LAYOUT_CLASS)],
     [
       h.div(
         [h.Class(COVER_COLUMN_CLASS)],
-        [coverView(track.id, Option.fromNullishOr(track.album.cover), h)],
+        [
+          coverView(
+            track.id,
+            Option.fromNullishOr(track.album.cover),
+            status !== "Elsewhere",
+            h,
+          ),
+        ],
       ),
       h.div(
         [h.Class("min-w-0")],
@@ -170,6 +237,7 @@ const foundView = (track: Track, h: HtmlBuilder<Message>): Html =>
             [track.title, track.explicit ? explicitMarkerView(h) : h.empty],
           ),
           h.p([h.Class("mt-1 text-lg text-muted")], [track.album.title]),
+          playControlView(track, status, h),
           h.ul(
             [h.Role("list"), h.AriaLabel("Artists"), h.Class("mt-6 flex flex-col gap-3")],
             Array.map(track.artists, (artist) => artistView(artist, h)),
@@ -219,6 +287,7 @@ export const view = (
   trackId: TrackId,
   track: TrackData,
   maybeWayBack: Option.Option<AppRoute>,
+  status: TrackStatus,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.keyed("div")(trackId, pageAttributes(PAGE_ID, "OnScreen", h), [
@@ -233,7 +302,7 @@ export const view = (
           () => placeholderView(h),
           Option.match({
             onNone: () => notAvailableView(h),
-            onSome: (found) => foundView(found, h),
+            onSome: (found) => foundView(found, status, h),
           }),
           h,
         ),

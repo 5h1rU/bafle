@@ -71,7 +71,13 @@ const tryAgain = role("button", { name: "Try again" });
 const onScreen = selector('[role="region"]:not([inert])');
 const pages = all.selector('[role="region"]');
 const keptPages = all.selector('[role="region"][inert]');
+/** The way from a row to its track's page: the link at the row's end. */
 const trackRow = (title: string | RegExp) => role("link", { name: title });
+/** A row's own control: pressing it plays the track, or stops it once it sounds. */
+const playRow = (title: string) => role("button", { name: new RegExp(`^(Play|Pause): ${title}`) });
+/** A row whole: its control, its link and what they hold. */
+const rowOf = (trackId: string) => selector(`[data-track="${trackId}"]`);
+const tryAgainButtons = all.role("button", { name: /^Try again/ });
 const tryAgainOn = (title: string) => role("button", { name: `Try again: ${title}` });
 const topSongs = role("list", { name: "Top songs" });
 const backControl = role("button", { name: "Back" });
@@ -582,7 +588,7 @@ describe("the search field", () => {
 });
 
 describe("track rows", () => {
-  test("every row is a link to its track, in New and in Search", () =>
+  test("every row plays its track and ends with a link to its page, in New and in Search", () =>
     scene(
       app,
       given(onNew),
@@ -591,11 +597,15 @@ describe("track rows", () => {
         expectAll(all.role("link")).toHaveCount(2),
         see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("href", trackPath(track.id)),
         see(trackRow(/Technologic/)).toHaveAttr("href", trackPath(explicitTrack.id)),
-        // The whole row is the link: its artist and its length are inside it.
-        see(trackRow(/Harder, Better, Faster, Stronger/)).toContainText("Daft Punk"),
-        see(trackRow(/Harder, Better, Faster, Stronger/)).toContainText("3:44"),
-        // Pressed, it answers the finger at once, before anything loads.
-        see(trackRow(/Technologic/)).toHaveClass("active:bg-tile"),
+        // The row is the control that plays: its artist and its length are inside it.
+        see(playRow("Harder, Better, Faster, Stronger")).toContainText("Daft Punk"),
+        see(playRow("Harder, Better, Faster, Stronger")).toContainText("3:44"),
+        // Its name carries what a sighted listener reads off the row.
+        see(playRow("Technologic")).toHaveAccessibleName(
+          "Play: Technologic, explicit, by Daft Punk, 4:05",
+        ),
+        // The way to the page is a control of its own, named for what it leads to.
+        see(trackRow(/Technologic/)).toHaveAccessibleName("Details: Technologic"),
       ),
     ));
 
@@ -624,16 +634,16 @@ describe("A1: the row shows that its track is loading", () => {
         see(sectionTitle("Top albums")).toExist(),
         inside(
           trackRow(/Harder, Better, Faster, Stronger/),
-          // The spinner stands where the length was.
+          // The spinner stands where the link's arrow was: the mark is on the control that was pressed.
           expectAll(all.selector("svg.animate-spin")).toHaveCount(1),
-          see(text("3:44")).toBeAbsent(),
         ),
+        inside(rowOf(track.id), see(text("3:44")).toExist()),
         see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-busy", "true"),
         // Still a link to its track: a new tab, or a long press, opens it as ever.
         see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("href", trackPath(track.id)),
         // Only that row.
         see(trackRow(/Technologic/)).toHaveAttr("aria-busy", "false"),
-        inside(trackRow(/Technologic/), see(text("4:05")).toExist()),
+        inside(rowOf(explicitTrack.id), see(text("4:05")).toExist()),
         expectAll(all.selector("svg.animate-spin")).toHaveCount(1),
         // Nothing is said of a failure that has not happened.
         see(role("alert")).toBeAbsent(),
@@ -709,10 +719,10 @@ describe("A1: the row shows that its track is loading", () => {
       inside(
         topSongs,
         see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-busy", "false"),
-        inside(trackRow(/Harder, Better, Faster, Stronger/), see(text("3:44")).toExist()),
+        inside(rowOf(track.id), see(text("3:44")).toExist()),
         see(trackRow(/Technologic/)).toHaveAttr("aria-busy", "true"),
         expectAll(all.selector("svg.animate-spin")).toHaveCount(1),
-        expectAll(all.role("button")).toHaveCount(0),
+        expectAll(tryAgainButtons).toHaveCount(0),
         see(text(/could not be opened/)).toBeAbsent(),
       ),
     ));
@@ -736,15 +746,15 @@ describe("A4: a row says that its track failed to open", () => {
           // The row is itself again: a link, its length back, nothing spinning.
           see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-busy", "false"),
           see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("href", trackPath(track.id)),
-          inside(trackRow(/Harder, Better, Faster, Stronger/), see(text("3:44")).toExist()),
+          inside(rowOf(track.id), see(text("3:44")).toExist()),
           expectAll(all.selector("svg.animate-spin")).toHaveCount(0),
           see(text(failure)).toExist(),
           // One way to try again, for the row that failed, and it says which.
-          expectAll(all.role("button")).toHaveCount(1),
+          expectAll(tryAgainButtons).toHaveCount(1),
           see(tryAgainOn("Harder, Better, Faster, Stronger")).toHaveText("Try again"),
           // The other row is as it was.
           see(trackRow(/Technologic/)).toHaveAttr("aria-busy", "false"),
-          inside(trackRow(/Technologic/), see(text("4:05")).toExist()),
+          inside(rowOf(explicitTrack.id), see(text("4:05")).toExist()),
         ),
       ),
       see(text("Showing New")).toExist(),
@@ -809,7 +819,7 @@ describe("A4: a row says that its track failed to open", () => {
         see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-busy", "true"),
         // Loading, and no longer failed.
         see(text(failure)).toBeAbsent(),
-        expectAll(all.role("button")).toHaveCount(0),
+        expectAll(tryAgainButtons).toHaveCount(0),
       ),
       Command.resolve(Catalog.TrackDetail, reply.track(nextId(failedToOpen))),
       Command.resolveAll(
@@ -853,7 +863,7 @@ describe("A5: a row says that the catalog does not have its track", () => {
           expectAll(all.selector(`a[href="${trackPath(track.id)}"]`)).toHaveCount(0),
           expectAll(all.selector('[tabindex="0"]')).toHaveCount(0),
           // For good: no Try again.
-          expectAll(all.role("button")).toHaveCount(0),
+          expectAll(tryAgainButtons).toHaveCount(0),
           see(text("This song is not available.")).toHaveAttr("role", "status"),
           expectAll(all.selector("svg.animate-spin")).toHaveCount(0),
           see(trackRow(/Technologic/)).toHaveAttr("href", trackPath(explicitTrack.id)),
@@ -873,7 +883,7 @@ describe("A5: a row says that the catalog does not have its track", () => {
       // The link the listener pressed is gone: what stands in its place takes the focus it held.
       Command.expectExact(FocusTrackRow),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
-      inside(topSongs, expectAll(all.selector("div[data-track-row]")).toHaveCount(1)),
+      inside(topSongs, expectAll(all.selector("span[data-track-row]")).toHaveCount(1)),
     ));
 });
 
@@ -943,13 +953,18 @@ describe("the track page", () => {
     );
   });
 
-  test("offers nothing to play yet", () =>
+  test("has a control to play its track, and no audio element of its own", () =>
     scene(
       app,
       given(onTrack),
+      // The sound belongs to the app, not to a page: no page holds the thing that makes it.
       expectAll(all.selector("audio")).toHaveCount(0),
-      // The way back is the page's only control.
-      inside(onScreen, expectAll(all.role("button")).toHaveCount(1), see(backControl).toExist()),
+      inside(
+        onScreen,
+        expectAll(all.role("button")).toHaveCount(2),
+        see(backControl).toExist(),
+        see(role("button", { name: "Play: Harder, Better, Faster, Stronger" })).toHaveText("Play"),
+      ),
     ));
 });
 
@@ -1219,12 +1234,12 @@ describe("rule g: the cover is one element on its way between the row and the pa
       app,
       given(onNew),
       inside(
-        trackRow(/Harder, Better, Faster, Stronger/),
-        see(selector(".w-11")).toHaveStyle("view-transition-name", coverName),
+        rowOf(track.id),
+        see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName),
       ),
       inside(
-        trackRow(/Technologic/),
-        see(selector(".w-11")).toHaveStyle("view-transition-name", `track-cover-${explicitTrack.id}`),
+        rowOf(explicitTrack.id),
+        see(selector("[data-cover]")).toHaveStyle("view-transition-name", `track-cover-${explicitTrack.id}`),
       ),
     ));
 
@@ -1238,11 +1253,11 @@ describe("rule g: the cover is one element on its way between the row and the pa
       ),
       inside(
         selector("#new-page"),
+        inside(rowOf(track.id), see(selector("[data-cover]")).not.toHaveStyle("view-transition-name")),
         inside(
-          trackRow(/Harder, Better, Faster, Stronger/),
-          see(selector(".w-11")).not.toHaveStyle("view-transition-name"),
+          rowOf(explicitTrack.id),
+          see(selector("[data-cover]")).not.toHaveStyle("view-transition-name"),
         ),
-        inside(trackRow(/Technologic/), see(selector(".w-11")).not.toHaveStyle("view-transition-name")),
       ),
     ));
 

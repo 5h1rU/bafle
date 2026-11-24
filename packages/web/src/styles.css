@@ -16,6 +16,19 @@
   --color-accent: #b0410e;
   --color-accent-wash: #f6e3d6;
   --color-on-accent: #ffffff;
+
+  /* The bars of the "now playing" mark, each rising and falling out of step. */
+  --animate-equalize: equalize 900ms ease-in-out infinite;
+
+  @keyframes equalize {
+    0%,
+    100% {
+      transform: scaleY(0.3);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -69,4 +82,48 @@ body {
 
 ::view-transition-new(navigation) {
   animation: none;
+}
+
+/* The flight: a track's cover on its way to the player. The name is on the
+   row, or on the track's page, before the tap and on the island after it, so
+   the browser moves the one picture between the two. It is the thing to
+   watch, so it takes longest, and it travels above the navigation and the
+   island it lands on. A cover going the other way, back to the row of a
+   track the player gave up, travels under them like any other cover. */
+::view-transition-group(.island-cover) {
+  z-index: 2;
+  animation-duration: 350ms;
+  animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);
+}
+
+/* The island is the same on both sides of every transition but its first, so
+   it neither fades nor moves: page swaps happen behind it. */
+::view-transition-group(player) {
+  z-index: 1;
+}
+
+::view-transition-old(player) {
+  display: none;
+}
+
+::view-transition-new(player) {
+  animation: none;
+}
+
+/* Its first appearance, and only that: it rises into place once. */
+::view-transition-new(player):only-child {
+  animation: 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both player-rise;
+}
+
+@keyframes player-rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(100% + 1rem));
+  }
+}
+
+/* A transition is drawn over the page, and would swallow a press made while
+   it runs. The presses go through to the page underneath instead. */
+::view-transition {
+  pointer-events: none;
 }

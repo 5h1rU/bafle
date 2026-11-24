@@ -5,7 +5,7 @@ import { pipe } from "effect/Function";
 import * as Schema from "effect/Schema";
 import { Command, Dom } from "foldkit";
 import { back, load, pushUrl, replaceUrl } from "foldkit/navigation";
-import { Catalog, type CatalogClient } from "./catalog.ts";
+import { Catalog, type CatalogClient, REPLY_TIMEOUT } from "./catalog.ts";
 import { Message } from "./message.ts";
 import { searchRouter } from "./route.ts";
 import { pageTitleIdOf, TRACK_ROW_ATTRIBUTE } from "./view/layout.ts";
@@ -16,9 +16,6 @@ export const SEARCH_FIELD_ID = "search-field";
 
 /** How long the listener must stop typing before Search asks the catalog. */
 export const TYPING_PAUSE = Duration.millis(300);
-
-/** How long a query may go unanswered before it counts as failed. */
-export const REPLY_TIMEOUT = Duration.seconds(10);
 
 /**
  * The URL follows the screen: this runs when a page chosen by a link takes

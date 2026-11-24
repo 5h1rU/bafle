@@ -47,3 +47,35 @@ export const noteIcon = (className: string): Html =>
 /** Three quarters of a ring. Spinning is the caller's class to add. */
 export const spinnerIcon = (className: string): Html =>
   outlineIcon(className, ["M12 3.5a8.5 8.5 0 1 0 8.5 8.5"]);
+
+/** A 24-unit filled icon, for the player's controls: shapes that read at a glance. */
+const solidIcon = (className: string, paths: ReadonlyArray<string>): Html =>
+  ih.svg(
+    [
+      ih.AriaHidden(true),
+      ih.Class(className),
+      ih.Xmlns("http://www.w3.org/2000/svg"),
+      ih.Fill("currentColor"),
+      ih.ViewBox("0 0 24 24"),
+    ],
+    Array.map(paths, (path) => ih.path([ih.D(path)])),
+  );
+
+export const playIcon = (className: string): Html => solidIcon(className, ["M8 5v14l11.5-7L8 5Z"]);
+
+export const pauseIcon = (className: string): Html =>
+  solidIcon(className, ["M7 5h3.5v14H7V5Z", "M13.5 5H17v14h-3.5V5Z"]);
+
+export const nextIcon = (className: string): Html =>
+  solidIcon(className, ["M6 6v12l9-6-9-6Z", "M16.5 6h2v12h-2V6Z"]);
+
+export const previousIcon = (className: string): Html =>
+  solidIcon(className, ["M18 6v12l-9-6 9-6Z", "M5.5 6h2v12h-2V6Z"]);
+
+/** An arrow turning back on itself: do it again. */
+export const retryIcon = (className: string): Html =>
+  outlineIcon(className, ["M19 12a7 7 0 1 1-2.05-4.95", "M19 4.5V8h-3.5"]);
+
+/** Points onward, to a page with more. */
+export const forwardIcon = (className: string): Html =>
+  outlineIcon(className, ["M9.5 5.5 16 12l-6.5 6.5"]);

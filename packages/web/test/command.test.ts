@@ -7,14 +7,13 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as TestClock from "effect/testing/TestClock";
-import { Catalog } from "../src/catalog.ts";
+import { Catalog, REPLY_TIMEOUT } from "../src/catalog.ts";
 import {
   askHomeFeed,
   askTrackDetail,
   FocusTrackRow,
   NavigateBack,
   NavigateInternal,
-  REPLY_TIMEOUT,
   ReplaceSearchTerm,
   TYPING_PAUSE,
   WaitForTypingPause,

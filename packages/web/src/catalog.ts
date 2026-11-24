@@ -2,6 +2,7 @@ import type * as Domain from "@alchemy.run/domain";
 import * as DomainFoldkit from "@alchemy.run/domain/Foldkit";
 import type { Track } from "@bafle/domain/Catalog/Track";
 import { ListenerApi } from "@bafle/domain/ListenerApi.api";
+import * as Duration from "effect/Duration";
 import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -12,6 +13,9 @@ export const Catalog = DomainFoldkit.make(ListenerApi);
 
 /** What a Command that asks the catalog needs from the runtime: the Api client. */
 export type CatalogClient = Domain.Api.ClientKey<"ListenerApi">;
+
+/** How long a query may go unanswered before it counts as failed. */
+export const REPLY_TIMEOUT = Duration.seconds(10);
 
 /**
  * Why a page has nothing new to show. `CatalogUnavailable` is the Api's own

@@ -44,7 +44,9 @@ export type Presence = "OnScreen" | "Kept";
  * What every page's root element carries. The root is the scrolling box, so
  * it takes keyboard focus and is named by the page's title: arrow keys and
  * Space scroll it. A kept page is `inert`: out of the accessibility tree and
- * the tab order, and unable to hold focus.
+ * the tab order, and unable to hold focus. Once the player is there, every
+ * page ends with room for its island, for scrolling and for the focus alike:
+ * the last row is never under it.
  */
 export const pageAttributes = (
   pageId: string,
@@ -57,7 +59,7 @@ export const pageAttributes = (
   h.Tabindex(0),
   h.Inert(presence === "Kept"),
   h.Class(
-    "h-full overflow-y-auto px-5 pt-8 pb-12 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:px-10 md:pt-10",
+    "relative h-full overflow-y-auto px-5 pt-8 pb-12 group-data-player/shell:scroll-pb-40 group-data-player/shell:pb-40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:px-10 md:pt-10",
   ),
 ];
 
