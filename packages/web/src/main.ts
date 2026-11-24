@@ -27,6 +27,7 @@ import {
   askHomeFeed,
   askNewMusic,
   askTrackDetail,
+  FocusNavigation,
   FocusPage,
   FocusSearchField,
   FocusTrackRow,
@@ -50,6 +51,7 @@ import {
   isPlayerExpanded,
   isPlayersTrack,
   Model,
+  type Navigation,
   type SearchAnswer,
   trackData,
 } from "./model.ts";
@@ -297,6 +299,27 @@ const abandon = (model: Model): Model =>
     tracks: standDownTracks,
   });
 
+/** The sections: the pages the navigation leads to. */
+const isSection = (route: AppRoute): boolean =>
+  route._tag === "Home" || route._tag === "New" || route._tag === "Search";
+
+const withNavigation =
+  (navigation: Navigation) =>
+  (model: Model): Model =>
+    model.navigation === navigation ? model : modifyFields(model, { navigation: () => navigation });
+
+/**
+ * How the navigation stands as a page takes the screen. A section the
+ * listener chose shows it whole: they have just used it, and the page starts
+ * at its top. A page they went back to finds it as they left it, and a
+ * track's page leaves it alone, so that closing the track puts everything
+ * back where it was.
+ */
+const navigationOnEntering =
+  (route: AppRoute, entrance: Entrance) =>
+  (model: Model): Model =>
+    entrance === "Arriving" && isSection(route) ? withNavigation("Open")(model) : model;
+
 /** A page takes the screen. The focus follows, unless the screen only moved within the page. */
 const showPage =
   (route: AppRoute, entrance: Entrance): Step =>
@@ -304,7 +327,10 @@ const showPage =
     const shown = modifyFields(model, { route: () => route });
     return isSamePage(model.route, route)
       ? { model: shown }
-      : { model: shown, commands: focusOn(model.route, route, entrance) };
+      : {
+          model: navigationOnEntering(route, entrance)(shown),
+          commands: focusOn(model.route, route, entrance),
+        };
   };
 
 /** Ask the browser for a new history entry, and note it: its `ChangedUrl` is the app's own. */
@@ -768,6 +794,22 @@ export const update = (model: Model, message: Message) =>
 
     GotCatalogMessage: ({ message }) => receiveCatalogMessage(model, message),
 
+    // NOTE: the expanded player has no navigation under it on a narrow
+    // screen, so scrolling it draws nothing back: the page behind it finds
+    // its navigation as it was left.
+    ScrolledDown: () => ({
+      model: isPlayerExpanded(model) ? model : withNavigation("Minimized")(model),
+    }),
+
+    ScrolledToTop: () => ({
+      model: isPlayerExpanded(model) ? model : withNavigation("Open")(model),
+    }),
+
+    ClickedShowNavigation: () => ({
+      model: withNavigation("Open")(model),
+      commands: [FocusNavigation()],
+    }),
+
     // NOTE: playing is no navigation, with one exception. No navigation
     // Message reaches the player, and the player moves the route only while
     // it is expanded, when its page is the page of the track it holds.
@@ -788,6 +830,7 @@ export const update = (model: Model, message: Message) =>
     CompletedFocusSearchField: () => ({ model }),
     CompletedFocusPage: () => ({ model }),
     CompletedFocusTrackRow: () => ({ model }),
+    CompletedFocusNavigation: () => ({ model }),
     CompletedScrollPageToTop: () => ({ model }),
   });
 
@@ -815,6 +858,7 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       maybeAskedRoute: Option.none(),
       // A fresh load knows nothing of the history behind it, so no page has a way back yet.
       trail: [],
+      navigation: "Open",
       player: Player.init(),
     }),
     [load(route, forTheScreen), focusSearchFieldOnSearch],

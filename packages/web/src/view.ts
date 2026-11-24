@@ -1,5 +1,6 @@
 import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
-import { Nav } from "@foldkit/ui";
+import { Button, Nav } from "@foldkit/ui";
+import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { AsyncData } from "foldkit";
@@ -31,7 +32,13 @@ import {
   trackRouter,
 } from "./route.ts";
 import { homeIcon, newIcon, searchIcon, spinnerIcon } from "./view/icon.ts";
-import { PAGE_IDS, pagePlaceView, pageTitleIdOf, type Presence } from "./view/layout.ts";
+import {
+  NAVIGATION_ID,
+  PAGE_IDS,
+  pagePlaceView,
+  pageTitleIdOf,
+  type Presence,
+} from "./view/layout.ts";
 import type { TrackListContext } from "./view/trackList.ts";
 
 // VIEW
@@ -85,33 +92,142 @@ const isLoadingDestination = (model: Model, destination: Destination): boolean =
   model.route._tag !== destination &&
   Option.exists(maybeHeadedFor(model), (route) => route._tag === destination);
 
+/**
+ * The sections of the menu. Search is a section too, and stands apart from
+ * them on a narrow screen: a control of its own at the far end, there
+ * whether the menu is whole or drawn back.
+ */
+type MenuSection = Exclude<Destination, "Search">;
+
+const maybeMenuSection = (route: AppRoute): Option.Option<MenuSection> =>
+  route._tag === "Home" || route._tag === "New" ? Option.some(route._tag) : Option.none();
+
+/**
+ * What the circle shows when the menu has drawn back to it: the section on
+ * screen. On a page that is none of the menu's, Search or a track, it shows
+ * the nearest one behind the page, and Home when there is none.
+ */
+const circleSection = (model: Model): Readonly<{ section: MenuSection; isCurrent: boolean }> =>
+  Option.match(maybeMenuSection(model.route), {
+    onSome: (section) => ({ section, isCurrent: true }),
+    onNone: () => ({
+      section: Option.getOrElse(Array.findLast(model.trail, maybeMenuSection), () => "Home" as const),
+      isCurrent: false,
+    }),
+  });
+
+/** A surface that floats over the page: the page is seen through it, blurred. */
+const FLOATING_CLASS = "border border-line bg-panel/85 shadow-lg backdrop-blur-xl";
+
+const ITEM_FOCUS_CLASS =
+  "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent";
+
+/** Beside the page, on a wide screen, every item is a row of the same kind. */
+const WIDE_ITEM_CLASS =
+  "md:h-auto md:w-auto md:flex-row md:justify-start md:gap-3 md:rounded-lg md:border-0 md:bg-transparent md:px-3 md:py-2 md:text-sm md:font-medium md:text-muted md:shadow-none md:backdrop-blur-none md:hover:text-ink md:data-current:bg-accent-wash md:data-current:text-accent";
+
+/**
+ * An item of the menu. Drawn back, the menu's items are not on screen and
+ * cannot be reached: the circle stands for them.
+ */
+// NOTE: an item fades out and only then stops being there, but is there at
+// once when the menu comes out again: the focus is given to it in that same
+// moment, and an element still on its way to being visible does not take it.
+const MENU_ITEM_CLASS =
+  "flex-1 p-1 transition-opacity duration-200 minimized:invisible minimized:opacity-0 motion-safe:minimized:[transition:opacity_200ms,visibility_0s_200ms] motion-reduce:transition-none md:flex-none md:p-0";
+
+const MENU_LINK_CLASS = clsx(
+  "pointer-events-auto flex h-full touch-manipulation flex-col items-center justify-center gap-0.5 rounded-full px-3 text-[0.625rem] font-medium text-muted hover:text-ink data-current:bg-ink/10 data-current:text-accent",
+  ITEM_FOCUS_CLASS,
+  WIDE_ITEM_CLASS,
+);
+
+const SEARCH_ITEM_CLASS = "ml-2 shrink-0 md:ml-0";
+
+const SEARCH_LINK_CLASS = clsx(
+  "pointer-events-auto flex size-12 touch-manipulation items-center justify-center rounded-full text-ink data-current:text-accent",
+  FLOATING_CLASS,
+  ITEM_FOCUS_CLASS,
+  WIDE_ITEM_CLASS,
+);
+
 const destinationView = (
   item: Nav.ItemInfo<Destination>,
   isLoading: boolean,
   h: HtmlBuilder<Message>,
-): Html =>
-  h.keyed("li")(
+): Html => {
+  const isSearch = item.value === "Search";
+
+  return h.keyed("li")(
     item.value,
-    [h.Class("flex-1 md:flex-none")],
+    [h.Class(isSearch ? SEARCH_ITEM_CLASS : MENU_ITEM_CLASS)],
     [
       h.a(
         [
           ...item.link,
           h.AriaBusy(isLoading),
-          h.Class(
-            "flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-muted hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent data-current:text-accent md:flex-row md:gap-3 md:rounded-lg md:text-sm md:data-current:bg-accent-wash",
-          ),
+          h.Class(isSearch ? SEARCH_LINK_CLASS : MENU_LINK_CLASS),
         ],
         [
           // The spinner takes the icon's place, so the item keeps its size while it loads.
           isLoading
             ? spinnerIcon("size-5 animate-spin motion-reduce:animate-pulse")
             : DESTINATION_ICONS[item.value]("size-5"),
-          h.span([], [DESTINATION_NAMES[item.value]]),
+          // NOTE: at the foot of a narrow screen Search is its icon alone: its name is still said.
+          h.span([h.Class(clsx({ "max-md:sr-only": isSearch }))], [DESTINATION_NAMES[item.value]]),
         ],
       ),
     ],
   );
+};
+
+/**
+ * The menu's own surface on a narrow screen: one piece behind its items,
+ * which draws back to a circle at the near end and leaves the row to the
+ * island.
+ */
+const menuSurfaceView = (h: HtmlBuilder<Message>): Html =>
+  h.div([
+    h.AriaHidden(true),
+    h.Class(
+      clsx(
+        "absolute inset-y-0 right-14 left-0 rounded-full transition-[right] duration-300 ease-out minimized:right-[calc(100%-3rem)] motion-reduce:transition-none md:hidden",
+        FLOATING_CLASS,
+      ),
+    ),
+  ]);
+
+/**
+ * The circle the menu draws back to. It shows where the listener is and
+ * leads nowhere: a press brings the menu out again, where the page stands.
+ * It is only there while the menu is drawn back, on a narrow screen.
+ */
+const showNavigationView = (model: Model, h: HtmlBuilder<Message>): Html => {
+  const { section, isCurrent } = circleSection(model);
+
+  return Button.view(
+    {
+      onClick: Message.ClickedShowNavigation(),
+      toView: (attributes) =>
+        h.button(
+          [
+            ...attributes.button,
+            h.AriaLabel("Show navigation"),
+            h.AriaExpanded(false),
+            h.DataAttribute("section", section),
+            h.Class(
+              clsx(
+                "pointer-events-auto absolute inset-y-0 left-0 hidden w-12 cursor-pointer touch-manipulation items-center justify-center rounded-full transition-opacity duration-200 starting:opacity-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent minimized:flex motion-reduce:transition-none",
+                isCurrent ? "text-accent" : "text-ink",
+              ),
+            ),
+          ],
+          [DESTINATION_ICONS[section]("size-5")],
+        ),
+    },
+    h,
+  );
+};
 
 /**
  * The current item is the page on screen: while a destination loads, the
@@ -126,14 +242,16 @@ const navigationView = (model: Model, h: HtmlBuilder<Message>): Html =>
     isItemCurrent: (destination) => model.route._tag === destination,
     toView: ({ nav, items }) =>
       h.nav(
-        [...nav],
+        [...nav, h.Id(NAVIGATION_ID), h.Class("relative max-md:h-12")],
         [
+          menuSurfaceView(h),
           h.ul(
-            [h.Role("list"), h.Class("flex md:flex-col md:gap-1")],
+            [h.Role("list"), h.Class("relative flex h-full md:flex-col md:gap-1")],
             Array.map(items, (item) =>
               destinationView(item, isLoadingDestination(model, item.value), h),
             ),
           ),
+          showNavigationView(model, h),
         ],
       ),
   });
@@ -325,7 +443,7 @@ const trackPageLinkView =
         h.Href(trackRouter({ trackId: track.id })),
         h.AriaLabel(`Open the player: ${track.title} by ${track.artist.name}`),
         h.Class(
-          "flex h-12 min-w-0 flex-1 touch-manipulation items-center gap-2 rounded-lg px-1 hover:bg-tile focus-visible:outline-2 focus-visible:outline-accent active:bg-tile",
+          "flex h-full min-w-0 flex-1 touch-manipulation items-center rounded-full px-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
         ),
       ],
       content,
@@ -400,12 +518,17 @@ export const documentTitle = (model: Model): string =>
   `${pageName(model, model.route)} · ${APP_NAME}`;
 
 /**
- * The shell: navigation beside the page on wide screens, under it on narrow
- * ones. The player's island floats over the foot of the box the pages are
- * in: above the navigation where that is a bar, at the foot of the window
- * where it is beside. Once there is one, the shell says so in `data-player`,
- * which every page reads to leave room for it. The page drawn is `model.route`; what the app is heading for only
- * says what is loading: which navigation item is busy, and the status line.
+ * The shell: navigation beside the page on wide screens, floating over its
+ * foot on narrow ones. There it is a menu and, apart from it, Search; a page
+ * scrolled down draws the menu back to a circle, and the island comes down
+ * into the row between the two. The shell says how the navigation stands in
+ * `data-navigation`, which the island and the menu read. The island floats
+ * over the foot of the box the pages are in. Once there is one, the shell
+ * says so in `data-player`, which every page reads to leave room for it.
+ * Expanded, the player is the screen: on a narrow screen there is no
+ * navigation under it, and closing it is the way out. The page drawn is
+ * `model.route`; what the app is heading for only says what is loading: which
+ * navigation item is busy, and the status line.
  */
 export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
   title: documentTitle(model),
@@ -414,15 +537,19 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
       ...(Player.hasSession(model.player) && !isPlayerExpanded(model)
         ? [h.DataAttribute("player", "")]
         : []),
+      h.DataAttribute("navigation", model.navigation === "Minimized" ? "minimized" : "open"),
       h.Class(
-        "group/shell flex h-dvh flex-col-reverse bg-canvas font-sans text-ink antialiased md:flex-row",
+        "group/shell relative flex h-dvh flex-col bg-canvas font-sans text-ink antialiased md:flex-row",
       ),
     ],
     [
       h.header(
         [
           h.Class(
-            "shrink-0 border-t border-line bg-panel pb-[env(safe-area-inset-bottom)] [view-transition-name:navigation] md:w-60 md:border-t-0 md:border-r md:px-3 md:py-6",
+            clsx(
+              "pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-canvas/90 to-transparent px-3 pt-8 pb-[calc(0.75rem+env(safe-area-inset-bottom))] [view-transition-name:navigation] md:pointer-events-auto md:static md:w-60 md:shrink-0 md:border-r md:border-line md:bg-panel md:bg-none md:px-3 md:py-6",
+              { "max-md:hidden": isPlayerExpanded(model) },
+            ),
           ),
         ],
         [

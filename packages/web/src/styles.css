@@ -31,6 +31,17 @@
   }
 }
 
+/* The navigation drawn back to its circle. That only happens where the
+   navigation is at the foot of the screen, so the variant holds on narrow
+   screens alone: beside the page, on wide ones, it is always whole. */
+@custom-variant minimized {
+  @media (width < 48rem) {
+    &:where([data-navigation="minimized"] *) {
+      @slot;
+    }
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --color-canvas: #151412;
@@ -82,6 +93,30 @@ body {
 
 ::view-transition-new(navigation) {
   animation: none;
+}
+
+/* Under the expanded player, on a narrow screen, there is no navigation.
+   It is then on one side of the swap only: it fades away as the player
+   grows over it, and comes back once the player has shrunk to its island. */
+::view-transition-old(navigation):only-child {
+  display: block;
+  animation: 200ms ease-out both navigation-leave;
+}
+
+::view-transition-new(navigation):only-child {
+  animation: 200ms ease-out 180ms both navigation-arrive;
+}
+
+@keyframes navigation-leave {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes navigation-arrive {
+  from {
+    opacity: 0;
+  }
 }
 
 /* The flight: a track's cover on its way to the player. The name is on the

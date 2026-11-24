@@ -20,6 +20,9 @@ export const Message = defineMessageUnion({
   ClickedTryAgainOnTrack: { trackId: TrackId },
   UpdatedSearchField: { value: Schema.String },
   ClickedPlayTrack: { trackId: TrackId, from: PlayOrigin },
+  ScrolledDown: {},
+  ScrolledToTop: {},
+  ClickedShowNavigation: {},
   GotPlayerMessage: { message: PlayerMessage },
   GotCatalogMessage: { message: Catalog.Message },
   CompletedNavigateInternal: {},
@@ -31,6 +34,7 @@ export const Message = defineMessageUnion({
   CompletedFocusSearchField: {},
   CompletedFocusPage: {},
   CompletedFocusTrackRow: {},
+  CompletedFocusNavigation: {},
   CompletedScrollPageToTop: {},
 });
 export type Message = typeof Message.Type;

@@ -23,6 +23,12 @@ export const PAGE_IDS: Readonly<Record<AppRoute["_tag"], string>> = {
   NotFound: "not-found-page",
 };
 
+/** The pages by their ids: a scroll is a page's when it comes from one of these. */
+export const isPageId = (id: string): boolean => Object.values(PAGE_IDS).includes(id);
+
+/** The navigation's own id: the focus goes to it when it is brought out again. */
+export const NAVIGATION_ID = "main-navigation";
+
 export const pageIdOf = (route: AppRoute): string => PAGE_IDS[route._tag];
 
 export const pageTitleIdOf = (pageId: string): string => `${pageId}-title`;
@@ -46,7 +52,8 @@ export type Presence = "OnScreen" | "Kept";
  * Space scroll it. A kept page is `inert`: out of the accessibility tree and
  * the tab order, and unable to hold focus. Once the player is there, every
  * page ends with room for its island, for scrolling and for the focus alike:
- * the last row is never under it.
+ * the last row is never under it. On a narrow screen the navigation floats
+ * over the foot of the page too, so every page ends with room for it as well.
  */
 export const pageAttributes = (
   pageId: string,
@@ -59,7 +66,7 @@ export const pageAttributes = (
   h.Tabindex(0),
   h.Inert(presence === "Kept"),
   h.Class(
-    "relative h-full overflow-y-auto px-5 pt-8 pb-12 group-data-player/shell:scroll-pb-40 group-data-player/shell:pb-40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:px-10 md:pt-10",
+    "relative h-full overflow-y-auto px-5 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] scroll-pb-24 group-data-player/shell:scroll-pb-40 group-data-player/shell:pb-[calc(10rem+env(safe-area-inset-bottom))] md:scroll-pb-0 md:pb-12 md:group-data-player/shell:scroll-pb-28 md:group-data-player/shell:pb-28 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:px-10 md:pt-10",
   ),
 ];
 

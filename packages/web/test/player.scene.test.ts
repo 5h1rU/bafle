@@ -242,7 +242,7 @@ describe("a row plays its track", () => {
       see(playRow(TITLE)).toHaveAttr("aria-busy", "true"),
     ));
 
-  test("sounding: the control offers pause, the bar is a slider at the engine's position, and the row's mark moves", () =>
+  test("sounding: the control offers pause, and the row's mark moves", () =>
     scene(
       app,
       given(sounding),
@@ -252,15 +252,9 @@ describe("a row plays its track", () => {
         see(selector('[data-glyph="pause"]')).toExist(),
         expectAll(startingMark).toHaveCount(0),
         expectAll(waitingMark).toHaveCount(0),
-        see(text("0:12")).toExist(),
-        // The length is the engine's, not the 3:44 the catalog lists for the recording.
-        see(text("0:30")).toExist(),
-        see(text("3:44")).toBeAbsent(),
-        see(seekBar).toHaveAttr("aria-valuenow", "12"),
-        see(seekBar).toHaveAttr("aria-valuemax", "30"),
-        see(seekBar).toHaveAttr("aria-valuetext", "0:12 of 0:30"),
-        // What the engine already holds is drawn behind what has played.
-        see(selector("[data-buffered]")).toHaveStyle("width", `${(20 / 30) * 100}%`),
+        // The island is a capsule: the position and the bar are the expanded player's.
+        see(role("slider")).toBeAbsent(),
+        see(text("0:12")).toBeAbsent(),
         see(text(`Now playing: ${TITLE} by Daft Punk`)).toHaveAttr("role", "status"),
       ),
       inside(rowOf(track.id), see(rowMark("Sounding")).toHaveAttr("aria-hidden", "true")),
@@ -271,7 +265,7 @@ describe("a row plays its track", () => {
   test("a second of progress is not announced again", () =>
     scene(
       app,
-      given(sounding),
+      given(expandedOnFirst),
       Subscription.emit(
         said(1, "Sounding", {
           positionSeconds: 13,
@@ -336,7 +330,8 @@ describe("a row plays its track", () => {
       thresholdPasses(1),
       inside(
         island,
-        see(text("Your browser did not let the sound start. Press play.")).toExist(),
+        // A capsule has room for a few words; the whole sentence is said aloud.
+        see(text("Press play to start")).toExist(),
         see(control("Play")).toHaveAttr("data-playback", "Stopped"),
         see(text(`Your browser did not let ${TITLE} start. Press play.`)).toHaveAttr("role", "status"),
         click(control("Play")),
@@ -363,7 +358,7 @@ describe("a row plays its track", () => {
       Command.resolve(Player.RefreshSource, Player.Message.FailedRefreshSource({ order: 1 })),
       inside(
         island,
-        see(text("This song could not be played.")).toExist(),
+        see(text("Could not be played")).toExist(),
         see(text(`${TITLE} could not be played.`)).toHaveAttr("role", "status"),
         see(control("Try again")).toExist(),
         // Not skipped past: the island still holds the track that failed.
@@ -539,7 +534,11 @@ describe("the player expanded: the page of the track it holds", () => {
       ),
       see(role("heading", { name: "New", level: 1 })).toBeVisible(),
       see(expandedLayout).toBeAbsent(),
-      inside(islandLayout, see(text(TITLE)).toExist(), see(seekBar).toHaveAttr("aria-valuenow", "12")),
+      inside(
+        islandLayout,
+        see(text(TITLE)).toExist(),
+        see(control("Pause")).toHaveAttr("data-playback", "Sounding"),
+      ),
     ));
 
   test("with no page of the app behind it, its close control is a link Home", () =>
@@ -689,14 +688,32 @@ describe("the island", () => {
       inside(
         island,
         see(control("Pause")).toExist(),
-        // Each step names where it leads: the first track has only its own start behind it.
-        see(control("Back to the start")).toBeEnabled(),
         see(control("Next track", "Technologic")).toBeEnabled(),
         see(role("link", { name: `Open the player: ${TITLE} by Daft Punk` })).toHaveAttr(
           "href",
           trackPath(track.id),
         ),
-        see(seekBar).toExist(),
+        // Going back, and the progress bar, are the expanded player's.
+        see(role("button", { name: /^(Back to the start|Previous track)/ })).toBeAbsent(),
+        see(role("slider")).toBeAbsent(),
+      ),
+    ));
+
+  test("expanded, it has the step back and the progress bar the capsule has no room for", () =>
+    scene(
+      app,
+      given(expandedOnFirst),
+      inside(
+        expandedLayout,
+        // Each step names where it leads: the first track has only its own start behind it.
+        see(control("Back to the start")).toBeEnabled(),
+        see(text("0:12")).toExist(),
+        // The length is the engine's, not the one the catalog lists for the recording.
+        see(seekBar).toHaveAttr("aria-valuenow", "12"),
+        see(seekBar).toHaveAttr("aria-valuemax", "30"),
+        see(seekBar).toHaveAttr("aria-valuetext", "0:12 of 0:30"),
+        // What the engine already holds is drawn behind what has played.
+        see(selector("[data-buffered]")).toHaveStyle("width", `${(20 / 30) * 100}%`),
       ),
     ));
 
@@ -704,11 +721,7 @@ describe("the island", () => {
     scene(
       app,
       given(after(onNew, Message.ClickedPlayTrack({ trackId: explicitTrack.id, from: "New" }))),
-      inside(
-        island,
-        see(role("button", { name: "Next track" })).toBeDisabled(),
-        see(control("Previous track", TITLE)).toBeEnabled(),
-      ),
+      inside(island, see(role("button", { name: "Next track" })).toBeDisabled()),
     ));
 
   test("stays where it is, untouched, while the listener goes to another page", () =>
@@ -727,7 +740,6 @@ describe("the island", () => {
         island,
         see(text(TITLE)).toExist(),
         see(control("Pause")).toHaveAttr("data-playback", "Sounding"),
-        see(seekBar).toHaveAttr("aria-valuenow", "12"),
       ),
       // It is not inside any page, kept or on screen.
       expectAll(all.selector('[role="region"][inert] #player')).toHaveCount(0),
@@ -745,10 +757,10 @@ describe("the island", () => {
       thresholdPasses(1),
     ));
 
-  test("an arrow key on the progress bar asks the engine for the next second", () =>
+  test("expanded, an arrow key on the progress bar asks the engine for the next second", () =>
     scene(
       app,
-      given(sounding),
+      given(expandedOnFirst),
       keydown(seekBar, "ArrowRight"),
       Command.expectExact(Player.SeekPlayback({ order: 2, positionSeconds: 13 })),
       Command.resolve(Player.SeekPlayback, Player.Message.CompletedSeekPlayback()),
@@ -763,11 +775,18 @@ describe("the island", () => {
       see(selector('[data-elapsed="fact"]')).toHaveText("0:13"),
     ));
 
-  test("before the engine has read the length there is no slider to move, only its place", () =>
+  test("expanded, before the engine has read the length there is no slider to move, only its place", () =>
     scene(
       app,
-      given(chosen),
-      inside(island, see(role("slider")).toBeAbsent(), see(text("0:00")).toExist()),
+      given(
+        after(
+          chosen,
+          clickedLink(trackPath(track.id)),
+          arrived(reply.track(nextId(chosen))),
+          changedUrl(trackPath(track.id)),
+        ),
+      ),
+      inside(expandedLayout, see(role("slider")).toBeAbsent(), see(text("0:00")).toExist()),
     ));
 });
 
@@ -871,7 +890,7 @@ describe("the flight: a track's cover is one element on its way to the island", 
   });
 });
 
-describe("a second of progress redraws the island and nothing else", () => {
+describe("a second of progress redraws no page", () => {
   /** The element a page place draws: the same object when the place was not drawn again. */
   const places = (html: unknown): ReadonlyArray<unknown> =>
     nodesOf(html).find((node) => node.sel?.startsWith("main") === true)?.children ?? [];
@@ -890,7 +909,6 @@ describe("a second of progress redraws the island and nothing else", () => {
           bufferedSeconds: 30,
         }),
       ),
-      inside(island, see(text("0:13")).toExist()),
       tap((simulation) => drawn.push(places(simulation.html))),
       // A change of state is something a row shows: its page is drawn again.
       Subscription.emit(said(1, "Waiting", { positionSeconds: 13 })),

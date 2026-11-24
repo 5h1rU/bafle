@@ -8,7 +8,7 @@ import { back, load, pushUrl, replaceUrl } from "foldkit/navigation";
 import { Catalog, type CatalogClient, REPLY_TIMEOUT } from "./catalog.ts";
 import { Message } from "./message.ts";
 import { searchRouter, trackRouter } from "./route.ts";
-import { pageTitleIdOf, TRACK_ROW_ATTRIBUTE } from "./view/layout.ts";
+import { NAVIGATION_ID, pageTitleIdOf, TRACK_ROW_ATTRIBUTE } from "./view/layout.ts";
 
 // COMMAND
 
@@ -102,6 +102,20 @@ export const FocusTrackRow = Command.define("FocusTrackRow", {
       Effect.ignore,
       Effect.as(Message.CompletedFocusTrackRow()),
     ),
+});
+
+/**
+ * Focus goes to the navigation when its circle was pressed: the circle is
+ * gone, and the item for where the listener is stands in its place. On a
+ * page that is no section, the first item does.
+ */
+export const FocusNavigation = Command.define("FocusNavigation", {
+  messages: [Message.CompletedFocusNavigation],
+  execute: Dom.focus(`#${NAVIGATION_ID} a[aria-current]`, { preventScroll: true }).pipe(
+    Effect.catch(() => Dom.focus(`#${NAVIGATION_ID} a`, { preventScroll: true })),
+    Effect.ignore,
+    Effect.as(Message.CompletedFocusNavigation()),
+  ),
 });
 
 export const ScrollPageToTop = Command.define("ScrollPageToTop", {

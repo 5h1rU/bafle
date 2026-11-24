@@ -67,6 +67,14 @@ export const Awaiting = defineTaggedUnion({
 });
 export type Awaiting = typeof Awaiting.Type;
 
+/**
+ * The navigation at the foot of a narrow screen. Open, it is the whole menu
+ * with the island above it. Minimized, it has drawn back to one circle that
+ * shows where the listener is, and the island takes the room it left.
+ */
+export const Navigation = Schema.Literals(["Open", "Minimized"]);
+export type Navigation = typeof Navigation.Type;
+
 export const Model = Schema.Struct({
   /**
    * The route whose page is on screen. It is the browser's URL too, except
@@ -101,6 +109,12 @@ export const Model = Schema.Struct({
    * own way back relies on: see `retrace` in main.ts.
    */
   trail: Schema.Array(AppRoute),
+  /**
+   * Whether the navigation is whole or drawn back. Scrolling a page down
+   * draws it back; reaching the top of a page, pressing its circle, or
+   * choosing a section brings it out again.
+   */
+  navigation: Navigation,
   /**
    * The player: what was asked to be heard, and what the engine says is
    * sounding. It belongs to no page, so no change of page touches it.

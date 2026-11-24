@@ -45,6 +45,7 @@ The app exists to show loading done well, so these are requirements, not style:
 8. Search keeps its previous results while a new term loads. Typing is the one navigation that is URL first, replacing its own entry, because the field's text lives in the URL.
 9. Going back to a list restores it exactly: same scroll position, same pictures already painted, nothing waiting on the network. Section pages stay mounted and hidden instead of being rebuilt, because Foldkit replaces the DOM when the view function at a position changes, and a rebuilt `<img>` repaints even when cached.
 10. A picture never appears as an empty box when a rendition of it is already loaded: show that one first and let the larger one replace it.
+11. On a narrow screen the navigation floats over the foot of the page: a menu, and Search apart from it at the far end. A page scrolled down draws the menu back to a circle that shows where the listener is, and the island comes down into the row between the circle and Search. The top of the page brings the menu out again, and so does a press of the circle, where the page stands. Choosing a section shows it whole; a track's page leaves it as it was, so closing the track puts everything back. Under the expanded player there is no navigation: closing it is the way out. How the navigation stands is in the Model (`navigation`). The scroll is not: the Subscription in `subscription.ts` tells only the two moments that change it.
 
 ## Playback rules the app keeps
 
@@ -60,5 +61,7 @@ The player is its own part of the app (`packages/web/src/player/`, a Foldkit Sub
 8. The player knows no provider. `playableSource` in `player/model.ts` is the only reader of the catalog's audio field, and lengths and positions come from the engine, not from the catalog.
 9. Expanded is derived, never stored. There is one route, `/track/:id`: the screen is the expanded player when the route's track is the player's current track, and the plain track page with a Play control and the island below otherwise. After a reload nothing is current, so a track's URL is its plain page.
 10. Opening, the close control and the browser's Back are one view transition in two directions: the island and the expanded player share the name `player`, so the capsule grows into the screen and shrinks back, and the cover's name is on whichever of them is drawn. A track change inside the expanded player is no transition.
+
+11. The island is one capsule: the cover, the words, the control that starts and stops the sound, and Next while there is room for it. Previous and the progress bar are the expanded player's. What a control alone cannot explain (stopped by the system, failed) stands in a few words where the artist was, and is said whole to assistive technology.
 
 The engine is the `AudioEngine` service (`player/audioEngine.ts`); `packages/web/src/entry.ts` names the implementation in `resources`, and tests name a fake.

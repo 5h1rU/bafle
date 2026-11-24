@@ -125,7 +125,7 @@ const mainGlyphView = (playback: Playback, h: HtmlBuilder<Message>): Html => {
  * mark for a slow start, a breathing one for a stall, a ring when the system
  * stopped the sound and a press is what brings it back.
  */
-const mainControlView = (session: Session, h: HtmlBuilder<Message>): Html => {
+const mainControlView = (session: Session, sizeClass: string, h: HtmlBuilder<Message>): Html => {
   const { playback, current } = session;
   const action = mainAction(playback);
 
@@ -140,7 +140,7 @@ const mainControlView = (session: Session, h: HtmlBuilder<Message>): Html => {
             h.AriaBusy(isShowingActivity(playback)),
             h.DataAttribute("playback", playback._tag),
             h.Class(
-              clsx(CONTROL_CLASS, "size-12 bg-accent text-on-accent hover:opacity-90", {
+              clsx(CONTROL_CLASS, sizeClass, "bg-accent text-on-accent hover:opacity-90", {
                 "ring-2 ring-accent ring-offset-2 ring-offset-panel": Playback.guards.Stopped(playback),
               }),
             ),
@@ -157,6 +157,7 @@ const stepControlView = (
   message: Message,
   isEnabled: boolean,
   icon: Html,
+  sizeClass: string,
   h: HtmlBuilder<Message>,
 ): Html =>
   Button.view(
@@ -169,7 +170,7 @@ const stepControlView = (
             ...attributes.button,
             h.AriaLabel(label),
             h.Class(
-              clsx(CONTROL_CLASS, "size-11 text-ink hover:bg-tile active:bg-tile", {
+              clsx(CONTROL_CLASS, sizeClass, "text-ink hover:bg-tile active:bg-tile", {
                 "cursor-default opacity-40 hover:bg-transparent": !isEnabled,
               }),
             ),
@@ -245,21 +246,53 @@ const coverView = (
     }),
   );
 
-/** The words arrive with a short fade when the track changes; the island itself stays where it is. */
-const trackWordsView = (track: TrackSummary, h: HtmlBuilder<Message>): ReadonlyArray<Html> => [
-  h.keyed("span")(
-    track.id,
-    [
-      h.Class(
-        "block min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none",
-      ),
-    ],
-    [
-      h.span([h.Class("block truncate text-sm font-semibold")], [track.title]),
-      h.span([h.Class("block truncate text-xs text-muted")], [track.artist.name]),
-    ],
-  ),
-];
+/**
+ * The island's words for the two states a control alone cannot explain, cut
+ * to what a capsule has room for. The whole sentence is said to assistive
+ * technology, and stands in the expanded player.
+ */
+const maybeShortNotice = (playback: Playback): Option.Option<string> =>
+  Playback.matchOrElse<Option.Option<string>>(
+    playback,
+    {
+      Stopped: ({ cause }) =>
+        Option.some(cause === "Refused" ? "Press play to start" : "Stopped. Press play"),
+      Failed: () => Option.some("Could not be played"),
+    },
+    () => Option.none(),
+  );
+
+/**
+ * The words arrive with a short fade when the track changes; the island
+ * itself stays where it is. Under the title stands the artist, or what
+ * happened to the sound when that needs saying.
+ */
+const trackWordsView = (session: Session, h: HtmlBuilder<Message>): ReadonlyArray<Html> => {
+  const track = session.current;
+
+  return [
+    h.keyed("span")(
+      track.id,
+      [
+        h.Class(
+          "block min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none",
+        ),
+      ],
+      [
+        h.span([h.Class("block truncate text-sm leading-tight font-semibold")], [track.title]),
+        Option.match(maybeShortNotice(session.playback), {
+          onNone: () =>
+            h.span([h.Class("block truncate text-xs leading-tight text-muted")], [track.artist.name]),
+          onSome: (notice) =>
+            h.span(
+              [h.DataAttribute("notice", ""), h.Class("block truncate text-xs leading-tight text-accent")],
+              [notice],
+            ),
+        }),
+      ],
+    ),
+  ];
+};
 
 const TIME_CLASS = "w-9 shrink-0 text-xs tabular-nums";
 
@@ -465,10 +498,40 @@ const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>)
         Message.ClickedPrevious(),
         true,
         previousIcon("size-5"),
+        "size-11",
         h,
       ),
-      mainControlView(session, h),
-      stepControlView(nextLabel(session), Message.ClickedNext(), hasLater(session), nextIcon("size-5"), h),
+      mainControlView(session, "size-12", h),
+      stepControlView(
+        nextLabel(session),
+        Message.ClickedNext(),
+        hasLater(session),
+        nextIcon("size-5"),
+        "size-11",
+        h,
+      ),
+    ],
+  );
+
+/**
+ * The island's controls: the one that starts and stops the sound, and Next
+ * while there is room for it. In the row with the navigation's circle and
+ * Search the island is narrower, and holds the one control. Previous, and
+ * the progress bar, are the expanded player's.
+ */
+const islandControlsView = (session: Session, h: HtmlBuilder<Message>): Html =>
+  h.div(
+    [h.Role("group"), h.AriaLabel("Playback"), h.Class("flex shrink-0 items-center gap-0.5")],
+    [
+      mainControlView(session, "size-9", h),
+      stepControlView(
+        nextLabel(session),
+        Message.ClickedNext(),
+        hasLater(session),
+        nextIcon("size-5"),
+        "size-9 minimized:hidden",
+        h,
+      ),
     ],
   );
 
@@ -486,6 +549,12 @@ const progressOrNoticeView = (session: Session, h: HtmlBuilder<Message>): Html =
 const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
   h.p([h.Role("status"), h.Class("sr-only")], [announcement(session)]);
 
+/**
+ * The island: one capsule over the foot of the page. On a narrow screen it
+ * stands above the navigation while that is whole, and comes down into the
+ * navigation's row, between its circle and Search, when the menu has drawn
+ * back: the shell says which in `data-navigation`, and the island moves.
+ */
 const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Message>): Html =>
   h.section(
     [
@@ -494,19 +563,13 @@ const islandView = (session: Session, viewInputs: ViewInputs, h: HtmlBuilder<Mes
       h.DataAttribute("layout", "island"),
       h.DataAttribute("playback", session.playback._tag),
       h.Class(
-        "absolute inset-x-2 bottom-2 z-10 mx-auto max-w-2xl rounded-2xl border border-line bg-panel px-3 pt-2 shadow-lg [view-transition-name:player] md:inset-x-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))]",
+        "absolute inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 flex h-12 items-center gap-2 rounded-full border border-line bg-panel/85 px-1.5 shadow-lg backdrop-blur-xl transition-[left,right,bottom] duration-300 ease-out [view-transition-name:player] minimized:inset-x-17 minimized:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] motion-reduce:transition-none md:inset-x-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:mx-auto md:max-w-2xl",
       ),
     ],
     [
-      h.div(
-        [h.Class("flex h-12 items-center gap-3")],
-        [
-          coverView(session.current, "size-12 rounded-lg", "small", h),
-          viewInputs.toTrackPageLink(session.current, trackWordsView(session.current, h)),
-          stepsView(session, "flex shrink-0 items-center", h),
-        ],
-      ),
-      progressOrNoticeView(session, h),
+      coverView(session.current, "size-9 rounded-full", "small", h),
+      viewInputs.toTrackPageLink(session.current, trackWordsView(session, h)),
+      islandControlsView(session, h),
       announcementView(session, h),
     ],
   );
