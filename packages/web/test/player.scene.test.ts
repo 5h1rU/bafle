@@ -717,6 +717,15 @@ describe("the island", () => {
       ),
     ));
 
+  test("its title is a marquee, so one too long for the capsule can travel across it", () =>
+    scene(
+      app,
+      given(sounding),
+      inside(island, see(selector("bafle-marquee")).toHaveText(TITLE)),
+      // The artist, and what happened to the sound, are short: they are plain words.
+      inside(island, expectAll(all.selector("bafle-marquee")).toHaveCount(1)),
+    ));
+
   test("Next is not offered after the last track of the queue", () =>
     scene(
       app,

@@ -8,6 +8,7 @@ import { Model } from "./model.ts";
 import * as HtmlAudioEngine from "./player/htmlAudioEngine.ts";
 import { subscriptions } from "./subscription.ts";
 import { view } from "./view.ts";
+import { defineMarqueeElement } from "./view/marqueeElement.ts";
 
 /**
  * The Api client for the life of the app, over plain HTTP on the app's own
@@ -24,6 +25,9 @@ const CatalogConnection = ListenerApi.layerClientHttp(`${location.origin}/api`).
  * own player, takes its place by being named instead.
  */
 const resources = Layer.mergeAll(CatalogConnection, HtmlAudioEngine.layer);
+
+// The marquee is an element of its own, registered before the app draws one.
+defineMarqueeElement();
 
 const application = Runtime.makeApplication({
   Model,

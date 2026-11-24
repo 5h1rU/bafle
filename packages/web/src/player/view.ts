@@ -15,6 +15,7 @@ import {
   spinnerIcon,
 } from "../view/icon.ts";
 import { coverTransitionName } from "../view/artwork.ts";
+import { Marquee } from "../view/marquee.ts";
 import { formatDuration } from "../view/time.ts";
 import { Message } from "./message.ts";
 import {
@@ -269,6 +270,7 @@ const maybeShortNotice = (playback: Playback): Option.Option<string> =>
  */
 const trackWordsView = (session: Session, h: HtmlBuilder<Message>): ReadonlyArray<Html> => {
   const track = session.current;
+  const marquee = Marquee.withMessage(h);
 
   return [
     h.keyed("span")(
@@ -279,7 +281,8 @@ const trackWordsView = (session: Session, h: HtmlBuilder<Message>): ReadonlyArra
         ),
       ],
       [
-        h.span([h.Class("block truncate text-sm leading-tight font-semibold")], [track.title]),
+        // A title too long for the island travels across it, as a marquee.
+        marquee([h.Class("block text-sm leading-tight font-semibold")], [track.title]),
         Option.match(maybeShortNotice(session.playback), {
           onNone: () =>
             h.span([h.Class("block truncate text-xs leading-tight text-muted")], [track.artist.name]),
