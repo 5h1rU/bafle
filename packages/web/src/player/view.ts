@@ -607,15 +607,20 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
 
 /**
  * What the island's light is told. Only the engine's word that there is
- * sound sets it going, and a tap is only a wish: one not answered yet
- * changes nothing, so going on to another track does not halt the light for
- * the moment the next one takes to start. Anything else puts it to rest: a
- * pause, a stop, a failure, and a wait long enough to be shown.
+ * sound sets it going, and a tap is only a wish: until it is answered it
+ * changes nothing, however long the start takes, so going on to another
+ * track does not halt the light, and a first track does not light it.
+ * Anything else puts it to rest: a pause, a stop, a failure, and sound that
+ * had started and ran out of data.
  */
 export const islandLight = (playback: Playback): IslandLight =>
   Playback.matchOrElse<IslandLight>(
     playback,
-    { Sounding: () => "Travelling", Acknowledged: () => "Holding" },
+    {
+      Sounding: () => "Travelling",
+      Acknowledged: () => "Holding",
+      Starting: () => "Holding",
+    },
     () => "Resting",
   );
 

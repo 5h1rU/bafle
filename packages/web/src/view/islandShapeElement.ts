@@ -13,6 +13,15 @@ import { ISLAND_SHAPE_TAG, ISLAND_TAIL_ATTRIBUTE, type IslandLight } from "./isl
 // pieces and the light over them, so the light is seen all the way round,
 // across the rim of the cover too, and falls a little on what it passes.
 
+// NOTE: the light has a view transition name of its own. When a song
+// changes, the browser fades a still picture of the island into the live
+// island; the still picture would hold the light where it was when the
+// picture was taken, and the light would seem to stop and then catch up.
+// Under its own name the light is left out of the island's picture, and
+// styles.css shows only the live one. The name is given there too, through
+// the `lights` part: a name set from inside a shadow tree belongs to that
+// tree, and the document's transition does not see it.
+
 // The island has no edge of another colour: at rest it is one flat figure.
 // What travels its outline is a light, not a line, and it is made of two
 // things. The glow is a short, wide stroke in a picture of its own that is
@@ -104,8 +113,13 @@ const TEMPLATE = `
     opacity: 0.85;
   }
 
-  .light {
+  .lights {
+    position: absolute;
+    inset: 0;
     z-index: 1;
+  }
+
+  .light {
     opacity: 0;
     transition: opacity ${CHANGES_PACE_OVER_MILLISECONDS}ms ease-in-out;
   }
@@ -177,12 +191,14 @@ const TEMPLATE = `
     </g>
   </g>
 </svg>
-<svg class="light soft" aria-hidden="true">
-  ${GLOW}
-</svg>
-<svg class="light" aria-hidden="true">
-  ${BEAM}
-</svg>
+<div class="lights" part="lights">
+  <svg class="light soft" aria-hidden="true">
+    ${GLOW}
+  </svg>
+  <svg class="light" aria-hidden="true">
+    ${BEAM}
+  </svg>
+</div>
 `;
 
 /**

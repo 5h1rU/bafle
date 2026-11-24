@@ -749,6 +749,20 @@ describe("the island", () => {
       inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "Resting")),
     ));
 
+  test("a start slow enough to be shown still tells the light nothing new", () =>
+    scene(
+      app,
+      given(
+        after(
+          sounding,
+          player(Player.Message.ClickedNext()),
+          player(Player.Message.CompletedWaitBeforeShowingActivity({ order: sounding.player.lastOrder + 1 })),
+        ),
+      ),
+      inside(island, see(selector('[data-playback="Starting"]')).toExist()),
+      inside(island, see(selector("bafle-island-shape")).toHaveAttr("data-light", "Holding")),
+    ));
+
   test("going on to another track does not halt the light: it holds until the engine answers", () =>
     scene(
       app,

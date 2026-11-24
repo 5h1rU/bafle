@@ -103,8 +103,9 @@
    drawn in; the island narrows; and, with the menu out of its way, it comes
    down into the row. Narrowing and coming down are one long glide on the
    same curve, the second a little behind the first, so the island is clear
-   of the circle and Search before it is level with them, and it settles
-   into its place over a third of a second instead of arriving. Coming out
+   of the circle and Search before it is level with them. The whole of it
+   is under half a second, most of the way in the first fifth of one, and
+   the rest is the island settling into its place instead of arriving. Coming out
    is the same three the other way round: it rises, it widens, and Next
    comes out from under the control once there is room for the tail.
 
@@ -148,19 +149,19 @@
 
     .dock-island {
       transition:
-        bottom 560ms var(--ease-dock-glide),
-        left 600ms var(--ease-dock-glide) 60ms,
-        right 600ms var(--ease-dock-glide) 60ms,
-        margin-right 320ms var(--ease-dock-settle) 280ms;
+        bottom 340ms var(--ease-dock-glide),
+        left 380ms var(--ease-dock-glide) 30ms,
+        right 380ms var(--ease-dock-glide) 30ms,
+        margin-right 220ms var(--ease-dock-settle) 170ms;
     }
 
     /* The tail and the island's margin are one movement: same time, same curve. */
     .dock-island-next {
-      transition: width 320ms var(--ease-dock-settle) 280ms;
+      transition: width 220ms var(--ease-dock-settle) 170ms;
     }
 
     .dock-island-next-control {
-      transition: opacity 200ms ease-out 360ms;
+      transition: opacity 140ms ease-out 220ms;
     }
 
     [data-navigation="minimized"] {
@@ -201,21 +202,21 @@
 
       .dock-island {
         transition:
-          margin-right 280ms var(--ease-dock-settle),
-          left 600ms var(--ease-dock-glide) 120ms,
-          right 600ms var(--ease-dock-glide) 120ms,
-          bottom 640ms var(--ease-dock-glide) 200ms;
+          margin-right 180ms var(--ease-dock-settle),
+          left 360ms var(--ease-dock-glide) 50ms,
+          right 360ms var(--ease-dock-glide) 50ms,
+          bottom 380ms var(--ease-dock-glide) 90ms;
       }
 
       .dock-island-next {
-        transition: width 280ms var(--ease-dock-settle);
+        transition: width 180ms var(--ease-dock-settle);
       }
 
       /* Next is under the control by the time it fades, and gone when the tail is. */
       .dock-island-next-control {
         transition:
-          opacity 120ms ease-in 140ms,
-          visibility 0s 280ms;
+          opacity 80ms ease-in 90ms,
+          visibility 0s 180ms;
       }
     }
   }
@@ -323,6 +324,31 @@ body {
   object-fit: none;
   object-position: top left;
   animation-duration: 380ms;
+}
+
+/* The light that travels the island's edge is a picture of its own, so that
+   a change of song does not fade a still copy of it into the live one: only
+   the live one is shown, as it is, above the cover on its way. When the
+   player opens there is no light on the far side, and it goes at once; when
+   the player closes it comes in once the island is back. */
+bafle-island-shape::part(lights) {
+  view-transition-name: island-light;
+}
+
+::view-transition-group(island-light) {
+  z-index: 3;
+}
+
+::view-transition-old(island-light) {
+  display: none;
+}
+
+::view-transition-new(island-light) {
+  animation: none;
+}
+
+::view-transition-new(island-light):only-child {
+  animation: 200ms ease-out 300ms both navigation-arrive;
 }
 
 /* Its first appearance, and only that: it rises into place once. */
