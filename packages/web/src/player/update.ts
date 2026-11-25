@@ -598,6 +598,18 @@ const closeQueueColumn: Step = (model) =>
         commands: [FocusQueueControl()],
       };
 
+/**
+ * The player is its island again. The face it had turned to was the
+ * expanded player's, and goes with it: opened again, the player shows the
+ * song, as a player is opened. Nothing sounds differently for it.
+ */
+export const collapse = (model: Model): UpdateReturn =>
+  onSession((session) =>
+    session.pane === "Artwork"
+      ? unchanged
+      : settle(modifyFields(session, { pane: () => "Artwork" as const })),
+  )(model);
+
 // THE MENU UNDER THE CONTROLS
 
 /**

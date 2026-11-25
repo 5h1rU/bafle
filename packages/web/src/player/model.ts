@@ -270,6 +270,16 @@ export const hasSession = (model: Model): boolean => Option.isSome(model.maybeSe
 export const maybeCurrentTrackId = (model: Model): Option.Option<TrackId> =>
   Option.map(model.maybeSession, (session) => session.current.id);
 
+/**
+ * Whether the expanded player shows the song's face, the one it opens with.
+ * With nothing played there is no other face to show.
+ */
+export const isOnSongFace = (model: Model): boolean =>
+  Option.match(model.maybeSession, {
+    onNone: () => true,
+    onSome: (session) => session.pane === "Artwork",
+  });
+
 /** Whether the queue's column is there to draw: it was opened, and something has been played. */
 export const isQueueColumnOpen = (model: Model): boolean =>
   model.queueColumn === "Open" && hasSession(model);

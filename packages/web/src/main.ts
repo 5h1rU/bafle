@@ -1053,6 +1053,13 @@ const foldPlayerChoice = Update.foldChild({
   toParentMessage: toGotPlayerMessage,
 });
 
+const foldPlayerCollapse = Update.foldChildStep({
+  update: Player.collapse,
+  read: readPlayer,
+  write: writePlayer,
+  toParentMessage: toGotPlayerMessage,
+});
+
 const foldPlayerQueue = Update.foldChild({
   update: Player.enqueue,
   read: readPlayer,
@@ -1603,10 +1610,22 @@ const launchOnceShown: Step = (model) => ({
 const closePlayerMenuOnceCollapsed: Step = (model) =>
   model.screen === "Compact" && !isPlayerExpanded(model) ? closePlayerMenu(model) : { model };
 
+/**
+ * The faces of the expanded player are the expanded player's. Once it is
+ * its island again, by whatever way it got there, the face it had turned to
+ * is put away with it: opened again, the player shows the song, which is
+ * the face the island grows into (`player-opens` in styles.css).
+ */
+const showSongOnceCollapsed: Step = (model) =>
+  isPlayerExpanded(model) || Player.isOnSongFace(model.player)
+    ? { model }
+    : foldPlayerCollapse(model);
+
 export const update = (model: Model, message: Message) =>
   Update.combine(model, [
     (current) => respond(current, message),
     closePlayerMenuOnceCollapsed,
+    showSongOnceCollapsed,
     launchOnceShown,
   ]);
 
@@ -1683,6 +1702,11 @@ export const POP_PAGE = "pop-page";
 /** What a transition is called when the island grows into the player, and when the player shrinks back. */
 export const PLAYER_OPENS = "player-opens";
 export const PLAYER_CLOSES = "player-closes";
+/**
+ * Said with `PLAYER_CLOSES` when the player was closed from its queue's face
+ * or its song's details, where the cover is a thumbnail and travels as one.
+ */
+export const PLAYER_FACE_CLOSES = "player-face-closes";
 
 /** The expanded player turning to its queue, and back to its song. */
 export const PLAYER_QUEUE_OPENS = "player-queue-opens";
@@ -1787,5 +1811,13 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   // grows into the sheet, instead of letting it ride the box's top corner
   // up the screen.
   const expanded = isExpanded ? model : previousModel;
-  return { types: [isExpanded ? PLAYER_OPENS : PLAYER_CLOSES, ...Option.toArray(routeArtwork(expanded.route))] };
+  return {
+    types: [
+      isExpanded ? PLAYER_OPENS : PLAYER_CLOSES,
+      ...Option.toArray(routeArtwork(expanded.route)),
+      // NOTE: after the cover's name, which is what is read second
+      // (`entry.ts`): a track's page always has one.
+      ...(isExpanded || Player.isOnSongFace(previousModel.player) ? [] : [PLAYER_FACE_CLOSES]),
+    ],
+  };
 };

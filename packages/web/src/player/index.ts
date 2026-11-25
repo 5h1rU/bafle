@@ -6,6 +6,7 @@ export * from "./mount.ts";
 export { subscriptions } from "./subscription.ts";
 export {
   choose,
+  collapse,
   enqueue,
   init,
   isAlbumAsked,

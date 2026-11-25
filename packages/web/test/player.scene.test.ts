@@ -30,6 +30,7 @@ import {
 } from "../src/command.ts";
 import {
   PLAYER_CLOSES,
+  PLAYER_FACE_CLOSES,
   PLAYER_OPENS,
   PLAYER_QUEUE_CLOSES,
   PLAYER_QUEUE_OPENS,
@@ -836,6 +837,32 @@ describe("the player expanded: the page of the track it holds", () => {
     ).toBe(false);
     expect(transition(expandedOnFirst, said(1, "Ended"))).toBe(false);
     expect(transition(expandedOnFirst, said(1, "Sounding", { positionSeconds: 14 }))).toBe(false);
+  });
+
+  test("closed from its queue or its song's details, it says so: the cover is a thumbnail there, and travels as one", () => {
+    const transition = (previousModel: Model, message: Message) =>
+      viewTransition({ previousModel, model: update(previousModel, message).model, message });
+    const onQueue = after(expandedOnFirst, player(Player.Message.ClickedQueue()));
+    const onDetails = after(expandedOnFirst, choseFromPlayer("SongDetails"));
+
+    expect(transition(onQueue, changedUrl("/new"))).toEqual({
+      types: [PLAYER_CLOSES, `track-cover-${track.id}`, PLAYER_FACE_CLOSES],
+    });
+    expect(transition(onDetails, changedUrl("/new"))).toEqual({
+      types: [PLAYER_CLOSES, `track-cover-${track.id}`, PLAYER_FACE_CLOSES],
+    });
+  });
+
+  test("closed, the face it had turned to is put away with it: opened again, it shows the song", () => {
+    const face = (model: Model) => Option.getOrThrow(model.player.maybeSession).pane;
+    const onQueue = after(expandedOnFirst, player(Player.Message.ClickedQueue()));
+    const onDetails = after(expandedOnFirst, choseFromPlayer("SongDetails"));
+
+    expect(face(onQueue)).toBe("Queue");
+    expect(face(after(onQueue, changedUrl("/new")))).toBe("Artwork");
+    expect(face(after(onDetails, changedUrl("/new")))).toBe("Artwork");
+    // Nothing sounds differently for it.
+    expect(update(onQueue, changedUrl("/new")).model.player.lastOrder).toBe(onQueue.player.lastOrder);
   });
 });
 

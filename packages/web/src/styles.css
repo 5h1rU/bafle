@@ -765,7 +765,19 @@ body {
 
    Opening: the island's disc gives way at once; the cover travels whole,
    and from a third of the way in time, when it is nearly there, fades into
-   the sheet. Closing is the same the other way round. */
+   the sheet.
+
+   Closing is not the same the other way round, though it once was. The way
+   is eased, and goes fast at its start whichever way it is travelled: going
+   back, the cover is most of the way to the island, and small, by the time
+   a third of the time has passed. A cover that came over the sheet's own
+   little by little, as the one that opens fades into it, was then a small
+   picture seen over the same picture large, and the player was seen to
+   close twice, one closing laid over the other. So the cover takes over
+   from the sheet's at the very start, while the two are still one size and
+   in one place, and the sheet's face is gone by the time it has shrunk
+   (`sheet-face-goes`, below): from there on the cover is the one thing seen
+   to travel, on the sheet's ground. */
 :root:active-view-transition-type(player-opens)::view-transition-old(.island-cover) {
   animation: var(--player-swap-duration) linear both cover-gives-way;
 }
@@ -796,9 +808,7 @@ body {
 
 @keyframes cover-lifts {
   0% { opacity: 0; }
-  28% { opacity: 0.03; }
-  50% { opacity: 0.45; }
-  65%, 90% { opacity: 1; }
+  12%, 90% { opacity: 1; }
   100% { opacity: 0; }
 }
 
@@ -825,6 +835,31 @@ body {
 
 @keyframes cover-rounds {
   from { border-radius: 1.5rem 1.5rem 0 0; }
+  to { border-radius: 1.5625rem; }
+}
+
+/* CLOSING FROM THE QUEUE'S FACE, OR THE SONG'S DETAILS
+
+   On those faces the cover is a thumbnail in a low head, and the sheet has
+   no second cover under it for the one that travels to come over: it is
+   there from the first frame, as it stands, and goes to the island's disc.
+   The app says which face the player was closed from (`viewTransition` in
+   main.ts). */
+:root:active-view-transition-type(player-face-closes)::view-transition-old(.island-cover) {
+  animation: var(--player-swap-duration) linear both thumbnail-goes-to-island;
+}
+
+:root:active-view-transition-type(player-face-closes)::view-transition-image-pair(.island-cover) {
+  animation: var(--player-swap-duration) cubic-bezier(0.3, 0, 0.1, 1) both thumbnail-rounds;
+}
+
+@keyframes thumbnail-goes-to-island {
+  0%, 90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes thumbnail-rounds {
+  from { border-radius: 0.5rem; }
   to { border-radius: 1.5625rem; }
 }
 
@@ -1021,7 +1056,10 @@ body {
    from a place the island never stood. It is kept at the foot of the box
    instead, in the middle, which is where the island stands; and it is gone
    early on the way out and back late on the way in, while the box is still
-   about the island's own size. The app names the two transitions
+   about the island's own size. Late enough, on the way in, for the cover on
+   its way down to be nearly on its disc: the cover comes with the top of
+   the box and the island stands at its foot, and an island that came while
+   the two were still apart was one thing coming down and another coming up. The app names the two transitions
    (`viewTransition` in main.ts), since both pictures carry the one name. */
 :root:active-view-transition-type(player-opens)::view-transition-old(player),
 :root:active-view-transition-type(player-closes)::view-transition-new(player) {
@@ -1036,7 +1074,7 @@ body {
 }
 
 :root:active-view-transition-type(player-closes)::view-transition-new(player) {
-  animation: 130ms ease-out 250ms both island-takes-its-place;
+  animation: 90ms ease-out 290ms both island-takes-its-place;
 }
 
 /* THE SHEET'S GROUND
@@ -1092,11 +1130,13 @@ body {
   72%, 100% { opacity: 1; }
 }
 
+/* NOTE: gone early. The face is a still picture kept at its own size in a
+   box that shrinks, and for as long as it is seen the cover in it is seen
+   large beside the one that travels (see `cover-lifts`). */
 @keyframes sheet-face-goes {
-  0%, 28% { opacity: 1; }
-  50% { opacity: 0.87; }
-  65% { opacity: 0.39; }
-  76%, 100% { opacity: 0; }
+  0% { opacity: 1; }
+  12% { opacity: 0.55; }
+  24%, 100% { opacity: 0; }
 }
 
 @keyframes island-gives-way {
