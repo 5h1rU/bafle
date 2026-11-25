@@ -90,6 +90,7 @@ import {
   isLoaded,
   initialPlayerSheet,
   isPlayerExpanded,
+  isPlayersPage,
   isPlayersTrack,
   Model,
   type Navigation,
@@ -111,6 +112,7 @@ import {
   urlToAppRoute,
 } from "./route.ts";
 import { type RowAction, RowMenu, type RowRef, rowMenuId, rowMenuIn } from "./rowMenu.ts";
+import type { Screen } from "./screen.ts";
 import { CHOOSE_TRACK, coverTransitionName, routeArtwork } from "./view/artwork.ts";
 import { pageIdOf } from "./view/layout.ts";
 
@@ -490,12 +492,13 @@ const keepAnswerOnlyFor =
 /**
  * Whether a page can take the screen without a wait: the Model holds what it
  * shows, or the screen only holds placeholders, which is nothing worth
- * holding. The page of the track the player holds is a third case: it is
- * the player expanded, drawn from what the queue already holds, so it takes
- * the screen at once and what the catalog adds fills in place.
+ * holding. The page of the track the player holds is a third case, on a
+ * compact screen: it is the player expanded, drawn from what the queue
+ * already holds, so it takes the screen at once and what the catalog adds
+ * fills in place.
  */
 const needsNoWait = (model: Model, route: AppRoute): boolean =>
-  isLoaded(model, route) || !canShow(model, model.route) || isPlayersTrack(model, route);
+  isLoaded(model, route) || !canShow(model, model.route) || isPlayersPage(model, route);
 
 /**
  * Stop waiting for every track, or every album, artist, playlist, genre or
@@ -812,10 +815,13 @@ const focusTrackRow =
  * stops offering it, and what goes from a row's control can take the focus
  * with it: the row is given it back.
  */
+// NOTE: a page asked for from the island's menu has no row to stay behind
+// (`onPage`): it takes the screen with whatever there is to say of it, as a
+// page chosen from a tile does.
 const commitIfOpenable =
-  (route: AppRoute): Step =>
+  (route: AppRoute, onPage: boolean): Step =>
   (model) => {
-    if (canCommit(model, route)) {
+    if (canCommit(model, route) || (onPage && canShow(model, route))) {
       return commit(route, model.route)(model);
     }
     return AppRoute.matchOrElse<UpdateReturn>(
@@ -855,7 +861,7 @@ const receive = <A>(
   return Awaiting.matchOrElse<UpdateReturn>(
     model.awaiting,
     {
-      Intention: ({ route }) => commitIfOpenable(route)(settled),
+      Intention: ({ route, onPage }) => commitIfOpenable(route, onPage === true)(settled),
       Arrival: ({ route, entrance }) => showPage(route, entrance)(settled),
     },
     () => ({ model: settled }),
@@ -1372,11 +1378,77 @@ const openAlbumOfPlayer: Step = (model) =>
     },
   });
 
+/**
+ * The page asked for is one no row speaks for: it is to take the screen
+ * with whatever there is to say of it, the catalog's failure to answer among
+ * that.
+ */
+const sayOnPage =
+  (route: AppRoute): Step =>
+  (model) => ({
+    model: Awaiting.matchOrElse(
+      model.awaiting,
+      {
+        Intention: (awaited) =>
+          isSameRoute(awaited.route, route)
+            ? modifyFields(model, {
+                awaiting: () =>
+                  Awaiting.Intention({
+                    requestId: awaited.requestId,
+                    route: awaited.route,
+                    onPage: true,
+                    ...(awaited.viaKeyboard && { viaKeyboard: true as const }),
+                  }),
+              })
+            : model,
+      },
+      () => model,
+    ),
+  });
+
+/**
+ * The page of the track the player holds, chosen from the island's menu on a
+ * desktop's screen, where the player has no face for the song's details. It
+ * is followed as a link to the page would be: the page on screen is held and
+ * the island's control says the page is on its way.
+ */
+const openSongOfPlayer: Step = (model) =>
+  Option.match(Player.maybeCurrentTrackId(model.player), {
+    onNone: () => ({ model }),
+    onSome: (trackId) => {
+      const route = AppRoute.Track({ trackId });
+      return Update.combine(model, [follow(route), sayOnPage(route)]);
+    },
+  });
+
+const closePlayerMenu: Step = (model) =>
+  Player.isMoreMenuOpen(model.player)
+    ? foldPlayer(Player.Message.GotMoreMenuMessage({ message: Menu.Message.Closed() }))(model)
+    : { model };
+
+/**
+ * The screen has become a desktop's, or stopped being one. Nothing moves in
+ * the history and no page is asked for: the route is the same route, and
+ * only what the player is changes. The page of the track it holds is the
+ * player's sheet on a compact screen and that track's own page on a
+ * desktop's. A menu of the player's left open is closed: the control it
+ * hung from is not there any more.
+ */
+const changeScreen =
+  (screen: Screen): Step =>
+  (model) =>
+    model.screen === screen
+      ? { model }
+      : closePlayerMenu(withPlayerSheetAnew(modifyFields(model, { screen: () => screen })));
+
 const respond = (model: Model, message: Message) =>
   Message.match<UpdateReturn>(message, {
     ChangedInputMethod: ({ method }) => ({
       model: modifyFields(model, { inputMethod: () => method }),
     }),
+
+    ChangedScreen: ({ screen }) => changeScreen(screen)(model),
+
     ClickedLink: ({ request }) =>
       UrlRequest.match<UpdateReturn>(request, {
         Internal: ({ url }) => {
@@ -1451,12 +1523,18 @@ const respond = (model: Model, message: Message) =>
     // NOTE: the album's page, chosen from the player's menu, is followed as
     // a link to it would be: the player is held until the page can take the
     // screen, and then shrinks back to its island over it.
+    // NOTE: the song's details are a face of the expanded player, which the
+    // player turns to itself. On a desktop's screen there is no such face,
+    // and the choice is not handed to the player: its menu is closed, and
+    // the track's page is followed as a link to it would be.
     GotPlayerMessage: ({ message }) =>
-      Update.combine(model, [
-        foldPlayer(message),
-        keepUpWithPlayer(model),
-        Player.isAlbumAsked(message) ? openAlbumOfPlayer : (current) => ({ model: current }),
-      ]),
+      model.screen === "Desktop" && Player.isDetailsAsked(message)
+        ? Update.combine(model, [closePlayerMenu, openSongOfPlayer])
+        : Update.combine(model, [
+            foldPlayer(message),
+            keepUpWithPlayer(model),
+            Player.isAlbumAsked(message) ? openAlbumOfPlayer : (current) => ({ model: current }),
+          ]),
 
     // NOTE: a sheet's word counts only while the player is expanded. One
     // that comes after the player closed, from a sheet on its way out of the
@@ -1516,15 +1594,14 @@ const launchOnceShown: Step = (model) => ({
 });
 
 /**
- * The menu under the player's controls belongs to the expanded player. Once
+ * On a compact screen the player's menu belongs to the expanded player. Once
  * the player is its island again, by whatever way it got there, a menu left
  * open is closed: opened again, the player is found as a player is opened,
- * with nothing standing over it.
+ * with nothing standing over it. On a desktop's screen the menu is the
+ * island's own, and stays as the listener left it.
  */
 const closePlayerMenuOnceCollapsed: Step = (model) =>
-  !isPlayerExpanded(model) && Player.isMoreMenuOpen(model.player)
-    ? foldPlayer(Player.Message.GotMoreMenuMessage({ message: Menu.Message.Closed() }))(model)
-    : { model };
+  model.screen === "Compact" && !isPlayerExpanded(model) ? closePlayerMenu(model) : { model };
 
 export const update = (model: Model, message: Message) =>
   Update.combine(model, [
@@ -1570,6 +1647,10 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       trail: [],
       navigation: "Open",
       launch: "Launching",
+      // NOTE: what the screen is, the document says as the app starts
+      // (`screens` in subscription.ts). Until it has, nothing has been
+      // played, and the two screens differ only in what the player is.
+      screen: "Compact",
       inputMethod: "Pointer",
       rowMenus: HashMap.empty(),
       rowDone: { turn: 0, maybeRow: Option.none() },
@@ -1607,6 +1688,10 @@ export const PLAYER_CLOSES = "player-closes";
 export const PLAYER_QUEUE_OPENS = "player-queue-opens";
 export const PLAYER_QUEUE_CLOSES = "player-queue-closes";
 
+/** The queue's column coming in beside the page, on a desktop's screen, and going. */
+export const QUEUE_COLUMN_OPENS = "queue-column-opens";
+export const QUEUE_COLUMN_CLOSES = "queue-column-closes";
+
 /**
  * A view transition when the page on screen changes, and when the listener
  * puts another track in the player: the first is told by what kind of change
@@ -1632,6 +1717,21 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
     ((awaited._tag === "Intention" || awaited._tag === "Arrival") &&
       awaited.viaKeyboard && isSameRoute(awaited.route, model.route))) {
     return false;
+  }
+  // NOTE: a window made wider or narrower is no change the app shows: the
+  // player is a sheet on one side of it and an island on the other, and a
+  // transition would grow the one out of the other under a hand on the
+  // window's edge.
+  if (previousModel.screen !== model.screen) {
+    return false;
+  }
+  // NOTE: the queue's column comes in from the side it stands on, and goes
+  // back off it. The page beside it changes width in the one frame, and the
+  // island goes to its new place with the column.
+  const wasQueueBeside = Player.isQueueColumnOpen(previousModel.player);
+  const isQueueBeside = Player.isQueueColumnOpen(model.player);
+  if (model.screen === "Desktop" && wasQueueBeside !== isQueueBeside) {
+    return { types: [isQueueBeside ? QUEUE_COLUMN_OPENS : QUEUE_COLUMN_CLOSES] };
   }
   const wasExpanded = isPlayerExpanded(previousModel);
   const isExpanded = isPlayerExpanded(model);

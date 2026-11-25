@@ -16,6 +16,10 @@ export const Message = defineMessageUnion({
   ClickedNext: {},
   ClickedPrevious: {},
   ClickedQueue: {},
+  /** The island's own way to the queue, on a desktop's screen: it opens the queue beside the page, and closes it. */
+  ClickedIslandQueue: {},
+  /** The control at the head of the queue's column. */
+  ClickedCloseQueue: {},
   /** The name at the head of the face that says what the catalog knows of the track: it leads back to the song. */
   ClickedDetails: {},
   ClickedQueueItem: { index: Schema.Int, trackId: TrackId },
@@ -46,5 +50,6 @@ export const Message = defineMessageUnion({
   CompletedChangeIslandLightPace: {},
   CompletedStartIslandLight: {},
   CompletedShowFaceFromTop: {},
+  CompletedFocusQueueControl: {},
 });
 export type Message = typeof Message.Type;

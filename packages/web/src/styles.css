@@ -889,6 +889,60 @@ body {
   to { border-radius: 1.5rem 1.5rem 0 0; }
 }
 
+/* THE QUEUE'S COLUMN COMING AND GOING
+
+   On a desktop's screen the queue opens in a column past the page
+   (player/player.css). The column comes in from the side it stands on and
+   goes back off it. The page beside it has its new width in the one frame:
+   a width that changed little by little would lay every shelf out again on
+   every frame of the way. The island stands in the middle of the page's
+   column, so it goes to its new place with the column, and its shadow and
+   its light, which are pictures of their own, by the same clock.
+
+   On any other swap the column is the same on both sides and does not fade
+   with the page, as the navigation does not. */
+:root:active-view-transition-type(queue-column-opens),
+:root:active-view-transition-type(queue-column-closes) {
+  --player-swap-duration: 300ms;
+}
+
+:root:active-view-transition-type(queue-column-opens)::view-transition-group(island-shadow),
+:root:active-view-transition-type(queue-column-opens)::view-transition-group(island-light),
+:root:active-view-transition-type(queue-column-closes)::view-transition-group(island-shadow),
+:root:active-view-transition-type(queue-column-closes)::view-transition-group(island-light) {
+  animation-duration: var(--player-swap-duration);
+  animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);
+}
+
+::view-transition-old(queue-column) {
+  display: none;
+}
+
+::view-transition-new(queue-column) {
+  animation: none;
+}
+
+::view-transition-new(queue-column):only-child {
+  animation: 300ms cubic-bezier(0.3, 0, 0.1, 1) both queue-column-comes;
+}
+
+::view-transition-old(queue-column):only-child {
+  display: block;
+  animation: 220ms cubic-bezier(0.4, 0, 1, 1) both queue-column-goes;
+}
+
+@keyframes queue-column-comes {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes queue-column-goes {
+  to {
+    transform: translateX(100%);
+  }
+}
+
 /* The island and the expanded player are one piece under one name. On a
    page swap behind the island the two sides are the same picture in the same
    place, and nothing is seen to happen. When the player opens or closes, the

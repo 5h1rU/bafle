@@ -29,6 +29,7 @@ import { LoadError } from "./catalog.ts";
 import { InputMethod, PlayOrigin } from "./message.ts";
 import { maybeCurrentTrackId, Model as PlayerModel, QueuePlace } from "./player/model.ts";
 import { AppRoute, searchedTerm } from "./route.ts";
+import { Screen } from "./screen.ts";
 import * as Sheet from "./sheet/index.ts";
 
 // MODEL
@@ -101,7 +102,16 @@ export const Awaiting = defineTaggedUnion({
    * it is pushed when the page takes the screen, so the history only ever
    * gains pages that were shown.
    */
-  Intention: { requestId: Schema.String, route: AppRoute, viaKeyboard: Schema.optionalKey(Schema.Literal(true)) },
+  // NOTE: `onPage` marks a page asked for from where there is no room to
+  // say how the asking ended: a track's from the island's menu. It takes the
+  // screen with whatever there is to say, as a page chosen from a tile does,
+  // where a track asked from a row stays behind its row.
+  Intention: {
+    requestId: Schema.String,
+    route: AppRoute,
+    viaKeyboard: Schema.optionalKey(Schema.Literal(true)),
+    onPage: Schema.optionalKey(Schema.Literal(true)),
+  },
   /**
    * A reply for a page the browser has already moved the URL to, by Back or
    * Forward. The page on screen is held until it comes, and how the listener
@@ -232,6 +242,12 @@ export const Model = Schema.Struct({
    * mark the page opened with gives way when it has, and not before.
    */
   launch: Launch,
+  /**
+   * Whether the screen is a desktop's, as the document last said. It decides
+   * what the player is: on a compact screen it expands into a sheet, on a
+   * desktop's it stays an island and its queue opens beside the page.
+   */
+  screen: Screen,
   inputMethod: InputMethod,
   /**
    * The menus at the end of the rows, each under its row's id: those that
@@ -457,7 +473,7 @@ export const canShow = (model: Model, route: AppRoute): boolean =>
     Radio: () => hasSomethingToShow(model.stationList),
     Search: () => Option.isNone(searchedTerm(route)) || hasSomethingToShow(model.search),
     Track: ({ trackId }) =>
-      hasSomethingToShow(trackData(model, trackId)) || isPlayersTrack(model, route),
+      hasSomethingToShow(trackData(model, trackId)) || isPlayersPage(model, route),
     Album: ({ albumId }) => hasSomethingToShow(albumData(model, albumId)),
     Artist: ({ artistId }) => hasSomethingToShow(artistData(model, artistId)),
     Playlist: ({ playlistId }) => hasSomethingToShow(playlistData(model, playlistId)),
@@ -492,21 +508,28 @@ export const isLoaded = (model: Model, route: AppRoute): boolean =>
     NotFound: () => true,
   });
 
-/**
- * Whether a route is the page of the track the player holds. That page is
- * the player itself, expanded: the queue already holds what it shows, so it
- * never has to be waited for.
- */
+/** Whether a route is the page of the track the player holds. */
 export const isPlayersTrack = (model: Model, route: AppRoute): boolean =>
   route._tag === "Track" && Option.contains(maybeCurrentTrackId(model.player), route.trackId);
 
 /**
- * Whether the player is expanded: the screen is the page of the track it
- * holds. Nothing records this. The route says which track is on screen, the
- * player says which is current, and the two are compared: on any other
- * track's page, and on every other page, the player is its island.
+ * Whether a route's page is the player itself, expanded: the page of the
+ * track it holds, on a compact screen. The queue already holds what that
+ * page shows, so it never has to be waited for. On a desktop's screen the
+ * player does not expand, and the page of the track it holds is a track's
+ * page like any other.
  */
-export const isPlayerExpanded = (model: Model): boolean => isPlayersTrack(model, model.route);
+export const isPlayersPage = (model: Model, route: AppRoute): boolean =>
+  model.screen === "Compact" && isPlayersTrack(model, route);
+
+/**
+ * Whether the player is expanded: the screen is the page of the track it
+ * holds, and is a compact one. Nothing records this. The route says which
+ * track is on screen, the player says which is current, and the two are
+ * compared: on any other track's page, and on every other page, the player
+ * is its island. On a desktop's screen it is always its island.
+ */
+export const isPlayerExpanded = (model: Model): boolean => isPlayersPage(model, model.route);
 
 /**
  * The page the app is waiting to put on screen in place of the one that is

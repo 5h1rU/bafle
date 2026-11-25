@@ -1,12 +1,14 @@
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Dom, Subscription } from "foldkit";
 import { type InputMethod, Message } from "./message.ts";
 import type { Model } from "./model.ts";
 import * as Player from "./player/index.ts";
+import { DESKTOP_QUERY } from "./screen.ts";
 import { isPageId, pageIdOf } from "./view/layout.ts";
 
 // SUBSCRIPTION
@@ -142,6 +144,30 @@ const reachedTop: Stream.Stream<Message> = pagePositions.pipe(
 );
 
 /**
+ * Whether the screen is a desktop's: told as the app starts, and again each
+ * time the window is made wide enough for three columns or too narrow for
+ * them. It is the one width the Model holds, since it changes what the
+ * player is and not only where its pieces are drawn (`screen.ts`).
+ */
+const screens = Stream.callback<Message>((queue) =>
+  Effect.acquireRelease(
+    Effect.sync(() => {
+      const desktop = matchMedia(DESKTOP_QUERY);
+      const tell = (): void => {
+        Queue.offerUnsafe(
+          queue,
+          Message.ChangedScreen({ screen: desktop.matches ? "Desktop" : "Compact" }),
+        );
+      };
+      desktop.addEventListener("change", tell);
+      tell();
+      return () => desktop.removeEventListener("change", tell);
+    }),
+    (stop) => Effect.sync(stop),
+  ).pipe(Effect.flatMap(() => Effect.never)),
+);
+
+/**
  * What is listened for depends on how the navigation stands: whole, for the
  * page going down; drawn back, for the page reaching its top. Each change of
  * the navigation, and each change of page, starts the listening anew, so a
@@ -149,6 +175,10 @@ const reachedTop: Stream.Stream<Message> = pagePositions.pipe(
  * from there.
  */
 const navigationSubscriptions = Subscription.make<Model, Message>()((entry) => ({
+  screen: entry({}, {
+    modelToDependencies: () => ({}),
+    dependenciesToStream: () => screens,
+  }),
   inputMethod: entry({}, {
     modelToDependencies: () => ({}),
     dependenciesToStream: () => {

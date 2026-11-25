@@ -6,6 +6,7 @@ import { UrlRequest } from "foldkit/navigation";
 import { Url } from "foldkit/url";
 import { Catalog } from "./catalog.ts";
 import { Message as PlayerMessage } from "./player/message.ts";
+import { Screen } from "./screen.ts";
 import { Message as SheetMessage } from "./sheet/model.ts";
 
 // MESSAGE
@@ -28,6 +29,8 @@ export type InputMethod = typeof InputMethod.Type;
 
 export const Message = defineMessageUnion({
   ChangedInputMethod: { method: InputMethod },
+  /** The document says how much room the app has: as it starts, and whenever that changes. */
+  ChangedScreen: { screen: Screen },
   ClickedLink: { request: UrlRequest },
   ChangedUrl: { url: Url },
   ClickedBack: {},

@@ -12,6 +12,7 @@ import type { CatalogClient } from "../catalog.ts";
 import type { AudioEngine, EngineReport } from "./audioEngine.ts";
 import {
   ChangeIslandLightPace,
+  FocusQueueControl,
   PausePlayback,
   PublishNowPlaying,
   RefreshSource,
@@ -62,6 +63,7 @@ export const init = (): Model => ({
   maybeSession: Option.none(),
   light: "Dark",
   title: initialTitle,
+  queueColumn: "Closed",
 });
 
 // UPDATE
@@ -574,6 +576,28 @@ const turnTo =
     commands: [ShowFaceFromTop()],
   });
 
+// THE QUEUE BESIDE THE PAGE
+
+/** The island's control for the queue, on a desktop's screen: it opens the column, and closes it. */
+const toggleQueueColumn: Step = (model) => ({
+  model: modifyFields(model, {
+    queueColumn: (queueColumn) => (queueColumn === "Open" ? "Closed" : "Open"),
+  }),
+});
+
+/**
+ * The column's own control closes it. What held the focus goes with the
+ * column, so the control that opens it takes it: the listener is left where
+ * they would open it again.
+ */
+const closeQueueColumn: Step = (model) =>
+  model.queueColumn === "Closed"
+    ? { model }
+    : {
+        model: modifyFields(model, { queueColumn: () => "Closed" }),
+        commands: [FocusQueueControl()],
+      };
+
 // THE MENU UNDER THE CONTROLS
 
 /**
@@ -634,11 +658,27 @@ const gotQueueDragMessage = (model: Model, message: DragAndDrop.Message): Update
   return foldQueueDrag(wasCarried)(model, message);
 };
 
+/** What a Message chooses from the player's menu, when it chooses something. */
+const maybeAskedOfMenu = (message: Message): Option.Option<PlayerAction> =>
+  message._tag === "GotMoreMenuMessage" && message.message._tag === "SelectedItem"
+    ? Option.liftPredicate(
+        message.message.item,
+        (item): item is PlayerAction => item === "OpenAlbum" || item === "SongDetails",
+      )
+    : Option.none();
+
 /** Whether a Message is the listener choosing the album's page from the player's menu. */
 export const isAlbumAsked = (message: Message): boolean =>
-  message._tag === "GotMoreMenuMessage" &&
-  message.message._tag === "SelectedItem" &&
-  message.message.item === "OpenAlbum";
+  Option.contains(maybeAskedOfMenu(message), "OpenAlbum");
+
+/**
+ * Whether a Message is the listener choosing the song's details from the
+ * player's menu. In the expanded player that is a face of the player, turned
+ * to here. On a desktop's screen there is no such face: it is the track's
+ * page, which is the app's to open.
+ */
+export const isDetailsAsked = (message: Message): boolean =>
+  Option.contains(maybeAskedOfMenu(message), "SongDetails");
 
 const gotSeekSliderMessage = (model: Model, message: Slider.Message): UpdateReturn => {
   const wasDragging = Option.exists(model.maybeSession, (session) =>
@@ -814,6 +854,8 @@ const handle = (model: Model, message: Message) =>
       onSession((session) =>
         turnTo(session, session.pane === "Queue" ? "Artwork" : "Queue"),
       )(model),
+    ClickedIslandQueue: () => toggleQueueColumn(model),
+    ClickedCloseQueue: () => closeQueueColumn(model),
     ClickedDetails: () =>
       onSession((session) => (session.pane === "Details" ? turnTo(session, "Artwork") : unchanged))(model),
     ClickedQueueItem: ({ index, trackId }) =>
@@ -854,6 +896,7 @@ const handle = (model: Model, message: Message) =>
     CompletedStartIslandLight: () => ({ model }),
     CompletedChangeIslandLightPace: () => ({ model }),
     CompletedShowFaceFromTop: () => ({ model }),
+    CompletedFocusQueueControl: () => ({ model }),
   });
 
 // ENTRY

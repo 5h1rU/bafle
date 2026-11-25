@@ -1176,6 +1176,29 @@ const expandedPlaceView = (model: Model, h: HtmlBuilder<Message>): Html =>
     h,
   );
 
+/**
+ * Whether a page chosen from the island's menu is on its way: the page of
+ * the album the track the player holds is on, or that track's own. A row can
+ * ask for either too, and then the row is the one to say so.
+ */
+const isIslandsPageOpening = (model: Model): boolean =>
+  Option.exists(maybeHeadedFor(model), (route) =>
+    AppRoute.matchOrElse(
+      route,
+      {
+        Album: ({ albumId }) =>
+          Option.contains(Player.maybeCurrentAlbumId(model.player), albumId) &&
+          !HashMap.has(model.albumRows, albumId),
+        Track: () => isSaidOnPage(model.awaiting),
+      },
+      () => false,
+    ),
+  );
+
+/** Whether what is awaited is a page that takes the screen with whatever there is to say of it. */
+const isSaidOnPage = (awaiting: Awaiting): boolean =>
+  Awaiting.matchOrElse(awaiting, { Intention: ({ onPage }) => onPage === true }, () => false);
+
 /** A page a row speaks for while it opens: its track's, or the album's when the row asked for it. */
 const isRowsToSay = (model: Model, route: AppRoute): boolean =>
   AppRoute.matchOrElse(
@@ -1195,7 +1218,12 @@ const isRowsToSay = (model: Model, route: AppRoute): boolean =>
 const maybeAnnouncedDestination = (model: Model): Option.Option<AppRoute> =>
   Option.filter(
     maybeHeadedFor(model),
-    (route) => !(Awaiting.guards.Intention(model.awaiting) && isRowsToSay(model, route)),
+    (route) =>
+      !(
+        Awaiting.guards.Intention(model.awaiting) &&
+        !isSaidOnPage(model.awaiting) &&
+        isRowsToSay(model, route)
+      ),
   );
 
 /**
@@ -1253,7 +1281,10 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
         [
           h.Class(
             clsx(
-              "pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-canvas/90 to-transparent px-5 pt-8 pb-3.5 md:pointer-events-auto md:static md:w-60 md:shrink-0 md:border-r md:border-line md:bg-panel md:bg-none md:px-3 md:py-6",
+              // NOTE: on a desktop's screen the navigation is narrower, as
+              // the design draws it: the page keeps its room when the queue
+              // opens beside it.
+              "pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-canvas/90 to-transparent px-5 pt-8 pb-3.5 md:pointer-events-auto md:static md:w-60 md:shrink-0 md:border-r md:border-line md:bg-panel md:bg-none md:px-3 md:py-6 lg:w-44",
               {
                 // Under the player there is no navigation. It is drawn again,
                 // out of reach, as the player's sheet uncovers it.
@@ -1289,16 +1320,29 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
                 viewInputs: {
                   toTrackPageLink: trackPageLinkView(h),
                   isUnderSheet: isPlayerExpanded(model),
+                  screen: model.screen,
+                  isPageOpening: model.screen === "Desktop" && isIslandsPageOpening(model),
                 },
                 toParentMessage: (message) => Message.GotPlayerMessage({ message }),
               }),
         ],
       ),
+      // NOTE: on a desktop's screen the queue opens here, in a column of its
+      // own past the page. It is the player's, as the island is, and the
+      // page beside it is the page on screen: nothing of the route changes.
+      model.screen === "Desktop"
+        ? h.submodel({
+            slotId: Player.QUEUE_COLUMN_ID,
+            model: model.player,
+            view: Player.queueColumnView,
+            toParentMessage: (message) => Message.GotPlayerMessage({ message }),
+          })
+        : h.empty,
       h.p([h.Role("status"), h.Class("sr-only")], [pageStatus(model)]),
       // NOTE: a song of the queue being carried is drawn here and not in the
       // player's sheet. It is placed by the screen, and the sheet is a box
       // that what is in it is placed by.
-      Player.queueGhostView(model.player, h),
+      Player.queueGhostView(model.player, model.screen === "Desktop", h),
     ],
   ),
 });

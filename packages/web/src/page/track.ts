@@ -41,11 +41,15 @@ export const titleOf = (track: TrackData): string =>
     onSome: Option.match({ onNone: () => NOT_AVAILABLE, onSome: (found) => found.title }),
   });
 
-/** The cover beside the rest on a wide screen, above it on a narrow one. */
+/** The cover beside the rest where the page has the room, above it where it has not. */
+// NOTE: the room is the page's own, not the screen's (`@container` on what
+// holds this): on a desktop's screen the queue opens beside the page and
+// takes room from it, and a rule that went by the screen would lay the page
+// out for a width it no longer has, the words in what the cover left.
 const LAYOUT_CLASS =
-  "grid max-w-5xl gap-6 md:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] md:gap-10 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]";
+  "grid max-w-5xl gap-6 @xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] @xl:gap-10 @[44rem]:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]";
 
-const COVER_COLUMN_CLASS = "mx-auto w-full max-w-sm md:max-w-none";
+const COVER_COLUMN_CLASS = "mx-auto w-full max-w-sm @xl:max-w-none";
 
 /** The page before the catalog has answered: a block for the cover, lines for the title and the facts. */
 const placeholderView = (h: HtmlBuilder<Message>): Html =>
@@ -272,7 +276,7 @@ export const view = (
   h.keyed("div")(trackId, pageAttributes(PAGE_ID, "OnScreen", h), [
     wayBackView(Option.isSome(maybeWayBack), h),
     h.div(
-      [h.AriaBusy(AsyncData.isPending(track)), h.Class("mt-4")],
+      [h.AriaBusy(AsyncData.isPending(track)), h.Class("@container mt-4")],
       [
         untitledView(track, h),
         pageDataView(

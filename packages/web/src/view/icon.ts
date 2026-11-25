@@ -158,6 +158,21 @@ export const detailsIcon = (className: string): Html =>
     "M12 7.75v.01",
   ]);
 
+/** Six dots, two by three: the handle of a row in the queue's column, where a pointer takes it up. */
+export const gripDotsIcon = (className: string): Html =>
+  solidIcon(className, [
+    "M9.25 4.75a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z",
+    "M14.75 4.75a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z",
+    "M9.25 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z",
+    "M14.75 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z",
+    "M9.25 16.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z",
+    "M14.75 16.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z",
+  ]);
+
+/** A cross: what it stands on is closed. */
+export const closeIcon = (className: string): Html =>
+  outlineIcon(className, ["M6.5 6.5 17.5 17.5", "M17.5 6.5 6.5 17.5"]);
+
 /** Three bars: the handle a row of a list is taken up by, to be put elsewhere in it. */
 export const gripIcon = (className: string): Html =>
   outlineIcon(className, ["M5 8.5h14", "M5 12h14", "M5 15.5h14"]);

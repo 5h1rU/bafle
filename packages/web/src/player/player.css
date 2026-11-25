@@ -504,3 +504,183 @@
 .player-queue {
   padding: 0.25rem var(--player-gutter) 1.5rem;
 }
+
+/* THE ISLAND ON A DESKTOP'S SCREEN
+
+   There the player does not expand (`screen.ts`), and the island has
+   controls of its own for what the sheet would have held: the way to the
+   queue and the menu of what else can be done with the track, before its
+   transport, and Previous in the transport itself. They are smaller than
+   the transport's and squarer, so the three that play stay the ones seen
+   first. The way to the queue is lit while the queue is open. */
+.island-extras {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  margin-right: 0.625rem;
+}
+
+.island-action {
+  display: flex;
+  width: 2.125rem;
+  height: 2.125rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
+  color: var(--color-island-muted);
+  cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+}
+
+.island-action:hover,
+.island-action:active {
+  color: var(--color-on-island);
+  background-color: color-mix(in srgb, var(--color-on-island) 10%, transparent);
+}
+
+.island-action[data-lit] {
+  color: var(--color-on-island);
+  background-color: color-mix(in srgb, var(--color-on-island) 15%, transparent);
+}
+
+.island-action:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* THE QUEUE BESIDE THE PAGE
+
+   On a desktop's screen the queue is a column of its own past the page
+   (design/desktop.pen): its name and the control that closes it at its
+   head, the song that plays next on a card, and the ones that play later
+   under it. It is as wide as the design draws it where there is the room,
+   and narrower on a narrower screen, so that the page beside it is never
+   left with less than it has beside the navigation alone. The column
+   scrolls by itself, as the page and the navigation do. */
+:root {
+  --queue-column: clamp(20rem, 30vw, 26.5rem);
+}
+
+.queue-column {
+  display: flex;
+  width: var(--queue-column);
+  min-height: 0;
+  flex: none;
+  flex-direction: column;
+  border-left: 1px solid var(--color-line);
+  color: var(--color-ink);
+  background-color: var(--color-panel);
+  view-transition-name: queue-column;
+}
+
+.queue-column-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  margin-inline: 1.375rem;
+  padding-block: 1.25rem 0.875rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.queue-column-title {
+  font-size: 1.6875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+
+.queue-column-close {
+  display: flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--color-muted);
+  background-color: var(--color-tile);
+  cursor: pointer;
+  transition: color 120ms;
+}
+
+.queue-column-close:hover {
+  color: var(--color-ink);
+}
+
+.queue-column-close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.queue-column-body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem 1.375rem 2rem;
+}
+
+.queue-column-heading {
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+/* The song that plays next: a card, with its cover. */
+.queue-next {
+  margin-top: 0.75rem;
+  border-radius: 0.875rem;
+}
+
+.queue-next-surface {
+  display: flex;
+  min-height: 5.25rem;
+  align-items: center;
+  padding: 0.625rem 0.375rem 0.625rem 0.625rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.875rem;
+  background-color: color-mix(in srgb, var(--color-ink) 5%, transparent);
+}
+
+.queue-next-cover {
+  display: flex;
+  width: 3.5rem;
+  height: 3.5rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  color: var(--color-muted);
+  background-color: var(--color-tile);
+}
+
+.queue-next-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* NOTE: a row's surface is lit with the panel's colour (`track-row` in
+   styles.css), which is the column's own: here it is lit with the ink's. */
+.queue-column .track-row-surface:has(.track-row-play:hover) {
+  background-color: color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+.queue-column .track-row-surface:has(.track-row-play:active) {
+  background-color: color-mix(in srgb, var(--color-ink) 12%, transparent);
+}
+
+.queue-column-grip {
+  width: 2rem;
+  height: 2.75rem;
+  margin-right: -0.375rem;
+}
+
+/* Beside the page, the song being carried stands in the column it is
+   carried along. */
+.queue-ghost-lane[data-beside] {
+  left: auto;
+  width: var(--queue-column);
+}

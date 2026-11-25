@@ -4,11 +4,12 @@ import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { Command, Render } from "foldkit";
+import { Command, Dom, Render } from "foldkit";
 import { Catalog, REPLY_TIMEOUT } from "../catalog.ts";
 import { AudioEngine } from "./audioEngine.ts";
 import { changePace, ISLAND_LIGHTS_ATTRIBUTE } from "./islandLight.ts";
 import { Message } from "./message.ts";
+import { QUEUE_CONTROL_ID } from "./model.ts";
 
 // COMMAND
 
@@ -216,4 +217,17 @@ export const ShowFaceFromTop = Command.define("ShowFaceFromTop", {
     );
     return Message.CompletedShowFaceFromTop();
   }),
+});
+
+/**
+ * Gives the focus to the island's control for the queue, once the column it
+ * opened is closed by the column's own control: what held the focus went
+ * with the column.
+ */
+export const FocusQueueControl = Command.define("FocusQueueControl", {
+  messages: [Message.CompletedFocusQueueControl],
+  execute: Dom.focus(`#${QUEUE_CONTROL_ID}`, { preventScroll: true }).pipe(
+    Effect.ignore,
+    Effect.as(Message.CompletedFocusQueueControl()),
+  ),
 });

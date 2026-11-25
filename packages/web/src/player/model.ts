@@ -152,6 +152,14 @@ export const TitleMarquee = Schema.Struct({
 });
 export type TitleMarquee = typeof TitleMarquee.Type;
 
+/**
+ * Whether the queue stands open beside the page, on a screen with room for a
+ * column of its own (`screen.ts`). It is the player's and no session's: a
+ * queue left open stays open when another list is played.
+ */
+export const QueueColumn = Schema.Literals(["Closed", "Open"]);
+export type QueueColumn = typeof QueueColumn.Type;
+
 export const Model = Schema.Struct({
   /**
    * The number of the latest order given to the engine. A report counts only
@@ -163,6 +171,7 @@ export const Model = Schema.Struct({
   maybeSession: Schema.Option(Session),
   light: IslandLight,
   title: TitleMarquee,
+  queueColumn: QueueColumn,
 });
 export type Model = typeof Model.Type;
 
@@ -196,6 +205,10 @@ export const SEEK_SLIDER_ID = "player-seek";
 
 /** The slider steps by whole seconds: an arrow key moves one, Page Up and Down ten. */
 export const SEEK_STEP_SECONDS = 1;
+
+/** The island's control for the queue, on a desktop's screen, and the column it opens. */
+export const QUEUE_CONTROL_ID = "player-queue-control";
+export const QUEUE_COLUMN_ID = "player-queue-column";
 
 /** The id the queue's list goes by, to what moves its songs. */
 export const QUEUE_CONTAINER_ID = "player-queue-list";
@@ -257,7 +270,11 @@ export const hasSession = (model: Model): boolean => Option.isSome(model.maybeSe
 export const maybeCurrentTrackId = (model: Model): Option.Option<TrackId> =>
   Option.map(model.maybeSession, (session) => session.current.id);
 
-/** Whether the menu under the expanded player's controls is open. */
+/** Whether the queue's column is there to draw: it was opened, and something has been played. */
+export const isQueueColumnOpen = (model: Model): boolean =>
+  model.queueColumn === "Open" && hasSession(model);
+
+/** Whether the player's menu is open: under the expanded player's controls, or on the island of a desktop's screen. */
 export const isMoreMenuOpen = (model: Model): boolean =>
   Option.exists(model.maybeSession, (session) => session.moreMenu.isOpen);
 

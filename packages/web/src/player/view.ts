@@ -5,6 +5,7 @@ import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { Submodel } from "foldkit";
 import { type ChildAttribute, childAttributes, type Html, type HtmlBuilder } from "foldkit/html";
+import type { Screen } from "../screen.ts";
 import {
   albumIcon,
   detailsIcon,
@@ -44,7 +45,12 @@ import {
 } from "./mount.ts";
 import { TITLE_PIXELS_PER_SECOND } from "./command.ts";
 import { MoreMenu, type PlayerAction } from "./moreMenu.ts";
-import { queueButtonView, queuePanelView } from "./queue.ts";
+import {
+  islandQueueButtonView,
+  queueButtonView,
+  queueColumnView as queueColumnOf,
+  queuePanelView,
+} from "./queue.ts";
 import "./player.css";
 
 // VIEW
@@ -62,6 +68,14 @@ export type ViewInputs = Readonly<{
    * the sheet is the one that carries the names.
    */
   isUnderSheet: boolean;
+  /**
+   * What the screen is. On a desktop's the island does not expand: its words
+   * are no link, and it has controls of its own for what the expanded player
+   * would have held, the queue, the menu and Previous.
+   */
+  screen: Screen;
+  /** Whether a page chosen from the island's menu, the album's or the song's, is on its way. */
+  isPageOpening: boolean;
 }>;
 
 /**
@@ -697,10 +711,35 @@ const NEXT_IN_ISLAND_CLASS =
 // with three of island all round. It is drawn over Next.
 const SWELL_CLASS = "relative z-10 -my-[5px] flex size-[3.375rem] shrink-0 items-center justify-center";
 
-const islandControlsView = (session: Session, h: HtmlBuilder<Message>): Html =>
+// NOTE: on a desktop's screen the island does not expand, so Previous, which
+// is otherwise the expanded player's, stands in the island's body, before
+// the swell. The swell and the tail are where they were: the outline is
+// drawn from the island's width and the tail's, and neither changes.
+//
+// It is Next's own box the other way round, hard against the swell as the
+// tail is: the two glyphs then stand the same distance from the main
+// control, one on each side of it.
+const PREVIOUS_IN_ISLAND_CLASS =
+  "h-9 w-[2.125rem] shrink-0 pl-1 text-on-island hover:bg-on-island/10 active:bg-on-island/10";
+
+const islandControlsView = (
+  session: Session,
+  hasPrevious: boolean,
+  h: HtmlBuilder<Message>,
+): Html =>
   h.div(
     [h.Role("group"), h.AriaLabel("Playback"), h.Class("flex shrink-0 items-center")],
     [
+      hasPrevious
+        ? stepControlView(
+            previousLabel(session),
+            Message.ClickedPrevious(),
+            true,
+            previousIcon("size-5"),
+            PREVIOUS_IN_ISLAND_CLASS,
+            h,
+          )
+        : h.empty,
       h.div([h.Class(SWELL_CLASS)], [mainControlView(session, "size-12", ON_ISLAND, h)]),
       h.div(
         [h.DataAttribute(ISLAND_TAIL_ATTRIBUTE, ""), h.Class(TAIL_CLASS)],
@@ -747,6 +786,39 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
  */
 // The shell places the island. Its outline follows the settled width and
 // tail, while the controls and figure travel on their own transforms.
+/** The island's words where they are no link: laid out as the link lays them out. */
+const ISLAND_WORDS_CLASS = "flex h-full min-w-0 flex-1 items-center gap-2.5 pr-2";
+
+/**
+ * What the island has of its own on a desktop's screen, before its
+ * transport: the way to the queue, which opens beside the page, and the menu
+ * of what else can be done with the track, which on a compact screen stands
+ * under the expanded player's controls.
+ */
+const islandExtrasView = (
+  model: Model,
+  session: Session,
+  viewInputs: ViewInputs,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.div(
+    [h.Class("island-extras")],
+    [
+      islandQueueButtonView(model, session, h),
+      moreMenuView(
+        session,
+        {
+          items: ["OpenAlbum", "SongDetails"],
+          isPageOpening: viewInputs.isPageOpening,
+          buttonClassName: "island-action",
+          glyphClassName: "size-5",
+          placement: "top-end",
+        },
+        h,
+      ),
+    ],
+  );
+
 const islandView = (
   model: Model,
   session: Session,
@@ -755,6 +827,11 @@ const islandView = (
 ): Html => {
   const { current, playback } = session;
   const { isUnderSheet } = viewInputs;
+  const isDesktop = viewInputs.screen === "Desktop";
+  const words = [
+    coverView(current, "-my-[3px] size-[3.125rem] rounded-full", "small", h, !isUnderSheet),
+    ...trackWordsView(session, model.title, h),
+  ];
 
   // NOTE: under the sheet the island gives up its id and its names: the
   // player on the sheet has them, and two pieces by one name end a view
@@ -778,11 +855,14 @@ const islandView = (
     [
       h.div([h.OnMount(FollowIslandPress()), h.Class("island-surface relative isolate flex size-full items-center")], [
         ...islandFigureView(current.album.cover?.small, model.light, h),
-        viewInputs.toTrackPageLink(current, [
-          coverView(current, "-my-[3px] size-[3.125rem] rounded-full", "small", h, !isUnderSheet),
-          ...trackWordsView(session, model.title, h),
-        ]),
-        islandControlsView(session, h),
+        // NOTE: on a compact screen the words are the way to the expanded
+        // player. On a desktop's there is no expanded player to lead to, and
+        // they are only words: the track's page is in the island's menu.
+        isDesktop
+          ? h.div([h.Class(ISLAND_WORDS_CLASS)], words)
+          : viewInputs.toTrackPageLink(current, words),
+        isDesktop ? islandExtrasView(model, session, viewInputs, h) : h.empty,
+        islandControlsView(session, isDesktop, h),
       ]),
       announcementView(session, h),
       artworkFlightRules([coverTransitionName(current.id)], h),
@@ -940,13 +1020,20 @@ const MORE_LOOKS: Readonly<Record<PlayerAction, Readonly<{ label: string; icon: 
  * face. While the album's page is on its way the control says so, as a
  * navigation item does: its mark breathes.
  */
-const moreMenuView = (
-  session: Session,
-  viewInputs: ExpandedViewInputs,
-  h: HtmlBuilder<Message>,
-): Html => {
-  const items: ReadonlyArray<PlayerAction> =
-    session.pane === "Details" ? ["OpenAlbum"] : ["OpenAlbum", "SongDetails"];
+// NOTE: the menu is the player's one menu, drawn where the player has its
+// controls: under those of the expanded player, or on the island of a
+// desktop's screen. `look` is what differs between the two.
+type MoreMenuLook = Readonly<{
+  items: ReadonlyArray<PlayerAction>;
+  /** Whether a page chosen from the menu is on its way: the control's mark breathes. */
+  isPageOpening: boolean;
+  buttonClassName: string;
+  glyphClassName: string;
+  placement: "top-start" | "top-end";
+}>;
+
+const moreMenuView = (session: Session, look: MoreMenuLook, h: HtmlBuilder<Message>): Html => {
+  const { items } = look;
   const menu: Menu.Model = session.moreMenu;
 
   return h.submodel({
@@ -965,21 +1052,23 @@ const moreMenuView = (
       itemToSearchText: (action: PlayerAction) => MORE_LOOKS[action].label,
       ariaLabel: `More: ${session.current.title}`,
       buttonContent: moreIcon(
-        clsx("size-6", { "nav-breathes motion-reduce:animate-pulse": viewInputs.isAlbumOpening }),
+        clsx(look.glyphClassName, {
+          "nav-breathes motion-reduce:animate-pulse": look.isPageOpening,
+        }),
       ),
-      buttonClassName: "player-action",
+      buttonClassName: look.buttonClassName,
       // NOTE: lit by the Model's own word that the menu is open, which is
       // taken back the moment it is closed. What the component says on its
       // control (`data-open`, `aria-expanded`) holds for as long as the menu
       // takes to fade away, and a control lit by that stayed lit over a menu
       // that was no longer there.
       buttonAttributes: childAttributes([
-        h.AriaBusy(viewInputs.isAlbumOpening),
+        h.AriaBusy(look.isPageOpening),
         ...(menu.isOpen ? [h.DataAttribute("lit", "")] : []),
       ]),
       itemsClassName: MENU_CLASS,
       backdropClassName: MORE_BACKDROP_CLASS,
-      anchor: { placement: "top-start", gap: 8, padding: 12 },
+      anchor: { placement: look.placement, gap: 8, padding: 12 },
     },
     toParentMessage: (message) => Message.GotMoreMenuMessage({ message }),
   });
@@ -994,7 +1083,23 @@ const actionsView = (
   viewInputs: ExpandedViewInputs,
   h: HtmlBuilder<Message>,
 ): Html =>
-  h.div([h.Class("player-actions")], [moreMenuView(session, viewInputs, h), queueButtonView(session, h)]);
+  h.div(
+    [h.Class("player-actions")],
+    [
+      moreMenuView(
+        session,
+        {
+          items: session.pane === "Details" ? ["OpenAlbum"] : ["OpenAlbum", "SongDetails"],
+          isPageOpening: viewInputs.isAlbumOpening,
+          buttonClassName: "player-action",
+          glyphClassName: "size-6",
+          placement: "top-start",
+        },
+        h,
+      ),
+      queueButtonView(session, h),
+    ],
+  );
 
 /**
  * The player grown to the size of the screen: the same piece as the island,
@@ -1091,4 +1196,16 @@ export const expandedView = Submodel.defineView<Model, Message, ExpandedViewInpu
       onNone: () => h.empty,
       onSome: (session) => sheetView(session, viewInputs, h),
     }),
+);
+
+/**
+ * The queue beside the page, on a desktop's screen: a column of its own at
+ * the far side, opened and closed from the island. Nothing is drawn until it
+ * is opened, and nothing while nothing has been played.
+ */
+export const queueColumnView = Submodel.defineView<Model, Message>((model, h) =>
+  Option.match(Option.filter(model.maybeSession, () => model.queueColumn === "Open"), {
+    onNone: () => h.empty,
+    onSome: (session) => queueColumnOf(session, h),
+  }),
 );
