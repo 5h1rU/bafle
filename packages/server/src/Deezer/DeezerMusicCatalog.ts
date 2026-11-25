@@ -7,7 +7,9 @@ import { PlaylistNotFound } from "@bafle/domain/Catalog/PlaylistNotFound.rejecti
 import { StationNotFound } from "@bafle/domain/Catalog/StationNotFound.rejection";
 import { TrackNotFound } from "@bafle/domain/Catalog/TrackNotFound.rejection";
 import * as Array from "effect/Array";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Schema from "effect/Schema";
@@ -57,6 +59,15 @@ export const PAGE_SIZE = 100;
 
 /** How many of an artist's albums their page shelves: Deezer lists singles among them, by the hundred. */
 export const ARTIST_ALBUMS = 50;
+
+/**
+ * How long what Deezer recommends is kept, once it has answered. Its editors
+ * and its charts change a few times a day at most, and every visit to Home
+ * asks for them: kept, the visits after the first are answered without
+ * waiting for Deezer. Only Home is kept. Its shelves carry no audio, whose
+ * addresses Deezer signs to expire, and they are the same for everybody.
+ */
+export const FEATURED_KEPT_FOR = Duration.minutes(10);
 
 /**
  * The music catalog, read from Deezer. The only code that knows Deezer: its
@@ -125,22 +136,33 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
      */
     const isOneOfDeezers = (id: string): boolean => /^\d+$/.test(id) && Number(id) !== 0;
 
-    return {
-      featured: () =>
-        Effect.all(
-          {
-            albums: list("/editorial/0/selection", DeezerAlbum).pipe(
-              Effect.map(Array.map(toAlbum)),
-            ),
-            playlists: list("/chart/0/playlists", DeezerPlaylist, { limit: SHELF_SIZE }).pipe(
-              Effect.map(Array.map(toPlaylist)),
-            ),
-            artists: list("/chart/0/artists", DeezerArtist, { limit: SHELF_SIZE }).pipe(
-              Effect.map(Array.map(toArtist)),
-            ),
-          },
-          together,
+    /**
+     * What Deezer recommends, kept for `FEATURED_KEPT_FOR` once it has
+     * answered. A failure is not kept: the next visit asks again. Visits that
+     * arrive while Deezer is being asked wait for that one answer.
+     *
+     * NOTE: it is kept in the isolate's memory, which Cloudflare starts and
+     * stops as it sees fit, so a visit to a fresh isolate asks Deezer again.
+     * The Cache API, shared by every isolate in a data centre, does nothing on
+     * a workers.dev address, which is where Bafle is served.
+     */
+    const featured = yield* Effect.all(
+      {
+        albums: list("/editorial/0/selection", DeezerAlbum).pipe(Effect.map(Array.map(toAlbum))),
+        playlists: list("/chart/0/playlists", DeezerPlaylist, { limit: SHELF_SIZE }).pipe(
+          Effect.map(Array.map(toPlaylist)),
         ),
+        artists: list("/chart/0/artists", DeezerArtist, { limit: SHELF_SIZE }).pipe(
+          Effect.map(Array.map(toArtist)),
+        ),
+      },
+      together,
+    ).pipe(
+      Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? FEATURED_KEPT_FOR : Duration.zero)),
+    );
+
+    return {
+      featured: () => featured,
       trending: () =>
         Effect.all(
           {

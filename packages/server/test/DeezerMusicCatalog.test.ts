@@ -6,11 +6,14 @@ import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import { StationId } from "@bafle/domain/Catalog/Station";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import { expect, it } from "@effect/vitest";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as TestClock from "effect/testing/TestClock";
 import {
   ARTIST_ALBUMS,
   DeezerMusicCatalog,
+  FEATURED_KEPT_FOR,
   SHELF_SIZE,
 } from "../src/Deezer/DeezerMusicCatalog.ts";
 import {
@@ -82,6 +85,60 @@ it.effect("featured: Deezer's editorial picks and charts, in Bafle's words", () 
     expect(charts.map((url) => url.searchParams.get("limit"))).toEqual([
       String(SHELF_SIZE),
       String(SHELF_SIZE),
+    ]);
+  }).pipe(Effect.provide(layer));
+});
+
+/** The paths Home is read from, once each. */
+const featuredPaths = ["/chart/0/artists", "/chart/0/playlists", "/editorial/0/selection"];
+
+it.effect("featured: what Deezer recommends is kept for a while, and asked for again once it is old", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  const askedPaths = () => deezer.asked.map((url) => url.pathname).sort();
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const first = yield* catalog.featured();
+    expect(yield* catalog.featured()).toEqual(first);
+    expect(askedPaths()).toEqual(featuredPaths);
+
+    yield* TestClock.adjust(Duration.subtract(FEATURED_KEPT_FOR, Duration.minutes(1)));
+    yield* catalog.featured();
+    expect(askedPaths()).toEqual(featuredPaths);
+
+    yield* TestClock.adjust(Duration.minutes(2));
+    expect(yield* catalog.featured()).toEqual(first);
+    expect(askedPaths()).toEqual([...featuredPaths, ...featuredPaths].sort());
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("featured: a failure is not kept, and the next visit asks Deezer again", () => {
+  const answers: Record<string, Answer> = {
+    ...stocked,
+    "/editorial/0/selection": { body: "Bad Gateway", status: 502 },
+  };
+  const { layer } = catalogOver(answers);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog.featured().pipe(Effect.flip);
+    expect(refused._tag).toBe("CatalogUnavailable");
+
+    answers["/editorial/0/selection"] = stocked["/editorial/0/selection"];
+    const featured = yield* catalog.featured();
+    expect(featured.albums).toEqual([discovery]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("trending: is asked of Deezer each time, since its songs carry audio that expires", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    yield* catalog.trending();
+    yield* catalog.trending();
+    expect(deezer.asked.map((url) => url.pathname).sort()).toEqual([
+      "/chart/0/albums",
+      "/chart/0/albums",
+      "/chart/0/tracks",
+      "/chart/0/tracks",
     ]);
   }).pipe(Effect.provide(layer));
 });
