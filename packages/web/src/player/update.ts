@@ -1,5 +1,5 @@
 import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
-import { Slider } from "@foldkit/ui";
+import { Menu, Slider } from "@foldkit/ui";
 import * as Array from "effect/Array";
 import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
@@ -46,6 +46,7 @@ import {
   toQueued,
   wantsToSound,
 } from "./model.ts";
+import { MoreMenu, type PlayerAction } from "./moreMenu.ts";
 
 type Services = AudioEngine | CatalogClient;
 type UpdateReturn = Update.Return<Model, Message, Services>;
@@ -569,6 +570,46 @@ const foldSeekSlider = (wasDragging: boolean) =>
     }),
   });
 
+// FACES
+
+/** Turn the expanded player to another of its faces, shown from its top. */
+const turnTo =
+  (session: Session, pane: Session["pane"]): Step =>
+  (model) => ({
+    model: withSession(model, { ...session, pane }),
+    commands: [ShowFaceFromTop()],
+  });
+
+// THE MENU UNDER THE CONTROLS
+
+/**
+ * What was chosen from the player's menu. What the catalog knows of the
+ * track is a face of the player, and is turned to. The album's page is no
+ * business of the player's, which knows no pages: the app hears that choice
+ * itself (`isAlbumAsked`), and here it is nothing.
+ */
+const chooseFromMenu = (action: PlayerAction): Step =>
+  action === "SongDetails" ? onSession((session) => turnTo(session, "Details")) : unchanged;
+
+const foldMoreMenu = Update.foldChild({
+  update: MoreMenu.update,
+  read: (model: Model) => Option.map(model.maybeSession, (session) => session.moreMenu),
+  write: (model: Model, nextMenu: Menu.Model) =>
+    modifyFields(model, {
+      maybeSession: Option.map((session) =>
+        session.moreMenu === nextMenu ? session : modifyFields(session, { moreMenu: () => nextMenu }),
+      ),
+    }),
+  toParentMessage: (message: Menu.Message): Message => Message.GotMoreMenuMessage({ message }),
+  foldOutMessage: (chosen: Menu.OutMessage<PlayerAction>) => chooseFromMenu(chosen.value),
+});
+
+/** Whether a Message is the listener choosing the album's page from the player's menu. */
+export const isAlbumAsked = (message: Message): boolean =>
+  message._tag === "GotMoreMenuMessage" &&
+  message.message._tag === "SelectedItem" &&
+  message.message.item === "OpenAlbum";
+
 const gotSeekSliderMessage = (model: Model, message: Slider.Message): UpdateReturn => {
   const wasDragging = Option.exists(model.maybeSession, (session) =>
     isDragging(session.seekSlider),
@@ -737,10 +778,14 @@ const handle = (model: Model, message: Message) =>
     ClickedPause: () => onSession(silence)(model),
     ClickedNext: () => onSession(next)(model),
     ClickedPrevious: () => onSession(previous)(model),
-    ClickedQueue: () => onSession((session) => (held) => ({
-      model: withSession(held, { ...session, pane: session.pane === "Artwork" ? "Queue" : "Artwork" }),
-      commands: [ShowFaceFromTop()],
-    }))(model),
+    // NOTE: the control for the queue is on every face. On the queue's it
+    // leads back to the song; on any other it leads to the queue.
+    ClickedQueue: () =>
+      onSession((session) =>
+        turnTo(session, session.pane === "Queue" || session.pane === "EditingQueue" ? "Artwork" : "Queue"),
+      )(model),
+    ClickedDetails: () =>
+      onSession((session) => (session.pane === "Details" ? turnTo(session, "Artwork") : unchanged))(model),
     ClickedEditQueue: () => onSession((session) =>
       session.pane === "Artwork" ? unchanged : settle({
         ...session, pane: session.pane === "Queue" ? "EditingQueue" : "Queue",
@@ -753,6 +798,7 @@ const handle = (model: Model, message: Message) =>
     PressedMediaKey: ({ key }) => onSession((session) => pressedMediaKey(session, key))(model),
 
     GotSeekSliderMessage: ({ message }) => gotSeekSliderMessage(model, message),
+    GotMoreMenuMessage: ({ message }) => foldMoreMenu(model, message),
 
     UpdatedEngineStatus: ({ report }) =>
       forLatestOrder(

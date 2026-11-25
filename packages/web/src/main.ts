@@ -1357,7 +1357,17 @@ const foldRowMenu = Update.foldChildAt({
     chooseFromRow(row, chosen.value),
 });
 
-export const update = (model: Model, message: Message) =>
+/** The page of the album the track the player holds is on, followed as a link to it would be. */
+const openAlbumOfPlayer: Step = (model) =>
+  Option.match(Player.maybeCurrentAlbumId(model.player), {
+    onNone: () => ({ model }),
+    onSome: (albumId) => {
+      const route = AppRoute.Album({ albumId });
+      return Update.combine(model, [forgetAlbumRow(route), follow(route)]);
+    },
+  });
+
+const respond = (model: Model, message: Message) =>
   Message.match<UpdateReturn>(message, {
     ChangedInputMethod: ({ method }) => ({
       model: modifyFields(model, { inputMethod: () => method }),
@@ -1432,8 +1442,15 @@ export const update = (model: Model, message: Message) =>
         keepUpWithPlayer(model),
       ]),
 
+    // NOTE: the album's page, chosen from the player's menu, is followed as
+    // a link to it would be: the player is held until the page can take the
+    // screen, and then shrinks back to its island over it.
     GotPlayerMessage: ({ message }) =>
-      Update.combine(model, [foldPlayer(message), keepUpWithPlayer(model)]),
+      Update.combine(model, [
+        foldPlayer(message),
+        keepUpWithPlayer(model),
+        Player.isAlbumAsked(message) ? openAlbumOfPlayer : (current) => ({ model: current }),
+      ]),
 
     // NOTE: a sheet's word counts only while the player is expanded. One
     // that comes after the player closed, from a sheet on its way out of the
@@ -1477,12 +1494,32 @@ export const update = (model: Model, message: Message) =>
     CompletedHoldDockMotion: () => ({ model }),
   });
 
+/**
+ * The app is launched once the page on screen has more than placeholders to
+ * show: what the catalog said of it, or that it could not be asked. Until
+ * then the mark the page opened with stands over the placeholders. It is
+ * looked at after every Message and not only after the catalog's, since some
+ * pages need nothing from the catalog. Launched is for good: a later page
+ * that waits, a first search among them, does so in the app.
+ */
+const launchOnceShown: Step = (model) => ({
+  model:
+    model.launch === "Launching" && canShow(model, model.route)
+      ? modifyFields(model, { launch: () => "Launched" })
+      : model,
+});
+
+export const update = (model: Model, message: Message) =>
+  Update.combine(model, [(current) => respond(current, message), launchOnceShown]);
+
 // INIT
 
 /**
  * Nothing has been on screen yet, so there is no page to hold and nothing
  * to abandon: the destination is shown at once, as placeholders in its
- * shape, and asks for its data without waiting for any typing to pause.
+ * shape, and asks for its data without waiting for any typing to pause. The
+ * mark the page opened with stands over those placeholders until the page
+ * has more to show; a page that needs nothing is launched here.
  */
 export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services> = (
   url: Url,
@@ -1511,17 +1548,35 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       // A fresh load knows nothing of the history behind it, so no page has a way back yet.
       trail: [],
       navigation: "Open",
+      launch: "Launching",
       inputMethod: "Pointer",
       rowMenus: HashMap.empty(),
       rowDone: { turn: 0, maybeRow: Option.none() },
       player: Player.init(),
       playerSheet: initialPlayerSheet,
     }),
-    [load(route, forTheScreen), focusSearchFieldOnSearch],
+    [load(route, forTheScreen), focusSearchFieldOnSearch, launchOnceShown],
   );
 };
 
 // VIEW TRANSITION
+
+/**
+ * What a transition between pages is called. Going from one section to
+ * another is a change of place: the page gives way to the other where it
+ * stands. Opening a page from a list is a step deeper, and going back to the
+ * list a step back: the picture the two share travels between them and,
+ * where they share none, the page itself comes over the list from the side
+ * and goes back off it (`entry.ts` tells which, since only the document
+ * knows whether the picture is there). The second name of an opening or a
+ * closing is that picture's.
+ */
+export const SWITCH_SECTION = "switch-section";
+export const OPEN_DETAIL = "open-detail";
+export const CLOSE_DETAIL = "close-detail";
+/** A page that comes over the one before it, and one that goes back off it. */
+export const PUSH_PAGE = "push-page";
+export const POP_PAGE = "pop-page";
 
 /** What a transition is called when the island grows into the player, and when the player shrinks back. */
 export const PLAYER_OPENS = "player-opens";
@@ -1533,8 +1588,9 @@ export const PLAYER_QUEUE_CLOSES = "player-queue-closes";
 
 /**
  * A view transition when the page on screen changes, and when the listener
- * puts another track in the player: the first cross-fades the pages, the
- * second carries the track's cover from where it was pressed to the island.
+ * puts another track in the player: the first is told by what kind of change
+ * it is (see `SWITCH_SECTION` above), the second carries the track's cover
+ * from where it was pressed to the island.
  * A track that followed the one before by itself asks for none: nobody
  * tapped, and a transition would hold the page still for a moment under a
  * listener who may be scrolling it.
@@ -1581,11 +1637,17 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
         }
         const returning = Option.exists(wayBackOn(previousModel.trail), (route) =>
           isSamePage(route, model.route));
+        // NOTE: a section is one of the navigation's own. Going from one to
+        // another, in whichever direction and by whichever way, and leaving
+        // any page for one by the navigation, is a change of place and not
+        // a step deeper or a step back.
+        if (isSection(model.route) && (isSection(previousModel.route) || !returning)) {
+          return { types: [SWITCH_SECTION] };
+        }
         const detail = returning ? previousModel.route : model.route;
-        return Option.match(routeArtwork(detail), {
-          onNone: () => true,
-          onSome: (artwork) => ({ types: ["show-detail", artwork] }),
-        });
+        return {
+          types: [returning ? CLOSE_DETAIL : OPEN_DETAIL, ...Option.toArray(routeArtwork(detail))],
+        };
       },
       onSome: (id) => ({ types: [CHOOSE_TRACK, coverTransitionName(id)] }),
     });

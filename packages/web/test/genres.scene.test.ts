@@ -84,6 +84,8 @@ const albumTile = role("link", { name: /Discovery/ });
 const artistTile = role("link", { name: /Daft Punk/ });
 const playlistTile = role("link", { name: /French Touch/ });
 const spinners = all.selector("svg.animate-spin");
+/** A tile whose page is on its way: its record is out of its sleeve, and turns. */
+const records = all.selector("[data-opening]");
 const island = role("region", { name: "Player" });
 const placeholders = all.selector('[aria-busy="true"] [aria-hidden="true"]');
 const placeholderBlocks = all.selector('[aria-busy="true"] [aria-hidden="true"] .animate-pulse');
@@ -225,7 +227,11 @@ describe("rule 1: Genres chosen from the menu holds the page and marks its item"
       see(pageTitle("Home")).toExist(),
       see(destination("Home")).toHaveAttr("aria-current", "page"),
       see(destination("Genres")).toHaveAttr("aria-busy", "true"),
-      inside(destination("Genres"), expectAll(spinners).toHaveCount(1)),
+      // Its icon breathes where it stands, and the navigation marks it at once:
+      // the page on screen is still the one `aria-current` names.
+      inside(destination("Genres"), expectAll(all.selector("svg.nav-breathes")).toHaveCount(1)),
+      see(destination("Genres")).toHaveAttr("data-marked", ""),
+      see(destination("Genres")).not.toHaveAttr("aria-current"),
       see(text("Loading Genres")).toExist(),
       Command.resolve(Catalog.GenreList, reply.genres(nextId(onHome))),
       // Only now is the URL asked to move.
@@ -305,15 +311,15 @@ describe("a genre's tile leads to the genre's page", () => {
     scene(
       app,
       given(onGenres),
-      inside(genreTile, expectAll(spinners).toHaveCount(0)),
+      inside(genreTile, expectAll(records).toHaveCount(0)),
       Subscription.emit(clickedLink(genrePath(genre.id))),
       inside(
         onScreen,
         see(pageTitle("Genres")).toExist(),
         see(genreTile).toHaveAttr("aria-busy", "true"),
-        inside(genreTile, expectAll(spinners).toHaveCount(1)),
+        inside(genreTile, expectAll(records).toHaveCount(1)),
         // Only the tile that was chosen says so.
-        expectAll(spinners).toHaveCount(1),
+        expectAll(records).toHaveCount(1),
         see(otherGenreTile).toHaveAttr("aria-busy", "false"),
       ),
       inside(navigation, expectAll(all.selector('[aria-busy="true"]')).toHaveCount(0)),
@@ -338,8 +344,8 @@ describe("a genre's tile leads to the genre's page", () => {
       given(onGenres),
       inside(
         genreTile,
-        see(selector("div.relative")).toHaveStyle("view-transition-name", name),
-        see(selector("div.relative")).toHaveStyle("view-transition-class", "playlist-picture"),
+        see(selector(".tile-sleeve")).toHaveStyle("view-transition-name", name),
+        see(selector(".tile-sleeve")).toHaveStyle("view-transition-class", "playlist-picture"),
       ),
     );
     scene(
@@ -347,7 +353,7 @@ describe("a genre's tile leads to the genre's page", () => {
       given(onGenre),
       inside(
         selector("#genres-page[inert] a[data-genre-tile='ge-1']"),
-        see(selector("div.relative")).not.toHaveStyle("view-transition-name"),
+        see(selector(".tile-sleeve")).not.toHaveStyle("view-transition-name"),
       ),
       see(selector("#genre-page .aspect-square.rounded-xl")).toHaveStyle(
         "view-transition-name",
@@ -363,14 +369,14 @@ describe("a genre's tile leads to the genre's page", () => {
         model: onGenre,
         message: changedUrl(genrePath(genre.id)),
       }),
-    ).toEqual({ types: ["show-detail", `genre-picture-${genre.id}`] });
+    ).toEqual({ types: ["open-detail", `genre-picture-${genre.id}`] });
     expect(
       viewTransition({
         previousModel: onGenre,
         model: after(onGenre, changedUrl("/genres")),
         message: changedUrl("/genres"),
       }),
-    ).toEqual({ types: ["show-detail", `genre-picture-${genre.id}`] });
+    ).toEqual({ types: ["close-detail", `genre-picture-${genre.id}`] });
     // Held on Genres while the genre loads, nothing swaps.
     expect(
       viewTransition({
@@ -572,7 +578,7 @@ describe("rules 1 and 9: the pages a genre leads to, and the genre behind them",
         onScreen,
         see(pageTitle("Electro")).toExist(),
         see(albumTile).toHaveAttr("aria-busy", "true"),
-        expectAll(spinners).toHaveCount(1),
+        expectAll(records).toHaveCount(1),
       ),
       Command.resolve(Catalog.AlbumDetail, reply.album(nextId(onGenre))),
       Command.resolveAll(

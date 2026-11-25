@@ -77,6 +77,8 @@ const backControl = role("button", { name: "Back" });
 const homeControl = role("link", { name: "Home" });
 const albumTile = role("link", { name: /Discovery/ });
 const spinners = all.selector("svg.animate-spin");
+/** A tile whose page is on its way: its record is out of its sleeve, and turns. */
+const records = all.selector("[data-opening]");
 /** The rows that say these words: each row's status holds all it has to say. */
 const saying = (words: string) => all.role("status", { name: words });
 const placeholderBlocks = all.selector('[aria-busy="true"] [aria-hidden="true"] .animate-pulse');
@@ -244,7 +246,7 @@ describe("the album page", () => {
         model: onAlbum,
         message: changedUrl(albumPath(album.id)),
       }),
-    ).toEqual({ types: ["show-detail", `album-cover-${album.id}`] });
+    ).toEqual({ types: ["open-detail", `album-cover-${album.id}`] });
     // Held on the list while the album loads, nothing swaps.
     expect(
       viewTransition({
@@ -481,16 +483,16 @@ describe("album tiles lead to the album's page", () => {
     scene(
       app,
       given(onHome),
-      inside(albumTile, expectAll(spinners).toHaveCount(0)),
+      inside(albumTile, expectAll(records).toHaveCount(0)),
       Subscription.emit(clickedLink(albumPath(album.id))),
       inside(
         onScreen,
         see(pageTitle("Home")).toExist(),
         see(albumTile).toHaveAttr("aria-busy", "true"),
-        // The spinner lies over the picture, which stays.
+        // The record comes out from behind the picture, which stays.
         inside(
           albumTile,
-          expectAll(spinners).toHaveCount(1),
+          expectAll(records).toHaveCount(1),
           expectAll(all.selector("img")).toHaveCount(1),
         ),
       ),

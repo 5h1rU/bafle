@@ -18,6 +18,8 @@
   --color-accent: #6e2763;
   --color-accent-wash: #efdfec;
   --color-on-accent: #ffffff;
+  /* The record that comes out of a tile's sleeve while its page is fetched. */
+  --color-record: #150e13;
 
   /* The stopped signal has the same night palette in either colour scheme. */
   --color-crash-canvas: #160f15;
@@ -82,6 +84,8 @@
     --color-accent: #e3a6d8;
     --color-accent-wash: #3b2036;
     --color-on-accent: #24121f;
+    /* Lighter than the page, or the record would be lost against it. */
+    --color-record: #33262f;
     /* Lighter than the page, or the figure would be lost against it. */
     --color-island: #2b1f29;
     --color-on-island: #f7f0f5;
@@ -155,6 +159,22 @@
   @media (width < 48rem) {
     .dock-island { width: calc(100% - 2.5rem); }
     .dock-surface { clip-path: inset(-2rem round 4rem); }
+    /* The mark of the section on screen: one piece the size of an item's
+       ground, a quarter of the menu less the room round it, moved along by
+       as many places as the section has before it. */
+    .dock-mark {
+      position: absolute;
+      top: 0.25rem;
+      bottom: 0.25rem;
+      left: 0.25rem;
+      width: calc((100% - 4rem) / 4 - 0.5rem);
+      border-radius: 9999px;
+      background-color: color-mix(in srgb, var(--color-ink) 10%, transparent);
+      transform: translateX(calc(var(--dock-place) * (100% + 0.5rem)));
+      opacity: 0;
+    }
+    .dock-mark[data-shown] { opacity: 1; }
+    [data-navigation="minimized"] .dock-mark { opacity: 0; }
     [data-navigation="minimized"] {
       .dock-island {
         width: calc(100% - 9.75rem);
@@ -177,6 +197,9 @@
       .dock-current, .dock-current svg, .dock-search, .dock-search svg {
         transition: transform 200ms var(--ease-menu-out);
       }
+      /* The mark goes to the item chosen on the menu's own spring, given
+         longer since it can have three places to cross. */
+      .dock-mark { transition: transform 340ms var(--ease-menu-out), opacity 140ms ease-out; }
       .dock-island { transition: transform 250ms var(--ease-island-out); }
       /* Next has its place in the tail from the first frame, and the tail
          is not there yet: it comes in once the island has widened to it. */
@@ -262,6 +285,175 @@ button:focus-visible [data-glyph] {
   }
 }
 
+/* A CHANGE OF PAGE THE BROWSER HAS ALREADY SHOWN
+
+   A swipe from the screen's edge goes back, or forward, and the browser
+   draws the page coming under the finger. When the app then draws that page
+   it is in view already: anything set moving by that drawing would be seen
+   to happen again, late and out of order. So for that drawing nothing is:
+   every transition is held (`view/shownByBrowser.ts`), and what is new is
+   simply there. Animations that go round for ever, the island's light and a
+   record's turning, are no part of a change and go on. */
+:root[data-shown-by-browser] *,
+:root[data-shown-by-browser] *::before,
+:root[data-shown-by-browser] *::after {
+  transition: none !important;
+}
+
+/* A DESTINATION WHOSE PAGE IS ON ITS WAY
+
+   The navigation's mark is already on the item that was chosen, and the
+   item's own icon breathes there for as long as its page takes: it draws in
+   and comes back, as a pressed thing does. Nothing takes the icon's place. */
+@media (prefers-reduced-motion: no-preference) {
+  .nav-breathes {
+    animation: nav-breathes 1100ms ease-in-out infinite;
+  }
+}
+
+/* NOTE: `scale` and not `transform`, which the dock uses to bring the icon
+   to the middle of its circle. */
+@keyframes nav-breathes {
+  0%,
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
+  50% {
+    scale: 0.8;
+    opacity: 0.55;
+  }
+}
+
+/* A TILE WHOSE PAGE IS ON ITS WAY
+
+   The picture is a sleeve, and behind it is its record. Chosen, the sleeve
+   moves a little aside and the record comes part of the way out and turns,
+   for as long as the page takes: the picture itself says that it is being
+   fetched, and nothing is laid over it. When the page opens, the picture
+   travels to the page's head and the record is left behind with the shelf.
+   Under reduced motion the record is out and still. */
+@layer components {
+  .tile-record {
+    position: absolute;
+    inset: 4%;
+    /* NOTE: clear, and not hidden. A page kept behind the one on screen is
+       hidden as a whole, and a piece of it that said it was visible would
+       be seen through it: the record of the tile just chosen would stand
+       over the page it opened. Clear, it goes with its page. */
+    opacity: 0;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      var(--color-canvas) 0 4%,
+      var(--color-accent) 4.5% 17%,
+      var(--color-record) 17.5% 100%
+    );
+  }
+
+  /* The light on the record: two bright sectors, which is what is seen to turn. */
+  .tile-record::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(
+      from 20deg,
+      rgb(255 255 255 / 0%) 0 8%,
+      rgb(255 255 255 / 24%) 12%,
+      rgb(255 255 255 / 0%) 18% 55%,
+      rgb(255 255 255 / 17%) 62%,
+      rgb(255 255 255 / 0%) 70% 100%
+    );
+  }
+
+  [data-opening] > .tile-record {
+    opacity: 1;
+    transform: translateX(34%);
+  }
+
+  [data-opening] > .tile-sleeve {
+    transform: translateX(-6%);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    /* Going back in, the record is made clear only once it is behind the sleeve. */
+    .tile-record {
+      transition:
+        transform 420ms cubic-bezier(0.23, 1, 0.32, 1),
+        opacity 0s 420ms;
+    }
+
+    .tile-sleeve {
+      transition: transform 420ms cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    [data-opening] > .tile-record {
+      transition:
+        transform 420ms cubic-bezier(0.23, 1, 0.32, 1),
+        opacity 0s;
+    }
+
+    [data-opening] > .tile-record::after {
+      animation: record-turns 1400ms linear infinite;
+    }
+  }
+
+  @keyframes record-turns {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+/* THE MARK OF THE TRACK THE PLAYER HOLDS
+
+   A spinner while a start is slow enough to mention, and bars once there is
+   sound. Both are in the mark, one over the other, and the one not shown is
+   small and clear: the spinner draws in as the bars come out of where it
+   was, so the one turns into the other. The mark itself comes over the
+   cover, or the row's number, out of nothing. */
+@layer components {
+  .now-mark > * {
+    grid-area: 1 / 1;
+  }
+
+  [data-now-playing="Starting"] > .now-bars,
+  [data-now-playing]:not([data-now-playing="Starting"]) > .now-spinner {
+    visibility: hidden;
+    opacity: 0;
+    scale: 0.4;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .now-mark {
+      transition: opacity 150ms ease-out;
+
+      @starting-style {
+        opacity: 0;
+      }
+    }
+
+    .now-spinner,
+    .now-bars {
+      transition:
+        opacity 160ms ease-out,
+        scale 240ms cubic-bezier(0.23, 1, 0.32, 1),
+        visibility 0s;
+    }
+
+    /* The one that goes is gone sooner than the other is whole, and is
+       taken out of the picture only once it is clear. */
+    [data-now-playing="Starting"] > .now-bars,
+    [data-now-playing]:not([data-now-playing="Starting"]) > .now-spinner {
+      transition:
+        opacity 110ms ease-in,
+        scale 160ms ease-in,
+        visibility 0s 160ms;
+    }
+  }
+}
+
 /* Before the app has drawn anything, the page is already its own colour, not white. */
 body {
   background-color: var(--color-canvas);
@@ -307,6 +499,120 @@ body {
 
 :where(.catalog-art) {
   view-transition-name: none !important;
+}
+
+/* FROM ONE SECTION TO ANOTHER
+
+   A change of place, not a step deeper: the page gives way where it stands
+   and the other comes in its place, a little small at first. The two are
+   never seen together, so two lists never show through each other; the one
+   leaving is gone quickly, and the one coming takes the time. Which way the
+   listener went is told by the navigation, whose mark travels to the item
+   they chose (`dock-mark`, below). */
+:root:active-view-transition-type(switch-section)::view-transition-old(root) {
+  animation: 130ms cubic-bezier(0.4, 0, 1, 1) both page-gives-way;
+}
+
+:root:active-view-transition-type(switch-section)::view-transition-new(root) {
+  animation: 300ms cubic-bezier(0.23, 1, 0.32, 1) 80ms both section-comes;
+}
+
+@keyframes page-gives-way {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes section-comes {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+/* A STEP DEEPER, AND A STEP BACK
+
+   A page opened from a list with no picture of it to carry (a song's page
+   from a row's menu on an album, which has no thumbnails) comes over the
+   list from the far side, and the list steps back under it and dims. Going
+   back is the same the other way round: the page goes off to the side it
+   came from and the list comes forward. The navigation and the island are
+   pictures of their own and keep their places over both.
+
+   On a wide screen the page is beside the navigation and a whole width is
+   a long way to come: there it comes a short way, out of nothing. */
+:root {
+  --page-travel: 100%;
+  --page-step: -28%;
+  --page-arrives-from: 1;
+  --ease-page: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (width >= 48rem) {
+  :root {
+    --page-travel: 3rem;
+    --page-step: -1rem;
+    --page-arrives-from: 0;
+  }
+}
+
+:root:active-view-transition-type(push-page, pop-page)::view-transition-group(root) {
+  animation-duration: 420ms;
+}
+
+:root:active-view-transition-type(push-page, pop-page)::view-transition-old(root),
+:root:active-view-transition-type(push-page, pop-page)::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+
+:root:active-view-transition-type(push-page)::view-transition-old(root) {
+  animation: 420ms var(--ease-page) both page-steps-back;
+}
+
+:root:active-view-transition-type(push-page)::view-transition-new(root) {
+  box-shadow: -1px 0 1.5rem rgb(22 15 21 / 18%);
+  animation: 420ms var(--ease-page) both page-comes-over;
+}
+
+/* NOTE: the picture of the page that leaves is drawn first, so the one
+   that comes lies over it. Going back, it is the one that leaves that has
+   to lie on top. */
+:root:active-view-transition-type(pop-page)::view-transition-old(root) {
+  z-index: 1;
+  box-shadow: -1px 0 1.5rem rgb(22 15 21 / 18%);
+  animation: 420ms var(--ease-page) both page-goes-off;
+}
+
+:root:active-view-transition-type(pop-page)::view-transition-new(root) {
+  animation: 420ms var(--ease-page) both page-comes-forward;
+}
+
+@keyframes page-steps-back {
+  to {
+    opacity: 0.35;
+    transform: translateX(var(--page-step));
+  }
+}
+
+@keyframes page-comes-over {
+  from {
+    opacity: var(--page-arrives-from);
+    transform: translateX(var(--page-travel));
+  }
+}
+
+@keyframes page-goes-off {
+  to {
+    opacity: var(--page-arrives-from);
+    transform: translateX(var(--page-travel));
+  }
+}
+
+@keyframes page-comes-forward {
+  from {
+    opacity: 0.35;
+    transform: translateX(var(--page-step));
+  }
 }
 
 /* A track's cover travels between its row and its page. It is the one thing
@@ -786,7 +1092,11 @@ body {
 .island-light-stroke {
   fill: none;
   stroke-linecap: round;
-  stroke-dashoffset: var(--sets-out);
+  /* NOTE: a length, not a bare number. An offset takes either, but a browser
+     built on Chromium does not go from a number to a `calc()` of numbers by
+     degrees: it holds the first for half the round and then shows the
+     second, and the light stood still and jumped. Two lengths it does. */
+  stroke-dashoffset: calc(var(--sets-out) * 1px);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -797,7 +1107,7 @@ body {
 
 @keyframes island-light-travel {
   to {
-    stroke-dashoffset: calc(var(--sets-out) - 100);
+    stroke-dashoffset: calc((var(--sets-out) - 100) * 1px);
   }
 }
 

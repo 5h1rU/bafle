@@ -44,7 +44,9 @@
     <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)" href="/splash/1242x2208-light.png" />
     <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="/splash/1242x2208-dark.png" />
     <!-- The same mark while the app itself loads, in any browser: it is in the page, so it is
-         there before the style sheet and the script are, and it gives way when the app draws. -->
+         there before the style sheet and the script are. It gives way when the first page has
+         something of its own to show, not when the app first draws: that first drawing is only
+         placeholders, and the mark stands over them. -->
     <style>
       #splash {
         position: fixed;
@@ -65,9 +67,12 @@
         max-width: 9rem;
         height: auto;
       }
-      /* It shows for as long as the app's place stands empty beside it, and whatever the app
-         does with that place when it draws, fill it or take it over, the mark gives way. */
-      #root:empty + #splash {
+      /* It shows for as long as the app's place stands empty beside it, and then for as long as
+         the app, which takes that place over, says it is launching (`launch` in the Model).
+         Anything else in that place, the page that says the app stopped among them, has no such
+         word, and the mark gives way. */
+      #root:empty + #splash,
+      [data-launching] + #splash {
         visibility: visible;
         opacity: 1;
         transition: none;

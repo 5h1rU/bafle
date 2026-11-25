@@ -165,6 +165,48 @@ describe("rule 4: the first paint is never blank", () => {
     ));
 });
 
+describe("the mark the page opened with stands until the first page has something to show", () => {
+  test("a fresh load is launching: its page is placeholders still", () => {
+    expect(opened("/").launch).toBe("Launching");
+    expect(opened("/new").launch).toBe("Launching");
+    expect(opened("/search?q=daft").launch).toBe("Launching");
+    expect(opened(trackPath(track.id)).launch).toBe("Launching");
+  });
+
+  test("what the catalog says of the first page launches the app", () => {
+    expect(onHome.launch).toBe("Launched");
+    expect(onSearch.launch).toBe("Launched");
+  });
+
+  test("so does a failure: it is said on the page, and the mark is not left over it", () => {
+    expect(answered(opened("/"), reply.homeRefused).launch).toBe("Launched");
+    expect(answered(opened("/"), reply.homeLost).launch).toBe("Launched");
+  });
+
+  test("a page that needs nothing from the catalog is launched as it opens", () => {
+    expect(opened("/search").launch).toBe("Launched");
+    expect(opened("/nowhere").launch).toBe("Launched");
+  });
+
+  test("the page that launches it is the one on screen, whichever was asked for first", () => {
+    const leftForNew = chose(opened("/"), "/new");
+    expect(leftForNew.route).toEqual(AppRoute.New());
+    expect(leftForNew.launch).toBe("Launching");
+    expect(answered(leftForNew, reply.newMusic).launch).toBe("Launched");
+  });
+
+  test("launched is for good: a first search waits in the app, under no mark", () => {
+    const typing = after(
+      opened("/search"),
+      Message.UpdatedSearchField({ value: "daft" }),
+      changedUrl("/search?q=daft"),
+    );
+    expect(typing.route).toEqual(searchFor("daft"));
+    expect(typing.search).toEqual(SearchData.Loading());
+    expect(typing.launch).toBe("Launched");
+  });
+});
+
 describe("A1 and A2: a link is an intention, and the URL moves when the screen does", () => {
   test("pressing a link records the intention and asks for the data: the URL is left alone", () =>
     story(

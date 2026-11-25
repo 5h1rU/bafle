@@ -14,7 +14,7 @@ import type { TrackData } from "../model.ts";
 import { isPlayable, type TrackStatus } from "../player/model.ts";
 import { type AppRoute, homeRouter } from "../route.ts";
 import { artworkView, coverView } from "../view/artwork.ts";
-import { downIcon, pauseIcon, playIcon, retryIcon, spinnerIcon } from "../view/icon.ts";
+import { pauseIcon, playIcon, retryIcon, spinnerIcon } from "../view/icon.ts";
 import {
   PAGE_IDS,
   PAGE_TITLE_CLASS,
@@ -291,16 +291,22 @@ export const view = (
 
 // EXPANDED PLAYER
 
-// NOTE: the look of the control at the head of the player's sheet is the
-// player's (`player-top-control` in player/player.css): the player draws
-// another like it there, on its other face.
-const COLLAPSE_CLASS = "player-top-control";
+// NOTE: the look of the handle is the player's (`player-grabber` in
+// player/player.css), which says where on the sheet it stands.
+const COLLAPSE_CLASS = "player-grabber";
+
+/** The handle a sheet is closed by: a short bar at the very top of it. */
+const grabberView = (h: HtmlBuilder<Message>): Html =>
+  h.span([h.AriaHidden(true), h.Class("player-grabber-line")]);
 
 /**
  * The way out of the expanded player: it shrinks back into the island over
- * the page it was opened from. Like the track page's own way back, it goes
- * back through the browser's history when the app knows of a page behind,
- * and is a plain link to Home when the player's page was reached directly.
+ * the page it was opened from. It is the handle at the top of the sheet,
+ * which says that the sheet is swiped down to close it, and is itself a
+ * control for whoever does not swipe. Like the track page's own way back, it
+ * goes back through the browser's history when the app knows of a page
+ * behind, and is a plain link to Home when the player's page was reached
+ * directly.
  */
 export const collapseControlView = (
   maybeWayBack: Option.Option<AppRoute>,
@@ -310,7 +316,7 @@ export const collapseControlView = (
     onNone: () =>
       h.a(
         [h.Href(homeRouter()), h.AriaLabel("Close the player"), h.Class(COLLAPSE_CLASS)],
-        [downIcon("size-6")],
+        [grabberView(h)],
       ),
     onSome: () =>
       Button.view(
@@ -319,7 +325,7 @@ export const collapseControlView = (
           toView: (attributes) =>
             h.button(
               [...attributes.button, h.AriaLabel("Close the player"), h.Class(COLLAPSE_CLASS)],
-              [downIcon("size-6")],
+              [grabberView(h)],
             ),
         },
         h,

@@ -30,66 +30,35 @@ const nextLine = (session: Session): string =>
   });
 
 /**
- * The way to the queue, on the song's face: a row that says what plays next
- * and opens the list of all that does.
+ * The way to the queue and back from it: a control under the player's
+ * controls, on every face. On the queue's it is lit, and leads back to the
+ * song; on any other it leads to the queue. What plays next is said to
+ * assistive technology, where a row once showed it.
  */
-export const queueAccessView = (session: Session, h: HtmlBuilder<Message>): Html =>
-  Button.view(
+export const queueButtonView = (session: Session, h: HtmlBuilder<Message>): Html => {
+  const isOpen = session.pane === "Queue" || session.pane === "EditingQueue";
+  return Button.view(
     {
       onClick: Message.ClickedQueue(),
       toView: (attributes) =>
         h.button(
           [
             ...attributes.button,
-            // NOTE: named by its first line alone, and described by the
-            // second: the name is the same on both faces, where this control
-            // and the one that leads back are one switch.
             h.AriaLabel("Playing Next"),
             h.AriaDescribedBy(NEXT_ID),
-            h.AriaExpanded(false),
+            h.AriaExpanded(isOpen),
             h.AriaControls(PANEL_ID),
-            h.Class("player-queue-access"),
+            h.Class("player-action"),
           ],
           [
-            h.span([h.Class("player-queue-mark")], [queueIcon("size-6")]),
-            h.span(
-              [h.Class("min-w-0 flex-1")],
-              [
-                h.span(
-                  [h.Class("block truncate text-[1.0625rem] leading-tight font-[650] tracking-[-0.026em]")],
-                  ["Playing Next"],
-                ),
-                h.span(
-                  [h.Id(NEXT_ID), h.Class("mt-1 block truncate text-sm font-medium text-muted")],
-                  [nextLine(session)],
-                ),
-              ],
-            ),
-            forwardIcon("size-[1.3125rem] shrink-0 text-muted"),
+            queueIcon("size-6"),
+            h.span([h.Id(NEXT_ID), h.Class("sr-only")], [nextLine(session)]),
           ],
         ),
     },
     h,
   );
-
-/** The name at the head of the queue's face. Pressed, it leads back to the song. */
-export const queueReturnView = (h: HtmlBuilder<Message>): Html =>
-  Button.view(
-    {
-      onClick: Message.ClickedQueue(),
-      toView: (attributes) =>
-        h.button(
-          [
-            ...attributes.button,
-            h.AriaExpanded(true),
-            h.AriaControls(PANEL_ID),
-            h.Class("player-top-label"),
-          ],
-          ["Playing Next"],
-        ),
-    },
-    h,
-  );
+};
 
 const editFaces = {
   Earlier: { label: "Move up", icon: () => backIcon("size-4 rotate-90") },
@@ -137,7 +106,12 @@ const rowContents = (track: TrackSummary, place: number, h: HtmlBuilder<Message>
   ),
 ];
 
-const ROW_CLASS = "flex min-h-[3.5625rem] items-center gap-3.5 border-b border-line";
+// NOTE: a row here is a list's row (`track-row` in styles.css): the line
+// under it is the row's, and its surface, which is what a press lights, has
+// rounded corners and stands a little outside the column, so that the line
+// under the row and the one above it go when the surface is lit.
+const ROW_CLASS = "track-row";
+const ROW_SURFACE_CLASS = "track-row-surface -mx-2 flex min-h-[3.5625rem] items-center gap-3.5 px-2";
 
 const rowsView = (
   later: Session["later"],
@@ -170,7 +144,7 @@ const rowsView = (
                       ...attributes.button,
                       h.AriaLabel(`Play: ${track.title} by ${track.artist.name}`),
                       h.Class(
-                        "flex min-h-[3.5rem] w-full cursor-pointer touch-manipulation items-center gap-3.5 rounded-lg hover:bg-tile focus-visible:outline-2 focus-visible:outline-accent active:bg-tile",
+                        "track-row-play -mx-2 flex min-h-[3.5625rem] w-[calc(100%+1rem)] cursor-pointer touch-manipulation items-center gap-3.5 rounded-lg px-2 select-none [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
                       ),
                     ],
                     [
@@ -185,7 +159,9 @@ const rowsView = (
               h,
             ),
           ];
-      return h.keyed("li")(`${track.id}/${occurrence}`, [h.Class(ROW_CLASS)], controls);
+      return h.keyed("li")(`${track.id}/${occurrence}`, [h.Class(ROW_CLASS)], [
+        h.div([h.Class(ROW_SURFACE_CLASS)], controls),
+      ]);
     }),
   );
 };
@@ -199,7 +175,7 @@ const lazyRows = createLazy();
  * as what they open.
  */
 export const queuePanelView = (session: Session, h: HtmlBuilder<Message>): Html => {
-  const open = session.pane !== "Artwork";
+  const open = session.pane === "Queue" || session.pane === "EditingQueue";
   const editing = session.pane === "EditingQueue";
   return h.div(
     [h.Id(PANEL_ID), h.Class("player-queue"), h.Hidden(!open)],
@@ -208,7 +184,7 @@ export const queuePanelView = (session: Session, h: HtmlBuilder<Message>): Html 
           h.div(
             [h.Class("flex min-h-12 items-center justify-between gap-3")],
             [
-              h.h2([h.Class("text-[2.0625rem] leading-tight font-bold tracking-[-0.047em]")], ["Up next"]),
+              h.h2([h.Class("player-face-heading")], ["Up next"]),
               session.later.length > 0 || editing
                 ? Button.view(
                     {

@@ -34,6 +34,8 @@ import { init, update } from "../src/main.ts";
 import { Message, type PlayOrigin } from "../src/message.ts";
 import { Awaiting, type Model } from "../src/model.ts";
 import { HoldDockMotion } from "../src/mount.ts";
+import * as Player from "../src/player/index.ts";
+import type { PlayerAction } from "../src/player/moreMenu.ts";
 import type { RowAction } from "../src/rowMenu.ts";
 
 // CATALOG
@@ -273,6 +275,14 @@ export const choseFromRow = (from: PlayOrigin, trackId: TrackId, action: RowActi
     from,
     trackId,
     message: Menu.Message.SelectedItem({ index: 0, item: action }),
+  });
+
+/** The listener chose one of the things the expanded player's menu offers. */
+export const choseFromPlayer = (action: PlayerAction): Message =>
+  Message.GotPlayerMessage({
+    message: Player.Message.GotMoreMenuMessage({
+      message: Menu.Message.SelectedItem({ index: 0, item: action }),
+    }),
   });
 
 type QueryFailure = (typeof Catalog.Message.FailedHomeFeed.Type)["failure"];

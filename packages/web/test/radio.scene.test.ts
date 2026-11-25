@@ -79,6 +79,8 @@ const homeControl = role("link", { name: "Home" });
 const stationTile = role("link", { name: "French House" });
 const otherStationTile = role("link", { name: "Club Classics" });
 const spinners = all.selector("svg.animate-spin");
+/** A tile whose page is on its way: its record is out of its sleeve, and turns. */
+const records = all.selector("[data-opening]");
 const island = role("region", { name: "Player" });
 const placeholders = all.selector('[aria-busy="true"] [aria-hidden="true"]');
 const placeholderBlocks = all.selector('[aria-busy="true"] [aria-hidden="true"] .animate-pulse');
@@ -210,7 +212,11 @@ describe("rule 1: Radio chosen from the menu holds the page and marks its item",
       see(pageTitle("Home")).toExist(),
       see(destination("Home")).toHaveAttr("aria-current", "page"),
       see(destination("Radio")).toHaveAttr("aria-busy", "true"),
-      inside(destination("Radio"), expectAll(spinners).toHaveCount(1)),
+      // Its icon breathes where it stands, and the navigation marks it at once:
+      // the page on screen is still the one `aria-current` names.
+      inside(destination("Radio"), expectAll(all.selector("svg.nav-breathes")).toHaveCount(1)),
+      see(destination("Radio")).toHaveAttr("data-marked", ""),
+      see(destination("Radio")).not.toHaveAttr("aria-current"),
       see(destination("Genres")).toHaveAttr("aria-busy", "false"),
       see(text("Loading Radio")).toExist(),
       Command.resolve(Catalog.StationList, reply.radio(nextId(onHome))),
@@ -283,15 +289,15 @@ describe("a station's tile leads to the station's page", () => {
     scene(
       app,
       given(onRadio),
-      inside(stationTile, expectAll(spinners).toHaveCount(0)),
+      inside(stationTile, expectAll(records).toHaveCount(0)),
       Subscription.emit(clickedLink(stationPath(station.id))),
       inside(
         onScreen,
         see(pageTitle("Radio")).toExist(),
         see(stationTile).toHaveAttr("aria-busy", "true"),
-        inside(stationTile, expectAll(spinners).toHaveCount(1)),
+        inside(stationTile, expectAll(records).toHaveCount(1)),
         // Only the tile that was chosen says so.
-        expectAll(spinners).toHaveCount(1),
+        expectAll(records).toHaveCount(1),
         see(otherStationTile).toHaveAttr("aria-busy", "false"),
       ),
       inside(navigation, expectAll(all.selector('[aria-busy="true"]')).toHaveCount(0)),
@@ -317,14 +323,14 @@ describe("a station's tile leads to the station's page", () => {
     scene(
       app,
       given(onRadio),
-      inside(stationTile, see(selector("div.relative")).toHaveStyle("view-transition-name", name)),
+      inside(stationTile, see(selector(".tile-sleeve")).toHaveStyle("view-transition-name", name)),
     );
     scene(
       app,
       given(onStation),
       inside(
         selector("#radio-page[inert] a[data-station-tile='st-1']"),
-        see(selector("div.relative")).not.toHaveStyle("view-transition-name"),
+        see(selector(".tile-sleeve")).not.toHaveStyle("view-transition-name"),
       ),
       see(selector("#station-page .aspect-square.rounded-xl")).toHaveStyle(
         "view-transition-name",
@@ -337,7 +343,7 @@ describe("a station's tile leads to the station's page", () => {
         model: onStation,
         message: changedUrl(stationPath(station.id)),
       }),
-    ).toEqual({ types: ["show-detail", name] });
+    ).toEqual({ types: ["open-detail", name] });
   });
 
   test("a failure is said on the station's page, with Try again and the way back: a tile has no room for it", () =>

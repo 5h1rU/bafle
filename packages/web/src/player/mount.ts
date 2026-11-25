@@ -7,6 +7,7 @@ import * as Stream from "effect/Stream";
 import { Mount } from "foldkit";
 import { islandOutline } from "../view/islandOutline.ts";
 import { startWhenSeen } from "../view/seenStart.ts";
+import { isShownByBrowser } from "../view/shownByBrowser.ts";
 import { ISLAND_LIGHTS_ATTRIBUTE, lightPlace, putLightNear, setPace } from "./islandLight.ts";
 import { Message } from "./message.ts";
 import { IslandLight } from "./model.ts";
@@ -259,6 +260,7 @@ export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
                 }),
             });
             if (drawn.width > 0 && drawn.tail !== tailWidth && element.closest('[data-input="Pointer"]') &&
+              !isShownByBrowser() &&
               matchMedia("(width < 48rem) and (prefers-reduced-motion: no-preference)").matches) {
               animateResize(drawn.width, width, drawn.tail, tailWidth);
             }

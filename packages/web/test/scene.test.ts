@@ -57,6 +57,7 @@ import {
 const app = { update, view };
 
 const navigation = role("navigation", { name: "Main" });
+const launching = selector("[data-launching]");
 const destination = (name: string) => role("link", { name });
 const pageTitle = (name: string | RegExp) => role("heading", { name, level: 1 });
 const sectionTitle = (name: string) => role("heading", { name, level: 2 });
@@ -102,6 +103,22 @@ describe("the shell", () => {
         see(destination("Radio")).not.toHaveAttr("aria-current"),
         see(destination("Search")).not.toHaveAttr("aria-current"),
       ),
+    ));
+
+  // NOTE: the mark itself is in index.html, outside the app: it stands over
+  // the app for as long as the shell says this.
+  test("says it is launching until the first page has something to show", () =>
+    scene(app, given(opened("/")), see(launching).toExist()));
+
+  test("says so no longer once the first page has its music, or its failure", () =>
+    scene(app, given(onHome), see(launching).toBeAbsent()));
+
+  test("nor over a first page that could not be loaded", () =>
+    scene(
+      app,
+      given(answered(opened("/"), reply.homeRefused)),
+      see(launching).toBeAbsent(),
+      see(tryAgain).toExist(),
     ));
 
   test("an unknown address gets a page of its own, with a way home", () =>
@@ -509,8 +526,8 @@ describe("rule 6: search keeps its results while it loads", () => {
   });
 });
 
-describe("rule 7: the swap is a cross-fade", () => {
-  test("a view transition is asked for when the page on screen changes", () => {
+describe("rule 7: the swap is seen to happen", () => {
+  test("from one section to another is a change of place, whichever way it is made", () => {
     const swapped = after(leavingHomeForNew, arrived(reply.newMusic(awaitedId(leavingHomeForNew))));
 
     expect(
@@ -519,7 +536,27 @@ describe("rule 7: the swap is a cross-fade", () => {
         model: swapped,
         message: arrived(reply.newMusic(awaitedId(leavingHomeForNew))),
       }),
-    ).toBe(true);
+    ).toEqual({ types: ["switch-section"] });
+    // Back to the section before is a change of place too, not a step back out of a page.
+    const onNewFromHome = after(swapped, changedUrl("/new"));
+    expect(
+      viewTransition({
+        previousModel: onNewFromHome,
+        model: after(onNewFromHome, changedUrl("/")),
+        message: changedUrl("/"),
+      }),
+    ).toEqual({ types: ["switch-section"] });
+  });
+
+  test("leaving a page for a section by the navigation is a change of place as well", () => {
+    // Home is held from before, so it takes the screen at once.
+    expect(
+      viewTransition({
+        previousModel: onTrack,
+        model: chose(onTrack, "/"),
+        message: clickedLink("/"),
+      }),
+    ).toEqual({ types: ["switch-section"] });
   });
 
   test("a keyboard navigation stays immediate when the pointer is used while its reply is pending", () => {
@@ -1292,14 +1329,14 @@ describe("rule g: the cover is one element on its way between the row and the pa
         model: onTrack,
         message: arrived(reply.track(awaitedId(openingTrack))),
       }),
-    ).toEqual({ types: ["show-detail", `track-cover-${track.id}`] });
+    ).toEqual({ types: ["open-detail", `track-cover-${track.id}`] });
     expect(
       viewTransition({
         previousModel: onTrack,
         model: after(onTrack, changedUrl("/new")),
         message: changedUrl("/new"),
       }),
-    ).toEqual({ types: ["show-detail", `track-cover-${track.id}`] });
+    ).toEqual({ types: ["close-detail", `track-cover-${track.id}`] });
     // The row turning busy is not a swap.
     expect(
       viewTransition({

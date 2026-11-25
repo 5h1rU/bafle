@@ -72,6 +72,8 @@ const homeControl = role("link", { name: "Home" });
 const playlistTile = role("link", { name: /French Touch/ });
 const albumTile = role("link", { name: /Discovery/ });
 const spinners = all.selector("svg.animate-spin");
+/** A tile whose page is on its way: its record is out of its sleeve, and turns. */
+const records = all.selector("[data-opening]");
 const island = role("region", { name: "Player" });
 const placeholderBlocks = all.selector('[aria-busy="true"] [aria-hidden="true"] .animate-pulse');
 
@@ -248,7 +250,7 @@ describe("the playlist page", () => {
         model: onPlaylist,
         message: changedUrl(playlistPath(playlist.id)),
       }),
-    ).toEqual({ types: ["show-detail", `playlist-picture-${playlist.id}`] });
+    ).toEqual({ types: ["open-detail", `playlist-picture-${playlist.id}`] });
     // Held on the shelf while the playlist loads, nothing swaps.
     expect(
       viewTransition({
@@ -295,16 +297,16 @@ describe("playlist tiles lead to the playlist's page", () => {
     scene(
       app,
       given(onHome),
-      inside(playlistTile, expectAll(spinners).toHaveCount(0)),
+      inside(playlistTile, expectAll(records).toHaveCount(0)),
       Subscription.emit(clickedLink(playlistPath(playlist.id))),
       inside(
         onScreen,
         see(pageTitle("Home")).toExist(),
         see(playlistTile).toHaveAttr("aria-busy", "true"),
-        // The spinner lies over the picture's place, which stays.
-        inside(playlistTile, expectAll(spinners).toHaveCount(1)),
+        // The record comes out from behind the picture, which stays.
+        inside(playlistTile, expectAll(records).toHaveCount(1)),
         // Only the tile that was chosen says so.
-        expectAll(spinners).toHaveCount(1),
+        expectAll(records).toHaveCount(1),
         see(albumTile).toHaveAttr("aria-busy", "false"),
       ),
       inside(navigation, expectAll(all.selector('[aria-busy="true"]')).toHaveCount(0)),
@@ -328,7 +330,7 @@ describe("playlist tiles lead to the playlist's page", () => {
     scene(
       app,
       given(onHome),
-      inside(playlistTile, see(selector("div.relative")).toHaveStyle("view-transition-name", name)),
+      inside(playlistTile, see(selector(".tile-sleeve")).toHaveStyle("view-transition-name", name)),
     );
     scene(
       app,
@@ -336,7 +338,7 @@ describe("playlist tiles lead to the playlist's page", () => {
       // Kept behind the playlist, Home's tile gives the name up: the page's picture has it.
       inside(
         selector("#home-page[inert] a[data-playlist-tile]"),
-        see(selector("div.relative")).not.toHaveStyle("view-transition-name"),
+        see(selector(".tile-sleeve")).not.toHaveStyle("view-transition-name"),
       ),
       see(selector("#playlist-page .aspect-square.rounded-xl")).toHaveStyle(
         "view-transition-name",

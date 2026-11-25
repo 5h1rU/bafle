@@ -92,8 +92,8 @@ const toolbarView = (album: Album, h: HtmlBuilder<Message>): Html =>
     h.div([h.AriaHidden(true), h.Class("album-compact")], [
       artworkView(Option.fromNullishOr(album.cover), "Square", "small", h),
       h.div([h.Class("min-w-0")], [
-        h.p([h.Class("truncate text-lg leading-tight font-bold")], [album.title]),
-        h.p([h.Class("truncate text-sm text-muted")], [album.artist.name]),
+        h.p([h.Class("album-compact-title truncate")], [album.title]),
+        h.p([h.Class("album-compact-artist truncate")], [album.artist.name]),
       ]),
     ]),
   ]);

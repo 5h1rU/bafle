@@ -27,7 +27,6 @@ import {
   playlistPictureTransitionStyle,
   stationPictureTransitionStyle,
 } from "./artwork.ts";
-import { spinnerIcon } from "./icon.ts";
 import {
   ALBUM_TILE_ATTRIBUTE,
   ARTIST_TILE_ATTRIBUTE,
@@ -177,34 +176,32 @@ export const SHELF_ROW_CLASS =
 export const SHELF_TILE_CLASS = "w-36 shrink-0 snap-start sm:w-40";
 
 /**
- * What a tile shows. The spinner of a tile whose page is on its way lies
- * over its picture: the picture stays, and the tile keeps its size.
+ * What a tile shows. A tile whose page is on its way says so with its own
+ * picture: the sleeve moves a little aside and its record comes part of the
+ * way out from behind it and turns, for as long as the page takes, and goes
+ * back in when the page opens (`tile-record` in styles.css).
  */
-// NOTE: the spinner's place is there whether or not anything spins, so the
-// picture under it is the same element before, during and after.
+// NOTE: the record is there whether or not it shows, behind the picture, so
+// that it comes out and goes back by degrees, and so that the picture is
+// the same element before, during and after. It is no part of the piece
+// that carries the picture's name in a view transition: the picture travels
+// to the head of its page, and the record stays on the shelf it leaves.
 const tileContentView = (
   tile: Tile,
   shape: ArtworkShape,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => [
   h.div(
-    [h.Class("catalog-art relative"), ...flightAttributes(tile.flightStyle, h)],
     [
-      artworkView(tile.maybeArtwork, shape, "medium", h),
-      tile.isOpening
-        ? h.span(
-            [
-              h.AriaHidden(true),
-              h.Class(
-                clsx("absolute inset-0 flex items-center justify-center bg-black/45 text-white", {
-                  "rounded-full": shape === "Round",
-                  "rounded-lg": shape === "Square",
-                }),
-              ),
-            ],
-            [spinnerIcon("size-7 animate-spin motion-reduce:animate-pulse")],
-          )
-        : h.empty,
+      ...(tile.isOpening ? [h.DataAttribute("opening", "")] : []),
+      h.Class("tile-art relative"),
+    ],
+    [
+      h.span([h.AriaHidden(true), h.Class("tile-record")], []),
+      h.div(
+        [h.Class("tile-sleeve catalog-art relative"), ...flightAttributes(tile.flightStyle, h)],
+        [artworkView(tile.maybeArtwork, shape, "medium", h)],
+      ),
     ],
   ),
   h.p([h.Class("mt-3 truncate text-sm font-medium")], [tile.title]),

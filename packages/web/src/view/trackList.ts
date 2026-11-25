@@ -111,13 +111,19 @@ export type TrackListContext = Readonly<{
 
 const isInPlayer = (status: TrackStatus): boolean => status !== "Elsewhere";
 
-const BAR_CLASS = "w-0.5 origin-bottom rounded-full bg-white";
+const BAR_CLASS = "now-bar w-0.5 origin-bottom rounded-full bg-white";
 
 /**
  * The mark of the track the player holds, over its cover. The bars move
  * while the engine says it sounds and lie low while it does not; a start
  * slow enough to mention turns a spinner instead. Under reduced motion the
  * bars keep still, tall for sound and low for silence.
+ *
+ * The spinner and the bars are both in the mark whatever it shows, one over
+ * the other, and the one that is not shown is drawn small and clear
+ * (`now-mark` in styles.css). So a start that was slow turns into sound
+ * where it stands, the spinner drawing in as the bars come out of it, and
+ * is not one picture taken away and another put in its place.
  */
 const nowPlayingMarkView = (status: TrackStatus, h: HtmlBuilder<Message>): Html => {
   if (status === "Elsewhere" || status === "Chosen" || status === "Failed") {
@@ -139,11 +145,18 @@ const nowPlayingMarkView = (status: TrackStatus, h: HtmlBuilder<Message>): Html 
     [
       h.AriaHidden(true),
       h.DataAttribute("now-playing", status),
-      h.Class("absolute inset-0 flex items-end justify-center gap-0.5 rounded-lg bg-black/50 pb-3.5"),
+      h.Class("now-mark absolute inset-0 grid items-end justify-items-center rounded-lg bg-black/50 pb-3.5"),
     ],
-    status === "Starting"
-      ? [spinnerIcon("mb-[-0.125rem] size-5 animate-spin text-white motion-reduce:animate-pulse")]
-      : [bar("[animation-delay:-600ms]"), bar("[animation-delay:-300ms]"), bar("")],
+    [
+      h.span(
+        [h.Class("now-spinner mb-[-0.125rem] flex")],
+        [spinnerIcon("size-5 animate-spin text-white motion-reduce:animate-pulse")],
+      ),
+      h.span(
+        [h.Class("now-bars flex h-3.5 items-end gap-0.5")],
+        [bar("[animation-delay:-600ms]"), bar("[animation-delay:-300ms]"), bar("")],
+      ),
+    ],
   );
 };
 
@@ -270,15 +283,15 @@ const MORE_CLASS =
   "flex size-11 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full text-muted hover:bg-panel hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent active:bg-tile data-[open]:bg-tile data-[open]:text-ink";
 
 /** Over the whole screen: nothing under it is pressed or scrolled while the menu is open. */
-const MENU_BACKDROP_CLASS = "fixed inset-0 z-40 touch-none";
+export const MENU_BACKDROP_CLASS = "fixed inset-0 z-40 touch-none";
 
 // NOTE: the menu is drawn in the document's body, over everything, and is
 // placed by the component under the row's control. It grows out of the
 // corner nearest that control.
-const MENU_CLASS =
+export const MENU_CLASS =
   "z-50 min-w-60 origin-top-right data-[placement=top]:origin-bottom-right overflow-hidden rounded-2xl bg-canvas text-ink shadow-[0_10px_38px_rgb(0_0_0/0.22)] ring-1 ring-line outline-none transition-[scale,opacity] duration-150 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 motion-reduce:transition-none";
 
-const MENU_ITEM_CLASS =
+export const MENU_ITEM_CLASS =
   "flex cursor-pointer items-center justify-between gap-8 border-line px-4 py-3 select-none not-first:border-t data-[active]:bg-panel active:bg-tile";
 
 type ActionLook = Readonly<{ label: string; icon: (className: string) => Html }>;

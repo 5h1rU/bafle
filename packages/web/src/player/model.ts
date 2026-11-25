@@ -1,10 +1,12 @@
+import type { AlbumId } from "@bafle/domain/Catalog/Album";
 import { type Track, type TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
-import { Slider } from "@foldkit/ui";
+import { Menu, Slider } from "@foldkit/ui";
 import * as Array from "effect/Array";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { defineTaggedUnion } from "foldkit/schema";
+import { initialMoreMenu } from "./moreMenu.ts";
 
 // SOURCE
 
@@ -94,7 +96,14 @@ export const Session = Schema.Struct({
   earlier: Schema.Array(TrackSummary),
   current: TrackSummary,
   later: Schema.Array(TrackSummary),
-  pane: Schema.Literals(["Artwork", "Queue", "EditingQueue"]),
+  /**
+   * The face of the expanded player: the song's, with its cover; the
+   * queue's, with the songs to come; or the one that says what the catalog
+   * knows of the track.
+   */
+  pane: Schema.Literals(["Artwork", "Queue", "EditingQueue", "Details"]),
+  /** The menu under the controls of the expanded player (`moreMenu.ts`). */
+  moreMenu: Menu.Model,
   cue: Cue,
   playback: Playback,
   sourceRefresh: SourceRefresh,
@@ -220,6 +229,7 @@ export const queueFrom = (
         bufferedSeconds: 0,
         seek: Seek.Settled({}),
         seekSlider: initialSeekSlider,
+        moreMenu: initialMoreMenu,
       }),
   });
 };
@@ -234,6 +244,10 @@ export const hasSession = (model: Model): boolean => Option.isSome(model.maybeSe
 
 export const maybeCurrentTrackId = (model: Model): Option.Option<TrackId> =>
   Option.map(model.maybeSession, (session) => session.current.id);
+
+/** The album the track the player holds is on. */
+export const maybeCurrentAlbumId = (model: Model): Option.Option<AlbumId> =>
+  Option.map(model.maybeSession, (session) => session.current.album.id);
 
 /**
  * Whether the listener has just put another track in the player. A track

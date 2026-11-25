@@ -120,6 +120,15 @@ export const Navigation = Schema.Literals(["Open", "Minimized"]);
 export type Navigation = typeof Navigation.Type;
 
 /**
+ * Whether the app has yet had anything of its own to show. Launching, the
+ * first page is still placeholders, and the mark the page opened with stands
+ * over them (`#splash` in index.html). Launched, the mark has given way, and
+ * it never comes back: a page that waits after that waits in the app.
+ */
+export const Launch = Schema.Literals(["Launching", "Launched"]);
+export type Launch = typeof Launch.Type;
+
+/**
  * The row whose control shows, for a moment, that what was chosen from its
  * menu is done: its track was put in the queue, and where. Each one takes
  * the next turn, so the moment that ends for an earlier one clears nothing.
@@ -218,6 +227,11 @@ export const Model = Schema.Struct({
    * choosing a section brings it out again.
    */
   navigation: Navigation,
+  /**
+   * Whether the first page has had more than placeholders to show yet. The
+   * mark the page opened with gives way when it has, and not before.
+   */
+  launch: Launch,
   inputMethod: InputMethod,
   /**
    * The menus at the end of the rows, each under its row's id: those that

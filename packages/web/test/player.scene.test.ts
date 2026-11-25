@@ -37,7 +37,13 @@ import {
   viewTransition,
 } from "../src/main.ts";
 import { Message } from "../src/message.ts";
-import { initialPlayerSheet, isPlayerExpanded, type Model, wayBack } from "../src/model.ts";
+import {
+  initialPlayerSheet,
+  isPlayerExpanded,
+  maybeHeadedFor,
+  type Model,
+  wayBack,
+} from "../src/model.ts";
 import { AppRoute } from "../src/route.ts";
 import type { EnginePhase, EngineReport } from "../src/player/audioEngine.ts";
 import * as Player from "../src/player/index.ts";
@@ -47,8 +53,10 @@ import {
   after,
   answered,
   arrived,
+  awaitedId,
   bareTrack,
   changedUrl,
+  choseFromPlayer,
   choseFromRow,
   clickedLink,
   explicitTrack,
@@ -223,6 +231,14 @@ const sheetEnters = () =>
 /** The expanded player turned to its other face, and what is in its sheet was put back at its top. */
 const faceShownFromTop = () =>
   Command.resolve(Player.ShowFaceFromTop, Player.Message.CompletedShowFaceFromTop());
+
+/**
+ * The listener chose Song details from the menu under the player's
+ * controls: the player turns to the face that says what the catalog knows of
+ * the track.
+ */
+const turnsToDetails = () =>
+  [Subscription.emit(choseFromPlayer("SongDetails")), faceShownFromTop()] as const;
 
 const thresholdPasses = (order: number) =>
   Command.resolve(
@@ -487,14 +503,20 @@ describe("the player expanded: the page of the track it holds", () => {
         see(role("button", { name: "Close the player" })).toExist(),
         see(role("button", { name: "Playing Next" })).toHaveAttr("aria-expanded", "false"),
         see(text("Technologic · Daft Punk")).toExist(),
-        see(selector("[data-detail]")).toExist(),
+        // What the catalog knows of the song is a face away, behind the menu under the controls.
+        see(role("button", { name: `More: ${TITLE}` })).toExist(),
+        see(selector("[data-detail]")).toBeAbsent(),
         click(role("button", { name: "Playing Next" })),
       ),
       faceShownFromTop(),
       // The queue's face: the same track at its head, the songs to come by their place, and the way back.
       inside(expandedLayout,
         see(role("button", { name: "Playing Next" })).toHaveAttr("aria-expanded", "true"),
+        // No control of its own closes the queue: the lit one that opened it leads back, and so does the face's name.
+        see(role("button", { name: "Close queue" })).toBeAbsent(),
         see(role("button", { name: "Back to the song" })).toExist(),
+        // The sheet's handle is on this face too: it closes the player, not the queue.
+        see(role("button", { name: "Close the player" })).toExist(),
         see(role("heading", { name: TITLE, level: 1 })).toExist(),
         see(role("heading", { name: "Up next", level: 2 })).toExist(),
         see(selector("[data-detail]")).toBeAbsent(),
@@ -513,7 +535,11 @@ describe("the player expanded: the page of the track it holds", () => {
       ),
       inside(expandedLayout, click(role("button", { name: "Playing Next" }))),
       faceShownFromTop(),
-      inside(expandedLayout, see(selector("[data-detail]")).toExist()),
+      inside(
+        expandedLayout,
+        see(role("button", { name: "Playing Next" })).toHaveAttr("aria-expanded", "false"),
+        see(role("heading", { name: "Up next", level: 2 })).toBeAbsent(),
+      ),
     ));
 
   test("the island pressed: the player is the screen at once, on the track's own route, waiting for nothing", () =>
@@ -534,11 +560,9 @@ describe("the player expanded: the page of the track it holds", () => {
         see(control("Pause")).toHaveAttr("data-playback", "Sounding"),
         see(seekBar).toHaveAttr("aria-valuenow", "12"),
         see(control("Next track", "Technologic")).toBeEnabled(),
-        // The album it is on is the queue's to say, at the head of the sheet.
-        see(text("From the album")).toExist(),
-        see(text("Discovery")).toExist(),
-        // What the catalog adds is on its way, in its own place and its own shape.
-        see(selector("[data-detail]")).toHaveAttr("aria-busy", "true"),
+        // Nothing but the track is over the cover, and what the catalog adds is a face away.
+        see(text("From the album")).toBeAbsent(),
+        see(selector("[data-detail]")).toBeAbsent(),
         see(text("Romanthony")).toBeAbsent(),
       ),
       // It is the same piece as the island: there is no island under it.
@@ -547,10 +571,14 @@ describe("the player expanded: the page of the track it holds", () => {
       inside(expandedLayout, see(text("Opening…")).toBeAbsent()),
       see(text(`Showing ${TITLE}`)).toExist(),
       resolveOpening(sounding),
+      ...turnsToDetails(),
       inside(
         expandedLayout,
+        see(role("button", { name: "Back to the song" })).toExist(),
         see(text("Romanthony")).toExist(),
         see(selector("[data-detail]")).toHaveAttr("aria-busy", "false"),
+        // The controls are on this face too.
+        see(control("Pause")).toExist(),
       ),
     ));
 
@@ -594,8 +622,8 @@ describe("the player expanded: the page of the track it holds", () => {
         expandedLayout,
         see(role("heading", { name: "Technologic", level: 1 })).toExist(),
         see(control("Pause", "Technologic")).toHaveAttr("data-playback", "Acknowledged"),
-        // What the page had already loaded of the track is still there, under the controls.
-        see(text("Human After All")).toExist(),
+        // What the page had already loaded of the track is a face away now.
+        see(text("Human After All")).toBeAbsent(),
       ),
       see(islandLayout).toBeAbsent(),
       resolveStart(2),
@@ -619,7 +647,6 @@ describe("the player expanded: the page of the track it holds", () => {
         expandedLayout,
         see(role("heading", { name: "Technologic", level: 1 })).toExist(),
         see(control("Previous track", TITLE)).toBeEnabled(),
-        see(selector("[data-detail]")).toHaveAttr("aria-busy", "true"),
       ),
       see(islandLayout).toBeAbsent(),
       resolveStart(2),
@@ -630,6 +657,7 @@ describe("the player expanded: the page of the track it holds", () => {
       ),
       // The browser says the URL is the new track's: that is the app's own doing, and changes nothing.
       Subscription.emit(changedUrl(trackPath(explicitTrack.id))),
+      ...turnsToDetails(),
       inside(expandedLayout, see(text("Human After All")).toExist()),
     ));
 
@@ -691,6 +719,7 @@ describe("the player expanded: the page of the track it holds", () => {
       islandLeaves(),
       sheetEnters(),
       resolveOpening(sounding, reply.trackRefused),
+      ...turnsToDetails(),
       inside(
         expandedLayout,
         see(text("The song's details could not load.")).toExist(),
@@ -716,11 +745,53 @@ describe("the player expanded: the page of the track it holds", () => {
       islandLeaves(),
       sheetEnters(),
       resolveOpening(sounding, reply.trackMissing),
+      ...turnsToDetails(),
       inside(
         expandedLayout,
         see(text("The catalog has nothing more about this song.")).toExist(),
         see(role("button", { name: "Try again" })).toBeAbsent(),
         see(control("Pause")).toExist(),
+      ),
+    ));
+
+  test("Go to album, from the menu under the controls, is followed as a link: the player is held until the album can take the screen", () => {
+    const asked = after(expandedOnFirst, choseFromPlayer("OpenAlbum"));
+    // The player is still the screen, and its route still the track's.
+    expect(asked.route).toEqual(expandedOnFirst.route);
+    expect(maybeHeadedFor(asked)).toEqual(
+      Option.some(AppRoute.Album({ albumId: track.album.id })),
+    );
+    // The album arrives: its page takes the screen, and the player is its island again.
+    const arrivedAt = after(asked, arrived(reply.album(awaitedId(asked))));
+    expect(arrivedAt.route).toEqual(AppRoute.Album({ albumId: track.album.id }));
+  });
+
+  test("the face that says what the catalog knows of the song: its name leads back, and the queue's control to the queue", () =>
+    scene(
+      app,
+      given(expandedOnFirst),
+      sheetEnters(),
+      ...turnsToDetails(),
+      inside(
+        expandedLayout,
+        see(selector("[data-detail]")).toExist(),
+        // It is not offered from itself.
+        see(role("heading", { name: "Up next", level: 2 })).toBeAbsent(),
+        click(role("button", { name: "Playing Next" })),
+      ),
+      faceShownFromTop(),
+      inside(
+        expandedLayout,
+        see(role("heading", { name: "Up next", level: 2 })).toExist(),
+        see(selector("[data-detail]")).toBeAbsent(),
+      ),
+      ...turnsToDetails(),
+      inside(expandedLayout, click(role("button", { name: "Back to the song" }))),
+      faceShownFromTop(),
+      inside(
+        expandedLayout,
+        see(selector("[data-detail]")).toBeAbsent(),
+        see(role("button", { name: "Playing Next" })).toHaveAttr("aria-expanded", "false"),
       ),
     ));
 

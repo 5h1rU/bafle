@@ -1,6 +1,17 @@
 #album-page {
   --album-gutter: clamp(1.375rem, 3.5vw, 3.5rem);
-  --album-bar-height: calc(4.25rem + env(safe-area-inset-top));
+  /* The bar the head draws back to: as high as a bar of the system's, and
+     the cover in it a thumbnail that leaves it a little room above and
+     below. The thumbnail stands after the way back. */
+  /* NOTE: no inset for the top of the screen is added. The page is drawn
+     under the screen's top already, in a browser and installed alike, and a
+     browser that draws its own bar over the page can report that inset to a
+     page that is not under it: the bar was then twice its height. */
+  --album-bar-inner: 3rem;
+  --album-bar-height: var(--album-bar-inner);
+  --album-bar-pad: max(1rem, calc(var(--album-gutter) - .25rem));
+  --album-thumb: 2rem;
+  --album-thumb-left: calc(var(--album-bar-pad) + 3.125rem);
   --album-hero-height: clamp(19rem, 103.5vw, 35rem);
   padding-inline: 0;
   padding-top: 0;
@@ -14,7 +25,9 @@
   align-items: end;
   min-height: var(--album-hero-height);
   overflow: hidden;
-  background: var(--color-island-control);
+  /* NOTE: the night the veil ends in, in both themes: the cover draws back
+     over it as the page is scrolled, and the white words stand on it. */
+  background: rgb(22 15 21);
   color: white;
 }
 
@@ -63,7 +76,7 @@
   z-index: 3;
   top: 0;
   height: var(--album-bar-height);
-  padding: env(safe-area-inset-top) max(1rem, calc(var(--album-gutter) - .25rem)) 0;
+  padding: 0 var(--album-bar-pad);
   display: flex;
   align-items: center;
   gap: .75rem;
@@ -83,8 +96,8 @@
   pointer-events: auto;
   flex: none;
   justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2.5rem;
+  height: 2.5rem;
   margin: 0;
   padding: 0;
   gap: 0;
@@ -99,7 +112,7 @@
    lies over that picture and is not part of it, so in the swap that brings
    the page in it is a picture of its own, above the head, and comes on the
    head's clock instead of appearing once the head has landed. */
-:root:active-view-transition-type(show-detail) .album-return > :is(button, a) {
+:root:active-view-transition-type(open-detail, close-detail) .album-return > :is(button, a) {
   view-transition-name: album-return;
 }
 ::view-transition-group(album-return) { z-index: 2; }
@@ -112,8 +125,10 @@
 @keyframes album-return-arrive { from { opacity: 0; } }
 @keyframes album-return-leave { to { opacity: 0; } }
 
-.album-compact { margin-left: 3.5rem; display: flex; min-width: 0; gap: .75rem; align-items: center; }
-.album-compact > :first-child { flex: none; width: 3rem; }
+.album-compact { margin-left: 3.125rem; display: flex; min-width: 0; gap: .625rem; align-items: center; }
+.album-compact > :first-child { flex: none; width: var(--album-thumb); }
+.album-compact-title { font-size: .9375rem; font-weight: 650; line-height: 1.2; letter-spacing: -.015em; }
+.album-compact-artist { font-size: .75rem; line-height: 1.25; color: var(--color-muted); }
 
 /* Without scroll timelines the cover slides over the sticky strip and reveals it
    as it leaves. The back control stays above both layers. */
@@ -122,17 +137,69 @@
   .album-toolbar { z-index: 2; }
 }
 
+/* THE HEAD DRAWS BACK TO THE BAR
+
+   Scrolled, the head does not leave and a bar take its place: the cover
+   itself draws back to the thumbnail in the bar, by the scroll and not by a
+   clock. It is placed in the head, and the head goes up with the page, so
+   it is brought down the head as fast as the head goes up: it stays at the
+   top of the screen, growing smaller, and comes to rest in the strip at the
+   head's foot just as that strip reaches the top. On the way the head's
+   ground turns from the night under the cover to the bar's own colour, so
+   that the strip that arrives is the bar already. The bar proper, with its
+   ground and a thumbnail in that very place, takes over at that moment and
+   not before: come any sooner, it would lie over a cover still on its way,
+   and there would be two to see. From then on the head goes up behind it.
+
+   The large title is too large to follow the cover: it goes before it gets
+   under the way back, and the title in the bar comes as the cover lands. */
 @supports (animation-timeline: view()) and (timeline-scope: --album-cover) {
-  .album-hero { view-timeline: --album-cover block; }
+  /* NOTE: the timeline is measured against the whole of the page's box. Left
+     to itself it would be measured inside the page's `scroll-padding`, which
+     is the bar's height, and every place below would be that much out. */
+  .album-hero { view-timeline: --album-cover block; view-timeline-inset: 0; }
   .album-detail { timeline-scope: --album-cover; }
-  .album-toolbar::before, .album-compact {
-    animation: album-condense linear both;
+  .album-toolbar::before, .album-compact > *,
+  .album-hero, .album-hero .album-cover, .album-hero::after, .album-caption {
+    animation-timing-function: linear;
+    animation-fill-mode: both;
     animation-timeline: --album-cover;
-    animation-range: exit calc(100% - var(--album-bar-height) - 3rem) exit calc(100% - var(--album-bar-height));
+    animation-range: exit 0% exit calc(100% - var(--album-bar-height));
   }
-  @keyframes album-condense { from { opacity: 0; } to { opacity: 1; } }
-  @media (prefers-reduced-motion: reduce) {
-    .album-toolbar::before, .album-compact { animation-timing-function: steps(1, end); }
+  .album-toolbar::before, .album-compact > * {
+    animation-name: album-bar-takes-over;
+    animation-timing-function: steps(1, end);
+  }
+  @keyframes album-bar-takes-over { from { opacity: 0; } to { opacity: 1; } }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .album-hero { animation-name: album-ground-turns; }
+    .album-hero .album-cover { animation-name: album-cover-draws-back; }
+    .album-hero::after { animation-name: album-veil-lifts; }
+    .album-caption { animation-name: album-caption-goes; }
+    .album-compact > :last-child {
+      animation-name: album-compact-title-comes;
+      animation-timing-function: linear;
+    }
+  }
+  @keyframes album-ground-turns {
+    0%, 55% { background-color: rgb(22 15 21); }
+    100% { background-color: var(--color-panel); }
+  }
+  @keyframes album-cover-draws-back {
+    to {
+      top: calc(100% - (var(--album-bar-inner) + var(--album-thumb)) / 2);
+      left: var(--album-thumb-left);
+      width: var(--album-thumb);
+      height: var(--album-thumb);
+      border-radius: .375rem;
+    }
+  }
+  @keyframes album-veil-lifts { 45%, 100% { opacity: 0; } }
+  @keyframes album-caption-goes { 0%, 12% { opacity: 1; } 42%, 100% { opacity: 0; } }
+  @keyframes album-compact-title-comes {
+    0%, 88% { opacity: 0; translate: 0 .375rem; }
+    100% { opacity: 1; translate: 0 0; }
   }
 }
 
@@ -169,8 +236,9 @@
   align-items: center;
   background: var(--color-accent-wash);
 }
-.album-songs [data-now-playing] > span { background: var(--color-accent); }
-.album-songs [data-now-playing] > svg { color: var(--color-accent); }
+.album-songs [data-now-playing] .now-bar { background: var(--color-accent); }
+.album-songs [data-now-playing] svg { color: var(--color-accent); }
+.album-songs [data-now-playing] .now-spinner { margin-bottom: 0; }
 @media (min-width: 48rem) {
   #album-page { --album-hero-height: clamp(20rem, 46svh, 34rem); }
   .album-caption { padding-bottom: 2rem; }

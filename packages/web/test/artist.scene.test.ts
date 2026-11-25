@@ -75,6 +75,8 @@ const homeControl = role("link", { name: "Home" });
 const artistTile = selector(`a[data-artist-tile="${artist.id}"]`);
 const albumTile = role("link", { name: /Discovery/ });
 const spinners = all.selector("svg.animate-spin");
+/** A tile whose page is on its way: its record is out of its sleeve, and turns. */
+const records = all.selector("[data-opening]");
 const island = role("region", { name: "Player" });
 const placeholderBlocks = all.selector('[aria-busy="true"] [aria-hidden="true"] .animate-pulse');
 
@@ -236,7 +238,7 @@ describe("the artist page", () => {
         model: onArtist,
         message: changedUrl(artistPath(artist.id)),
       }),
-    ).toEqual({ types: ["show-detail", `artist-picture-${artist.id}`] });
+    ).toEqual({ types: ["open-detail", `artist-picture-${artist.id}`] });
     // Held on the shelf while the artist loads, nothing swaps.
     expect(
       viewTransition({
@@ -275,21 +277,21 @@ describe("artist tiles lead to the artist's page", () => {
     scene(
       app,
       given(onHome),
-      inside(artistTile, expectAll(spinners).toHaveCount(0)),
+      inside(artistTile, expectAll(records).toHaveCount(0)),
       Subscription.emit(clickedLink(artistPath(artist.id))),
       inside(
         onScreen,
         see(pageTitle("Home")).toExist(),
         see(artistTile).toHaveAttr("aria-busy", "true"),
-        // The spinner lies over the picture, which stays; it is round, as the picture is.
+        // The record comes out from behind the picture, which stays.
         inside(
           artistTile,
-          expectAll(spinners).toHaveCount(1),
+          expectAll(records).toHaveCount(1),
           expectAll(all.selector("img")).toHaveCount(1),
-          see(selector("span.rounded-full")).toExist(),
+          see(selector(".tile-record")).toHaveAttr("aria-hidden", "true"),
         ),
         // Only the tile that was chosen says so.
-        expectAll(spinners).toHaveCount(1),
+        expectAll(records).toHaveCount(1),
         see(albumTile).toHaveAttr("aria-busy", "false"),
       ),
       inside(navigation, expectAll(all.selector('[aria-busy="true"]')).toHaveCount(0)),
@@ -313,7 +315,7 @@ describe("artist tiles lead to the artist's page", () => {
     scene(
       app,
       given(onHome),
-      inside(artistTile, see(selector("div.relative")).toHaveStyle("view-transition-name", name)),
+      inside(artistTile, see(selector(".tile-sleeve")).toHaveStyle("view-transition-name", name)),
     );
     scene(
       app,
@@ -321,7 +323,7 @@ describe("artist tiles lead to the artist's page", () => {
       // Kept behind the artist, Home's tile gives the name up: the page's picture has it.
       inside(
         selector("#home-page[inert]"),
-        inside(artistTile, see(selector("div.relative")).not.toHaveStyle("view-transition-name")),
+        inside(artistTile, see(selector(".tile-sleeve")).not.toHaveStyle("view-transition-name")),
       ),
       see(selector("#artist-page .aspect-square.rounded-full")).toHaveStyle(
         "view-transition-name",
@@ -385,7 +387,7 @@ describe("rule 1: an album chosen on the artist's page holds it", () => {
         onScreen,
         see(pageTitle("Daft Punk")).toExist(),
         see(albumTile).toHaveAttr("aria-busy", "true"),
-        inside(albumTile, expectAll(spinners).toHaveCount(1)),
+        inside(albumTile, expectAll(records).toHaveCount(1)),
       ),
       see(text("Loading Album")).toExist(),
       Command.resolve(Catalog.AlbumDetail, reply.album(nextId(onArtist))),

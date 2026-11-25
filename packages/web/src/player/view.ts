@@ -1,12 +1,14 @@
 import type { TrackSummary } from "@bafle/domain/Catalog/Track";
-import { Button, Slider } from "@foldkit/ui";
+import { Button, type Menu, Slider } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { Submodel } from "foldkit";
-import type { ChildAttribute, Html, HtmlBuilder } from "foldkit/html";
+import { type ChildAttribute, childAttributes, type Html, type HtmlBuilder } from "foldkit/html";
 import {
-  downIcon,
+  albumIcon,
+  detailsIcon,
+  moreIcon,
   nextIcon,
   noteIcon,
   pauseIcon,
@@ -16,6 +18,7 @@ import {
   spinnerIcon,
 } from "../view/icon.ts";
 import { coverTransitionName, artworkFlightRules } from "../view/artwork.ts";
+import { MENU_BACKDROP_CLASS, MENU_CLASS, MENU_ITEM_CLASS } from "../view/trackList.ts";
 import { formatDuration } from "../view/time.ts";
 import { islandFigureView } from "./islandFigure.ts";
 import { Message } from "./message.ts";
@@ -40,7 +43,8 @@ import {
   TITLE_WORDS_ATTRIBUTE,
 } from "./mount.ts";
 import { TITLE_PIXELS_PER_SECOND } from "./command.ts";
-import { queueAccessView, queuePanelView, queueReturnView } from "./queue.ts";
+import { MoreMenu, type PlayerAction } from "./moreMenu.ts";
+import { queueButtonView, queuePanelView } from "./queue.ts";
 import "./player.css";
 
 // VIEW
@@ -70,6 +74,8 @@ export type ExpandedViewInputs = Readonly<{
   titleId: string;
   toCollapseControl: () => Html;
   toDetail: (track: TrackSummary) => Html;
+  /** Whether the album's page, chosen from the player's menu, is on its way. */
+  isAlbumOpening: boolean;
   /**
    * The expanded player is drawn on a sheet, which the listener can swipe
    * away. The sheet is the shell's (`sheet/`): these are what it asks the
@@ -804,13 +810,10 @@ const titleSize = (title: string): "Large" | "Medium" | "Small" => {
   return title.length <= 30 ? "Medium" : "Small";
 };
 
-/** The bar at the head of the sheet: a control at its near end, and what this face is. */
-const topBarView = (control: Html, label: Html, h: HtmlBuilder<Message>): Html =>
-  h.div([h.Class("player-top")], [control, label]);
-
 /**
- * The head of the song's face: the cover from edge to edge, the way out and
- * the album over its top, and the track's title over its foot.
+ * The head of the song's face: the cover from edge to edge, and the track's
+ * title over its foot. Nothing else is over the cover but the sheet's
+ * handle, which is the sheet's and not this face's.
  *
  * The cover is drawn twice (see player.css): the one that carries its name
  * in a view transition, and over it the one that stays in the sheet's
@@ -829,17 +832,6 @@ const songHeadView = (
     [
       coverView(current, "player-flight", "large", h),
       h.div([h.AriaHidden(true), h.Class("player-art")], [coverView(current, "", "large", h, false)]),
-      topBarView(
-        viewInputs.toCollapseControl(),
-        h.p(
-          [h.Class("player-top-label")],
-          [
-            h.span([h.Class("player-source-kind")], ["From the album"]),
-            h.span([h.Class("player-source-name")], [current.album.title]),
-          ],
-        ),
-        h,
-      ),
       // NOTE: keyed by the track, so another track's words are another
       // element; and not by the track's id alone, which is the cover's key.
       h.keyed("div")(
@@ -862,19 +854,24 @@ const songHeadView = (
 };
 
 /**
- * The head of the queue's face: the same track, drawn back to a thumbnail
- * beside its title, with its cover behind as the air of the place. The
- * control at its near end, and the name of the face, lead back to the song.
+ * The head of the other faces, the queue's and the one that says what the
+ * catalog knows of the track: the same track, drawn back to a thumbnail
+ * beside its title at the very top of the sheet, under the handle, with its
+ * cover behind as the air of the place. It is kept low, so that what the
+ * face is for has the room: nothing stands over it, not even the face's
+ * name, which the lit control under the player's controls and the heading
+ * of what is listed already say. Pressed, it leads back to the song.
  */
-const queueHeadView = (
+const faceHeadView = (
   session: Session,
   viewInputs: ExpandedViewInputs,
   h: HtmlBuilder<Message>,
 ): Html => {
   const { current } = session;
+  const isDetails = session.pane === "Details";
 
   return h.keyed("header")(
-    "queue",
+    isDetails ? "details" : "queue",
     [h.Class("player-head")],
     [
       Option.match(Option.fromNullishOr(current.album.cover), {
@@ -885,21 +882,6 @@ const queueHeadView = (
             [h.img([h.Decoding("sync"), h.Src(cover.small), h.Alt("")])],
           ),
       }),
-      topBarView(
-        Button.view(
-          {
-            onClick: Message.ClickedQueue(),
-            toView: (attributes) =>
-              h.button(
-                [...attributes.button, h.AriaLabel("Back to the song"), h.Class("player-top-control")],
-                [downIcon("size-6")],
-              ),
-          },
-          h,
-        ),
-        queueReturnView(h),
-        h,
-      ),
       h.div(
         [h.Class("player-now")],
         [
@@ -919,11 +901,84 @@ const queueHeadView = (
               h.p([h.Class("player-now-artist")], [current.artist.name]),
             ],
           ),
+          // NOTE: the way back lies over the whole of the head and is not
+          // wrapped round it: a heading has no place inside a button.
+          Button.view(
+            {
+              onClick: isDetails ? Message.ClickedDetails() : Message.ClickedQueue(),
+              toView: (attributes) =>
+                h.button(
+                  [...attributes.button, h.AriaLabel("Back to the song"), h.Class("player-now-return")],
+                  [],
+                ),
+            },
+            h,
+          ),
         ],
       ),
     ],
   );
 };
+
+const MORE_LOOKS: Readonly<Record<PlayerAction, Readonly<{ label: string; icon: (className: string) => Html }>>> = {
+  OpenAlbum: { label: "Go to album", icon: albumIcon },
+  SongDetails: { label: "Song details", icon: detailsIcon },
+};
+
+/**
+ * The control, three dots, that opens the menu of what else can be done
+ * with the track that is playing: its album's page, and what the catalog
+ * knows of it, which is a face of the player and is not offered from that
+ * face. While the album's page is on its way the control says so, as a
+ * navigation item does: its mark breathes.
+ */
+const moreMenuView = (
+  session: Session,
+  viewInputs: ExpandedViewInputs,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const items: ReadonlyArray<PlayerAction> =
+    session.pane === "Details" ? ["OpenAlbum"] : ["OpenAlbum", "SongDetails"];
+  const menu: Menu.Model = session.moreMenu;
+
+  return h.submodel({
+    slotId: menu.id,
+    model: menu,
+    view: MoreMenu.view,
+    viewInputs: {
+      items,
+      itemToConfig: (action: PlayerAction) => ({
+        className: MENU_ITEM_CLASS,
+        content: h.div(
+          [h.Class("contents")],
+          [h.span([], [MORE_LOOKS[action].label]), MORE_LOOKS[action].icon("size-5 shrink-0 text-muted")],
+        ),
+      }),
+      itemToSearchText: (action: PlayerAction) => MORE_LOOKS[action].label,
+      ariaLabel: `More: ${session.current.title}`,
+      buttonContent: moreIcon(
+        clsx("size-6", { "nav-breathes motion-reduce:animate-pulse": viewInputs.isAlbumOpening }),
+      ),
+      buttonClassName: "player-action",
+      buttonAttributes: childAttributes([h.AriaBusy(viewInputs.isAlbumOpening)]),
+      itemsClassName: MENU_CLASS,
+      backdropClassName: MENU_BACKDROP_CLASS,
+      anchor: { placement: "top-start", gap: 8, padding: 12 },
+    },
+    toParentMessage: (message) => Message.GotMoreMenuMessage({ message }),
+  });
+};
+
+/**
+ * What stands under the three controls, on every face: the menu of what else
+ * can be done with the track, and the way to the queue and back.
+ */
+const actionsView = (
+  session: Session,
+  viewInputs: ExpandedViewInputs,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.div([h.Class("player-actions")], [moreMenuView(session, viewInputs, h), queueButtonView(session, h)]);
 
 /**
  * The player grown to the size of the screen: the same piece as the island,
@@ -963,6 +1018,10 @@ const sheetView = (
       ...viewInputs.sheetAttributes,
     ],
     [
+      // NOTE: the handle is the sheet's, not a face's: it stands at the very
+      // top of the sheet whatever face is shown and however far what is in
+      // the sheet has been scrolled.
+      viewInputs.toCollapseControl(),
       // NOTE: what is in the sheet scrolls only while the sheet is whole.
       // Short of that a swipe on it is the sheet's, and from the top of what
       // is in it a swipe down goes on to the sheet: the scroll is handed on
@@ -981,17 +1040,20 @@ const sheetView = (
           h.div(
             [h.Class("player-body")],
             [
-              isSong ? songHeadView(session, viewInputs, h) : queueHeadView(session, viewInputs, h),
+              isSong ? songHeadView(session, viewInputs, h) : faceHeadView(session, viewInputs, h),
               h.div(
                 [h.Class("player-deck")],
-                [progressOrNoticeView(session, h), stepsView(session, "player-transport", h)],
+                [
+                  progressOrNoticeView(session, h),
+                  stepsView(session, "player-transport", h),
+                  actionsView(session, viewInputs, h),
+                ],
               ),
-              isSong ? queueAccessView(session, h) : h.empty,
-              isSong
+              session.pane === "Details"
                 ? h.div(
                     [h.Class("player-details")],
                     [
-                      h.h2([h.Class("mb-3 text-xl font-bold tracking-tight")], ["Song details"]),
+                      h.h2([h.Class("player-face-heading")], ["Song details"]),
                       viewInputs.toDetail(current),
                     ],
                   )

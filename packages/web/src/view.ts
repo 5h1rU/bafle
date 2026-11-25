@@ -83,7 +83,6 @@ import {
   newIcon,
   radioIcon,
   searchIcon,
-  spinnerIcon,
 } from "./view/icon.ts";
 import {
   NAVIGATION_ID,
@@ -166,6 +165,23 @@ const isLoadingDestination = (model: Model, destination: Destination): boolean =
   model.route._tag !== destination &&
   Option.exists(maybeHeadedFor(model), (route) => route._tag === destination);
 
+const maybeDestinationOf = (route: AppRoute): Option.Option<Destination> =>
+  Array.findFirst(DESTINATIONS, (destination) => destination === route._tag);
+
+/**
+ * The destination the navigation marks: the one the listener chose, from the
+ * moment they choose it, and otherwise the one on screen. The mark answers
+ * the press and does not wait for the page: a mark that moved only once the
+ * page had come would read as the app being slow to hear. Which page is on
+ * screen is still said by `aria-current`, which moves when the page does. A
+ * page that is no destination of the navigation, an album chosen from a
+ * tile, leaves the mark where it is.
+ */
+const maybeMarkedDestination = (model: Model): Option.Option<Destination> =>
+  Option.orElse(Option.flatMap(maybeHeadedFor(model), maybeDestinationOf), () =>
+    maybeDestinationOf(model.route),
+  );
+
 /**
  * The sections of the menu. Search is a section too, and stands apart from
  * them on a narrow screen: a control of its own at the far end, there
@@ -200,7 +216,7 @@ const ITEM_FOCUS_CLASS =
 
 /** Beside the page, on a wide screen, every item is a row of the same kind. */
 const WIDE_LINK_CLASS =
-  "md:h-auto md:w-auto md:flex-row md:justify-start md:gap-3 md:rounded-lg md:border-0 md:bg-transparent md:px-3 md:py-2 md:text-muted md:shadow-none md:backdrop-blur-none md:hover:text-ink md:data-current:bg-accent-wash md:data-current:text-accent";
+  "md:h-auto md:w-auto md:flex-row md:justify-start md:gap-3 md:rounded-lg md:border-0 md:bg-transparent md:px-3 md:py-2 md:text-muted md:shadow-none md:backdrop-blur-none md:hover:text-ink md:data-marked:bg-accent-wash md:data-marked:text-accent";
 
 const MENU_ITEM_CLASS =
   "dock-item min-w-0 grow basis-0 p-1 md:grow-0 md:basis-auto md:p-0";
@@ -209,7 +225,7 @@ const CIRCLE_ITEM_CLASS = "dock-current";
 const LEAVING_ITEM_CLASS = "minimized:invisible minimized:opacity-0";
 
 const MENU_LINK_CLASS = clsx(
-  "pointer-events-auto flex h-full touch-manipulation flex-col items-center justify-center rounded-full text-muted transition-colors duration-200 hover:text-ink data-current:bg-ink/10 data-current:text-accent minimized:pointer-events-none minimized:text-ink minimized:data-current:bg-transparent minimized:data-current:text-accent",
+  "pointer-events-auto flex h-full touch-manipulation flex-col items-center justify-center rounded-full text-muted transition-colors duration-200 hover:text-ink data-marked:text-accent minimized:pointer-events-none minimized:text-ink minimized:data-marked:text-accent",
   ITEM_FOCUS_CLASS,
   WIDE_LINK_CLASS,
 );
@@ -239,7 +255,7 @@ const SEARCH_ITEM_CLASS =
   "ml-auto flex h-14 w-16 shrink-0 items-center justify-center pl-2 md:ml-0 md:block md:h-auto md:w-auto md:pl-0";
 
 const SEARCH_LINK_CLASS = clsx(
-  "dock-search pointer-events-auto flex size-14 touch-manipulation items-center justify-center rounded-full text-ink data-current:text-accent",
+  "dock-search pointer-events-auto flex size-14 touch-manipulation items-center justify-center rounded-full text-ink data-marked:text-accent",
   FLOATING_CLASS,
   ITEM_FOCUS_CLASS,
   WIDE_LINK_CLASS,
@@ -248,6 +264,7 @@ const SEARCH_LINK_CLASS = clsx(
 const destinationView = (
   item: Nav.ItemInfo<Destination>,
   isLoading: boolean,
+  isMarked: boolean,
   isShownInCircle: boolean,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -268,6 +285,7 @@ const destinationView = (
         [
           ...item.link,
           h.AriaBusy(isLoading),
+          ...(isMarked ? [h.DataAttribute("marked", "")] : []),
           h.Class(
             isSearch
               ? SEARCH_LINK_CLASS
@@ -275,12 +293,13 @@ const destinationView = (
           ),
         ],
         [
-          // The spinner takes the icon's place, so the item keeps its size while it loads.
-          isLoading
-            ? spinnerIcon(
-                clsx("size-6 animate-spin motion-reduce:animate-pulse md:size-5", iconClass),
-              )
-            : DESTINATION_ICONS[item.value](clsx("size-6 md:size-5", iconClass)),
+          // While its page is on its way the icon itself breathes: it is the
+          // thing that was pressed, and it stays what it is (`nav-breathes`).
+          DESTINATION_ICONS[item.value](
+            clsx("size-6 md:size-5", iconClass, {
+              "nav-breathes motion-reduce:animate-pulse": isLoading,
+            }),
+          ),
           // NOTE: at the foot of a narrow screen Search is its icon alone: its name is still said.
           h.span(
             [h.Class(isSearch ? "max-md:sr-only md:text-sm md:font-medium" : MENU_NAME_CLASS)],
@@ -292,18 +311,44 @@ const destinationView = (
   );
 };
 
+/** The section of the menu that is marked, when what is marked is one of the menu's. */
+const maybeMarkedMenuSection = (model: Model): Option.Option<MenuSection> =>
+  Option.filter(
+    maybeMarkedDestination(model),
+    (destination): destination is MenuSection => destination !== "Search",
+  );
+
+/** Where each of the menu's sections stands in it, from its near end. */
+const MENU_PLACES: Readonly<Record<MenuSection, number>> = { Home: 0, New: 1, Genres: 2, Radio: 3 };
+
 /**
  * The menu's own surface on a narrow screen: one piece behind its items,
  * which draws back to a circle around the item that stays. The circle is a
  * little smaller than the menu is tall, and stands where the menu's near
  * end was, so nothing is seen to jump.
+ *
+ * Over the surface, under the items, is the navigation's mark. It is one
+ * piece for the whole menu and not each item's own ground, so that it
+ * travels from the item the listener left to the one they chose, and it
+ * sets off as they choose (`maybeMarkedDestination`; `dock-mark` in
+ * styles.css). When what is marked is none of the menu's, it is not shown,
+ * and waits where the circle's section is.
  */
-const menuSurfaceView = (h: HtmlBuilder<Message>): Html =>
+const menuSurfaceView = (model: Model, h: HtmlBuilder<Message>): Html =>
   h.div(
     [h.AriaHidden(true), h.Class("pointer-events-none md:hidden")],
     [
       h.div([h.Class(clsx("dock-circle absolute top-1.5 left-1.5 size-11 rounded-full opacity-0 minimized:opacity-100", FLOATING_CLASS))]),
       h.div([h.Class(clsx("dock-surface absolute inset-y-0 right-16 left-0 rounded-full", FLOATING_CLASS))]),
+      h.div([
+        ...(Option.isSome(maybeMarkedMenuSection(model)) ? [h.DataAttribute("shown", "")] : []),
+        h.Style({
+          "--dock-place": String(
+            MENU_PLACES[Option.getOrElse(maybeMarkedMenuSection(model), () => circleSection(model))],
+          ),
+        }),
+        h.Class("dock-mark"),
+      ]),
     ],
   );
 
@@ -341,6 +386,7 @@ const showNavigationView = (model: Model, h: HtmlBuilder<Message>): Html =>
  */
 const navigationView = (model: Model, h: HtmlBuilder<Message>): Html => {
   const inCircle = circleSection(model);
+  const marked = maybeMarkedDestination(model);
 
   return Nav.view<Destination>({
     items: DESTINATIONS,
@@ -351,7 +397,7 @@ const navigationView = (model: Model, h: HtmlBuilder<Message>): Html => {
       h.nav(
         [...nav, h.Id(NAVIGATION_ID), h.Class("relative max-md:h-14")],
         [
-          menuSurfaceView(h),
+          menuSurfaceView(model, h),
           h.ul(
             [
               h.Role("list"),
@@ -361,6 +407,7 @@ const navigationView = (model: Model, h: HtmlBuilder<Message>): Html => {
               destinationView(
                 item,
                 isLoadingDestination(model, item.value),
+                Option.contains(marked, item.value),
                 item.value === inCircle,
                 h,
               ),
@@ -1102,6 +1149,12 @@ const expandedPlaceView = (model: Model, h: HtmlBuilder<Message>): Html =>
                 titleId: pageTitleIdOf(PAGE_IDS.Track),
                 toCollapseControl: () => Track.collapseControlView(wayBackOn(model.trail), h),
                 toDetail: (track) => Track.expandedDetailView(trackData(model, track.id), h),
+                isAlbumOpening: Option.exists(
+                  maybeHeadedFor(model),
+                  (route) =>
+                    route._tag === "Album" &&
+                    Option.contains(Player.maybeCurrentAlbumId(model.player), route.albumId),
+                ),
                 sheetAttributes: sheet.sheet,
                 contentAttributes: [
                   ...sheet.content,
@@ -1184,6 +1237,9 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
       ...(Player.hasSession(model.player) && (!isPlayerExpanded(model) || isSheetAway(model))
         ? [h.DataAttribute("player", "")]
         : []),
+      // NOTE: read by the mark the page opened with, which stands over the
+      // app for as long as this is here (`#splash` in index.html).
+      ...(model.launch === "Launching" ? [h.DataAttribute("launching", "")] : []),
       h.DataAttribute("input", model.inputMethod),
       h.DataAttribute("navigation", model.navigation === "Minimized" ? "minimized" : "open"),
       h.OnMount(HoldDockMotion()),

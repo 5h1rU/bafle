@@ -211,6 +211,33 @@ it.effect("progress is reported when the second changes, not each time the clock
   }),
 );
 
+it.effect("audio held to its end, and sound that has ended, are the audio's whole length", () =>
+  Effect.gen(function* () {
+    const { element, stub, fire } = stubElement();
+    const engine = HtmlAudioEngine.make(element);
+    yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
+    stub.readyState = 4;
+    stub.duration = 29.98;
+    // A browser's account of what it holds can stop a few frames short of the length.
+    stub.bufferedEnd = 29.9;
+    fire("playing");
+    const heard = yield* listening(engine);
+
+    stub.currentTime = 29.98;
+    stub.ended = true;
+    stub.paused = true;
+    fire("ended");
+    yield* Effect.yieldNow;
+
+    // Whole seconds of a length that is not whole never add up to it: the
+    // bar would stop short of its end under audio that is all there.
+    expect(heard.map((report) => [report.phase, report.positionSeconds, report.bufferedSeconds])).toEqual([
+      ["Sounding", 0, 29.98],
+      ["Ended", 29.98, 29.98],
+    ]);
+  }),
+);
+
 it.effect("the end, a failure and a move to another position are read from the element", () =>
   Effect.gen(function* () {
     const { element, stub, fire } = stubElement();

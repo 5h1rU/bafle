@@ -59,17 +59,43 @@ const bufferedUntil = (element: HTMLMediaElement): number => {
 };
 
 /**
+ * How near its end the data held must reach to be all of the audio. A
+ * browser's account of what it holds can stop a few frames short of the
+ * length it gives.
+ */
+const END_TOLERANCE_SECONDS = 0.5;
+
+/**
+ * How far the engine holds data, in whole seconds, and the audio's whole
+ * length once it holds it to the end. A length is seldom a whole number of
+ * seconds, so whole seconds of it never add up to all of it: the bar would
+ * stop short of its end under audio that is all there.
+ */
+const heldSeconds = (element: HTMLMediaElement): number => {
+  const until = bufferedUntil(element);
+  return Number.isFinite(element.duration) && element.duration - until < END_TOLERANCE_SECONDS
+    ? element.duration
+    : Math.floor(until);
+};
+
+/** Where the sound is, in whole seconds, and at the audio's whole length once it has ended, as above. */
+const positionOf = (element: HTMLMediaElement): number =>
+  element.ended && Number.isFinite(element.duration)
+    ? element.duration
+    : Math.floor(element.currentTime);
+
+/**
  * Whole seconds: the engine's clock runs several times a second, and the
  * interface has nothing new to say until the second changes.
  */
 const read = (element: HTMLMediaElement, order: number): EngineReport => ({
   order,
   phase: phaseOf(element),
-  positionSeconds: Math.floor(element.currentTime),
+  positionSeconds: positionOf(element),
   maybeDurationSeconds: Number.isFinite(element.duration)
     ? Option.some(element.duration)
     : Option.none(),
-  bufferedSeconds: Math.floor(bufferedUntil(element)),
+  bufferedSeconds: heldSeconds(element),
   isSeeking: element.seeking,
 });
 

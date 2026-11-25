@@ -23,10 +23,14 @@ const outlineIcon = (className: string, paths: ReadonlyArray<string>): Html =>
 export const homeIcon = (className: string): Html =>
   outlineIcon(className, ["M4 11.5 12 4l8 7.5", "M6 10v9.5h4.5V15h3v4.5H18V10"]);
 
+/**
+ * A flame: what is new is what is hot now. Not a sparkle, which every app
+ * that has an assistant in it has taken for that.
+ */
 export const newIcon = (className: string): Html =>
   outlineIcon(className, [
-    "M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9L12 3.5Z",
-    "M18.5 15.5v4M16.5 17.5h4",
+    "M12 2.75c.6 2.9 2.2 4.6 3.9 6.4 1.5 1.6 2.6 3.4 2.6 5.6a6.5 6.5 0 0 1-13 0c0-1.9.8-3.5 1.9-4.7.3 1.3 1 2.2 2 2.7-.3-3.6.6-6.9 2.6-10Z",
+    "M12 20.5a2.75 2.75 0 0 0 2.75-2.75c0-1.4-1-2.3-2.75-4-1.75 1.7-2.75 2.6-2.75 4A2.75 2.75 0 0 0 12 20.5Z",
   ]);
 
 /** Four tiles: music sorted into its kinds. */
@@ -55,10 +59,6 @@ export const searchIcon = (className: string): Html =>
 /** Points the way back. */
 export const backIcon = (className: string): Html =>
   outlineIcon(className, ["M14.5 5.5 8 12l6.5 6.5"]);
-
-/** Points down: where a sheet goes when it is sent away. */
-export const downIcon = (className: string): Html =>
-  outlineIcon(className, ["M5.5 9 12 15.5 18.5 9"]);
 
 /** Stands where a picture would be when the catalog has none. */
 export const noteIcon = (className: string): Html =>
