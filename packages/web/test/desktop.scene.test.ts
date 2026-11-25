@@ -1,5 +1,5 @@
 import { TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
-import { Menu } from "@foldkit/ui";
+import { Menu, Slider } from "@foldkit/ui";
 import * as Option from "effect/Option";
 import {
   click,
@@ -202,6 +202,52 @@ describe("the island on a desktop's screen", () => {
       see(queueColumn).toBeAbsent(),
     ));
 
+  test("the progress of the sound is on it, and is moved there as in the expanded player", () =>
+    scene(
+      app,
+      given(onDesktop),
+      islandEnters,
+      inside(
+        island,
+        // The length is the engine's, and the times stand on either side of the bar.
+        see(role("slider", { name: `Seek: ${TITLE}` })).toHaveAttr("aria-valuenow", "12"),
+        see(role("slider", { name: `Seek: ${TITLE}` })).toHaveAttr("aria-valuemax", "30"),
+        see(role("slider", { name: `Seek: ${TITLE}` })).toHaveAttr("aria-valuetext", "0:12 of 0:30"),
+        see(selector("[data-elapsed]")).toHaveText("0:12"),
+        see(selector("[data-remaining]")).toHaveText("−0:18"),
+      ),
+    ));
+
+  test("a key on the bar asks the engine for the new position, and the time stands there as a wish", () => {
+    const sought = update(
+      onDesktop,
+      player(
+        Player.Message.GotSeekSliderMessage({
+          message: Slider.Message.PressedKeyboardNavigation({ direction: "StepIncrement", value: 12 }),
+        }),
+      ),
+    );
+
+    expect((sought.commands ?? []).map((command) => [command.name, command.args])).toContainEqual([
+      "SeekPlayback",
+      { order: 2, positionSeconds: 13 },
+    ]);
+  });
+
+  test("before the engine has read the audio's length there is no bar to move, and an empty one stands for it", () =>
+    scene(
+      app,
+      given(
+        after(
+          onNew,
+          Message.ClickedPlayTrack({ trackId: track.id, from: "New" }),
+          becameDesktop,
+        ),
+      ),
+      islandEnters,
+      inside(island, see(role("slider")).toBeAbsent(), see(text("–:––")).toExist()),
+    ));
+
   test("on a compact screen it has none of them: they are the expanded player's", () =>
     scene(
       app,
@@ -213,6 +259,7 @@ describe("the island on a desktop's screen", () => {
         see(queueControl).toBeAbsent(),
         see(role("button", { name: `More: ${TITLE}` })).toBeAbsent(),
         see(role("button", { name: /^(Back to the start|Previous track)/ })).toBeAbsent(),
+        see(role("slider")).toBeAbsent(),
       ),
     ));
 

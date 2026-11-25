@@ -455,6 +455,24 @@ const fractionOfDuration = (seconds: number, duration: number): number =>
   Math.max(0, Math.min(1, seconds / duration));
 
 /**
+ * How the progress bar is drawn in each of the two places it has: the rail
+ * it runs on, the dot that is moved along it, and how much around the dot
+ * answers a press.
+ */
+type SeekLook = Readonly<{ rail: string; dot: string; reach: string }>;
+
+const SEEK_ON_SHEET: SeekLook = { rail: "bg-player-rail", dot: "size-3 bg-ink", reach: "size-11" };
+
+// NOTE: on the island the bar stands between the track's words and the
+// controls, and the room round its dot is a pointer's, not a finger's: a
+// finger's width would reach over the control beside the bar's end.
+const SEEK_ON_ISLAND: SeekLook = {
+  rail: "bg-on-island/20",
+  dot: "size-2.5 bg-on-island",
+  reach: "size-6",
+};
+
+/**
  * The slider's own markup. The bar is thin and its target is not: the track
  * answers a press well above and below it, and the thumb is a finger wide
  * around a small dot. Behind the part played lies the part the engine holds.
@@ -463,6 +481,7 @@ const seekBarView = (
   attributes: Slider.SliderAttributes,
   session: Session,
   durationSeconds: number,
+  look: SeekLook,
   h: HtmlBuilder<Message>,
 ): Html => {
   const isWish = !Seek.guards.Settled(session.seek);
@@ -484,7 +503,10 @@ const seekBarView = (
         [
           ...attributes.track,
           h.Class(
-            "[container-type:inline-size] h-1 w-full cursor-pointer rounded-full bg-player-rail before:absolute before:inset-x-0 before:-inset-y-5 before:content-['']",
+            clsx(
+              "[container-type:inline-size] h-1 w-full cursor-pointer rounded-full before:absolute before:inset-x-0 before:-inset-y-5 before:content-['']",
+              look.rail,
+            ),
           ),
         ],
         [
@@ -513,7 +535,8 @@ const seekBarView = (
               h.Style({ transform: `translateX(calc(${played * 100}cqw - 50%))` }),
               h.Class(
                 clsx(
-                  "group/thumb absolute left-0 top-1/2 flex size-11 touch-none -translate-y-1/2 cursor-grab items-center justify-center rounded-full outline-none group-data-dragging/seek:cursor-grabbing",
+                  "group/thumb absolute left-0 top-1/2 flex touch-none -translate-y-1/2 cursor-grab items-center justify-center rounded-full outline-none group-data-dragging/seek:cursor-grabbing",
+                  look.reach,
                   glide,
                 ),
               ),
@@ -522,7 +545,8 @@ const seekBarView = (
               h.span([
                 h.Class(
                   clsx(
-                    "size-3 rounded-full bg-ink shadow group-focus-visible/thumb:outline-2 group-focus-visible/thumb:outline-offset-2 group-focus-visible/thumb:outline-accent group-data-dragging/seek:scale-125",
+                    "rounded-full shadow group-focus-visible/thumb:outline-2 group-focus-visible/thumb:outline-offset-2 group-focus-visible/thumb:outline-accent group-data-dragging/seek:scale-125",
+                    look.dot,
                     { "opacity-60": isWish },
                   ),
                 ),
@@ -562,7 +586,8 @@ const progressView = (session: Session, durationSeconds: number, h: HtmlBuilder<
           value: Math.min(shownSeconds, durationSeconds),
           ariaLabel: `Seek: ${session.current.title}`,
           formatValue: (value) => `${formatDuration(value)} of ${formatDuration(durationSeconds)}`,
-          toView: (attributes) => seekBarView(attributes, session, durationSeconds, h),
+          toView: (attributes) =>
+            seekBarView(attributes, session, durationSeconds, SEEK_ON_SHEET, h),
         },
         toParentMessage: (message) => Message.GotSeekSliderMessage({ message }),
       }),
@@ -713,7 +738,7 @@ const SWELL_CLASS = "relative z-10 -my-[5px] flex size-[3.375rem] shrink-0 items
 
 // NOTE: on a desktop's screen the island does not expand, so Previous, which
 // is otherwise the expanded player's, stands in the island's body, before
-// the swell. The swell and the tail are where they were: the outline is
+// the swell (and the progress bar before that: `islandProgressView`). The swell and the tail are where they were: the outline is
 // drawn from the island's width and the tail's, and neither changes.
 //
 // It is Next's own box the other way round, hard against the swell as the
@@ -787,7 +812,96 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
 // The shell places the island. Its outline follows the settled width and
 // tail, while the controls and figure travel on their own transforms.
 /** The island's words where they are no link: laid out as the link lays them out. */
-const ISLAND_WORDS_CLASS = "flex h-full min-w-0 flex-1 items-center gap-2.5 pr-2";
+const ISLAND_WORDS_CLASS = "island-words-place flex h-full min-w-0 items-center gap-2.5 pr-2";
+
+const ISLAND_TIME_CLASS = clsx(TIME_CLASS, "island-time");
+
+/**
+ * The progress of the sound on the island of a desktop's screen, where the
+ * player does not expand and the bar has no sheet to stand on: between the
+ * track's words and the controls, with the time played before it and the
+ * time left after it. It is the same slider as the expanded player's, and
+ * does what that one does: dragged, pressed, or moved with the keys, the bar
+ * and the time stand where the listener wants to be, as a wish, until the
+ * engine says the sound is there. Before the engine has read the audio's
+ * length there is no bar to move along, and an empty one stands for it.
+ */
+const islandProgressView = (session: Session, h: HtmlBuilder<Message>): Html => {
+  const shownSeconds = shownPositionSeconds(session);
+  const isWish = !Seek.guards.Settled(session.seek);
+
+  return h.div(
+    [h.Class("island-progress")],
+    Option.match(session.maybeDurationSeconds, {
+      onNone: () => [
+        h.span(
+          [h.Class(clsx(ISLAND_TIME_CLASS, "text-right text-island-muted"))],
+          [formatDuration(session.positionSeconds)],
+        ),
+        h.div(
+          [h.AriaHidden(true), h.Class("flex h-11 min-w-0 flex-1 items-center")],
+          [
+            h.div([
+              h.Class(
+                clsx("h-1 w-full rounded-full", SEEK_ON_ISLAND.rail, {
+                  "animate-pulse motion-reduce:animate-none": Playback.guards.Starting(
+                    session.playback,
+                  ),
+                }),
+              ),
+            ]),
+          ],
+        ),
+        h.span(
+          [h.AriaHidden(true), h.Class(clsx(ISLAND_TIME_CLASS, "text-left text-island-muted"))],
+          ["–:––"],
+        ),
+      ],
+      onSome: (durationSeconds) => [
+        h.span(
+          [
+            h.DataAttribute("elapsed", isWish ? "wish" : "fact"),
+            h.Class(
+              clsx(ISLAND_TIME_CLASS, "text-right", {
+                "text-accent": isWish,
+                "text-island-muted": !isWish,
+                "animate-pulse motion-reduce:animate-none":
+                  Seek.guards.Seeking(session.seek) || Playback.guards.Waiting(session.playback),
+              }),
+            ),
+          ],
+          [formatDuration(shownSeconds)],
+        ),
+        h.div(
+          [h.Class("min-w-0 flex-1")],
+          [
+            h.submodel({
+              slotId: "seek",
+              model: session.seekSlider,
+              view: Slider.view,
+              viewInputs: {
+                value: Math.min(shownSeconds, durationSeconds),
+                ariaLabel: `Seek: ${session.current.title}`,
+                formatValue: (value) =>
+                  `${formatDuration(value)} of ${formatDuration(durationSeconds)}`,
+                toView: (attributes) =>
+                  seekBarView(attributes, session, durationSeconds, SEEK_ON_ISLAND, h),
+              },
+              toParentMessage: (message) => Message.GotSeekSliderMessage({ message }),
+            }),
+          ],
+        ),
+        h.span(
+          [
+            h.DataAttribute("remaining", ""),
+            h.Class(clsx(ISLAND_TIME_CLASS, "text-left text-island-muted")),
+          ],
+          [formatRemaining(durationSeconds - shownSeconds)],
+        ),
+      ],
+    }),
+  );
+};
 
 /**
  * What the island has of its own on a desktop's screen, before its
@@ -848,7 +962,12 @@ const islandView = (
       h.Class(
         clsx(
           "dock-island absolute right-5 bottom-[5.125rem] left-5 z-30 flex h-11 items-center text-on-island md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
-          { "[view-transition-name:player]": !isUnderSheet },
+          {
+            "[view-transition-name:player]": !isUnderSheet,
+            // What the island holds on a desktop's screen is laid out by
+            // the island's own width (player.css).
+            "island-on-desktop": isDesktop,
+          },
         ),
       ),
     ],
@@ -861,6 +980,7 @@ const islandView = (
         isDesktop
           ? h.div([h.Class(ISLAND_WORDS_CLASS)], words)
           : viewInputs.toTrackPageLink(current, words),
+        isDesktop ? islandProgressView(session, h) : h.empty,
         isDesktop ? islandExtrasView(model, session, viewInputs, h) : h.empty,
         islandControlsView(session, isDesktop, h),
       ]),

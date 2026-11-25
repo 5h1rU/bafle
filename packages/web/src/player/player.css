@@ -521,6 +521,49 @@
   margin-right: 0.625rem;
 }
 
+/* The progress of the sound stands in the island too, between the track's
+   words and the controls: the time played, the bar, the time left. The
+   words and the bar share what room the controls leave, and each gives way
+   as the island narrows. The island is narrower where the queue is open
+   beside the page on a screen that is only just a desktop's, and there the
+   two times go: the bar alone is still there to be moved.
+
+   The room is the island's own, so it is the island's width that is asked
+   (`container`), not the screen's: the queue beside the page changes the
+   one and not the other. */
+.island-on-desktop {
+  container: island / inline-size;
+}
+
+.island-words-place {
+  flex: 1 1 12rem;
+}
+
+.island-progress {
+  display: flex;
+  min-width: 4.5rem;
+  max-width: 19rem;
+  flex: 1 1 13rem;
+  align-items: center;
+  gap: 0.375rem;
+  margin-right: 0.75rem;
+}
+
+.island-time {
+  width: 2.375rem;
+}
+
+@container island (width < 36rem) {
+  .island-time {
+    display: none;
+  }
+
+  .island-progress {
+    flex-basis: 5.5rem;
+    margin-inline: 0.5rem 1rem;
+  }
+}
+
 .island-action {
   display: flex;
   width: 2.125rem;

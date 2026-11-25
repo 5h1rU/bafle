@@ -227,7 +227,10 @@ const rowContentView = (
 const rowLabel = (track: TrackSummary, status: TrackStatus): string =>
   `${status === "Sounding" || status === "Waiting" ? "Pause" : "Play"}: ${track.title}${track.explicit ? ", explicit," : ""} by ${track.artist.name}, ${formatDuration(track.durationSeconds)}`;
 
-const ROW_PART_CLASS = "flex min-w-0 flex-1 items-center gap-4 py-2.5 pl-2";
+// NOTE: the room at its far end keeps the song's length clear of the last
+// control: that control is a circle that lights under a pointer, and a
+// length hard against it was touched by the light.
+const ROW_PART_CLASS = "flex min-w-0 flex-1 items-center gap-4 py-2.5 pr-2 pl-2";
 
 /**
  * Pressing a row plays its track, and the whole row but its last control is

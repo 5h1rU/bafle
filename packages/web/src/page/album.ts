@@ -23,7 +23,7 @@ import {
   trackListView,
   type TrackListContext,
 } from "../view/trackList.ts";
-import { wayBackView } from "../view/wayBack.ts";
+import { wayBackControlView } from "../view/wayBack.ts";
 
 import "./album.css";
 
@@ -161,7 +161,7 @@ export const view = (
   const hasAlbum = Option.isSome(Option.flatten(AsyncData.getData(album)));
   const overlay = hasAlbum || AsyncData.isPending(album);
   return h.keyed("div")(albumId, pageAttributes(PAGE_ID, context.presence, h), [
-    h.div([h.Class(clsx("album-return", { "album-overlay": overlay }))], [wayBackView(hasWayBack, h)]),
+    h.div([h.Class(clsx("album-return", { "album-overlay": overlay }))], [wayBackControlView(hasWayBack, h)]),
     h.div(
       [h.AriaBusy(AsyncData.isPending(album)), h.Class(clsx({ "album-unavailable": !overlay }))],
       [
