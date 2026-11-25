@@ -17,6 +17,7 @@ import {
   RefreshSource,
   ResumePlayback,
   SeekPlayback,
+  ShowFaceFromTop,
   StartPlayback,
   TITLE_RESTS_FOR,
   TITLE_STARTS_AFTER,
@@ -736,9 +737,10 @@ const handle = (model: Model, message: Message) =>
     ClickedPause: () => onSession(silence)(model),
     ClickedNext: () => onSession(next)(model),
     ClickedPrevious: () => onSession(previous)(model),
-    ClickedQueue: () => onSession((session) =>
-      settle({ ...session, pane: session.pane === "Artwork" ? "Queue" : "Artwork" }),
-    )(model),
+    ClickedQueue: () => onSession((session) => (held) => ({
+      model: withSession(held, { ...session, pane: session.pane === "Artwork" ? "Queue" : "Artwork" }),
+      commands: [ShowFaceFromTop()],
+    }))(model),
     ClickedEditQueue: () => onSession((session) =>
       session.pane === "Artwork" ? unchanged : settle({
         ...session, pane: session.pane === "Queue" ? "EditingQueue" : "Queue",
@@ -780,6 +782,7 @@ const handle = (model: Model, message: Message) =>
     CompletedFollowIslandPress: () => ({ model }),
     CompletedStartIslandLight: () => ({ model }),
     CompletedChangeIslandLightPace: () => ({ model }),
+    CompletedShowFaceFromTop: () => ({ model }),
   });
 
 // ENTRY

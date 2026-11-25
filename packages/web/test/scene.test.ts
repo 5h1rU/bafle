@@ -8,7 +8,6 @@ import {
   all,
   inside,
   role,
-  scene,
   selector,
   Subscription,
   text,
@@ -50,6 +49,7 @@ import {
   opened,
   openingTrack,
   reply,
+  scene,
   track,
   trackPath,
 } from "./fixtures.ts";

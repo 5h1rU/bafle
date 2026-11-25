@@ -6,7 +6,6 @@ import {
   inside,
   Mount,
   role,
-  scene,
   selector,
   Subscription,
 } from "foldkit/scene";
@@ -28,15 +27,16 @@ import { PAGE_IDS } from "../src/view/layout.ts";
 import {
   after,
   arrived,
+  bareTrack,
   changedUrl,
   clickedLink,
   explicitTrack,
-  bareTrack,
   nextId,
   onHome,
   onNew,
   onSearch,
   reply,
+  scene,
   track,
   trackPath,
 } from "./fixtures.ts";

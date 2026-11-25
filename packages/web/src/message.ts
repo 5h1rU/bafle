@@ -60,6 +60,7 @@ export const Message = defineMessageUnion({
   CompletedFocusStationTile: {},
   CompletedFocusNavigation: {},
   CompletedScrollPageToTop: {},
+  CompletedHoldDockMotion: {},
   CompletedWaitToClearRowDone: { turn: Schema.Int },
 });
 export type Message = typeof Message.Type;

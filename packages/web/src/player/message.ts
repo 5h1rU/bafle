@@ -47,5 +47,6 @@ export const Message = defineMessageUnion({
   CompletedFollowIslandPress: {},
   CompletedChangeIslandLightPace: {},
   CompletedStartIslandLight: {},
+  CompletedShowFaceFromTop: {},
 });
 export type Message = typeof Message.Type;

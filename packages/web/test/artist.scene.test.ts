@@ -10,7 +10,6 @@ import {
   inside,
   Mount,
   role,
-  scene,
   selector,
   Subscription,
   text,
@@ -49,6 +48,7 @@ import {
   openingArtistFromTile,
   pressedMore,
   reply,
+  scene,
   track,
 } from "./fixtures.ts";
 

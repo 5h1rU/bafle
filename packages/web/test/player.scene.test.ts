@@ -10,7 +10,6 @@ import {
   keydown,
   Mount,
   role,
-  scene,
   selector,
   Subscription,
   tap,
@@ -29,7 +28,14 @@ import {
   ReplaceTrackUrl,
   WaitToClearRowDone,
 } from "../src/command.ts";
-import { PLAYER_CLOSES, PLAYER_OPENS, update, viewTransition } from "../src/main.ts";
+import {
+  PLAYER_CLOSES,
+  PLAYER_OPENS,
+  PLAYER_QUEUE_CLOSES,
+  PLAYER_QUEUE_OPENS,
+  update,
+  viewTransition,
+} from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import { initialPlayerSheet, isPlayerExpanded, type Model, wayBack } from "../src/model.ts";
 import { AppRoute } from "../src/route.ts";
@@ -55,6 +61,7 @@ import {
   opened,
   pressedMore,
   reply,
+  scene,
   silentTrack,
   track,
   trackPath,
@@ -213,6 +220,10 @@ const sheetEnters = () =>
   Mount.resolveAll([Sheet.FollowSheet, Sheet.Message.ChangedReach({ reach: "Whole" })]);
 
 /** The threshold passes with nothing heard from the engine. */
+/** The expanded player turned to its other face, and what is in its sheet was put back at its top. */
+const faceShownFromTop = () =>
+  Command.resolve(Player.ShowFaceFromTop, Player.Message.CompletedShowFaceFromTop());
+
 const thresholdPasses = (order: number) =>
   Command.resolve(
     Player.WaitBeforeShowingActivity,
@@ -466,14 +477,28 @@ const expandedOnFirst: Model = after(
 );
 
 describe("the player expanded: the page of the track it holds", () => {
-  test("the queue opens over the song details and stays open as its last song starts", () =>
+  test("the queue is the player's other face: it opens from the song's and stays open as its last song starts", () =>
     scene(
       app,
       given(expandedOnFirst),
       sheetEnters(),
-      inside(expandedLayout, click(role("button", { name: "Playing Next" }))),
+      // The song's face: the way out, the way to the queue with what plays next, and the song's details.
+      inside(expandedLayout,
+        see(role("button", { name: "Close the player" })).toExist(),
+        see(role("button", { name: "Playing Next" })).toHaveAttr("aria-expanded", "false"),
+        see(text("Technologic · Daft Punk")).toExist(),
+        see(selector("[data-detail]")).toExist(),
+        click(role("button", { name: "Playing Next" })),
+      ),
+      faceShownFromTop(),
+      // The queue's face: the same track at its head, the songs to come by their place, and the way back.
       inside(expandedLayout,
         see(role("button", { name: "Playing Next" })).toHaveAttr("aria-expanded", "true"),
+        see(role("button", { name: "Back to the song" })).toExist(),
+        see(role("heading", { name: TITLE, level: 1 })).toExist(),
+        see(role("heading", { name: "Up next", level: 2 })).toExist(),
+        see(selector("[data-detail]")).toBeAbsent(),
+        see(text("02")).toExist(),
         click(role("button", { name: "Play: Technologic by Daft Punk" })),
       ),
       inside(expandedLayout,
@@ -486,10 +511,9 @@ describe("the player expanded: the page of the track it holds", () => {
         [ReplaceTrackUrl, Message.CompletedReplaceTrackUrl()],
         [Catalog.TrackDetail, reply.track(nextId(expandedOnFirst), bareTrack)],
       ),
-      inside(expandedLayout,
-        click(role("button", { name: "Playing Next" })),
-        see(selector("[data-detail]")).toExist(),
-      ),
+      inside(expandedLayout, click(role("button", { name: "Playing Next" }))),
+      faceShownFromTop(),
+      inside(expandedLayout, see(selector("[data-detail]")).toExist()),
     ));
 
   test("the island pressed: the player is the screen at once, on the track's own route, waiting for nothing", () =>
@@ -510,9 +534,12 @@ describe("the player expanded: the page of the track it holds", () => {
         see(control("Pause")).toHaveAttr("data-playback", "Sounding"),
         see(seekBar).toHaveAttr("aria-valuenow", "12"),
         see(control("Next track", "Technologic")).toBeEnabled(),
+        // The album it is on is the queue's to say, at the head of the sheet.
+        see(text("From the album")).toExist(),
+        see(text("Discovery")).toExist(),
         // What the catalog adds is on its way, in its own place and its own shape.
         see(selector("[data-detail]")).toHaveAttr("aria-busy", "true"),
-        see(text("Discovery")).toBeAbsent(),
+        see(text("Romanthony")).toBeAbsent(),
       ),
       // It is the same piece as the island: there is no island under it.
       see(islandLayout).toBeAbsent(),
@@ -522,7 +549,6 @@ describe("the player expanded: the page of the track it holds", () => {
       resolveOpening(sounding),
       inside(
         expandedLayout,
-        see(text("Discovery")).toExist(),
         see(text("Romanthony")).toExist(),
         see(selector("[data-detail]")).toHaveAttr("aria-busy", "false"),
       ),
@@ -712,6 +738,16 @@ describe("the player expanded: the page of the track it holds", () => {
       transition(onOtherTracksPage, Message.ClickedPlayTrack({ trackId: explicitTrack.id, from: "Track" })),
     ).toEqual({ types: [PLAYER_OPENS, `track-cover-${explicitTrack.id}`] });
     expect(transition(expandedOnFirst, player(Player.Message.ClickedNext()))).toBe(false);
+    // Turning to the queue and back is one, each way by its own name: the cover travels to the thumbnail and back.
+    const onQueue = after(expandedOnFirst, player(Player.Message.ClickedQueue()));
+    expect(transition(expandedOnFirst, player(Player.Message.ClickedQueue()))).toEqual({
+      types: [PLAYER_QUEUE_OPENS, `track-cover-${track.id}`],
+    });
+    expect(transition(onQueue, player(Player.Message.ClickedQueue()))).toEqual({
+      types: [PLAYER_QUEUE_CLOSES, `track-cover-${track.id}`],
+    });
+    // Editing the queue is the same face, and a song chosen from it is another track.
+    expect(transition(onQueue, player(Player.Message.ClickedEditQueue()))).toBe(false);
     expect(transition(expandedOnFirst, said(1, "Ended"))).toBe(false);
     expect(transition(expandedOnFirst, said(1, "Sounding", { positionSeconds: 14 }))).toBe(false);
   });

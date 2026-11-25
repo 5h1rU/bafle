@@ -6,6 +6,7 @@ import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 import { Mount } from "foldkit";
 import { islandOutline } from "../view/islandOutline.ts";
+import { startWhenSeen } from "../view/seenStart.ts";
 import { ISLAND_LIGHTS_ATTRIBUTE, lightPlace, putLightNear, setPace } from "./islandLight.ts";
 import { Message } from "./message.ts";
 import { IslandLight } from "./model.ts";
@@ -171,23 +172,34 @@ const dockResizeMotion = (island: Element) => {
   const figures = island.querySelectorAll(":scope > .island-surface > .island-layer");
   const controls = island.querySelector(':scope > .island-surface > [role="group"]');
   const animations = new Map<Element, Animation>();
-  const move = (element: Element, from: string, duration: number) => {
+  const move = (element: Element, from: string, duration: number): Animation => {
     animations.get(element)?.cancel();
-    animations.set(element, element.animate(
+    const animation = element.animate(
       [{ transform: from }, { transform: "none" }],
       { duration, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
-    ));
+    );
+    animations.set(element, animation);
+    return animation;
   };
   return (oldWidth: number, width: number, oldTail: number, tail: number) => {
     const duration = width < oldWidth ? 180 : 200;
-    figures.forEach((figure) => {
+    const figuresMoved = Array.from(figures, (figure) => {
       const scale = new DOMMatrixReadOnly(getComputedStyle(figure).transform).a;
-      move(figure, `scaleX(${scale * oldWidth / width})`, duration);
+      return move(figure, `scaleX(${scale * oldWidth / width})`, duration);
     });
-    if (controls) {
-      const offset = new DOMMatrixReadOnly(getComputedStyle(controls).transform).e;
-      move(controls, `translateX(${offset + oldWidth - oldTail - width + tail}px)`, duration);
-    }
+    const controlsMoved = controls
+      ? [
+          move(
+            controls,
+            `translateX(${new DOMMatrixReadOnly(getComputedStyle(controls).transform).e + oldWidth - oldTail - width + tail}px)`,
+            duration,
+          ),
+        ]
+      : [];
+    // NOTE: the island changes width in the frame the navigation changes,
+    // which is the long one: its figure sets off with the rest of the dock,
+    // a frame later (see `seenStart.ts`).
+    startWhenSeen([...figuresMoved, ...controlsMoved]);
   };
 };
 

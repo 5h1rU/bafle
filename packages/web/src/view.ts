@@ -19,6 +19,7 @@ import {
   type HtmlBuilder,
 } from "foldkit/html";
 import { Message, type PlayOrigin } from "./message.ts";
+import { HoldDockMotion } from "./mount.ts";
 import {
   albumData,
   albumDataIn,
@@ -1185,6 +1186,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
         : []),
       h.DataAttribute("input", model.inputMethod),
       h.DataAttribute("navigation", model.navigation === "Minimized" ? "minimized" : "open"),
+      h.OnMount(HoldDockMotion()),
       h.Class(
         "group/shell relative flex h-dvh flex-col bg-canvas font-sans text-ink antialiased md:flex-row",
       ),

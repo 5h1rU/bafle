@@ -6,6 +6,7 @@ import * as Option from "effect/Option";
 import { Submodel } from "foldkit";
 import type { ChildAttribute, Html, HtmlBuilder } from "foldkit/html";
 import {
+  downIcon,
   nextIcon,
   noteIcon,
   pauseIcon,
@@ -39,7 +40,8 @@ import {
   TITLE_WORDS_ATTRIBUTE,
 } from "./mount.ts";
 import { TITLE_PIXELS_PER_SECOND } from "./command.ts";
-import { queuePanelView, queueToggleView } from "./queue.ts";
+import { queueAccessView, queuePanelView, queueReturnView } from "./queue.ts";
+import "./player.css";
 
 // VIEW
 
@@ -87,24 +89,27 @@ const CONTROL_CLASS =
 
 /** A glyph arrives by growing into place: small, quick, and still under reduced motion. */
 const GLYPH_CLASS =
-  "flex size-6 transition-[opacity,scale] duration-150 ease-out starting:scale-50 starting:opacity-0 motion-reduce:transition-none";
+  "flex transition-[opacity,scale] duration-150 ease-out starting:scale-50 starting:opacity-0 motion-reduce:transition-none";
 
 /**
  * The pause glyph, fainter while it is only a wish. Each glyph is an element
  * made by its own view function, so changing from one to another puts a new
  * element in the document and its arrival is seen.
  */
-const pauseGlyphView = (isConfirmed: boolean, h: HtmlBuilder<Message>): Html =>
+const pauseGlyphView = (isConfirmed: boolean, sizeClass: string, h: HtmlBuilder<Message>): Html =>
   h.span(
-    [h.DataAttribute("glyph", isConfirmed ? "pause" : "pause-wished"), h.Class(clsx(GLYPH_CLASS, { "opacity-50": !isConfirmed }))],
+    [
+      h.DataAttribute("glyph", isConfirmed ? "pause" : "pause-wished"),
+      h.Class(clsx(GLYPH_CLASS, sizeClass, { "opacity-50": !isConfirmed })),
+    ],
     [pauseIcon("size-full")],
   );
 
-const playGlyphView = (h: HtmlBuilder<Message>): Html =>
-  h.span([h.DataAttribute("glyph", "play"), h.Class(GLYPH_CLASS)], [playIcon("size-full")]);
+const playGlyphView = (sizeClass: string, h: HtmlBuilder<Message>): Html =>
+  h.span([h.DataAttribute("glyph", "play"), h.Class(clsx(GLYPH_CLASS, sizeClass))], [playIcon("size-full")]);
 
-const retryGlyphView = (h: HtmlBuilder<Message>): Html =>
-  h.span([h.DataAttribute("glyph", "retry"), h.Class(GLYPH_CLASS)], [retryIcon("size-full")]);
+const retryGlyphView = (sizeClass: string, h: HtmlBuilder<Message>): Html =>
+  h.span([h.DataAttribute("glyph", "retry"), h.Class(clsx(GLYPH_CLASS, sizeClass))], [retryIcon("size-full")]);
 
 /** Turning: the engine was asked to sound and has not answered for long enough to say so. */
 const startingMarkView = (h: HtmlBuilder<Message>): Html =>
@@ -141,25 +146,33 @@ const mainAction = (playback: Playback): Readonly<{ name: string; message: Messa
 };
 
 /** Solid only on the engine's word: a wish to sound is drawn fainter than sound. */
-const mainGlyphView = (playback: Playback, h: HtmlBuilder<Message>): Html => {
+const mainGlyphView = (playback: Playback, sizeClass: string, h: HtmlBuilder<Message>): Html => {
   if (wantsToSound(playback)) {
-    return pauseGlyphView(isUnderWay(playback), h);
+    return pauseGlyphView(isUnderWay(playback), sizeClass, h);
   }
-  return Playback.guards.Failed(playback) ? retryGlyphView(h) : playGlyphView(h);
+  return Playback.guards.Failed(playback) ? retryGlyphView(sizeClass, h) : playGlyphView(sizeClass, h);
 };
 
-/** The main control's colours, and the ring it wears when the system stopped the sound. */
-type MainControlLook = Readonly<{ disc: string; stopped: string }>;
+/**
+ * The main control's colours, the size of its glyph, and the ring it wears
+ * when the system stopped the sound. It is one control in the island's two
+ * sizes, and has the one colour in both.
+ */
+type MainControlLook = Readonly<{ disc: string; glyph: string; stopped: string }>;
 
-const ON_PANEL: MainControlLook = {
-  disc: "bg-accent text-on-accent hover:opacity-90",
-  stopped: "ring-2 ring-accent ring-offset-2 ring-offset-panel",
+// NOTE: on the sheet the control is 84 across and its glyph half of that.
+// `player-main` is what presses it in under a finger (player.css).
+const ON_SHEET: MainControlLook = {
+  disc: "player-main bg-island-control text-on-island-control hover:brightness-110",
+  glyph: "size-[2.625rem]",
+  stopped: "ring-2 ring-island-light ring-offset-2 ring-offset-canvas",
 };
 
 // NOTE: on the island the ring has to fit in the rim of island around the
 // control, which is three pixels wide: one of gap and two of ring.
 const ON_ISLAND: MainControlLook = {
   disc: "bg-island-control text-on-island-control hover:brightness-110",
+  glyph: "size-6",
   stopped: "ring-2 ring-island-light ring-offset-1 ring-offset-island",
 };
 
@@ -194,7 +207,7 @@ const mainControlView = (
               }),
             ),
           ],
-          [mainGlyphView(playback, h), activityMarkView(playback, h)],
+          [mainGlyphView(playback, look.glyph, h), activityMarkView(playback, h)],
         ),
     },
     h,
@@ -412,7 +425,11 @@ const trackWordsView = (
 // and a browser that lays such a box out again may put it back on the place
 // it last rested at, which under a swipe is the sheet whole: a tick of the
 // clock must not reach that box.
-const TIME_CLASS = "h-4 w-9 shrink-0 overflow-hidden text-xs tabular-nums [contain:strict]";
+const TIME_CLASS =
+  "h-4 w-11 shrink-0 overflow-hidden text-xs leading-4 font-[550] tabular-nums [contain:strict]";
+
+/** What is left of the track to play, as the listener reads it: counted down. */
+const formatRemaining = (seconds: number): string => `−${formatDuration(Math.max(0, seconds))}`;
 
 const fractionOfDuration = (seconds: number, duration: number): number =>
   Math.max(0, Math.min(1, seconds / duration));
@@ -440,14 +457,14 @@ const seekBarView = (
     [
       ...attributes.root,
       h.DataAttribute("seek", session.seek._tag),
-      h.Class("group/seek relative flex h-11 min-w-0 flex-1 touch-none items-center"),
+      h.Class("group/seek relative flex h-11 w-full touch-none items-center"),
     ],
     [
       h.div(
         [
           ...attributes.track,
           h.Class(
-            "[container-type:inline-size] h-1 w-full cursor-pointer rounded-full bg-tile before:absolute before:inset-x-0 before:-inset-y-5 before:content-['']",
+            "[container-type:inline-size] h-1 w-full cursor-pointer rounded-full bg-player-rail before:absolute before:inset-x-0 before:-inset-y-5 before:content-['']",
           ),
         ],
         [
@@ -463,7 +480,7 @@ const seekBarView = (
             h.Style({ transform: `scaleX(${played})` }),
             h.Class(
               clsx(
-                "absolute inset-0 origin-left pointer-events-none rounded-full bg-accent",
+                "absolute inset-0 origin-left pointer-events-none rounded-full bg-island-control",
                 glide,
                 { "opacity-50": isWish },
               ),
@@ -485,7 +502,7 @@ const seekBarView = (
               h.span([
                 h.Class(
                   clsx(
-                    "size-3.5 rounded-full bg-accent shadow group-focus-visible/thumb:outline-2 group-focus-visible/thumb:outline-offset-2 group-focus-visible/thumb:outline-accent group-data-dragging/seek:scale-125",
+                    "size-3 rounded-full bg-ink shadow group-focus-visible/thumb:outline-2 group-focus-visible/thumb:outline-offset-2 group-focus-visible/thumb:outline-accent group-data-dragging/seek:scale-125",
                     { "opacity-60": isWish },
                   ),
                 ),
@@ -498,6 +515,13 @@ const seekBarView = (
   );
 };
 
+// NOTE: the bar is four pixels of a place forty-four high, which is what a
+// finger needs. The place is drawn in over the pieces around it, so that
+// the bar stands seven pixels under the cover and the times ten under the
+// bar, as they are drawn, and the block is thirty-nine high.
+const PROGRESS_CLASS = "-mt-[13px] h-[3.25rem]";
+const TIMES_CLASS = "-mt-[10px] flex justify-between";
+
 /**
  * The progress bar is a slider: dragged, pressed, or moved with the keys.
  * While the listener is seeking, the bar and the time stand where they want
@@ -508,22 +532,8 @@ const progressView = (session: Session, durationSeconds: number, h: HtmlBuilder<
   const isWish = !Seek.guards.Settled(session.seek);
 
   return h.div(
-    [h.Class("flex h-11 items-center gap-2")],
+    [h.Class(PROGRESS_CLASS)],
     [
-      h.span(
-        [
-          h.DataAttribute("elapsed", isWish ? "wish" : "fact"),
-          h.Class(
-            clsx(TIME_CLASS, "text-left", {
-              "text-accent": isWish,
-              "text-muted": !isWish,
-              "animate-pulse motion-reduce:animate-none":
-                Seek.guards.Seeking(session.seek) || Playback.guards.Waiting(session.playback),
-            }),
-          ),
-        ],
-        [formatDuration(shownSeconds)],
-      ),
       h.submodel({
         slotId: "seek",
         model: session.seekSlider,
@@ -536,7 +546,29 @@ const progressView = (session: Session, durationSeconds: number, h: HtmlBuilder<
         },
         toParentMessage: (message) => Message.GotSeekSliderMessage({ message }),
       }),
-      h.span([h.Class(clsx(TIME_CLASS, "text-right text-muted"))], [formatDuration(durationSeconds)]),
+      h.div(
+        [h.Class(TIMES_CLASS)],
+        [
+          h.span(
+            [
+              h.DataAttribute("elapsed", isWish ? "wish" : "fact"),
+              h.Class(
+                clsx(TIME_CLASS, "text-left", {
+                  "text-accent": isWish,
+                  "text-player-time": !isWish,
+                  "animate-pulse motion-reduce:animate-none":
+                    Seek.guards.Seeking(session.seek) || Playback.guards.Waiting(session.playback),
+                }),
+              ),
+            ],
+            [formatDuration(shownSeconds)],
+          ),
+          h.span(
+            [h.DataAttribute("remaining", ""), h.Class(clsx(TIME_CLASS, "text-right text-player-time"))],
+            [formatRemaining(durationSeconds - shownSeconds)],
+          ),
+        ],
+      ),
     ],
   );
 };
@@ -544,18 +576,27 @@ const progressView = (session: Session, durationSeconds: number, h: HtmlBuilder<
 /** Before the engine has read the audio's length there is no bar to move along: an empty one stands for it. */
 const progressPlaceholderView = (session: Session, h: HtmlBuilder<Message>): Html =>
   h.div(
-    [h.Class("flex h-11 items-center gap-2")],
+    [h.Class(PROGRESS_CLASS)],
     [
-      h.span([h.Class(clsx(TIME_CLASS, "text-left text-muted"))], [formatDuration(session.positionSeconds)]),
-      h.div([
-        h.AriaHidden(true),
-        h.Class(
-          clsx("h-1 min-w-0 flex-1 rounded-full bg-tile", {
-            "animate-pulse motion-reduce:animate-none": Playback.guards.Starting(session.playback),
-          }),
-        ),
-      ]),
-      h.span([h.AriaHidden(true), h.Class(clsx(TIME_CLASS, "text-right text-muted"))], ["–:––"]),
+      h.div(
+        [h.AriaHidden(true), h.Class("flex h-11 items-center")],
+        [
+          h.div([
+            h.Class(
+              clsx("h-1 w-full rounded-full bg-player-rail", {
+                "animate-pulse motion-reduce:animate-none": Playback.guards.Starting(session.playback),
+              }),
+            ),
+          ]),
+        ],
+      ),
+      h.div(
+        [h.Class(TIMES_CLASS)],
+        [
+          h.span([h.Class(clsx(TIME_CLASS, "text-left text-player-time"))], [formatDuration(session.positionSeconds)]),
+          h.span([h.AriaHidden(true), h.Class(clsx(TIME_CLASS, "text-right text-player-time"))], ["–:––"]),
+        ],
+      ),
     ],
   );
 
@@ -598,7 +639,8 @@ const announcement = (session: Session): string => {
   });
 };
 
-const STEP_ON_PANEL_CLASS = "size-11 text-ink hover:bg-tile active:bg-tile";
+const STEP_ON_SHEET_CLASS = "size-12 text-ink hover:bg-tile active:bg-tile";
+const STEP_GLYPH_CLASS = "size-[2.3125rem]";
 
 const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>): Html =>
   h.div(
@@ -608,17 +650,17 @@ const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>)
         previousLabel(session),
         Message.ClickedPrevious(),
         true,
-        previousIcon("size-5"),
-        STEP_ON_PANEL_CLASS,
+        previousIcon(STEP_GLYPH_CLASS),
+        STEP_ON_SHEET_CLASS,
         h,
       ),
-      mainControlView(session, "size-14", ON_PANEL, h),
+      mainControlView(session, "size-[5.25rem]", ON_SHEET, h),
       stepControlView(
         nextLabel(session),
         Message.ClickedNext(),
         hasLater(session),
-        nextIcon("size-5"),
-        STEP_ON_PANEL_CLASS,
+        nextIcon(STEP_GLYPH_CLASS),
+        STEP_ON_SHEET_CLASS,
         h,
       ),
     ],
@@ -673,7 +715,7 @@ const islandControlsView = (session: Session, h: HtmlBuilder<Message>): Html =>
 /** The line under the controls: the progress bar, or the words of a state a control cannot explain. */
 const progressOrNoticeView = (session: Session, h: HtmlBuilder<Message>): Html =>
   Option.match(maybeNotice(session.playback), {
-    onSome: (notice) => h.p([h.Class("flex h-11 items-center text-sm text-muted")], [notice]),
+    onSome: (notice) => h.p([h.Class("flex h-[2.4375rem] items-center text-sm text-muted")], [notice]),
     onNone: () =>
       Option.match(session.maybeDurationSeconds, {
         onNone: () => progressPlaceholderView(session, h),
@@ -751,12 +793,149 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, view
 );
 
 /**
- * The player grown to the size of a page: the same piece as the island, with
- * the same controls doing the same things, and room for the cover at full
- * size. It carries the island's name in a view transition, and its cover the
- * cover's, so the browser grows the one into the other and shrinks it back.
- * Another track becoming the current one changes its words and its picture
- * where they stand: the sheet does not move.
+ * How large a title is drawn. The size the design gives it holds a short
+ * title in two lines; a longer one is drawn smaller, so that the lines it is
+ * given hold it.
+ */
+const titleSize = (title: string): "Large" | "Medium" | "Small" => {
+  if (title.length <= 14) {
+    return "Large";
+  }
+  return title.length <= 30 ? "Medium" : "Small";
+};
+
+/** The bar at the head of the sheet: a control at its near end, and what this face is. */
+const topBarView = (control: Html, label: Html, h: HtmlBuilder<Message>): Html =>
+  h.div([h.Class("player-top")], [control, label]);
+
+/**
+ * The head of the song's face: the cover from edge to edge, the way out and
+ * the album over its top, and the track's title over its foot.
+ *
+ * The cover is drawn twice (see player.css): the one that carries its name
+ * in a view transition, and over it the one that stays in the sheet's
+ * picture.
+ */
+const songHeadView = (
+  session: Session,
+  viewInputs: ExpandedViewInputs,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const { current } = session;
+
+  return h.keyed("header")(
+    "song",
+    [h.Class("player-head")],
+    [
+      coverView(current, "player-flight", "large", h),
+      h.div([h.AriaHidden(true), h.Class("player-art")], [coverView(current, "", "large", h, false)]),
+      topBarView(
+        viewInputs.toCollapseControl(),
+        h.p(
+          [h.Class("player-top-label")],
+          [
+            h.span([h.Class("player-source-kind")], ["From the album"]),
+            h.span([h.Class("player-source-name")], [current.album.title]),
+          ],
+        ),
+        h,
+      ),
+      // NOTE: keyed by the track, so another track's words are another
+      // element; and not by the track's id alone, which is the cover's key.
+      h.keyed("div")(
+        `${current.id}/words`,
+        [h.Class("player-caption")],
+        [
+          h.h1(
+            [
+              h.Id(viewInputs.titleId),
+              h.DataAttribute("size", titleSize(current.title)),
+              h.Class("player-title"),
+            ],
+            [current.title],
+          ),
+          h.p([h.Class("player-artist")], [current.artist.name]),
+        ],
+      ),
+    ],
+  );
+};
+
+/**
+ * The head of the queue's face: the same track, drawn back to a thumbnail
+ * beside its title, with its cover behind as the air of the place. The
+ * control at its near end, and the name of the face, lead back to the song.
+ */
+const queueHeadView = (
+  session: Session,
+  viewInputs: ExpandedViewInputs,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const { current } = session;
+
+  return h.keyed("header")(
+    "queue",
+    [h.Class("player-head")],
+    [
+      Option.match(Option.fromNullishOr(current.album.cover), {
+        onNone: () => h.empty,
+        onSome: (cover) =>
+          h.div(
+            [h.AriaHidden(true), h.Class("player-ambience")],
+            [h.img([h.Decoding("sync"), h.Src(cover.small), h.Alt("")])],
+          ),
+      }),
+      topBarView(
+        Button.view(
+          {
+            onClick: Message.ClickedQueue(),
+            toView: (attributes) =>
+              h.button(
+                [...attributes.button, h.AriaLabel("Back to the song"), h.Class("player-top-control")],
+                [downIcon("size-6")],
+              ),
+          },
+          h,
+        ),
+        queueReturnView(h),
+        h,
+      ),
+      h.div(
+        [h.Class("player-now")],
+        [
+          coverView(current, "player-thumb", "large", h),
+          h.keyed("div")(
+            `${current.id}/words`,
+            [h.Class("min-w-0")],
+            [
+              h.h1(
+                [
+                  h.Id(viewInputs.titleId),
+                  h.DataAttribute("size", titleSize(current.title)),
+                  h.Class("player-now-title"),
+                ],
+                [current.title],
+              ),
+              h.p([h.Class("player-now-artist")], [current.artist.name]),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+};
+
+/**
+ * The player grown to the size of the screen: the same piece as the island,
+ * with the same controls doing the same things. It carries the island's name
+ * in a view transition, and its cover the cover's, so the browser grows the
+ * one into the other and shrinks it back. Another track becoming the current
+ * one changes its words and its picture where they stand: the sheet does not
+ * move.
+ *
+ * It has two faces (`pane`): the song's, with the cover at full size, and
+ * the queue's, with the songs to come. The deck, the progress and the three
+ * controls, is one piece on both, and the style sheet says where it stands.
  */
 const sheetView = (
   session: Session,
@@ -764,7 +943,7 @@ const sheetView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const { current } = session;
-  const queueOpen = session.pane !== "Artwork";
+  const isSong = session.pane === "Artwork";
 
   return h.section(
     [
@@ -775,12 +954,11 @@ const sheetView = (
       h.DataAttribute("playback", session.playback._tag),
       // NOTE: `box-content`, because the sheet is given padding past its
       // edge (see `sheetStyles`): its height is then that of what is seen of
-      // it, and the padding is more sheet below the screen. For the same
-      // reason its border is drawn by the piece inside it: a border of its
-      // own would make it a pixel taller than its place, and a sheet that
-      // does not fit its place is never whole on screen.
+      // it, and the padding is more sheet below the screen. It has no border
+      // either: a border would make it a pixel taller than its place, and a
+      // sheet that does not fit its place is never whole on screen.
       h.Class(
-        "box-content h-full w-full max-w-lg rounded-t-3xl bg-panel [view-transition-name:player]",
+        "player-sheet box-content h-full w-full max-w-lg rounded-t-3xl text-ink [view-transition-name:player]",
       ),
       ...viewInputs.sheetAttributes,
     ],
@@ -793,41 +971,35 @@ const sheetView = (
         [
           h.Class(
             clsx(
-              "relative isolate rounded-t-[inherit] border-x border-t border-line px-6 pb-[max(2rem,env(safe-area-inset-bottom))] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+              "relative isolate rounded-t-[inherit] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
               viewInputs.isSheetWhole ? "overflow-y-auto" : "overflow-hidden",
             ),
           ),
           ...viewInputs.contentAttributes,
         ],
         [
-          h.div([h.Class("player-bar sticky top-0 z-10 -mx-6 flex h-11 items-center justify-center bg-panel/65 px-6 backdrop-blur-xl")], [
-            viewInputs.toCollapseControl(),
-            queueToggleView(queueOpen, h),
-          ]),
-          h.div([h.Class("player-deck relative isolate -mx-6 px-6")], [
-            current.album.cover
-              ? h.div([h.AriaHidden(true), h.Class("player-ambience")], [
-                  h.img([h.Src(current.album.cover.small), h.Alt(""), h.Class("size-full object-cover")]),
-                ])
-              : h.empty,
-            h.div([h.Class("player-summary")], [
-              coverView(current, "player-cover aspect-square", "large", h),
-              h.keyed("div")(current.id, [h.Class("min-w-0")], [
-                h.h1([h.Id(viewInputs.titleId), h.Class("player-title")], [current.title]),
-                h.p([h.Class("truncate text-base font-medium text-muted")], [current.artist.name]),
-              ]),
-            ]),
-            h.div([h.Class("mt-3")], [progressOrNoticeView(session, h)]),
-            stepsView(session, "flex items-center justify-center gap-8", h),
-          ]),
-          h.div([h.Class("mt-6 border-t border-line pt-4")], [
-            queuePanelView(session, h),
-            queueOpen ? h.empty : h.div([], [
-              h.h2([h.Class("mb-3 text-xl font-bold tracking-tight")], ["Song details"]),
-              viewInputs.toDetail(current),
-            ]),
-          ]),
-          announcementView(session, h),
+          h.div(
+            [h.Class("player-body")],
+            [
+              isSong ? songHeadView(session, viewInputs, h) : queueHeadView(session, viewInputs, h),
+              h.div(
+                [h.Class("player-deck")],
+                [progressOrNoticeView(session, h), stepsView(session, "player-transport", h)],
+              ),
+              isSong ? queueAccessView(session, h) : h.empty,
+              isSong
+                ? h.div(
+                    [h.Class("player-details")],
+                    [
+                      h.h2([h.Class("mb-3 text-xl font-bold tracking-tight")], ["Song details"]),
+                      viewInputs.toDetail(current),
+                    ],
+                  )
+                : h.empty,
+              queuePanelView(session, h),
+              announcementView(session, h),
+            ],
+          ),
         ],
       ),
     ],

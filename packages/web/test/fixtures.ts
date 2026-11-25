@@ -27,11 +27,13 @@ import * as DomainFoldkit from "@alchemy.run/domain/Foldkit";
 import { Menu } from "@foldkit/ui";
 import * as Option from "effect/Option";
 import { UrlRequest } from "foldkit/navigation";
+import { Mount, type SceneStep, scene as foldkitScene } from "foldkit/scene";
 import { fromString, type Url } from "foldkit/url";
 import { Catalog } from "../src/catalog.ts";
 import { init, update } from "../src/main.ts";
 import { Message, type PlayOrigin } from "../src/message.ts";
 import { Awaiting, type Model } from "../src/model.ts";
+import { HoldDockMotion } from "../src/mount.ts";
 import type { RowAction } from "../src/rowMenu.ts";
 
 // CATALOG
@@ -498,3 +500,22 @@ export const onStation: Model = answered(
   reply.station,
   stationPath(station.id),
 );
+
+// SCENES
+
+/**
+ * A scene of the whole app. The shell enters the document with the scene's
+ * first step, and the Mount bound to it is answered here, once for every
+ * scene: it holds the dock's motion for a frame and tells the Model nothing.
+ */
+export const scene = (
+  app: Parameters<typeof foldkitScene<Model, Message>>[0],
+  start: SceneStep<Model, Message, undefined>,
+  ...steps: ReadonlyArray<SceneStep<Model, Message, undefined>>
+): void =>
+  foldkitScene(
+    app,
+    start,
+    Mount.resolveAll([HoldDockMotion, Message.CompletedHoldDockMotion()]),
+    ...steps,
+  );

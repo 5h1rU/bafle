@@ -247,6 +247,26 @@ export const maybeChosenTrackId = (previous: Model, next: Model): Option.Option<
     (session) => session.current.id,
   );
 
+/**
+ * Whether the expanded player has just turned from one of its faces to the
+ * other, the song's and the queue's, and which way. Told with the track it
+ * holds, whose cover is what travels between the two. A track that changed
+ * with the face is no turn: there is no one cover to carry across.
+ */
+export const maybeTurnedFace = (
+  previous: Model,
+  next: Model,
+): Option.Option<Readonly<{ trackId: TrackId; toQueue: boolean }>> =>
+  Option.flatMap(
+    Option.all({ before: previous.maybeSession, after: next.maybeSession }),
+    ({ before, after }) => {
+      const wasSong = before.pane === "Artwork";
+      return before.current.id === after.current.id && wasSong !== (after.pane === "Artwork")
+        ? Option.some({ trackId: after.current.id, toQueue: wasSong })
+        : Option.none();
+    },
+  );
+
 /** Wanting to sound: every state a press of the main control would answer with silence. */
 export const wantsToSound = Playback.isAnyOf([
   "Acknowledged",

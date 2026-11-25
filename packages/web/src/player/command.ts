@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { Command } from "foldkit";
+import { Command, Render } from "foldkit";
 import { Catalog, REPLY_TIMEOUT } from "../catalog.ts";
 import { AudioEngine } from "./audioEngine.ts";
 import { changePace, ISLAND_LIGHTS_ATTRIBUTE } from "./islandLight.ts";
@@ -193,4 +193,27 @@ export const PublishNowPlaying = Command.define("PublishNowPlaying", {
         });
       }
     }).pipe(Effect.ignore, Effect.as(Message.CompletedPublishNowPlaying())),
+});
+
+/**
+ * The expanded player's sheet, by what it is in the document: the piece that
+ * scrolls is the one piece inside it.
+ */
+const SHEET_CONTENT_SELECTOR = '[data-layout="expanded"] > *';
+
+/**
+ * Puts what is in the expanded player's sheet back at its top, once the face
+ * it has turned to is drawn. The two faces are of different lengths and
+ * share the one box that scrolls: a face would otherwise be shown from where
+ * the other was left, and the song's with its cover off the screen.
+ */
+export const ShowFaceFromTop = Command.define("ShowFaceFromTop", {
+  messages: [Message.CompletedShowFaceFromTop],
+  execute: Effect.gen(function* () {
+    yield* Render.afterCommit;
+    yield* Effect.sync(() =>
+      document.querySelector(SHEET_CONTENT_SELECTOR)?.scrollTo({ top: 0, behavior: "instant" }),
+    );
+    return Message.CompletedShowFaceFromTop();
+  }),
 });

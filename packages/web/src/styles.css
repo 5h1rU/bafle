@@ -40,6 +40,12 @@
   --color-island-light: #c45bb4;
   --color-island-light-head: #5e1f55;
 
+  /* The expanded player's progress: the rail the bar runs on, and the times
+     under it. The part played is the main control's colour, and the dot the
+     ink's. */
+  --color-player-rail: #e4d6e1;
+  --color-player-time: #6e5c6a;
+
   /* The bars of the "now playing" mark, each rising and falling out of step. */
   --animate-equalize: equalize 900ms ease-in-out infinite;
 
@@ -81,10 +87,12 @@
     --color-on-island: #f7f0f5;
     --color-island-muted: #b8aab5;
     /* The mark's aubergine would be lost on a dark figure: its orchid stands in for it. */
-    --color-island-control: #dba3d0;
-    --color-on-island-control: #2a1326;
+    --color-island-control: #efc5e6;
+    --color-on-island-control: #37162f;
     --color-island-light: #e48ad6;
     --color-island-light-head: #fff0fb;
+    --color-player-rail: #594753;
+    --color-player-time: #d5c7d2;
     --island-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
   }
 }
@@ -170,6 +178,9 @@
         transition: transform 200ms var(--ease-menu-out);
       }
       .dock-island { transition: transform 250ms var(--ease-island-out); }
+      /* Next has its place in the tail from the first frame, and the tail
+         is not there yet: it comes in once the island has widened to it. */
+      .dock-island-next > * { transition: opacity 120ms ease-out 80ms; }
     }
     [data-input="Pointer"][data-navigation="minimized"] {
       .dock-surface { transition: clip-path 180ms var(--ease-menu-back), opacity 80ms ease-out 100ms; }
@@ -200,132 +211,6 @@
 
 button:focus-visible [data-glyph] {
   transition: none;
-}
-
-.player-ambience {
-  position: absolute;
-  z-index: -1;
-  inset: -2.75rem 0 auto;
-  height: min(100%, 62svh, 34rem);
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0.24;
-  mask-image: linear-gradient(black, transparent);
-}
-
-.player-ambience img {
-  filter: blur(36px);
-  scale: 1.3;
-}
-
-/* The expanded player has two blurs: the ambience behind its cover, and the
-   bar that what scrolls goes under. While the player is one side of a view
-   transition its picture is drawn again on every frame, at a new size each
-   time, and each blur then costs more than a frame has: the island was seen
-   to open in jumps, with the first frames and the last ones lost. So neither
-   is drawn while a transition runs. The bar is plainly the sheet's colour,
-   which is what it shows with nothing under it; the ambience comes in by
-   itself once the sheet is in its place. */
-.player-ambience {
-  transition: opacity 300ms ease-out;
-}
-
-:root:active-view-transition .player-ambience {
-  visibility: hidden;
-  opacity: 0;
-  transition: none;
-}
-
-:root:active-view-transition .player-bar {
-  background-color: var(--color-panel);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
-/* Reserve the final space once. The cover stays the same intrinsic size so
-   a tap can reverse its compositor transition wherever it is on screen. */
-.player-summary {
-  position: relative;
-  container-type: inline-size;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.25rem 0.875rem;
-  align-items: center;
-}
-
-.player-summary::before,
-.player-cover {
-  --art-size: min(100cqw, 42svh, 23rem);
-}
-
-.player-summary::before {
-  content: "";
-  height: var(--art-size);
-}
-
-.player-cover {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: var(--art-size);
-  pointer-events: none;
-  transform-origin: top left;
-  transform: translateX(calc((100cqw - var(--art-size)) / 2));
-  border-radius: 1rem;
-  box-shadow: 0 10px 24px -12px rgb(24 6 20 / 45%);
-}
-
-.player-title {
-  font-size: clamp(1.5rem, 5.5vw, 1.875rem);
-  line-height: 1.12;
-  font-weight: 750;
-  letter-spacing: -0.035em;
-  overflow-wrap: anywhere;
-  margin-bottom: 0.25rem;
-}
-
-[data-pane]:not([data-pane="Artwork"]) .player-summary {
-  grid-template-columns: 3.75rem minmax(0, 1fr);
-}
-
-[data-pane]:not([data-pane="Artwork"]) .player-summary::before {
-  height: 3.75rem;
-}
-
-[data-pane]:not([data-pane="Artwork"]) .player-cover {
-  width: 3.75rem;
-  transform: none;
-  border-radius: 0.625rem;
-}
-
-@supports (transform: scale(calc(1px / 1px))) {
-  [data-pane]:not([data-pane="Artwork"]) .player-cover {
-    width: var(--art-size);
-    transform: translateX(0) scale(calc(3.75rem / var(--art-size)));
-    border-radius: calc(var(--art-size) / 6);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  [data-pane]:not(:has(.queue-toggle:focus-visible)) .player-cover {
-    transition: transform 200ms var(--ease-dock-settle);
-  }
-}
-
-[data-pane]:not([data-pane="Artwork"]) .player-title {
-  font-size: 1.125rem;
-}
-
-/* Keep transport and the way out within reach while browsing a long queue.
-   A short landscape viewport needs the full height for its rows. */
-@media (min-height: 30rem) {
-  [data-pane]:not([data-pane="Artwork"]) .player-deck {
-    position: sticky;
-    top: 2.75rem;
-    z-index: 1;
-    padding-bottom: 0.5rem;
-    background-color: var(--color-panel);
-  }
 }
 
 /* THE ROWS OF A LIST
@@ -503,6 +388,194 @@ body {
   animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);
 }
 
+/* The cover is a disc on the island, the whole head of the sheet in the
+   expanded player, and a thumbnail on the player's queue: three boxes of
+   three shapes. On its way between two of them the picture fills the box
+   it is in and is cut by it, never stretched to it. */
+::view-transition-old(.island-cover),
+::view-transition-new(.island-cover) {
+  block-size: 100%;
+  object-fit: cover;
+}
+
+/* THE COVER'S WAY TO THE HEAD OF THE SHEET, AND BACK
+
+   In the expanded player the cover lies under a veil and the track's title
+   (player/player.css), and the picture that travels is the bare cover: one
+   that simply arrived would lie over the title until the transition ended,
+   and the title would then appear on it at once. So the sheet has the cover
+   twice. The one that travels lands on the other, which is part of the
+   sheet's own picture, and fades once it is there; and on the way back it
+   comes over that one little by little before it leaves.
+
+   The times are shares of the transition, and were worked out from the
+   design's own account of it (design/motion/isla/transicion.glsl), where
+   they are shares of the way travelled: the way is eased, so a share of it
+   is not the same share of the time.
+
+   Opening: the island's disc gives way at once; the cover travels whole,
+   and from a third of the way in time, when it is nearly there, fades into
+   the sheet. Closing is the same the other way round. */
+:root:active-view-transition-type(player-opens)::view-transition-old(.island-cover) {
+  animation: var(--player-swap-duration) linear both cover-gives-way;
+}
+
+:root:active-view-transition-type(player-opens)::view-transition-new(.island-cover) {
+  animation: var(--player-swap-duration) linear both cover-lands;
+}
+
+:root:active-view-transition-type(player-closes)::view-transition-old(.island-cover) {
+  animation: var(--player-swap-duration) linear both cover-lifts;
+}
+
+:root:active-view-transition-type(player-closes)::view-transition-new(.island-cover) {
+  animation: var(--player-swap-duration) linear both cover-takes-its-place;
+}
+
+@keyframes cover-gives-way {
+  10%, 100% { opacity: 0; }
+}
+
+@keyframes cover-lands {
+  0% { opacity: 0; }
+  10%, 35% { opacity: 1; }
+  50% { opacity: 0.45; }
+  72% { opacity: 0.03; }
+  100% { opacity: 0; }
+}
+
+@keyframes cover-lifts {
+  0% { opacity: 0; }
+  28% { opacity: 0.03; }
+  50% { opacity: 0.45; }
+  65%, 90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes cover-takes-its-place {
+  0%, 90% { opacity: 0; }
+}
+
+/* Its corners go with it: a disc's on the island, the sheet's own at the
+   head of the sheet. */
+:root:active-view-transition-type(player-opens)::view-transition-image-pair(.island-cover) {
+  overflow: clip;
+  animation: var(--player-swap-duration) cubic-bezier(0.3, 0, 0.1, 1) both cover-squares;
+}
+
+:root:active-view-transition-type(player-closes)::view-transition-image-pair(.island-cover) {
+  overflow: clip;
+  animation: var(--player-swap-duration) cubic-bezier(0.3, 0, 0.1, 1) both cover-rounds;
+}
+
+@keyframes cover-squares {
+  from { border-radius: 1.5625rem; }
+  to { border-radius: 1.5rem 1.5rem 0 0; }
+}
+
+@keyframes cover-rounds {
+  from { border-radius: 1.5rem 1.5rem 0 0; }
+  to { border-radius: 1.5625rem; }
+}
+
+/* THE EXPANDED PLAYER TURNING TO ITS QUEUE, AND BACK
+
+   The sheet stays where it is and its two faces fade one into the other.
+   Two pieces are seen to move: the cover, between the head of the sheet and
+   the thumbnail beside the title, and the deck, the progress and the three
+   controls, between its place under the cover and the foot of the sheet.
+   The deck has a name only for this, or it would be a picture of its own
+   whenever the player opened.
+
+   The cover comes over the song's face in the first fifth, so that the veil
+   and the title are not seen to go at once, and from the middle on it is
+   the thumbnail. On the way back it is the cover from early on, and from
+   the middle, while it is still growing, it fades into the cover it is
+   about to land on: the title over that one comes with it, not after it. */
+:root:active-view-transition-type(player-queue-opens),
+:root:active-view-transition-type(player-queue-closes) {
+  --player-swap-duration: 280ms;
+}
+
+:root:active-view-transition-type(player-queue-opens) .player-deck,
+:root:active-view-transition-type(player-queue-closes) .player-deck {
+  view-transition-name: player-deck;
+}
+
+::view-transition-group(player-deck) {
+  z-index: 2;
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);
+}
+
+::view-transition-old(player-deck),
+::view-transition-new(player-deck) {
+  animation-duration: 280ms;
+}
+
+:root:active-view-transition-type(player-queue-opens)::view-transition-old(.island-cover) {
+  animation: var(--player-swap-duration) linear both cover-draws-back;
+}
+
+:root:active-view-transition-type(player-queue-opens)::view-transition-new(.island-cover) {
+  animation: var(--player-swap-duration) linear both thumbnail-arrives;
+}
+
+:root:active-view-transition-type(player-queue-closes)::view-transition-old(.island-cover) {
+  animation: var(--player-swap-duration) linear both thumbnail-leaves;
+}
+
+:root:active-view-transition-type(player-queue-closes)::view-transition-new(.island-cover) {
+  animation: var(--player-swap-duration) linear both cover-spreads;
+}
+
+@keyframes cover-draws-back {
+  0% { opacity: 0; }
+  19%, 44% { opacity: 1; }
+  58% { opacity: 0.5; }
+  76% { opacity: 0.05; }
+  100% { opacity: 0; }
+}
+
+@keyframes thumbnail-arrives {
+  0%, 44% { opacity: 0; }
+  58% { opacity: 0.5; }
+  76% { opacity: 0.95; }
+}
+
+@keyframes thumbnail-leaves {
+  20% { opacity: 0.4; }
+  30%, 100% { opacity: 0; }
+}
+
+@keyframes cover-spreads {
+  0% { opacity: 0; }
+  20% { opacity: 0.6; }
+  30%, 50% { opacity: 1; }
+  75% { opacity: 0.35; }
+  100% { opacity: 0; }
+}
+
+:root:active-view-transition-type(player-queue-opens)::view-transition-image-pair(.island-cover) {
+  overflow: clip;
+  animation: var(--player-swap-duration) cubic-bezier(0.3, 0, 0.1, 1) both cover-to-thumbnail;
+}
+
+:root:active-view-transition-type(player-queue-closes)::view-transition-image-pair(.island-cover) {
+  overflow: clip;
+  animation: var(--player-swap-duration) cubic-bezier(0.3, 0, 0.1, 1) both thumbnail-to-cover;
+}
+
+@keyframes cover-to-thumbnail {
+  from { border-radius: 1.5rem 1.5rem 0 0; }
+  to { border-radius: 0.625rem; }
+}
+
+@keyframes thumbnail-to-cover {
+  from { border-radius: 0.625rem; }
+  to { border-radius: 1.5rem 1.5rem 0 0; }
+}
+
 /* The island and the expanded player are one piece under one name. On a
    page swap behind the island the two sides are the same picture in the same
    place, and nothing is seen to happen. When the player opens or closes, the
@@ -519,6 +592,13 @@ body {
   clip-path: inset(-0.5rem round 2rem);
   animation-duration: var(--player-swap-duration);
   animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);
+}
+
+/* Turning to its queue the sheet does not move, and is not cut: the cut is
+   for the island's shape, and would round the foot of the screen. */
+:root:active-view-transition-type(player-queue-opens)::view-transition-group(player),
+:root:active-view-transition-type(player-queue-closes)::view-transition-group(player) {
+  clip-path: none;
 }
 
 ::view-transition-old(player),
@@ -553,6 +633,66 @@ body {
 
 :root:active-view-transition-type(player-closes)::view-transition-new(player) {
   animation: 130ms ease-out 250ms both island-takes-its-place;
+}
+
+/* THE SHEET'S GROUND
+
+   The box that grows from the island into the sheet is the sheet's colour
+   from the start, and what is in the sheet comes on it once the box is
+   large enough to read: until then the cover on its way is the one thing
+   seen in it. Without the ground the sheet's own cover would be seen beside
+   the one that travels, and the page through both. Closing, the sheet's
+   face goes first and the ground last, when the box is the island's size
+   again.
+
+   The two pictures are drawn one over the other on that ground, not added
+   to each other as a transition's pictures are: added to a ground they
+   would only brighten it. */
+:root:active-view-transition-type(player-opens)::view-transition-image-pair(player) {
+  animation: var(--player-swap-duration) linear both sheet-ground-comes;
+}
+
+:root:active-view-transition-type(player-closes)::view-transition-image-pair(player) {
+  animation: var(--player-swap-duration) linear both sheet-ground-goes;
+}
+
+:root:active-view-transition-type(player-opens)::view-transition-old(player),
+:root:active-view-transition-type(player-opens)::view-transition-new(player),
+:root:active-view-transition-type(player-closes)::view-transition-old(player),
+:root:active-view-transition-type(player-closes)::view-transition-new(player) {
+  mix-blend-mode: normal;
+}
+
+:root:active-view-transition-type(player-opens)::view-transition-new(player) {
+  animation: var(--player-swap-duration) linear both sheet-face-comes;
+}
+
+:root:active-view-transition-type(player-closes)::view-transition-old(player) {
+  animation: var(--player-swap-duration) linear both sheet-face-goes;
+}
+
+@keyframes sheet-ground-comes {
+  0% { background-color: transparent; }
+  13%, 100% { background-color: var(--color-canvas); }
+}
+
+@keyframes sheet-ground-goes {
+  0%, 87% { background-color: var(--color-canvas); }
+  100% { background-color: transparent; }
+}
+
+@keyframes sheet-face-comes {
+  0%, 24% { opacity: 0; }
+  35% { opacity: 0.39; }
+  50% { opacity: 0.87; }
+  72%, 100% { opacity: 1; }
+}
+
+@keyframes sheet-face-goes {
+  0%, 28% { opacity: 1; }
+  50% { opacity: 0.87; }
+  65% { opacity: 0.39; }
+  76%, 100% { opacity: 0; }
 }
 
 @keyframes island-gives-way {

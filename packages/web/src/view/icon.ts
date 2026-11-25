@@ -56,6 +56,10 @@ export const searchIcon = (className: string): Html =>
 export const backIcon = (className: string): Html =>
   outlineIcon(className, ["M14.5 5.5 8 12l6.5 6.5"]);
 
+/** Points down: where a sheet goes when it is sent away. */
+export const downIcon = (className: string): Html =>
+  outlineIcon(className, ["M5.5 9 12 15.5 18.5 9"]);
+
 /** Stands where a picture would be when the catalog has none. */
 export const noteIcon = (className: string): Html =>
   outlineIcon(className, [
@@ -83,14 +87,23 @@ const solidIcon = (className: string, paths: ReadonlyArray<string>): Html =>
 
 export const playIcon = (className: string): Html => solidIcon(className, ["M8 5v14l11.5-7L8 5Z"]);
 
+// NOTE: the three glyphs of the transport are the design's own
+// (design/album.pen), with their corners rounded: one shape each, so a
+// glyph is the same on the island and in the expanded player.
 export const pauseIcon = (className: string): Html =>
-  solidIcon(className, ["M7 5h3.5v14H7V5Z", "M13.5 5H17v14h-3.5V5Z"]);
+  solidIcon(className, [
+    "M5 4q0-1 1-1h3q1 0 1 1v16q0 1-1 1h-3q-1 0-1-1z m9 0q0-1 1-1h3q1 0 1 1v16q0 1-1 1h-3q-1 0-1-1z",
+  ]);
 
 export const nextIcon = (className: string): Html =>
-  solidIcon(className, ["M6 6v12l9-6-9-6Z", "M16.5 6h2v12h-2V6Z"]);
+  solidIcon(className, [
+    "M2 5q0-2 2-1l11 6.5q2 1.5 0 3l-11 6.5q-2 1-2-1z m15 0q0-1 1-1h2q1 0 1 1v14q0 1-1 1h-2q-1 0-1-1z",
+  ]);
 
 export const previousIcon = (className: string): Html =>
-  solidIcon(className, ["M18 6v12l-9-6 9-6Z", "M5.5 6h2v12h-2V6Z"]);
+  solidIcon(className, [
+    "M22 5q0-2-2-1l-11 6.5q-2 1.5 0 3l11 6.5q2 1 2-1z m-15 0q0-1-1-1h-2q-1 0-1 1v14q0 1 1 1h2q1 0 1-1z",
+  ]);
 
 /** An arrow turning back on itself: do it again. */
 export const retryIcon = (className: string): Html =>
@@ -115,6 +128,16 @@ export const checkIcon = (className: string): Html =>
 /** A list with a track put at its head: it plays next. */
 export const playNextIcon = (className: string): Html =>
   outlineIcon(className, ["M4 4.75v5.5l4.5-2.75L4 4.75Z", "M12 7.5h8", "M4 13h16", "M4 18h16"]);
+
+/** A list with a note at its end: the songs that are to play. */
+export const queueIcon = (className: string): Html =>
+  outlineIcon(className, [
+    "M16 5H3",
+    "M11 12H3",
+    "M11 19H3",
+    "M21 16V5",
+    "M21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
+  ]);
 
 /** A list with a track put at its foot: it plays after the rest. */
 export const playLastIcon = (className: string): Html =>

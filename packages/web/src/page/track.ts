@@ -14,7 +14,7 @@ import type { TrackData } from "../model.ts";
 import { isPlayable, type TrackStatus } from "../player/model.ts";
 import { type AppRoute, homeRouter } from "../route.ts";
 import { artworkView, coverView } from "../view/artwork.ts";
-import { pauseIcon, playIcon, retryIcon, spinnerIcon } from "../view/icon.ts";
+import { downIcon, pauseIcon, playIcon, retryIcon, spinnerIcon } from "../view/icon.ts";
 import {
   PAGE_IDS,
   PAGE_TITLE_CLASS,
@@ -291,12 +291,10 @@ export const view = (
 
 // EXPANDED PLAYER
 
-const COLLAPSE_CLASS =
-  "mx-auto flex h-11 w-24 cursor-pointer touch-manipulation items-center justify-center rounded-full hover:bg-tile focus-visible:outline-2 focus-visible:outline-accent active:bg-tile";
-
-/** The handle a sheet is closed by: a short bar, wide enough for a finger. */
-const grabberView = (h: HtmlBuilder<Message>): Html =>
-  h.span([h.AriaHidden(true), h.Class("h-1.5 w-10 rounded-full bg-muted/50")]);
+// NOTE: the look of the control at the head of the player's sheet is the
+// player's (`player-top-control` in player/player.css): the player draws
+// another like it there, on its other face.
+const COLLAPSE_CLASS = "player-top-control";
 
 /**
  * The way out of the expanded player: it shrinks back into the island over
@@ -312,7 +310,7 @@ export const collapseControlView = (
     onNone: () =>
       h.a(
         [h.Href(homeRouter()), h.AriaLabel("Close the player"), h.Class(COLLAPSE_CLASS)],
-        [grabberView(h)],
+        [downIcon("size-6")],
       ),
     onSome: () =>
       Button.view(
@@ -321,7 +319,7 @@ export const collapseControlView = (
           toView: (attributes) =>
             h.button(
               [...attributes.button, h.AriaLabel("Close the player"), h.Class(COLLAPSE_CLASS)],
-              [grabberView(h)],
+              [downIcon("size-6")],
             ),
         },
         h,

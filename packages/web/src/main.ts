@@ -1474,6 +1474,7 @@ export const update = (model: Model, message: Message) =>
     CompletedFocusStationTile: () => ({ model }),
     CompletedFocusNavigation: () => ({ model }),
     CompletedScrollPageToTop: () => ({ model }),
+    CompletedHoldDockMotion: () => ({ model }),
   });
 
 // INIT
@@ -1526,6 +1527,10 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
 export const PLAYER_OPENS = "player-opens";
 export const PLAYER_CLOSES = "player-closes";
 
+/** The expanded player turning to its queue, and back to its song. */
+export const PLAYER_QUEUE_OPENS = "player-queue-opens";
+export const PLAYER_QUEUE_CLOSES = "player-queue-closes";
+
 /**
  * A view transition when the page on screen changes, and when the listener
  * puts another track in the player: the first cross-fades the pages, the
@@ -1555,8 +1560,18 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   const isExpanded = isPlayerExpanded(model);
   // NOTE: an expanded player that goes on to another track changes route,
   // and is the same sheet: its words and its picture change where they stand.
+  // Turning to its queue, or back to its song, is seen to happen: the cover
+  // travels between its place at the head of the sheet and the thumbnail,
+  // and the controls between theirs. The two are told apart by name, as
+  // opening and closing are, since the cover lands on a different picture
+  // each way.
   if (wasExpanded && isExpanded) {
-    return false;
+    return Option.match(Player.maybeTurnedFace(previousModel.player, model.player), {
+      onNone: () => false,
+      onSome: ({ trackId, toQueue }) => ({
+        types: [toQueue ? PLAYER_QUEUE_OPENS : PLAYER_QUEUE_CLOSES, coverTransitionName(trackId)],
+      }),
+    });
   }
   if (wasExpanded === isExpanded) {
     return Option.match(Player.maybeChosenTrackId(previousModel.player, model.player), {
