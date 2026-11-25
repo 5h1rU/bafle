@@ -18,7 +18,7 @@ import {
   spinnerIcon,
 } from "../view/icon.ts";
 import { coverTransitionName, artworkFlightRules } from "../view/artwork.ts";
-import { MENU_BACKDROP_CLASS, MENU_CLASS, MENU_ITEM_CLASS } from "../view/trackList.ts";
+import { MENU_CLASS, MENU_ITEM_CLASS } from "../view/trackList.ts";
 import { formatDuration } from "../view/time.ts";
 import { islandFigureView } from "./islandFigure.ts";
 import { Message } from "./message.ts";
@@ -645,7 +645,7 @@ const announcement = (session: Session): string => {
   });
 };
 
-const STEP_ON_SHEET_CLASS = "size-12 text-ink hover:bg-tile active:bg-tile";
+const STEP_ON_SHEET_CLASS = "player-step size-12 text-ink";
 const STEP_GLYPH_CLASS = "size-[2.3125rem]";
 
 const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>): Html =>
@@ -920,6 +920,14 @@ const faceHeadView = (
   );
 };
 
+// NOTE: the menu's backdrop is what hears the press that closes it: a press
+// anywhere else, the control that opened it among that. It is drawn in the
+// document's body, with the menu, and the player's sheet is drawn over the
+// pages at the height a row's backdrop has (`z-40`): at that height the
+// sheet lay over the backdrop, and no press reached it. Here it is over the
+// sheet and under the menu.
+const MORE_BACKDROP_CLASS = "fixed inset-0 z-[45] touch-none";
+
 const MORE_LOOKS: Readonly<Record<PlayerAction, Readonly<{ label: string; icon: (className: string) => Html }>>> = {
   OpenAlbum: { label: "Go to album", icon: albumIcon },
   SongDetails: { label: "Song details", icon: detailsIcon },
@@ -960,9 +968,17 @@ const moreMenuView = (
         clsx("size-6", { "nav-breathes motion-reduce:animate-pulse": viewInputs.isAlbumOpening }),
       ),
       buttonClassName: "player-action",
-      buttonAttributes: childAttributes([h.AriaBusy(viewInputs.isAlbumOpening)]),
+      // NOTE: lit by the Model's own word that the menu is open, which is
+      // taken back the moment it is closed. What the component says on its
+      // control (`data-open`, `aria-expanded`) holds for as long as the menu
+      // takes to fade away, and a control lit by that stayed lit over a menu
+      // that was no longer there.
+      buttonAttributes: childAttributes([
+        h.AriaBusy(viewInputs.isAlbumOpening),
+        ...(menu.isOpen ? [h.DataAttribute("lit", "")] : []),
+      ]),
       itemsClassName: MENU_CLASS,
-      backdropClassName: MENU_BACKDROP_CLASS,
+      backdropClassName: MORE_BACKDROP_CLASS,
       anchor: { placement: "top-start", gap: 8, padding: 12 },
     },
     toParentMessage: (message) => Message.GotMoreMenuMessage({ message }),

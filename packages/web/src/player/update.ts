@@ -1,5 +1,5 @@
 import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
-import { Menu, Slider } from "@foldkit/ui";
+import { DragAndDrop, Menu, Slider } from "@foldkit/ui";
 import * as Array from "effect/Array";
 import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
@@ -285,24 +285,18 @@ const playFromQueue = (session: Session, index: number, trackId: TrackId): Step 
   }, "Chosen");
 };
 
-const editQueue = (session: Session, edit: typeof Message.ClickedQueueEdit.Type): Step => {
-  const { index, trackId, action } = edit;
-  const track = session.later[index];
-  if (session.pane !== "EditingQueue" || track?.id !== trackId) {
+/**
+ * A song of the queue put down in another place in it. `to` is its place
+ * among the songs to come once it is there, counted without it.
+ */
+const moveInQueue = (session: Session, from: number, to: number): Step => {
+  const track = session.later[from];
+  if (track === undefined || from === to) {
     return unchanged;
   }
   const later = [...session.later];
-  if (action === "Remove") {
-    later.splice(index, 1);
-  } else {
-    const to = action === "Earlier" ? index - 1 : index + 1;
-    const neighbor = later[to];
-    if (!neighbor) {
-      return unchanged;
-    }
-    later[index] = neighbor;
-    later[to] = track;
-  }
+  later.splice(from, 1);
+  later.splice(Math.max(0, Math.min(to, later.length)), 0, track);
   return settle({ ...session, later });
 };
 
@@ -604,6 +598,42 @@ const foldMoreMenu = Update.foldChild({
   foldOutMessage: (chosen: Menu.OutMessage<PlayerAction>) => chooseFromMenu(chosen.value),
 });
 
+// MOVING A SONG OF THE QUEUE
+
+// NOTE: the component tells where a song was put down in two ways. Carried
+// by its handle, the place is counted among all the rows of the list, the
+// row carried among them, since that row is still in the list while it is
+// carried. Moved with the keys, it is counted among the others only. The
+// queue wants the second, so the first is brought to it here.
+const foldQueueDrag = (wasCarried: boolean) =>
+  Update.foldChild({
+    update: DragAndDrop.update,
+    read: (model: Model) => Option.map(model.maybeSession, (session) => session.queueDrag),
+    write: (model: Model, nextDrag: DragAndDrop.Model) =>
+      modifyFields(model, {
+        maybeSession: Option.map((session) =>
+          session.queueDrag === nextDrag ? session : modifyFields(session, { queueDrag: () => nextDrag }),
+        ),
+      }),
+    toParentMessage: (message: DragAndDrop.Message): Message =>
+      Message.GotQueueDragMessage({ message }),
+    foldOutMessage: DragAndDrop.OutMessage.match<Step>({
+      Reordered: ({ fromIndex, toIndex }) =>
+        onSession((session) =>
+          moveInQueue(session, fromIndex, wasCarried && toIndex > fromIndex ? toIndex - 1 : toIndex),
+        ),
+      Cancelled: () => unchanged,
+    }),
+  });
+
+const gotQueueDragMessage = (model: Model, message: DragAndDrop.Message): UpdateReturn => {
+  const wasCarried = Option.exists(
+    model.maybeSession,
+    (session) => session.queueDrag.dragState._tag === "Dragging",
+  );
+  return foldQueueDrag(wasCarried)(model, message);
+};
+
 /** Whether a Message is the listener choosing the album's page from the player's menu. */
 export const isAlbumAsked = (message: Message): boolean =>
   message._tag === "GotMoreMenuMessage" &&
@@ -782,23 +812,18 @@ const handle = (model: Model, message: Message) =>
     // leads back to the song; on any other it leads to the queue.
     ClickedQueue: () =>
       onSession((session) =>
-        turnTo(session, session.pane === "Queue" || session.pane === "EditingQueue" ? "Artwork" : "Queue"),
+        turnTo(session, session.pane === "Queue" ? "Artwork" : "Queue"),
       )(model),
     ClickedDetails: () =>
       onSession((session) => (session.pane === "Details" ? turnTo(session, "Artwork") : unchanged))(model),
-    ClickedEditQueue: () => onSession((session) =>
-      session.pane === "Artwork" ? unchanged : settle({
-        ...session, pane: session.pane === "Queue" ? "EditingQueue" : "Queue",
-      }),
-    )(model),
     ClickedQueueItem: ({ index, trackId }) =>
       onSession((session) => playFromQueue(session, index, trackId))(model),
-    ClickedQueueEdit: (edit) => onSession((session) => editQueue(session, edit))(model),
     ClickedTryAgain: () => onSession(play)(model),
     PressedMediaKey: ({ key }) => onSession((session) => pressedMediaKey(session, key))(model),
 
     GotSeekSliderMessage: ({ message }) => gotSeekSliderMessage(model, message),
     GotMoreMenuMessage: ({ message }) => foldMoreMenu(model, message),
+    GotQueueDragMessage: ({ message }) => gotQueueDragMessage(model, message),
 
     UpdatedEngineStatus: ({ report }) =>
       forLatestOrder(
@@ -845,10 +870,10 @@ const toggle = (session: Session): Step =>
  */
 export const choose = (
   model: Model,
-  choice: Readonly<{ trackId: TrackId; list: ReadonlyArray<TrackSummary>; restart?: boolean }>,
+  choice: Readonly<{ trackId: TrackId; list: ReadonlyArray<TrackSummary> }>,
 ): UpdateReturn =>
   withWhatFollows(model)(
-    !choice.restart && Option.contains(maybeCurrentTrackId(model), choice.trackId)
+    Option.contains(maybeCurrentTrackId(model), choice.trackId)
       ? onSession(toggle)(model)
       : Option.match(queueFrom(choice.list, choice.trackId), {
           onNone: () => ({ model }),

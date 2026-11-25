@@ -50,6 +50,7 @@ import {
   pressedMore,
   reply,
   scene,
+  explicitTrack,
   silentTrack,
   track,
   trackPath,
@@ -181,16 +182,22 @@ describe("the album page", () => {
       inside(navigation, expectAll(all.selector("[aria-current]")).toHaveCount(0)),
     ));
 
-  test("Play album starts at the first playable song and queues the rest in album order", () => {
+  test("a song pressed plays, and the songs under it on the album are what comes next: no control plays the album", () => {
     const found = answered(opened(albumPath(album.id)), (id) =>
-      reply.album(id, { ...reply.album(id).result, tracks: [silentTrack, albumOpener, track] }),
+      reply.album(id, {
+        ...reply.album(id).result,
+        tracks: [albumOpener, track, explicitTrack],
+      }),
     );
-    scene(app, given(found), see(role("button", { name: "Play album" })).toExist());
-    const play = Message.ClickedPlayAlbum({ firstTrackId: albumOpener.id });
-    const session = Option.getOrThrow(after(found, play, play).player.maybeSession);
-    expect(session.current.id).toBe(albumOpener.id);
-    expect(session.playback._tag).toBe("Acknowledged");
-    expect(session.later.map((next) => next.id)).toEqual([track.id]);
+    scene(app, given(found), see(role("button", { name: "Play album" })).toBeAbsent());
+    const session = Option.getOrThrow(
+      after(found, Message.ClickedPlayTrack({ trackId: track.id, from: "Album" })).player
+        .maybeSession,
+    );
+    expect(session.current.id).toBe(track.id);
+    // What comes next is what is under it. What is above it is behind it: Previous leads there.
+    expect(session.later.map((next) => next.id)).toEqual([explicitTrack.id]);
+    expect(session.earlier.map((before) => before.id)).toEqual([albumOpener.id]);
   });
 
   test("the document is titled after the album", () => {

@@ -1295,6 +1295,10 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
         ],
       ),
       h.p([h.Role("status"), h.Class("sr-only")], [pageStatus(model)]),
+      // NOTE: a song of the queue being carried is drawn here and not in the
+      // player's sheet. It is placed by the screen, and the sheet is a box
+      // that what is in it is placed by.
+      Player.queueGhostView(model.player, h),
     ],
   ),
 });

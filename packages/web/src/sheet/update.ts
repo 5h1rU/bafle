@@ -22,6 +22,10 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       const next = modifyFields(model, { reach: () => reach });
       return reach === "Gone" ? { model: next, outMessage: OutMessage.Left() } : { model: next };
     },
+    // NOTE: only of a sheet partly on screen. One that is whole was not on
+    // its way, and of one that is gone `Left` has been said already.
+    LetGo: () =>
+      model.reach === "Partly" ? { model, outMessage: OutMessage.Leaving() } : { model },
     PressedEscape: () => model.dismissedByKeyboard
       ? { model }
       : askToClose(modifyFields(model, { dismissedByKeyboard: () => true })),

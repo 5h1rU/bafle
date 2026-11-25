@@ -5,6 +5,7 @@ export * from "./model.ts";
 export * from "./mount.ts";
 export { subscriptions } from "./subscription.ts";
 export { choose, enqueue, init, isAlbumAsked, RESTART_AFTER_SECONDS, update } from "./update.ts";
+export { queueGhostView } from "./queue.ts";
 export {
   type ExpandedViewInputs,
   expandedView,

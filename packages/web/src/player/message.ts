@@ -1,5 +1,5 @@
 import { Track, TrackId } from "@bafle/domain/Catalog/Track";
-import { Menu, Slider } from "@foldkit/ui";
+import { DragAndDrop, Menu, Slider } from "@foldkit/ui";
 import * as Schema from "effect/Schema";
 import { defineMessageUnion } from "foldkit/message";
 import { EngineReport, StartOutcome } from "./audioEngine.ts";
@@ -18,17 +18,12 @@ export const Message = defineMessageUnion({
   ClickedQueue: {},
   /** The name at the head of the face that says what the catalog knows of the track: it leads back to the song. */
   ClickedDetails: {},
-  ClickedEditQueue: {},
   ClickedQueueItem: { index: Schema.Int, trackId: TrackId },
-  ClickedQueueEdit: {
-    index: Schema.Int,
-    trackId: TrackId,
-    action: Schema.Literals(["Earlier", "Later", "Remove"]),
-  },
   ClickedTryAgain: {},
   PressedMediaKey: { key: MediaKey },
   GotSeekSliderMessage: { message: Slider.Message },
   GotMoreMenuMessage: { message: Menu.Message },
+  GotQueueDragMessage: { message: DragAndDrop.Message },
   /** The engine's word. Everything the interface says of the sound comes from here. */
   UpdatedEngineStatus: { report: EngineReport },
   CompletedStartPlayback: { order: Schema.Int, outcome: StartOutcome },

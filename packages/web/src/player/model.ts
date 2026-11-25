@@ -1,6 +1,6 @@
 import type { AlbumId } from "@bafle/domain/Catalog/Album";
 import { type Track, type TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
-import { Menu, Slider } from "@foldkit/ui";
+import { DragAndDrop, Menu, Slider } from "@foldkit/ui";
 import * as Array from "effect/Array";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
@@ -101,9 +101,14 @@ export const Session = Schema.Struct({
    * queue's, with the songs to come; or the one that says what the catalog
    * knows of the track.
    */
-  pane: Schema.Literals(["Artwork", "Queue", "EditingQueue", "Details"]),
+  pane: Schema.Literals(["Artwork", "Queue", "Details"]),
   /** The menu under the controls of the expanded player (`moreMenu.ts`). */
   moreMenu: Menu.Model,
+  /**
+   * A song of the queue being moved to another place in it: taken up by its
+   * handle and carried, or moved with the keys (Foldkit UI's `DragAndDrop`).
+   */
+  queueDrag: DragAndDrop.Model,
   cue: Cue,
   playback: Playback,
   sourceRefresh: SourceRefresh,
@@ -192,6 +197,12 @@ export const SEEK_SLIDER_ID = "player-seek";
 /** The slider steps by whole seconds: an arrow key moves one, Page Up and Down ten. */
 export const SEEK_STEP_SECONDS = 1;
 
+/** The id the queue's list goes by, to what moves its songs. */
+export const QUEUE_CONTAINER_ID = "player-queue-list";
+
+/** Nothing of the queue is being moved. */
+export const initialQueueDrag: DragAndDrop.Model = DragAndDrop.init({ id: "player-queue-drag" });
+
 export const initialSeekSlider: Slider.Model = Slider.init({
   id: SEEK_SLIDER_ID,
   min: 0,
@@ -230,6 +241,7 @@ export const queueFrom = (
         seek: Seek.Settled({}),
         seekSlider: initialSeekSlider,
         moreMenu: initialMoreMenu,
+        queueDrag: initialQueueDrag,
       }),
   });
 };
@@ -244,6 +256,10 @@ export const hasSession = (model: Model): boolean => Option.isSome(model.maybeSe
 
 export const maybeCurrentTrackId = (model: Model): Option.Option<TrackId> =>
   Option.map(model.maybeSession, (session) => session.current.id);
+
+/** Whether the menu under the expanded player's controls is open. */
+export const isMoreMenuOpen = (model: Model): boolean =>
+  Option.exists(model.maybeSession, (session) => session.moreMenu.isOpen);
 
 /** The album the track the player holds is on. */
 export const maybeCurrentAlbumId = (model: Model): Option.Option<AlbumId> =>

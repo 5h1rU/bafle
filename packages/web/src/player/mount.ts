@@ -167,40 +167,98 @@ const lightOn = (
     ),
   });
 
+/** A time written in a style sheet, in milliseconds: `500ms`, or `.5s`. */
+const milliseconds = (time: string, otherwise: number): number => {
+  const value = Number.parseFloat(time);
+  if (Number.isNaN(value)) {
+    return otherwise;
+  }
+  return time.trim().endsWith("ms") ? value : value * 1000;
+};
+
+// NOTE: the island goes between its two places in the dock by two things at
+// once. The style sheet moves it, on a spring: `transform`, from where it
+// stood. And its width is the layout's, which changes in one frame: so what
+// is drawn of it, its figure and its controls, is set back to the width it
+// had and brought to the new one here.
+//
+// The two must go by one clock. Where the island's far end is seen to be is
+// where it stands plus how wide it is drawn, and when its width was brought
+// to the new one in a fraction of the time the spring takes, that end went
+// the wrong way first: coming out, the island was whole width while it
+// still stood in its row, its end and whatever of its light was on it thrown
+// past the edge of the screen; drawing back, the end fell short and then
+// went on, which read as a great bounce. So the width is given the spring's
+// own time, curve and wait, read from the style sheet that gives them to the
+// island's place (`--dock-out`, `--ease-island-out`, and the two for the way
+// back, on the `dock-island` rules in styles.css).
+const DOCK_OUT = { time: "--dock-out", curve: "--ease-island-out", waitMs: 30, otherwiseMs: 500 };
+const DOCK_BACK = { time: "--dock-back", curve: "--ease-island-back", waitMs: 50, otherwiseMs: 620 };
+
 /** Keep the figure and transport continuous across the single layout change.
  * The moving layers start at their currently displayed size on a reversal. */
 const dockResizeMotion = (island: Element) => {
   const figures = island.querySelectorAll(":scope > .island-surface > .island-layer");
   const controls = island.querySelector(':scope > .island-surface > [role="group"]');
+  const words = island.querySelector(":scope > .island-surface > a");
   const animations = new Map<Element, Animation>();
-  const move = (element: Element, from: string, duration: number): Animation => {
+  const move = (element: Element, from: string, timing: KeyframeAnimationOptions): Animation => {
     animations.get(element)?.cancel();
-    const animation = element.animate(
-      [{ transform: from }, { transform: "none" }],
-      { duration, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
-    );
+    const animation = element.animate([{ transform: from }, { transform: "none" }], timing);
     animations.set(element, animation);
     return animation;
   };
   return (oldWidth: number, width: number, oldTail: number, tail: number) => {
-    const duration = width < oldWidth ? 180 : 200;
+    const spring = width < oldWidth ? DOCK_BACK : DOCK_OUT;
+    const styles = getComputedStyle(island);
+    const timing: KeyframeAnimationOptions = {
+      duration: milliseconds(styles.getPropertyValue(spring.time), spring.otherwiseMs),
+      delay: spring.waitMs,
+      // Held at the width it had until the island sets off.
+      fill: "backwards",
+      easing: styles.getPropertyValue(spring.curve).trim() || "ease-out",
+    };
     const figuresMoved = Array.from(figures, (figure) => {
       const scale = new DOMMatrixReadOnly(getComputedStyle(figure).transform).a;
-      return move(figure, `scaleX(${scale * oldWidth / width})`, duration);
+      return move(figure, `scaleX(${scale * oldWidth / width})`, timing);
     });
+    // How far the controls stand, in the new layout, from where they stood.
+    const shift = oldWidth - oldTail - width + tail;
     const controlsMoved = controls
       ? [
           move(
             controls,
-            `translateX(${new DOMMatrixReadOnly(getComputedStyle(controls).transform).e + oldWidth - oldTail - width + tail}px)`,
-            duration,
+            `translateX(${new DOMMatrixReadOnly(getComputedStyle(controls).transform).e + shift}px)`,
+            timing,
           ),
         ]
       : [];
+    // NOTE: the words have the new layout's room at once. Widening, that
+    // room reaches past where the controls are still drawn, and the title
+    // would be read under them and beyond the island's end: it is cut where
+    // the controls stand, and the cut goes with them. Narrowing, the room is
+    // the smaller one already. The cut leaves room above, below and before
+    // the words, where the cover stands out of the island.
+    const maybeCut = words !== null && shift < 0 ? Option.some(words) : Option.none();
+    const wordsCut = Option.match(maybeCut, {
+      onNone: () => [],
+      onSome: (cut) => {
+        animations.get(cut)?.cancel();
+        const animation = cut.animate(
+          [
+            { clipPath: `inset(-1rem ${-shift}px -1rem -1rem)` },
+            { clipPath: "inset(-1rem 0px -1rem -1rem)" },
+          ],
+          timing,
+        );
+        animations.set(cut, animation);
+        return [animation];
+      },
+    });
     // NOTE: the island changes width in the frame the navigation changes,
     // which is the long one: its figure sets off with the rest of the dock,
     // a frame later (see `seenStart.ts`).
-    startWhenSeen([...figuresMoved, ...controlsMoved]);
+    startWhenSeen([...figuresMoved, ...controlsMoved, ...wordsCut]);
   };
 };
 

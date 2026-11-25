@@ -283,7 +283,7 @@ const MORE_CLASS =
   "flex size-11 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full text-muted hover:bg-panel hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent active:bg-tile data-[open]:bg-tile data-[open]:text-ink";
 
 /** Over the whole screen: nothing under it is pressed or scrolled while the menu is open. */
-export const MENU_BACKDROP_CLASS = "fixed inset-0 z-40 touch-none";
+const MENU_BACKDROP_CLASS = "fixed inset-0 z-40 touch-none";
 
 // NOTE: the menu is drawn in the document's body, over everything, and is
 // placed by the component under the row's control. It grows out of the

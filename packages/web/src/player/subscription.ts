@@ -1,4 +1,4 @@
-import { Slider } from "@foldkit/ui";
+import { DragAndDrop, Slider } from "@foldkit/ui";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
@@ -89,4 +89,17 @@ const seekSliderSubscriptions = Subscription.lift({
   toParentMessage: (message) => Message.GotSeekSliderMessage({ message }),
 });
 
-export const subscriptions = Subscription.aggregate(engineSubscriptions, seekSliderSubscriptions);
+/**
+ * A song of the queue taken up by its handle is carried over the whole
+ * document, and one moved with the keys is moved by keys heard there.
+ */
+const queueDragSubscriptions = Subscription.lift(DragAndDrop.subscriptions)<Model, Message>({
+  read: (model) => Option.map(model.maybeSession, (session) => session.queueDrag),
+  toParentMessage: (message) => Message.GotQueueDragMessage({ message }),
+});
+
+export const subscriptions = Subscription.aggregate(
+  engineSubscriptions,
+  seekSliderSubscriptions,
+  queueDragSubscriptions,
+);

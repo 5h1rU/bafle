@@ -336,16 +336,18 @@
   color: var(--color-muted);
   cursor: pointer;
   touch-action: manipulation;
-  transition: background-color 150ms, color 150ms;
 }
 
 .player-action:active {
   background-color: var(--color-tile);
 }
 
-.player-action:is([aria-expanded="true"], [data-open]) {
+/* NOTE: lit as what it opens comes, and unlit at once when that is closed:
+   a control that took its time to go out read as one still open. */
+.player-action[data-lit] {
   color: var(--color-accent);
   background-color: var(--color-accent-wash);
+  transition: background-color 120ms, color 120ms;
 }
 
 .player-action:focus-visible {
@@ -363,14 +365,21 @@
 }
 
 /* The main control is pressed in under the finger and comes back when it is
-   let go, as the island swells under a press. */
+   let go, as the island swells under a press. The two beside it answer a
+   press the same way, by their shape alone: no ground comes under them. */
 @media (prefers-reduced-motion: no-preference) {
-  .player-main {
+  .player-main,
+  .player-step {
     transition: scale 280ms var(--ease-island-out);
   }
 
   .player-main:active {
     scale: 0.935;
+    transition: scale 85ms ease-out;
+  }
+
+  .player-step:not([aria-disabled="true"]):active {
+    scale: 0.86;
     transition: scale 85ms ease-out;
   }
 }
@@ -410,6 +419,86 @@
 
 .player-details > .player-face-heading {
   margin-bottom: 0.875rem;
+}
+
+/* MOVING A SONG OF THE QUEUE
+
+   Every row ends in a handle, where a list's row has the song's length. A
+   song is taken up by it and carried: the row it came from grows dim, the
+   song is drawn under the finger that carries it, and a line shows where it
+   would be put down. */
+.queue-grip {
+  display: flex;
+  width: 2.75rem;
+  height: 3.5625rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-right: -0.5rem;
+  border-radius: 0.5rem;
+  color: var(--color-muted);
+  cursor: grab;
+}
+
+.queue-grip:active {
+  color: var(--color-ink);
+  cursor: grabbing;
+}
+
+.queue-grip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.queue-row[data-moved] > .track-row-surface {
+  opacity: 0.35;
+}
+
+/* NOTE: the line is drawn in the row's own box, over its top or under its
+   foot, and takes no room: rows that moved to show the place would move
+   what the place is measured by. */
+.queue-row[data-put="before"] {
+  box-shadow: inset 0 2px 0 var(--color-accent);
+}
+
+.queue-row[data-put="after"] {
+  box-shadow: inset 0 -2px 0 var(--color-accent);
+}
+
+/* The song being carried goes up and down only: it is placed by the height
+   of the finger and, across, where the list is. The lane is the width of the
+   page the sheet is drawn over, so beside the navigation on a wide screen. */
+.queue-ghost-lane {
+  position: fixed;
+  z-index: 9999;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+@media (width >= 48rem) {
+  .queue-ghost-lane {
+    left: 15rem;
+  }
+}
+
+.queue-ghost {
+  overflow: hidden;
+  width: min(calc(100% - 2rem), 30rem);
+  padding: 1rem 1.125rem;
+  border-radius: 0.875rem;
+  color: var(--color-ink);
+  background-color: var(--color-canvas);
+  box-shadow: 0 0 0 1px var(--color-line), 0 0.75rem 2rem rgb(22 15 21 / 28%);
+  font-size: 1.125rem;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  translate: 0 -50%;
 }
 
 .player-queue {

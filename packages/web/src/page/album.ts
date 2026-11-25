@@ -1,6 +1,5 @@
 import type { AlbumId } from "@bafle/domain/Catalog/Album";
 import type { Album } from "@bafle/domain/Catalog/FullAlbum";
-import { Button } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
@@ -8,9 +7,7 @@ import { AsyncData } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message.ts";
 import type { AlbumData } from "../model.ts";
-import { isPlayable } from "../player/model.ts";
 import { albumCoverView, albumHeadFlightAttributes, artworkView } from "../view/artwork.ts";
-import { playIcon } from "../view/icon.ts";
 import {
   PAGE_IDS,
   type Presence,
@@ -111,18 +108,10 @@ const foundView = (
         h.p([h.Class("album-songs text-muted")], ["The catalog lists no songs for this album."]),
       onNonEmpty: (tracks) =>
         h.section([h.Class("album-songs")], [
-          h.div([h.Class("album-songs-heading")], [
-            h.h2([h.Id("album-songs"), h.Class(SECTION_HEADING_CLASS)], [SONGS]),
-            Option.match(Array.findFirst(tracks, isPlayable), {
-              onNone: () => h.empty,
-              onSome: (first) =>
-                Button.view({
-                  onClick: Message.ClickedPlayAlbum({ firstTrackId: first.id }),
-                  toView: (attrs) =>
-                    h.button([...attrs.button, h.Class("album-play")], [playIcon("size-4"), "Play album"]),
-                }, h),
-            }),
-          ]),
+          // NOTE: there is no control here to play the album. Any row does
+          // it: pressed, it plays its song and the songs under it are what
+          // comes next (playback rule 1).
+          h.h2([h.Id("album-songs"), h.Class(SECTION_HEADING_CLASS)], [SONGS]),
           ...trackListView("album-songs", "Ranked", tracks, { ...context, albumArtistId: album.artist.id }, h),
         ]),
     }),

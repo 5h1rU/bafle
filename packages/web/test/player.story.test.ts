@@ -1,5 +1,5 @@
 import type { TrackSummary } from "@bafle/domain/Catalog/Track";
-import { Slider } from "@foldkit/ui";
+import { DragAndDrop, Slider } from "@foldkit/ui";
 import * as Option from "effect/Option";
 import { Command, given, message, model, story } from "foldkit/story";
 import { describe, expect, test } from "vitest";
@@ -643,23 +643,71 @@ describe("the queue", () => {
     expect(session(after(jump.model, Message.ClickedPrevious())).current.id).toBe(explicitTrack.id);
   });
 
-  test("editing upcoming songs leaves playback alone and ignores an edit overtaken by another", () => {
-    const editing = after(sounding, Message.ClickedQueue(), Message.ClickedEditQueue());
-    const moved = Player.update(editing, Message.ClickedQueueEdit({
-      index: 1, trackId: thirdTrack.id, action: "Earlier",
-    }));
-    expect(asked(moved)).toEqual([]);
-    expect(session(moved.model)).toEqual({ ...session(editing), later: [thirdTrack, explicitTrack] });
-    const stale = after(moved.model, Message.ClickedQueueEdit({
-      index: 1, trackId: thirdTrack.id, action: "Remove",
-    }));
-    expect(stale).toBe(moved.model);
-    const removed = Player.update(stale, Message.ClickedQueueEdit({
-      index: 0, trackId: thirdTrack.id, action: "Remove",
-    }));
-    expect(asked(removed)).toEqual([]);
-    expect(session(removed.model).later).toEqual([explicitTrack]);
-    expect(session(after(removed.model, Message.ClickedNext())).current.id).toBe(explicitTrack.id);
+  test("a song of the queue carried to another place: the order changes, and nothing sounds differently", () => {
+    const drag = (dragMessage: DragAndDrop.Message) =>
+      Message.GotQueueDragMessage({ message: dragMessage });
+    const put = (index: number) =>
+      Option.some({ containerId: Player.QUEUE_CONTAINER_ID, index });
+    const open = after(sounding, Message.ClickedQueue());
+    expect(session(open).later).toEqual([explicitTrack, thirdTrack]);
+
+    // Taken up by its handle and carried over the row above: it is put before that row.
+    const carriedUp = after(
+      open,
+      drag(DragAndDrop.Message.PressedDraggable({
+        itemId: `${thirdTrack.id}/0`, containerId: Player.QUEUE_CONTAINER_ID, index: 1, screenX: 0, screenY: 100,
+      })),
+      drag(DragAndDrop.Message.MovedPointer({
+        screenX: 0, screenY: 40, clientX: 0, clientY: 40, maybeDropTarget: put(0),
+      })),
+    );
+    const droppedUp = Player.update(carriedUp, drag(DragAndDrop.Message.ReleasedPointer()));
+    expect(asked(droppedUp)).toEqual([]);
+    expect(session(droppedUp.model)).toEqual({ ...session(open), later: [thirdTrack, explicitTrack] });
+
+    // Carried down past the last row: the place is counted among all the rows, itself among them.
+    const carriedDown = after(
+      droppedUp.model,
+      drag(DragAndDrop.Message.PressedDraggable({
+        itemId: `${thirdTrack.id}/0`, containerId: Player.QUEUE_CONTAINER_ID, index: 0, screenX: 0, screenY: 40,
+      })),
+      drag(DragAndDrop.Message.MovedPointer({
+        screenX: 0, screenY: 160, clientX: 0, clientY: 160, maybeDropTarget: put(2),
+      })),
+      drag(DragAndDrop.Message.ReleasedPointer()),
+    );
+    expect(session(carriedDown).later).toEqual([explicitTrack, thirdTrack]);
+
+    // Let go where there is nowhere to put it: the queue is as it was.
+    const letGo = after(
+      carriedDown,
+      drag(DragAndDrop.Message.PressedDraggable({
+        itemId: `${explicitTrack.id}/0`, containerId: Player.QUEUE_CONTAINER_ID, index: 0, screenX: 0, screenY: 40,
+      })),
+      drag(DragAndDrop.Message.MovedPointer({
+        screenX: 0, screenY: 400, clientX: 0, clientY: 400, maybeDropTarget: Option.none(),
+      })),
+      drag(DragAndDrop.Message.ReleasedPointer()),
+    );
+    expect(session(letGo).later).toEqual([explicitTrack, thirdTrack]);
+    expect(session(after(letGo, Message.ClickedNext())).current.id).toBe(explicitTrack.id);
+  });
+
+  test("a song of the queue moved with the keys: its place is counted among the others", () => {
+    const drag = (dragMessage: DragAndDrop.Message) =>
+      Message.GotQueueDragMessage({ message: dragMessage });
+    const open = after(sounding, Message.ClickedQueue());
+    const moved = after(
+      open,
+      drag(DragAndDrop.Message.ActivatedKeyboardDrag({
+        itemId: `${explicitTrack.id}/0`, containerId: Player.QUEUE_CONTAINER_ID, index: 0,
+      })),
+      drag(DragAndDrop.Message.CompletedResolveKeyboardMove({
+        targetContainerId: Player.QUEUE_CONTAINER_ID, targetIndex: 1,
+      })),
+      drag(DragAndDrop.Message.ConfirmedKeyboardDrop()),
+    );
+    expect(session(moved).later).toEqual([thirdTrack, explicitTrack]);
   });
 
   test("at the end of a track the next one starts by itself, from acknowledged", () => {

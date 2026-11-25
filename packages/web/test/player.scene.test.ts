@@ -15,7 +15,7 @@ import {
   tap,
   text,
 } from "foldkit/scene";
-import { Animation, Menu } from "@foldkit/ui";
+import { DragAndDrop, Animation, Menu } from "@foldkit/ui";
 import { Lazy } from "foldkit/test";
 import { describe, expect, test } from "vitest";
 import { Catalog } from "../src/catalog.ts";
@@ -817,8 +817,23 @@ describe("the player expanded: the page of the track it holds", () => {
     expect(transition(onQueue, player(Player.Message.ClickedQueue()))).toEqual({
       types: [PLAYER_QUEUE_CLOSES, `track-cover-${track.id}`],
     });
-    // Editing the queue is the same face, and a song chosen from it is another track.
-    expect(transition(onQueue, player(Player.Message.ClickedEditQueue()))).toBe(false);
+    // Taking up a song of the queue is the same face, and a song chosen from it is another track.
+    expect(
+      transition(
+        onQueue,
+        player(
+          Player.Message.GotQueueDragMessage({
+            message: DragAndDrop.Message.PressedDraggable({
+              itemId: `${explicitTrack.id}/0`,
+              containerId: Player.QUEUE_CONTAINER_ID,
+              index: 0,
+              screenX: 0,
+              screenY: 0,
+            }),
+          }),
+        ),
+      ),
+    ).toBe(false);
     expect(transition(expandedOnFirst, said(1, "Ended"))).toBe(false);
     expect(transition(expandedOnFirst, said(1, "Sounding", { positionSeconds: 14 }))).toBe(false);
   });
@@ -860,6 +875,20 @@ describe("the expanded player is on a sheet, and the sheet can be swiped away", 
     expect(names(back)).toEqual([]);
     expect(back.model.playerSheet.reach).toBe("Whole");
     expect(back.model.route).toEqual(expandedOnFirst.route);
+  });
+
+  test("let go of on its way down, the player closes from where its sheet is, and is seen to draw back into its island", () => {
+    const letGo = update(swiping, sheet(Sheet.Message.LetGo()));
+    // It closes as its handle closes it, back through the history, with part of the sheet still on screen.
+    expect(names(letGo)).toEqual(["NavigateBack"]);
+    expect(letGo.model.playerSheet.reach).toBe("Partly");
+    // So the page change that follows is a transition: the sheet shrinks into the island from there.
+    const closed = after(letGo.model, changedUrl("/new"));
+    expect(
+      viewTransition({ previousModel: letGo.model, model: closed, message: changedUrl("/new") }),
+    ).toEqual({ types: [PLAYER_CLOSES, `track-cover-${track.id}`] });
+    // A sheet that is whole was not on its way: letting go of it is nothing.
+    expect(names(update(expandedOnFirst, sheet(Sheet.Message.LetGo())))).toEqual([]);
   });
 
   test("swiped off the screen, the player closes the way its control closes it: back through the history", () => {

@@ -23,7 +23,7 @@ import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as String from "effect/String";
-import type { Menu } from "@foldkit/ui";
+import { Menu } from "@foldkit/ui";
 import { AsyncData, type Runtime, Update } from "foldkit";
 import { UrlRequest } from "foldkit/navigation";
 import { modifyFields } from "foldkit/struct";
@@ -1088,7 +1088,7 @@ const leavePlayer: Step = (model) =>
     onSome: () => ({ model, commands: [NavigateBack()] }),
   });
 
-// NOTE: the sheet says two things, and both close the player. Swiped off
+// NOTE: the sheet says three things, and each closes the player. Swiped off
 // the screen (`Left`), there is nothing left to see go: `viewTransition`
 // reads that from the sheet's reach and asks for no transition. Asked to go
 // with Escape (`RequestedClose`), its origin survives the history callback
@@ -1103,6 +1103,11 @@ const foldPlayerSheet = Update.foldChild({
   foldOutMessage: (said: Sheet.OutMessage): Step =>
     Sheet.OutMessage.match<Step>(said, {
       Left: () => leavePlayer,
+      // Let go of on its way down, the sheet is taken from where it is: the
+      // player closes as its handle closes it, and is seen to draw back into
+      // its island from there, instead of sliding on off the foot of the
+      // screen past an island it has nothing to do with.
+      Leaving: () => closePlayer,
       RequestedClose: () => (model) =>
         model.playerSheet.dismissedByKeyboard ? leavePlayer(model) : closePlayer(model),
     }),
@@ -1414,8 +1419,15 @@ const respond = (model: Model, message: Message) =>
     // NOTE: the expanded player has no navigation under it on a narrow
     // screen, so scrolling it draws nothing back: the page behind it finds
     // its navigation as it was left.
+    // NOTE: the menu draws back to make room: the island comes down into
+    // the row it leaves. With nothing played there is no island, and a menu
+    // drawn back would leave that row empty for nothing, so it stays whole
+    // however far the page is scrolled.
     ScrolledDown: () => ({
-      model: isPlayerExpanded(model) ? model : withNavigation("Minimized")(model),
+      model:
+        isPlayerExpanded(model) || !Player.hasSession(model.player)
+          ? model
+          : withNavigation("Minimized")(model),
     }),
 
     ScrolledToTop: () => ({
@@ -1430,12 +1442,6 @@ const respond = (model: Model, message: Message) =>
     // NOTE: playing is no navigation, with one exception. No navigation
     // Message reaches the player, and the player moves the route only while
     // it is expanded, when its page is the page of the track it holds.
-    ClickedPlayAlbum: ({ firstTrackId }) =>
-      Update.combine(model, [
-        foldPlayerChoice({ trackId: firstTrackId, list: albumTracksInDocument(model), restart: true }),
-        keepUpWithPlayer(model),
-      ]),
-
     ClickedPlayTrack: ({ trackId, from }) =>
       Update.combine(model, [
         foldPlayerChoice({ trackId, list: listPlayedFrom(model, from, trackId) }),
@@ -1509,8 +1515,23 @@ const launchOnceShown: Step = (model) => ({
       : model,
 });
 
+/**
+ * The menu under the player's controls belongs to the expanded player. Once
+ * the player is its island again, by whatever way it got there, a menu left
+ * open is closed: opened again, the player is found as a player is opened,
+ * with nothing standing over it.
+ */
+const closePlayerMenuOnceCollapsed: Step = (model) =>
+  !isPlayerExpanded(model) && Player.isMoreMenuOpen(model.player)
+    ? foldPlayer(Player.Message.GotMoreMenuMessage({ message: Menu.Message.Closed() }))(model)
+    : { model };
+
 export const update = (model: Model, message: Message) =>
-  Update.combine(model, [(current) => respond(current, message), launchOnceShown]);
+  Update.combine(model, [
+    (current) => respond(current, message),
+    closePlayerMenuOnceCollapsed,
+    launchOnceShown,
+  ]);
 
 // INIT
 

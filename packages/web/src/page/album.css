@@ -139,20 +139,39 @@
 
 /* THE HEAD DRAWS BACK TO THE BAR
 
-   Scrolled, the head does not leave and a bar take its place: the cover
-   itself draws back to the thumbnail in the bar, by the scroll and not by a
-   clock. It is placed in the head, and the head goes up with the page, so
-   it is brought down the head as fast as the head goes up: it stays at the
-   top of the screen, growing smaller, and comes to rest in the strip at the
-   head's foot just as that strip reaches the top. On the way the head's
-   ground turns from the night under the cover to the bar's own colour, so
-   that the strip that arrives is the bar already. The bar proper, with its
-   ground and a thumbnail in that very place, takes over at that moment and
-   not before: come any sooner, it would lie over a cover still on its way,
-   and there would be two to see. From then on the head goes up behind it.
+   Scrolled, the head does not leave and a bar take its place: what is in
+   it goes to the bar, by the scroll and not by a clock.
 
-   The large title is too large to follow the cover: it goes before it gets
-   under the way back, and the title in the bar comes as the cover lands. */
+   The cover is never seen to shrink. For all of the way but the very last
+   it keeps its size and goes up with the page, as any picture scrolled
+   past does, and only grows dim, until it is clear. Then, as the strip at
+   the head's foot is about to reach the top of the screen and be the bar,
+   the thumbnail comes in its place there, a little large, and settles to
+   its size and its brightness. A cover that grew smaller while it could
+   still be seen read as a picture being squeezed, however late it began and
+   however dim it was; one that goes and is then in the bar reads as the
+   picture giving the page over and taking its place there.
+
+   The words go up with the page, which is the scroll's own doing, and grow
+   smaller towards the place the bar's title has, beside the thumbnail,
+   where they give way to it. So the title is seen to rise and settle in the
+   bar. The bar's own title is one line and the head's can be three, so the
+   one is not made out of the other: they cross where they meet.
+
+   The head's ground turns from the night under the cover to the bar's own
+   colour on the way, so that the strip that arrives is the bar already. The
+   bar proper, with its ground and a thumbnail in that very place, takes
+   over at that moment and not before: come any sooner it would lie over a
+   cover still on its way, and there would be two to see. */
+#album-page {
+  /* How small the head's words are when they reach the bar, and how far
+     across they have gone: to where the bar's title stands. */
+  --album-caption-lands-at: 0.3;
+  --album-caption-shift: calc(
+    var(--album-thumb-left) + var(--album-thumb) + .625rem - var(--album-gutter) * var(--album-caption-lands-at)
+  );
+}
+
 @supports (animation-timeline: view()) and (timeline-scope: --album-cover) {
   /* NOTE: the timeline is measured against the whole of the page's box. Left
      to itself it would be measured inside the page's `scroll-padding`, which
@@ -176,30 +195,63 @@
     .album-hero { animation-name: album-ground-turns; }
     .album-hero .album-cover { animation-name: album-cover-draws-back; }
     .album-hero::after { animation-name: album-veil-lifts; }
-    .album-caption { animation-name: album-caption-goes; }
+    .album-caption { transform-origin: left bottom; animation-name: album-caption-rises; }
     .album-compact > :last-child {
       animation-name: album-compact-title-comes;
       animation-timing-function: linear;
     }
   }
   @keyframes album-ground-turns {
-    0%, 55% { background-color: rgb(22 15 21); }
+    0%, 68% { background-color: rgb(22 15 21); }
     100% { background-color: var(--color-panel); }
   }
+  /* At its own size, growing dim, for all of the way but the very last: it
+     is clear by the time the strip at the head's foot is about to be the
+     bar. It is put in the thumbnail's place while it is clear, between two
+     frames a hair apart, so that nothing is seen to shrink: a cover on its
+     way from the size of the screen to the size of a thumbnail is an ugly
+     thing at any opacity. What is seen is the last of it only: the
+     thumbnail, a little large, coming to its size and its brightness as the
+     bar arrives. */
   @keyframes album-cover-draws-back {
-    to {
+    0% { opacity: 1; }
+    90% {
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      opacity: 0;
+    }
+    90.5% {
+      top: calc(100% - (var(--album-bar-inner) + var(--album-thumb) * 1.25) / 2);
+      left: calc(var(--album-thumb-left) - var(--album-thumb) * .125);
+      width: calc(var(--album-thumb) * 1.25);
+      height: calc(var(--album-thumb) * 1.25);
+      border-radius: .375rem;
+      opacity: 0;
+    }
+    100% {
       top: calc(100% - (var(--album-bar-inner) + var(--album-thumb)) / 2);
       left: var(--album-thumb-left);
       width: var(--album-thumb);
       height: var(--album-thumb);
       border-radius: .375rem;
+      opacity: 1;
     }
   }
-  @keyframes album-veil-lifts { 45%, 100% { opacity: 0; } }
-  @keyframes album-caption-goes { 0%, 12% { opacity: 1; } 42%, 100% { opacity: 0; } }
+  @keyframes album-veil-lifts { 0%, 60% { opacity: 1; } 90%, 100% { opacity: 0; } }
+  @keyframes album-caption-rises {
+    0%, 10% { transform: none; opacity: 1; }
+    64% { opacity: 1; }
+    86%, 100% {
+      transform: translateX(var(--album-caption-shift)) scale(var(--album-caption-lands-at));
+      opacity: 0;
+    }
+  }
   @keyframes album-compact-title-comes {
-    0%, 88% { opacity: 0; translate: 0 .375rem; }
-    100% { opacity: 1; translate: 0 0; }
+    0%, 84% { opacity: 0; }
+    100% { opacity: 1; }
   }
 }
 
@@ -209,24 +261,16 @@
   max-width: 64rem;
   margin-inline: auto;
 }
-.album-songs:has(li:nth-child(9)) { min-height: calc(100dvh - var(--album-bar-height)); }
-.album-songs-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 3rem; }
-.album-play {
-  display: inline-flex;
-  gap: .4rem;
-  align-items: center;
-  min-height: 2.75rem;
-  padding: 0 .95rem;
-  border-radius: 2rem;
-  background: var(--color-accent-wash);
-  color: var(--color-accent);
-  font-size: .8125rem;
-  font-weight: 650;
-  cursor: pointer;
-}
-.album-play:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-.album-play:active { background: var(--color-tile); }
-.album-songs ol { margin-top: 0; }
+/* NOTE: every album's songs are at least as tall as the screen under the
+   bar, however few they are. The head draws back to the bar by the scroll,
+   and a page too short to be scrolled that far would be left with its head
+   part of the way there for good: its cover on its way to the bar, and the
+   bar's title half come. */
+.album-songs { min-height: calc(100dvh - var(--album-bar-height)); }
+.album-songs > h2 { display: flex; align-items: center; min-height: 3rem; }
+/* NOTE: a little room between the heading and the first row: a row that is
+   lit has a surface with a top of its own. */
+.album-songs ol { margin-top: .25rem; }
 .album-songs .track-row-surface { min-height: 3.25rem; }
 .album-songs .track-row-surface > :first-child { min-height: 3.25rem; gap: .75rem; }
 .album-songs .track-row-surface > :first-child > span:first-child { width: 1.375rem; font-size: .8125rem; text-align: left; }

@@ -56,6 +56,11 @@ export const init = ({ id, edge = "Bottom", entrance = "Slides" }: InitConfig): 
 export const Message = defineMessageUnion({
   /** The document's word on how much of the sheet is on screen. */
   ChangedReach: { reach: Reach },
+  /**
+   * The listener lifted their finger off a sheet that was on its way off the
+   * screen: far enough along, or fast enough, that it is going.
+   */
+  LetGo: {},
   PressedEscape: {},
   ClickedClose: {},
   CompletedSlideAway: {},
@@ -71,6 +76,13 @@ export type Message = typeof Message.Type;
  */
 export const OutMessage = defineMessageUnion({
   Left: {},
+  /**
+   * The listener let go of the sheet on its way off the screen, and part of
+   * it is still on it. It would go on to leave by itself, and `Left` would
+   * follow. An owner that has somewhere of its own for the sheet to go, as a
+   * player has its island, can take it from where it is instead.
+   */
+  Leaving: {},
   RequestedClose: {},
 });
 export type OutMessage = typeof OutMessage.Type;

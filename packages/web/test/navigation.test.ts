@@ -9,11 +9,13 @@ import {
   selector,
   Subscription,
 } from "foldkit/scene";
+import * as Option from "effect/Option";
 import { describe, expect, test } from "vitest";
 import { FocusNavigation } from "../src/command.ts";
 import { update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import type { Model } from "../src/model.ts";
+import * as Player from "../src/player/index.ts";
 import * as Sheet from "../src/sheet/index.ts";
 import {
   DRAWS_BACK_AFTER_PIXELS,
@@ -47,11 +49,13 @@ const shell = selector("[data-navigation]");
 const navigation = role("navigation", { name: "Main" });
 const circle = role("button", { name: "Show navigation" });
 
-/** New on screen, scrolled down: the menu has drawn back. */
-const drawnBack: Model = after(onNew, Message.ScrolledDown());
+/** New on screen with its first track playing: there is an island. */
+const withIsland: Model = after(onNew, Message.ClickedPlayTrack({ trackId: track.id, from: "New" }));
 
-/** The same, with the first track of New playing. */
-const playing: Model = after(drawnBack, Message.ClickedPlayTrack({ trackId: track.id, from: "New" }));
+/** The same, scrolled down: the menu has drawn back, and the island is in its row. */
+const drawnBack: Model = after(withIsland, Message.ScrolledDown());
+
+const playing: Model = drawnBack;
 
 /** The island pressed: the player expanded on the track it holds. */
 const expanded: Model = after(
@@ -61,9 +65,31 @@ const expanded: Model = after(
   changedUrl(trackPath(track.id)),
 );
 
+/** The island entered the document: what is bound to its pieces ran. */
+// NOTE: a function, not a step kept and used again: the step takes the
+// Mounts it is given out of its own list as it finds them.
+const islandEnters = () =>
+  Mount.resolveAll(
+    [Player.DrawIslandFigure, Player.Message.CompletedDrawIslandFigure()],
+    [Player.FollowIslandPress, Player.Message.CompletedFollowIslandPress()],
+    [Player.StartIslandLight, Player.Message.CompletedStartIslandLight()],
+    [
+      Player.MeasureTitle,
+      Player.Message.MeasuredTitle({ placePixels: 0, maybeTravelPixels: Option.none() }),
+    ],
+  );
+
 describe("the navigation draws back as a page goes down, and comes out again", () => {
   test("it starts whole", () => {
     expect(onNew.navigation).toBe("Open");
+  });
+
+  test("with nothing played there is no island to make room for: it stays whole however far the page goes down", () => {
+    expect(after(onNew, Message.ScrolledDown()).navigation).toBe("Open");
+    expect(after(onHome, Message.ScrolledDown(), Message.ScrolledDown()).navigation).toBe("Open");
+    // Once something is played there is an island, and the next way down draws the menu back.
+    expect(after(onNew, Message.ScrolledDown()).navigation).toBe("Open");
+    expect(after(withIsland, Message.ScrolledDown()).navigation).toBe("Minimized");
   });
 
   test("a page scrolled down draws it back; the top of a page brings it out", () => {
@@ -149,7 +175,8 @@ describe("the navigation on screen", () => {
   test("the shell says how it stands, for the menu and the island to read", () =>
     scene(
       app,
-      given(onNew),
+      given(withIsland),
+      islandEnters(),
       see(shell).toHaveAttr("data-navigation", "open"),
       Subscription.emit(Message.ScrolledDown()),
       see(shell).toHaveAttr("data-navigation", "minimized"),
@@ -161,6 +188,7 @@ describe("the navigation on screen", () => {
     scene(
       app,
       given(drawnBack),
+      islandEnters(),
       inside(navigation, see(circle).toHaveAttr("data-section", "New")),
       click(circle),
       Command.expectExact(FocusNavigation),
@@ -176,6 +204,7 @@ describe("the navigation on screen", () => {
     scene(
       app,
       given(drawnBack),
+      islandEnters(),
       inside(
         navigation,
         // The item for where the listener is: gone as a link, its icon still drawn.

@@ -117,6 +117,13 @@
    a browser has no `linear()`, a curve that overshoots a little. */
 :root {
   --island-shadow: 0 6px 16px rgb(70 32 63 / 0.18);
+  /* How long the dock's springs are given: the times the curves below were
+     read at. Each curve is a spring written out over its whole time, so a
+     shorter time does not make a quicker spring of it, it plays the same
+     spring fast: at half these the island was past its place and back in a
+     tenth of a second, and there was no give to be seen in it. */
+  --dock-out: 500ms;
+  --dock-back: 620ms;
   /* For a part that moves within the island: it eases both ways, evenly. */
   --ease-dock-settle: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-island-out: cubic-bezier(0.3, 1.25, 0.5, 1);
@@ -192,26 +199,26 @@
   }
   @media (width < 48rem) and (prefers-reduced-motion: no-preference) {
     [data-input="Pointer"] {
-      .dock-surface { transition: clip-path 200ms var(--ease-menu-out), opacity 140ms ease-out; }
-      .dock-circle, .dock-name, .dock-item:not(.dock-current) { transition: opacity 140ms ease-out; }
+      .dock-surface { transition: clip-path var(--dock-out) var(--ease-menu-out), opacity 180ms ease-out; }
+      .dock-circle, .dock-name, .dock-item:not(.dock-current) { transition: opacity 180ms ease-out; }
       .dock-current, .dock-current svg, .dock-search, .dock-search svg {
-        transition: transform 200ms var(--ease-menu-out);
+        transition: transform var(--dock-out) var(--ease-menu-out);
       }
       /* The mark goes to the item chosen on the menu's own spring, given
          longer since it can have three places to cross. */
       .dock-mark { transition: transform 340ms var(--ease-menu-out), opacity 140ms ease-out; }
-      .dock-island { transition: transform 250ms var(--ease-island-out); }
+      .dock-island { transition: transform var(--dock-out) var(--ease-island-out) 30ms; }
       /* Next has its place in the tail from the first frame, and the tail
          is not there yet: it comes in once the island has widened to it. */
-      .dock-island-next > * { transition: opacity 120ms ease-out 80ms; }
+      .dock-island-next > * { transition: opacity 140ms ease-out 110ms; }
     }
     [data-input="Pointer"][data-navigation="minimized"] {
-      .dock-surface { transition: clip-path 180ms var(--ease-menu-back), opacity 80ms ease-out 100ms; }
-      .dock-item:not(.dock-current) { transition: opacity 100ms ease-out, visibility 0s 100ms; }
+      .dock-surface { transition: clip-path var(--dock-back) var(--ease-menu-back), opacity 120ms ease-out 200ms; }
+      .dock-item:not(.dock-current) { transition: opacity 140ms ease-out, visibility 0s 140ms; }
       .dock-current, .dock-current svg, .dock-search, .dock-search svg {
-        transition: transform 180ms var(--ease-menu-back);
+        transition: transform var(--dock-back) var(--ease-menu-back);
       }
-      .dock-island { transition: transform 250ms var(--ease-island-back); }
+      .dock-island { transition: transform var(--dock-back) var(--ease-island-back) 50ms; }
     }
   }
 }
