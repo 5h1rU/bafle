@@ -395,7 +395,7 @@ describe("seeking", () => {
       message(said(2, "Sounding", { positionSeconds: 22, maybeDurationSeconds: Option.some(30) })),
       lightChangesPace(),
       model((player) => {
-        expect(session(player).seek).toEqual(Seek.Settled());
+        expect(session(player).seek).toEqual(Seek.Settled({ justJumped: true }));
         expect(session(player).positionSeconds).toBe(22);
         expect(playback(player)).toEqual(Playback.Sounding());
       }),
@@ -439,12 +439,21 @@ describe("seeking", () => {
     expect(asked(stepped)).toEqual([["SeekPlayback", { order: 2, positionSeconds: 13 }]]);
   });
 
+  test("a seek acknowledged within one frame jumps, then the next playback tick glides", () => {
+    const key = Message.GotSeekSliderMessage({
+      message: Slider.Message.PressedKeyboardNavigation({ direction: "StepIncrement", value: 12 }),
+    });
+    const jumped = after(sounding, key, said(2, "Sounding", { positionSeconds: 13 }));
+    expect(session(jumped).seek).toEqual(Seek.Settled({ justJumped: true }));
+    expect(session(after(jumped, said(2, "Sounding", { positionSeconds: 14 }))).seek).toEqual(Seek.Settled({}));
+  });
+
   test("a drag given up with Escape asks nothing and leaves the position where the engine has it", () => {
     const cancelled = Player.update(
       after(dragging, draggedTo(25)),
       Message.GotSeekSliderMessage({ message: Slider.Message.CancelledDrag() }),
     );
-    expect(session(cancelled.model).seek).toEqual(Seek.Settled());
+    expect(session(cancelled.model).seek).toEqual(Seek.Settled({}));
     expect(asked(cancelled)).toEqual([]);
     expect(Player.shownPositionSeconds(session(cancelled.model))).toBe(12);
   });
@@ -576,7 +585,7 @@ describe("what must not strand the player while a source is replaced", () => {
     expect(playback(moved.model)).toEqual(Playback.Recovering());
     // The wish is kept as the place to start from.
     expect(session(moved.model).positionSeconds).toBe(13);
-    expect(session(moved.model).seek).toEqual(Seek.Settled());
+    expect(session(moved.model).seek).toEqual(Seek.Settled({}));
   });
 
   test("the catalog's answer still counts after it, and the fresh source starts from where the bar was put", () => {

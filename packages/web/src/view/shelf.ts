@@ -132,7 +132,7 @@ const tileContentView = (
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => [
   h.div(
-    [h.Class("relative"), h.Style(tile.flightStyle)],
+    [h.Class("catalog-art relative"), h.Style(tile.flightStyle)],
     [
       artworkView(tile.maybeArtwork, shape, "medium", h),
       tile.isOpening

@@ -93,6 +93,7 @@ import {
   urlToAppRoute,
 } from "./route.ts";
 import { type RowAction, RowMenu, type RowRef, rowMenuId, rowMenuIn } from "./rowMenu.ts";
+import { CHOOSE_TRACK, coverTransitionName } from "./view/artwork.ts";
 import { pageIdOf } from "./view/layout.ts";
 
 /** What the app's Commands and Subscriptions need from the runtime. */
@@ -959,8 +960,8 @@ const leavePlayer: Step = (model) =>
 // NOTE: the sheet says two things, and both close the player. Swiped off
 // the screen (`Left`), there is nothing left to see go: `viewTransition`
 // reads that from the sheet's reach and asks for no transition. Asked to go
-// with Escape (`RequestedClose`), it is still whole, and shrinks back into
-// the island as it does for its close control.
+// with Escape (`RequestedClose`), its origin survives the history callback
+// so the keyboard dismisses the sheet immediately.
 const foldPlayerSheet = Update.foldChild({
   update: Sheet.update,
   read: (model: Model) => Option.some(model.playerSheet),
@@ -969,9 +970,10 @@ const foldPlayerSheet = Update.foldChild({
   toParentMessage: (message: Sheet.Message): Message =>
     Message.GotPlayerSheetMessage({ message }),
   foldOutMessage: (said: Sheet.OutMessage): Step =>
-    Sheet.OutMessage.match(said, {
+    Sheet.OutMessage.match<Step>(said, {
       Left: () => leavePlayer,
-      RequestedClose: () => closePlayer,
+      RequestedClose: () => (model) =>
+        model.playerSheet.dismissedByKeyboard ? leavePlayer(model) : closePlayer(model),
     }),
 });
 
@@ -1375,18 +1377,18 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   if (wasExpanded && isExpanded) {
     return false;
   }
-  const isAsked =
-    !isSamePage(previousModel.route, model.route) ||
-    Player.choseAnotherTrack(previousModel.player, model.player);
-  if (!isAsked || wasExpanded === isExpanded) {
-    return isAsked;
+  if (wasExpanded === isExpanded) {
+    return Option.match(Player.maybeChosenTrackId(previousModel.player, model.player), {
+      onNone: () => !isSamePage(previousModel.route, model.route),
+      onSome: (id) => ({ types: [CHOOSE_TRACK, coverTransitionName(id)] }),
+    });
   }
   // NOTE: a sheet the listener swiped off the screen has already gone, and
   // the page behind it is what they see: there is nothing to shrink back
   // into the island, and a transition would bring the sheet back to do it.
   // It is read from the Model as it is now, since the sheet's last word and
   // the page change it caused can reach one frame together.
-  if (wasExpanded && model.playerSheet.reach === "Gone") {
+  if (wasExpanded && (model.playerSheet.reach === "Gone" || model.playerSheet.dismissedByKeyboard)) {
     return false;
   }
   // NOTE: opening and closing the player are told apart by name, since the

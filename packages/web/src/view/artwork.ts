@@ -75,7 +75,7 @@ const headPictureView = (
 ): Html =>
   h.div(
     [
-      h.Class(clsx("relative aspect-square overflow-hidden bg-tile", shapeClass)),
+      h.Class(clsx("catalog-art relative aspect-square overflow-hidden bg-tile", shapeClass)),
       h.Style(flightStyle),
     ],
     Option.match(maybeArtwork, {
@@ -154,6 +154,18 @@ const ident = (id: string): string =>
  */
 export const coverTransitionName = (trackId: TrackId): string =>
   `track-cover-${ident(trackId)}`;
+
+export const CHOOSE_TRACK = "choose-track";
+
+/** The old list can identify the selected cover before the player renders:
+ * the runtime supplies the same transition types to both snapshots. */
+export const trackFlightRules = <M>(ids: ReadonlyArray<TrackId>, h: HtmlBuilder<M>): Html => {
+  const rules = ids.map((id) => {
+    const name = coverTransitionName(id);
+    return `:root:active-view-transition-type(${name}) [data-flight="${name}"] { view-transition-name: ${name} !important; }`;
+  });
+  return h.style([], [rules.join("\n")]);
+};
 
 /**
  * The name an album's cover travels under in a view transition: from its
@@ -243,7 +255,8 @@ export const coverView = (
 ): Html =>
   h.div(
     [
-      h.Class("relative aspect-square overflow-hidden rounded-2xl bg-tile"),
+      h.Class("catalog-art relative aspect-square overflow-hidden rounded-2xl bg-tile"),
+      ...(!isInPlayer ? [h.DataAttribute("flight", coverTransitionName(trackId))] : []),
       h.Style(coverTransitionStyle(trackId, { presence: "OnScreen", isInPlayer })),
     ],
     Option.match(maybeArtwork, {

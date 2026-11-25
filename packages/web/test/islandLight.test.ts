@@ -39,6 +39,19 @@ describe("the place on an outline nearest to a place", () => {
     expect(box(160)(length)).toEqual({ x: 30, y: 40 });
   });
 
+  test("a small resize finds the previous phase without sampling the full contour", () => {
+    let queries = 0;
+    const point = box(302);
+    const measured = (length: number) => {
+      queries++;
+      return point(length);
+    };
+    const length = lengthNearest(around(302), measured, { x: 85, y: 40 }, 560);
+    expect(point(length).x).toBeCloseTo(85, 1);
+    expect(point(length).y).toBe(40);
+    expect(queries).toBeLessThan(20);
+  });
+
   test("the search goes on past the place the outline starts and ends", () => {
     // Just short of the end of the way round, up the left side.
     expect(lengthNearest(around(100), box(100), { x: 0, y: 1.5 })).toBeCloseTo(278.5, 1);

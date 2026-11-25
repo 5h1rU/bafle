@@ -67,12 +67,6 @@ const followIslandPress = (surface: Element): (() => void) => {
   window.addEventListener("pointercancel", (event) => {
     if (event.pointerId === pointer) clear();
   }, options);
-  surface.addEventListener("click", (event) => {
-    if (event instanceof MouseEvent && event.detail === 0 && isControl(event.target)) {
-      press();
-      release();
-    }
-  }, options);
   window.addEventListener("blur", clear, options);
   return () => {
     listeners.abort();
@@ -135,17 +129,11 @@ const measureTitle = (place: Element): Option.Option<Measure> =>
 export const MeasureTitle = Mount.defineStream("MeasureTitle", {
   messages: [Message.MeasuredTitle],
   execute: ({ element }) =>
-    Stream.callback<Measure>((queue) =>
+    Stream.callback<void>((queue) =>
       Effect.gen(function* () {
         yield* Effect.acquireRelease(
           Effect.sync(() => {
-            const say = (): void => {
-              Option.match(measureTitle(element), {
-                onNone: () => undefined,
-                onSome: (measure) => Queue.offerUnsafe(queue, measure),
-              });
-            };
-            const sizes = new ResizeObserver(say);
+            const sizes = new ResizeObserver(() => Queue.offerUnsafe(queue, undefined));
             sizes.observe(element);
             Option.match(
               Option.fromNullishOr(element.querySelector(`[data-${TITLE_WORDS_ATTRIBUTE}]`)),
@@ -157,7 +145,12 @@ export const MeasureTitle = Mount.defineStream("MeasureTitle", {
         );
         return yield* Effect.never;
       }),
-    ).pipe(Stream.debounce(MEASURES_AFTER), Stream.changesWith<Measure>(Equal.equals)),
+    ).pipe(
+      Stream.debounce(MEASURES_AFTER),
+      Stream.map(() => Option.toArray(measureTitle(element))),
+      Stream.flattenIterable,
+      Stream.changesWith<Measure>(Equal.equals),
+    ),
 });
 
 /** The light on an island, and one of the paths that have its outline to measure it by. */
@@ -195,6 +188,8 @@ export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
           const maybeTail = Option.fromNullishOr(
             element.querySelector(`[data-${ISLAND_TAIL_ATTRIBUTE}]`),
           );
+          const paths = element.querySelectorAll(`[data-${ISLAND_OUTLINE_ATTRIBUTE}]`);
+          const maybeLight = lightOn(element);
           const draw = (): void => {
             const { width, left } = element.getBoundingClientRect();
             if (width === 0) {
@@ -211,14 +206,11 @@ export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
             // Where the light is on the outline about to be replaced: across the
             // page as the listener sees it, and up and down as the island has it,
             // since the island goes up and down whole and the light with it.
-            const maybeLight = lightOn(element);
             const maybeHeld =
               drawn.outline === ""
                 ? Option.none()
                 : Option.flatMap(maybeLight, ({ lights, path }) => lightPlace(lights, path));
-            element
-              .querySelectorAll(`[data-${ISLAND_OUTLINE_ATTRIBUTE}]`)
-              .forEach((path) => path.setAttribute("d", outline));
+            paths.forEach((path) => path.setAttribute("d", outline));
             Option.match(Option.all({ light: maybeLight, held: maybeHeld }), {
               onNone: () => undefined,
               onSome: ({ light, held }) =>

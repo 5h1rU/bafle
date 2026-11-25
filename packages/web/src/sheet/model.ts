@@ -29,6 +29,8 @@ export const Model = Schema.Struct({
   edge: Edge,
   entrance: Entrance,
   reach: Reach,
+  /** Survives the asynchronous history change until the owner draws the next sheet. */
+  dismissedByKeyboard: Schema.Boolean,
 });
 export type Model = typeof Model.Type;
 
@@ -46,6 +48,7 @@ export const init = ({ id, edge = "Bottom", entrance = "Slides" }: InitConfig): 
   edge,
   entrance,
   reach: entrance === "AtRest" ? "Whole" : "Gone",
+  dismissedByKeyboard: false,
 });
 
 // MESSAGE

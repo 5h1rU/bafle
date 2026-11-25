@@ -175,7 +175,9 @@ describe("a sheet's Model", () => {
   const atRest = Sheet.init({ id: "player", entrance: "AtRest" });
 
   test("a sheet stands at the foot unless told otherwise, and slides in", () => {
-    expect(sliding).toEqual({ id: "cart", edge: "Bottom", entrance: "Slides", reach: "Gone" });
+    expect(sliding).toEqual({
+      id: "cart", edge: "Bottom", entrance: "Slides", reach: "Gone", dismissedByKeyboard: false,
+    });
   });
 
   test("one brought on screen some other way is whole from the start", () => {
@@ -207,10 +209,16 @@ describe("a sheet's Model", () => {
   test("Escape and its close control ask its owner for it to go, and move nothing", () => {
     [Message.PressedEscape(), Message.ClickedClose()].forEach((message) => {
       const asked = Sheet.update(atRest, message);
-      expect(asked.model).toBe(atRest);
+      expect(asked.model.reach).toBe("Whole");
+      expect(asked.model.dismissedByKeyboard).toBe(message._tag === "PressedEscape");
       expect(asked.outMessage).toEqual(OutMessage.RequestedClose());
       expect(asked.commands ?? []).toEqual([]);
     });
+  });
+
+  test("holding Escape issues a single close request", () => {
+    const asked = Sheet.update(atRest, Message.PressedEscape());
+    expect(Sheet.update(asked.model, Message.PressedEscape()).outMessage).toBeUndefined();
   });
 
   test("its owner sends it away by its edge, and hears that it left as of one swiped away", () => {

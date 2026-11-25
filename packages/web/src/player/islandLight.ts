@@ -76,41 +76,44 @@ export const setPace = (lights: Element, pace: number): void => {
 /** A place on the island, in the units and from the corner its outline is drawn in. */
 export type Place = Readonly<{ x: number; y: number }>;
 
-/** How closely the outline is walked in search of a place: first in strides, then in steps. */
-const STRIDE_PIXELS = 4;
-const STEP_PIXELS = 0.25;
-
 const within = (share: number): number => ((share % 1) + 1) % 1;
 
 const apart = (one: Place, other: Place): number => Math.hypot(one.x - other.x, one.y - other.y);
 
-/**
- * How far along an outline of length `total` the place nearest to `place`
- * lies, `placeAt` saying where each length along it is.
- */
+/** Project onto the closed outline, starting at the head's previous phase.
+ * A large resize can put a different side nearest; only then seed the local
+ * search from a small, evenly spaced sample of the whole outline. */
 export const lengthNearest = (
   total: number,
   placeAt: (length: number) => Place,
   place: Place,
+  seed = 0,
 ): number => {
-  const nearestOf = (lengths: ReadonlyArray<number>): number =>
-    lengths.reduce(
-      (nearest, length) => {
-        const distance = apart(placeAt(length), place);
-        return distance < nearest.distance ? { length, distance } : nearest;
-      },
-      { length: 0, distance: Number.POSITIVE_INFINITY },
-    ).length;
+  const wrap = (length: number) => (length % total + total) % total;
+  let best = wrap(seed);
+  let distance = apart(placeAt(best), place);
+  const tryLength = (length: number) => {
+    const candidate = wrap(length);
+    const next = apart(placeAt(candidate), place);
+    if (next < distance) {
+      best = candidate;
+      distance = next;
+    }
+  };
 
-  const strides = Array.makeBy(Math.max(1, Math.ceil(total / STRIDE_PIXELS)), (index) =>
-    Math.min(total, index * STRIDE_PIXELS),
-  );
-  const about = nearestOf(strides);
-  const steps = Array.makeBy(Math.round((2 * STRIDE_PIXELS) / STEP_PIXELS) + 1, (index) =>
-    // The outline is closed: a step back from its start is a step back from its end.
-    within((about - STRIDE_PIXELS + index * STEP_PIXELS) / total) * total,
-  );
-  return nearestOf(steps);
+  const stride = total / 32;
+  if (distance > stride) {
+    for (let index = 0; index < 32; index++) tryLength(index * stride);
+  }
+  // A point on an arc is at most one unit closer for each unit walked.
+  // Refine both sides across the seam down to a fraction of a CSS pixel.
+  for (let step = Math.min(stride, distance); step >= 0.03125; step /= 2) {
+    const center = best;
+    tryLength(center - step);
+    tryLength(center + step);
+    if (distance < 0.03125) break;
+  }
+  return best;
 };
 
 /**
@@ -158,6 +161,7 @@ export const putLightNear = (lights: Element, outline: SVGGeometryElement, place
             return { x, y };
           },
           place,
+          share * total,
         ) / total;
       const ahead = wayRound(share, wanted);
       travels(lights).forEach((travel) => {

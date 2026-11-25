@@ -67,7 +67,8 @@ export type Playback = typeof Playback.Type;
  * and the wish stands until the engine says it has arrived.
  */
 export const Seek = defineTaggedUnion({
-  Settled: {},
+  /** An acknowledged jump stays instant until the next playback tick. */
+  Settled: { justJumped: Schema.optional(Schema.Literal(true)) },
   Scrubbing: { targetSeconds: Schema.Number },
   Seeking: { targetSeconds: Schema.Number },
 });
@@ -217,7 +218,7 @@ export const queueFrom = (
         positionSeconds: 0,
         maybeDurationSeconds: Option.none(),
         bufferedSeconds: 0,
-        seek: Seek.Settled(),
+        seek: Seek.Settled({}),
         seekSlider: initialSeekSlider,
       }),
   });
@@ -238,12 +239,12 @@ export const maybeCurrentTrackId = (model: Model): Option.Option<TrackId> =>
  * Whether the listener has just put another track in the player. A track
  * that followed the one before by itself is not that: nobody tapped.
  */
-export const choseAnotherTrack = (previous: Model, next: Model): boolean =>
-  Option.exists(
-    next.maybeSession,
-    (session) =>
-      session.cue === "Chosen" &&
-      !Option.contains(maybeCurrentTrackId(previous), session.current.id),
+export const maybeChosenTrackId = (previous: Model, next: Model): Option.Option<TrackId> =>
+  Option.map(
+    Option.filter(next.maybeSession, (session) =>
+      session.cue === "Chosen" && !Option.contains(maybeCurrentTrackId(previous), session.current.id),
+    ),
+    (session) => session.current.id,
   );
 
 /** Wanting to sound: every state a press of the main control would answer with silence. */

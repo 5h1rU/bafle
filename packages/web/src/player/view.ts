@@ -14,7 +14,7 @@ import {
   retryIcon,
   spinnerIcon,
 } from "../view/icon.ts";
-import { coverTransitionName } from "../view/artwork.ts";
+import { coverTransitionName, trackFlightRules } from "../view/artwork.ts";
 import { formatDuration } from "../view/time.ts";
 import { islandFigureView } from "./islandFigure.ts";
 import { Message } from "./message.ts";
@@ -259,7 +259,8 @@ const coverView = (
     track.id,
     [
       h.DataAttribute("cover", ""),
-      h.Class(clsx(sizeClass, "relative shrink-0 overflow-hidden bg-tile")),
+      h.Class(clsx(sizeClass, "catalog-art relative shrink-0 overflow-hidden bg-tile")),
+      ...(isNamed ? [h.DataAttribute("flight", coverTransitionName(track.id))] : []),
       h.Style({
         viewTransitionName: isNamed ? coverTransitionName(track.id) : "none",
         viewTransitionClass: "track-cover island-cover",
@@ -406,26 +407,8 @@ const trackWordsView = (
 
 const TIME_CLASS = "w-9 shrink-0 text-xs tabular-nums";
 
-const percent = (part: number, whole: number): string =>
-  `${Math.min(100, Math.max(0, (part / whole) * 100))}%`;
-
-/** How the bar is drawn: as a wish while the listener seeks, gliding while the engine sounds. */
-type BarLook = Readonly<{ isWish: boolean; glide: string }>;
-
-/**
- * The engine speaks once a second. Between two of its words the bar glides
- * to the last one, and so is never ahead of what the engine has said.
- */
-const barLook = (session: Session): BarLook => {
-  const isWish = !Seek.guards.Settled(session.seek);
-  return {
-    isWish,
-    glide:
-      Playback.guards.Sounding(session.playback) && !isWish
-        ? "duration-1000 ease-linear"
-        : "duration-150 ease-out",
-  };
-};
+const fractionOfDuration = (seconds: number, duration: number): number =>
+  Math.max(0, Math.min(1, seconds / duration));
 
 /**
  * The slider's own markup. The bar is thin and its target is not: the track
@@ -438,7 +421,13 @@ const seekBarView = (
   durationSeconds: number,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const { isWish, glide } = barLook(session);
+  const isWish = !Seek.guards.Settled(session.seek);
+  const played = fractionOfDuration(shownPositionSeconds(session), durationSeconds);
+  const glides = Playback.guards.Sounding(session.playback) &&
+    Seek.guards.Settled(session.seek) && !session.seek.justJumped;
+  const glide = glides
+    ? "motion-safe:transition-transform motion-safe:duration-1000 motion-safe:ease-linear"
+    : "transition-none";
 
   return h.div(
     [
@@ -451,22 +440,23 @@ const seekBarView = (
         [
           ...attributes.track,
           h.Class(
-            "h-1 w-full cursor-pointer rounded-full bg-tile before:absolute before:inset-x-0 before:-inset-y-5 before:content-['']",
+            "[container-type:inline-size] h-1 w-full cursor-pointer rounded-full bg-tile before:absolute before:inset-x-0 before:-inset-y-5 before:content-['']",
           ),
         ],
         [
           h.div([
             h.DataAttribute("buffered", ""),
             h.Class(
-              "pointer-events-none absolute inset-y-0 left-0 rounded-full bg-muted/40 transition-[width] duration-300 motion-reduce:transition-none",
+              "pointer-events-none absolute inset-0 origin-left rounded-full bg-muted/40 motion-safe:transition-transform motion-safe:duration-300",
             ),
-            h.Style({ width: percent(session.bufferedSeconds, durationSeconds) }),
+            h.Style({ transform: `scaleX(${fractionOfDuration(session.bufferedSeconds, durationSeconds)})` }),
           ]),
           h.div([
             ...attributes.filledTrack,
+            h.Style({ transform: `scaleX(${played})` }),
             h.Class(
               clsx(
-                "rounded-full bg-accent transition-[width,opacity] motion-reduce:transition-none group-data-dragging/seek:transition-none",
+                "absolute inset-0 origin-left pointer-events-none rounded-full bg-accent",
                 glide,
                 { "opacity-50": isWish },
               ),
@@ -475,9 +465,11 @@ const seekBarView = (
           h.div(
             [
               ...attributes.thumb,
+              // cqw is relative to the track; 50% is half the thumb's own hit area.
+              h.Style({ transform: `translateX(calc(${played * 100}cqw - 50%))` }),
               h.Class(
                 clsx(
-                  "group/thumb top-1/2 flex size-11 -translate-y-1/2 cursor-grab items-center justify-center rounded-full outline-none transition-[left] motion-reduce:transition-none group-data-dragging/seek:cursor-grabbing group-data-dragging/seek:transition-none",
+                  "group/thumb absolute left-0 top-1/2 flex size-11 touch-none -translate-y-1/2 cursor-grab items-center justify-center rounded-full outline-none group-data-dragging/seek:cursor-grabbing",
                   glide,
                 ),
               ),
@@ -730,7 +722,7 @@ const islandView = (
       h.OnMount(DrawIslandFigure()),
       h.Class(
         clsx(
-          "dock-island absolute right-5 bottom-[5.125rem] left-5 z-30 flex h-11 items-center text-on-island minimized:right-11 minimized:bottom-5 minimized:left-[4.875rem] minimized:mr-[2.125rem] md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
+          "dock-island absolute right-5 bottom-[5.125rem] left-5 z-30 flex h-11 items-center text-on-island md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
           { "[view-transition-name:player]": !isUnderSheet },
         ),
       ),
@@ -745,6 +737,7 @@ const islandView = (
         islandControlsView(session, h),
       ]),
       announcementView(session, h),
+      trackFlightRules([current.id], h),
     ],
   );
 };
@@ -807,20 +800,22 @@ const sheetView = (
           ...viewInputs.contentAttributes,
         ],
         [
+          h.div([h.Class("sticky top-0 z-10 -mx-6 flex h-11 items-center justify-center bg-panel/65 px-6 backdrop-blur-xl")], [
+            viewInputs.toCollapseControl(),
+            queueToggleView(queueOpen, h),
+          ]),
           h.div([h.Class("player-deck relative isolate -mx-6 px-6")], [
             current.album.cover
               ? h.div([h.AriaHidden(true), h.Class("player-ambience")], [
                   h.img([h.Src(current.album.cover.small), h.Alt(""), h.Class("size-full object-cover")]),
                 ])
               : h.empty,
-            viewInputs.toCollapseControl(),
             h.div([h.Class("player-summary")], [
               coverView(current, "player-cover aspect-square", "large", h),
               h.keyed("div")(current.id, [h.Class("min-w-0")], [
                 h.h1([h.Id(viewInputs.titleId), h.Class("player-title")], [current.title]),
                 h.p([h.Class("truncate text-base font-medium text-muted")], [current.artist.name]),
               ]),
-              queueToggleView(queueOpen, h),
             ]),
             h.div([h.Class("mt-3")], [progressOrNoticeView(session, h)]),
             stepsView(session, "flex items-center justify-center gap-8", h),

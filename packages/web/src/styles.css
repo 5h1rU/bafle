@@ -114,6 +114,8 @@
   /* How long each spring is given: until it has come to rest. */
   --dock-out: 500ms;
   --dock-back: 620ms;
+  --menu-size-out: 200ms;
+  --menu-size-back: 180ms;
 }
 
 @supports (transition-timing-function: linear(0, 1)) {
@@ -141,44 +143,37 @@
   }
 }
 
-/* How the pieces at the foot of a narrow screen move between their two
-   places. The times were read off the app they are modelled on, frame by
-   frame, and are not the same both ways.
-
-   Drawing back: the menu closes on its circle, most of the way in a fifth
-   of a second. The island does three things, one setting off after another
-   so that each can be followed: Next travels in under the main control as
-   the tail is drawn in; the island narrows; and, with the menu out of its
-   way, it comes down into the row. Narrowing and coming down are the same
-   spring, the second a little behind the first, so the island is clear of
-   the circle and Search before it is level with them. It is in its place in
-   a quarter of a second, a shade past it at three tenths, and at rest by
-   half of one. Coming out is the same three the other way round, and
-   quicker: it rises, it widens, and Next comes out from under the control
-   once there is room for the tail.
-
-   A transition takes its times from the state it is going to, so each piece
-   states them twice: as it stands whole, for coming out, and under
-   `data-navigation="minimized"`, for drawing back. */
+/* The capsule travels on a transform. Only its changing contour and the
+   space for its controls need layout, for the short sizing phase. */
 @layer components {
+  @media (width < 48rem) {
+    .dock-island {
+      width: calc(100% - 2.5rem);
+    }
+    [data-navigation="minimized"] .dock-island {
+      width: calc(100% - 9.75rem);
+      transform: translate(3.625rem, 3.875rem);
+    }
+  }
+
   @media (width < 48rem) and (prefers-reduced-motion: no-preference) {
     .dock-surface {
       transition:
-        top var(--dock-out) var(--ease-menu-out),
-        right var(--dock-out) var(--ease-menu-out),
-        bottom var(--dock-out) var(--ease-menu-out),
-        left var(--dock-out) var(--ease-menu-out);
+        top var(--menu-size-out) var(--ease-menu-out),
+        right var(--menu-size-out) var(--ease-menu-out),
+        bottom var(--menu-size-out) var(--ease-menu-out),
+        left var(--menu-size-out) var(--ease-menu-out);
     }
 
     .dock-menu {
-      transition: padding var(--dock-out) var(--ease-menu-out);
+      transition: padding var(--menu-size-out) var(--ease-menu-out);
     }
 
     .dock-item {
       transition:
-        flex-grow var(--dock-out) var(--ease-menu-out),
-        min-width var(--dock-out) var(--ease-menu-out),
-        padding var(--dock-out) var(--ease-menu-out),
+        flex-grow var(--menu-size-out) var(--ease-menu-out),
+        min-width var(--menu-size-out) var(--ease-menu-out),
+        padding var(--menu-size-out) var(--ease-menu-out),
         opacity 160ms ease-out 60ms,
         filter 160ms ease-out 60ms;
     }
@@ -186,24 +181,22 @@
     .dock-name {
       transition:
         opacity 140ms ease-out 100ms,
-        max-height var(--dock-out) var(--ease-menu-out);
+        max-height var(--menu-size-out) var(--ease-menu-out);
     }
 
     .dock-search {
       transition:
-        width var(--dock-out) var(--ease-menu-out),
-        height var(--dock-out) var(--ease-menu-out);
+        width var(--menu-size-out) var(--ease-menu-out),
+        height var(--menu-size-out) var(--ease-menu-out);
     }
 
     .dock-island {
       transition:
-        bottom var(--dock-out) var(--ease-island-out),
-        left var(--dock-out) var(--ease-island-out) 30ms,
-        right var(--dock-out) var(--ease-island-out) 30ms,
-        margin-right 220ms var(--ease-dock-settle) 170ms;
+        transform var(--dock-out) var(--ease-island-out),
+        width 200ms var(--ease-dock-settle) 30ms;
     }
 
-    /* The tail and the island's margin are one movement: same time, same curve. */
+    /* The tail opens after the capsule has made room for Next. */
     .dock-island-next {
       transition: width 220ms var(--ease-dock-settle) 170ms;
     }
@@ -215,45 +208,43 @@
     [data-navigation="minimized"] {
       .dock-surface {
         transition:
-          top var(--dock-back) var(--ease-menu-back),
-          right var(--dock-back) var(--ease-menu-back),
-          bottom var(--dock-back) var(--ease-menu-back),
-          left var(--dock-back) var(--ease-menu-back);
+          top var(--menu-size-back) var(--ease-menu-back),
+          right var(--menu-size-back) var(--ease-menu-back),
+          bottom var(--menu-size-back) var(--ease-menu-back),
+          left var(--menu-size-back) var(--ease-menu-back);
       }
 
       .dock-menu {
-        transition: padding var(--dock-back) var(--ease-menu-back);
+        transition: padding var(--menu-size-back) var(--ease-menu-back);
       }
 
       /* An item that leaves is gone from sight before it stops being there. */
       .dock-item {
         transition:
-          flex-grow var(--dock-back) var(--ease-menu-back),
-          min-width var(--dock-back) var(--ease-menu-back),
-          padding var(--dock-back) var(--ease-menu-back),
-          opacity 100ms ease-in,
-          filter 100ms ease-in,
+          flex-grow var(--menu-size-back) var(--ease-menu-back),
+          min-width var(--menu-size-back) var(--ease-menu-back),
+          padding var(--menu-size-back) var(--ease-menu-back),
+          opacity 100ms ease-out,
+          filter 100ms ease-out,
           visibility 0s 220ms;
       }
 
       .dock-name {
         transition:
-          opacity 60ms ease-in,
-          max-height var(--dock-back) var(--ease-menu-back);
+          opacity 60ms ease-out,
+          max-height var(--menu-size-back) var(--ease-menu-back);
       }
 
       .dock-search {
         transition:
-          width var(--dock-back) var(--ease-menu-back),
-          height var(--dock-back) var(--ease-menu-back);
+          width var(--menu-size-back) var(--ease-menu-back),
+          height var(--menu-size-back) var(--ease-menu-back);
       }
 
       .dock-island {
         transition:
-          margin-right 180ms var(--ease-dock-settle),
-          left var(--dock-back) var(--ease-island-back) 50ms,
-          right var(--dock-back) var(--ease-island-back) 50ms,
-          bottom var(--dock-back) var(--ease-island-back) 90ms;
+          transform var(--dock-back) var(--ease-island-back) 50ms,
+          width 180ms var(--ease-dock-settle);
       }
 
       .dock-island-next {
@@ -263,7 +254,7 @@
       /* Next is under the control by the time it fades, and gone when the tail is. */
       .dock-island-next-control {
         transition:
-          opacity 80ms ease-in 90ms,
+          opacity 80ms ease-out 90ms,
           visibility 0s 180ms;
       }
     }
@@ -282,10 +273,14 @@
   }
 }
 
+button:focus-visible [data-glyph] {
+  transition: none;
+}
+
 .player-ambience {
   position: absolute;
   z-index: -1;
-  inset: 0 0 auto;
+  inset: -2.75rem 0 auto;
   height: min(100%, 62svh, 34rem);
   overflow: hidden;
   pointer-events: none;
@@ -298,17 +293,35 @@
   scale: 1.3;
 }
 
+/* Reserve the final space once. The cover stays the same intrinsic size so
+   a tap can reverse its compositor transition wherever it is on screen. */
 .player-summary {
+  position: relative;
+  container-type: inline-size;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem 0.875rem;
   align-items: center;
 }
 
+.player-summary::before,
 .player-cover {
-  grid-column: 1 / -1;
-  justify-self: center;
-  width: min(100%, 42svh, 23rem);
+  --art-size: min(100cqw, 42svh, 23rem);
+}
+
+.player-summary::before {
+  content: "";
+  height: var(--art-size);
+}
+
+.player-cover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--art-size);
+  pointer-events: none;
+  transform-origin: top left;
+  transform: translateX(calc((100cqw - var(--art-size)) / 2));
   border-radius: 1rem;
   box-shadow: 0 10px 24px -12px rgb(24 6 20 / 45%);
 }
@@ -323,13 +336,31 @@
 }
 
 [data-pane]:not([data-pane="Artwork"]) .player-summary {
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: 3.75rem minmax(0, 1fr);
+}
+
+[data-pane]:not([data-pane="Artwork"]) .player-summary::before {
+  height: 3.75rem;
 }
 
 [data-pane]:not([data-pane="Artwork"]) .player-cover {
-  grid-column: auto;
   width: 3.75rem;
+  transform: none;
   border-radius: 0.625rem;
+}
+
+@supports (transform: scale(calc(1px / 1px))) {
+  [data-pane]:not([data-pane="Artwork"]) .player-cover {
+    width: var(--art-size);
+    transform: translateX(0) scale(calc(3.75rem / var(--art-size)));
+    border-radius: calc(var(--art-size) / 6);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-pane]:not(:has(.queue-toggle:focus-visible)) .player-cover {
+    transition: transform 200ms var(--ease-dock-settle);
+  }
 }
 
 [data-pane]:not([data-pane="Artwork"]) .player-title {
@@ -341,7 +372,7 @@
 @media (min-height: 30rem) {
   [data-pane]:not([data-pane="Artwork"]) .player-deck {
     position: sticky;
-    top: 0;
+    top: 2.75rem;
     z-index: 1;
     padding-bottom: 0.5rem;
     background-color: var(--color-panel);
@@ -442,6 +473,12 @@ body {
 ::view-transition-old(*),
 ::view-transition-new(*) {
   animation-duration: 150ms;
+}
+
+/* Per-track rules in the visible list and player opt just the travelling
+   cover back in, on both sides of a track selection. */
+:root:active-view-transition-type(choose-track) :where(.catalog-art) {
+  view-transition-name: none !important;
 }
 
 /* A track's cover travels between its row and its page. It is the one thing

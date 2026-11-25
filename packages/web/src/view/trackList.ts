@@ -12,7 +12,7 @@ import { Message, type PlayOrigin } from "../message.ts";
 import { type AlbumData, isKnownMissing, type TrackData } from "../model.ts";
 import { isPlayable, type QueuePlace, type TrackStatus } from "../player/model.ts";
 import { type RowAction, RowMenu, rowMenuId } from "../rowMenu.ts";
-import { artworkView, coverTransitionStyle } from "./artwork.ts";
+import { artworkView, coverTransitionName, coverTransitionStyle, trackFlightRules } from "./artwork.ts";
 import { reason } from "./feedback.ts";
 import {
   albumIcon,
@@ -165,7 +165,10 @@ const rowContentView = (
   h.div(
     [
       h.DataAttribute("cover", ""),
-      h.Class(clsx(TRACK_THUMBNAIL_CLASS, "relative")),
+      h.Class(clsx(TRACK_THUMBNAIL_CLASS, "catalog-art relative")),
+      ...(presence === "OnScreen" && !isInPlayer(status)
+        ? [h.DataAttribute("flight", coverTransitionName(track.id))]
+        : []),
       h.Style(coverTransitionStyle(track.id, { presence, isInPlayer: isInPlayer(status) })),
     ],
     [
@@ -262,7 +265,7 @@ const MENU_BACKDROP_CLASS = "fixed inset-0 z-40 touch-none";
 // placed by the component under the row's control. It grows out of the
 // corner nearest that control.
 const MENU_CLASS =
-  "z-50 min-w-60 origin-top-right overflow-hidden rounded-2xl bg-canvas text-ink shadow-[0_10px_38px_rgb(0_0_0/0.22)] ring-1 ring-line outline-none transition duration-150 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 motion-reduce:transition-none";
+  "z-50 min-w-60 origin-top-right data-[placement=top]:origin-bottom-right overflow-hidden rounded-2xl bg-canvas text-ink shadow-[0_10px_38px_rgb(0_0_0/0.22)] ring-1 ring-line outline-none transition-[scale,opacity] duration-150 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 motion-reduce:transition-none";
 
 const MENU_ITEM_CLASS =
   "flex cursor-pointer items-center justify-between gap-8 border-line px-4 py-3 select-none not-first:border-t data-[active]:bg-panel active:bg-tile";
@@ -650,6 +653,7 @@ export const maybeTrackSectionView = (
           [
             h.h2([h.Id(id), h.Class(SECTION_HEADING_CLASS)], [title]),
             trackListView(id, order, listed, context, h),
+            context.presence === "OnScreen" ? trackFlightRules(listed.map((track) => track.id), h) : h.empty,
           ],
         ),
       ),

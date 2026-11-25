@@ -21,7 +21,7 @@ export const queueToggleView = (isOpen: boolean, h: HtmlBuilder<Message>): Html 
       h.AriaLabel("Playing Next"),
       h.AriaExpanded(isOpen),
       h.AriaControls(PANEL_ID),
-      h.Class(clsx(BUTTON_CLASS, isOpen ? "bg-accent-wash text-accent" : "bg-tile/65 text-muted")),
+      h.Class(clsx(BUTTON_CLASS, "queue-toggle absolute right-6", isOpen ? "bg-accent-wash text-accent" : "bg-tile/65 text-muted")),
     ], [playNextIcon("size-5")]),
   }, h);
 

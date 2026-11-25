@@ -8,6 +8,7 @@ import { Model } from "./model.ts";
 import * as HtmlAudioEngine from "./player/htmlAudioEngine.ts";
 import { subscriptions } from "./subscription.ts";
 import { view } from "./view.ts";
+import { CHOOSE_TRACK } from "./view/artwork.ts";
 import { crashView } from "./view/crash.ts";
 
 /**
@@ -26,13 +27,23 @@ const CatalogConnection = ListenerApi.layerClientHttp(`${location.origin}/api`).
  */
 const resources = Layer.mergeAll(CatalogConnection, HtmlAudioEngine.layer);
 
+// Older browsers can snapshot a page without supporting transition types.
+// A track selection needs types to exclude the rest of the catalog.
+const canSelectCover = typeof ViewTransition !== "undefined" && "types" in ViewTransition.prototype &&
+  CSS.supports("selector(:active-view-transition-type(choose-track))");
+
 const application = Runtime.makeApplication({
   Model,
   init,
   update,
   view,
   crash: { view: crashView },
-  viewTransition,
+  viewTransition: (context) => {
+    const decision = viewTransition(context);
+    return !canSelectCover && typeof decision === "object" && decision.types.includes(CHOOSE_TRACK)
+      ? false
+      : decision;
+  },
   subscriptions,
   resources,
   container: document.getElementById("root"),

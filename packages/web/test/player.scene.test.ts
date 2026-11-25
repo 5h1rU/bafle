@@ -786,14 +786,14 @@ describe("the expanded player is on a sheet, and the sheet can be swiped away", 
     ).toEqual({ types: [PLAYER_CLOSES] });
   });
 
-  test("Escape asks for the player to close, and it closes as for its control, with the sheet still whole", () => {
+  test("Escape dismisses the whole sheet immediately, including across the history callback", () => {
     const asked = update(expandedOnFirst, sheet(Sheet.Message.PressedEscape()));
     expect(names(asked)).toEqual(["NavigateBack"]);
     expect(asked.model.playerSheet.reach).toBe("Whole");
     const closed = after(asked.model, changedUrl("/new"));
     expect(
       viewTransition({ previousModel: asked.model, model: closed, message: changedUrl("/new") }),
-    ).toEqual({ types: [PLAYER_CLOSES] });
+    ).toBe(false);
   });
 
   test("with no page behind, a sheet swiped away leaves Home on screen at once: an empty screen is nothing to hold", () => {
@@ -805,11 +805,13 @@ describe("the expanded player is on a sheet, and the sheet can be swiped away", 
     expect(left.model.trail).toEqual([AppRoute.Track({ trackId: track.id })]);
   });
 
-  test("with no page behind, Escape follows the link Home that its close control is", () => {
+  test("Escape from a direct entry shows Home immediately while it loads", () => {
     const asked = update(expandedAlone, sheet(Sheet.Message.PressedEscape()));
-    const byLink = update(expandedAlone, clickedLink("/"));
-    expect(asked.model.awaiting).toEqual(byLink.model.awaiting);
-    expect(names(asked)).toEqual(names(byLink));
+    expect(asked.model.route).toEqual(AppRoute.Home());
+    expect(names(asked).sort()).toEqual(["FocusPage", "HomeFeed", "NavigateInternal"]);
+    expect(viewTransition({
+      previousModel: expandedAlone, model: asked.model, message: sheet(Sheet.Message.PressedEscape()),
+    })).toBe(false);
   });
 
   test("a sheet's word that comes after the player closed closes nothing else", () => {
@@ -990,7 +992,7 @@ describe("the island", () => {
         see(seekBar).toHaveAttr("aria-valuemax", "30"),
         see(seekBar).toHaveAttr("aria-valuetext", "0:12 of 0:30"),
         // What the engine already holds is drawn behind what has played.
-        see(selector("[data-buffered]")).toHaveStyle("width", `${(20 / 30) * 100}%`),
+        see(selector("[data-buffered]")).toHaveStyle("transform", `scaleX(${20 / 30})`),
       ),
     ));
 
@@ -1274,11 +1276,13 @@ describe("the flight: a track's cover is one element on its way to the island", 
       viewTransition({ previousModel, model: update(previousModel, message).model, message });
 
     // The first track played, another row tapped, Next: the listener's own choices.
-    expect(transition(onNew, tappedFirstRow)).toBe(true);
+    expect(transition(onNew, tappedFirstRow)).toEqual({ types: ["choose-track", coverName] });
     expect(
       transition(sounding, Message.ClickedPlayTrack({ trackId: explicitTrack.id, from: "New" })),
-    ).toBe(true);
-    expect(transition(sounding, player(Player.Message.ClickedNext()))).toBe(true);
+    ).toEqual({ types: ["choose-track", `track-cover-${explicitTrack.id}`] });
+    expect(transition(sounding, player(Player.Message.ClickedNext()))).toEqual({
+      types: ["choose-track", `track-cover-${explicitTrack.id}`],
+    });
     // The engine's reports repaint plainly: sound, progress, a stall.
     expect(transition(chosen, said(1, "Sounding"))).toBe(false);
     expect(transition(sounding, said(1, "Sounding", { positionSeconds: 13 }))).toBe(false);
@@ -1293,7 +1297,9 @@ describe("the flight: a track's cover is one element on its way to the island", 
   test("the transition is told from the two Models, so the Message that shares its frame cannot hide it", () => {
     // A tap and the engine's first word for it can land in one frame: the runtime tells the last.
     const model = after(onNew, tappedFirstRow, said(1, "Sounding"));
-    expect(viewTransition({ previousModel: onNew, model, message: said(1, "Sounding") })).toBe(true);
+    expect(viewTransition({ previousModel: onNew, model, message: said(1, "Sounding") })).toEqual({
+      types: ["choose-track", coverName],
+    });
   });
 });
 

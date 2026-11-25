@@ -148,7 +148,7 @@ const startCurrent = (session: Session, playback: Playback, positionSeconds: num
             modifyFields(session, {
               playback: () => Playback.Recovering(),
               positionSeconds: () => positionSeconds,
-              seek: () => Seek.Settled(),
+              seek: () => Seek.Settled({}),
             }),
             (order) => [RefreshSource({ order, trackId: session.current.id })],
           )
@@ -160,7 +160,7 @@ const startCurrent = (session: Session, playback: Playback, positionSeconds: num
           positionSeconds: () => positionSeconds,
           maybeDurationSeconds: () => Option.none(),
           bufferedSeconds: () => positionSeconds,
-          seek: () => Seek.Settled(),
+          seek: () => Seek.Settled({}),
           seekSlider: () => initialSeekSlider,
         }),
         (order) => [
@@ -220,7 +220,7 @@ const seekTo = (session: Session, targetSeconds: number): Step =>
     ? settle(
         modifyFields(session, {
           positionSeconds: () => targetSeconds,
-          seek: () => Seek.Settled(),
+          seek: () => Seek.Settled({}),
         }),
       )
     : seekNow(session, targetSeconds);
@@ -344,7 +344,7 @@ const ended = (session: Session): Step =>
         modifyFields(session, {
           playback: () => Playback.Paused(),
           positionSeconds: () => 0,
-          seek: () => Seek.Settled(),
+          seek: () => Seek.Settled({}),
         }),
         (order) => [SeekPlayback({ order, positionSeconds: 0 })],
       ),
@@ -384,7 +384,13 @@ const withTiming = (session: Session, report: EngineReport): Session =>
         positionSeconds: () => report.positionSeconds,
         maybeDurationSeconds: () => report.maybeDurationSeconds,
         bufferedSeconds: () => report.bufferedSeconds,
-        seek: (seek) => (hasArrived(session, report) ? Seek.Settled() : seek),
+        seek: (seek) => {
+          if (hasArrived(session, report)) return Seek.Settled({ justJumped: true });
+          if (Seek.guards.Settled(seek) && seek.justJumped && session.positionSeconds !== report.positionSeconds) {
+            return Seek.Settled({});
+          }
+          return seek;
+        },
         seekSlider: Option.match(report.maybeDurationSeconds, {
           onNone: () => (slider: Slider.Model) => slider,
           onSome: (durationSeconds) => Slider.reflectRange({ min: 0, max: durationSeconds }),
@@ -527,7 +533,7 @@ const changedSeekValue = (wasDragging: boolean, value: number): Step =>
       return settle(modifyFields(session, { seek: () => Seek.Scrubbing({ targetSeconds: value }) }));
     }
     return wasDragging
-      ? settle(modifyFields(session, { seek: () => Seek.Settled() }))
+      ? settle(modifyFields(session, { seek: () => Seek.Settled({}) }))
       : seekTo(session, value);
   });
 
