@@ -20,7 +20,7 @@ import * as Schema from "effect/Schema";
 import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "./catalog.ts";
-import { PlayOrigin } from "./message.ts";
+import { InputMethod, PlayOrigin } from "./message.ts";
 import { maybeCurrentTrackId, Model as PlayerModel, QueuePlace } from "./player/model.ts";
 import { AppRoute, searchedTerm } from "./route.ts";
 import * as Sheet from "./sheet/index.ts";
@@ -79,13 +79,13 @@ export const Awaiting = defineTaggedUnion({
    * it is pushed when the page takes the screen, so the history only ever
    * gains pages that were shown.
    */
-  Intention: { requestId: Schema.String, route: AppRoute },
+  Intention: { requestId: Schema.String, route: AppRoute, viaKeyboard: Schema.optionalKey(Schema.Literal(true)) },
   /**
    * A reply for a page the browser has already moved the URL to, by Back or
    * Forward. The page on screen is held until it comes, and how the listener
    * got there is kept for then: it decides where the focus goes.
    */
-  Arrival: { requestId: Schema.String, route: AppRoute, entrance: Entrance },
+  Arrival: { requestId: Schema.String, route: AppRoute, entrance: Entrance, viaKeyboard: Schema.optionalKey(Schema.Literal(true)) },
 });
 export type Awaiting = typeof Awaiting.Type;
 
@@ -182,6 +182,7 @@ export const Model = Schema.Struct({
    * choosing a section brings it out again.
    */
   navigation: Navigation,
+  inputMethod: InputMethod,
   /**
    * The menus at the end of the rows, each under its row's id: those that
    * have been touched. Any other is a closed menu, and is not kept.

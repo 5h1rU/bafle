@@ -13,7 +13,7 @@ import { Message, type PlayOrigin } from "../message.ts";
 import { type AlbumData, isKnownMissing, type TrackData } from "../model.ts";
 import { isPlayable, type QueuePlace, type TrackStatus } from "../player/model.ts";
 import { type RowAction, RowMenu, rowMenuId } from "../rowMenu.ts";
-import { artworkView, coverTransitionName, coverTransitionStyle, trackFlightRules } from "./artwork.ts";
+import { artworkView, artworkFlightRules, coverTransitionName, coverTransitionStyle, flightAttributes } from "./artwork.ts";
 import { reason } from "./feedback.ts";
 import {
   albumIcon,
@@ -157,10 +157,7 @@ const trackThumbnailView = (
     [
       h.DataAttribute("cover", ""),
       h.Class(clsx(TRACK_THUMBNAIL_CLASS, "catalog-art relative")),
-      ...(presence === "OnScreen" && !isInPlayer(status)
-        ? [h.DataAttribute("flight", coverTransitionName(track.id))]
-        : []),
-      h.Style(coverTransitionStyle(track.id, { presence, isInPlayer: isInPlayer(status) })),
+      ...flightAttributes(coverTransitionStyle(track.id, { presence, isInPlayer: isInPlayer(status) }), h),
     ],
     [
       artworkView(Option.fromNullishOr(track.album.cover), "Square", "small", h),
@@ -638,7 +635,10 @@ export const trackListView = (
   tracks: Array.NonEmptyReadonlyArray<TrackSummary>,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
-): Html =>
+): ReadonlyArray<Html> => [
+  context.presence === "OnScreen" && context.from !== "Album"
+    ? artworkFlightRules(tracks.map((track) => coverTransitionName(track.id)), h)
+    : h.empty,
   order === "Ranked"
     ? h.ol(
         [h.Role("list"), h.AriaLabelledBy(labelledBy), h.Class("mt-2")],
@@ -647,7 +647,8 @@ export const trackListView = (
     : h.ul(
         [h.Role("list"), h.AriaLabelledBy(labelledBy), h.Class("mt-2")],
         Array.map(tracks, (track) => trackRowView(track, Option.none(), context, h)),
-      );
+      ),
+];
 
 /** A titled list of tracks, or nothing when there are none. */
 export const maybeTrackSectionView = (
@@ -666,8 +667,7 @@ export const maybeTrackSectionView = (
           [h.Class("max-w-3xl")],
           [
             h.h2([h.Id(id), h.Class(SECTION_HEADING_CLASS)], [title]),
-            trackListView(id, order, listed, context, h),
-            context.presence === "OnScreen" ? trackFlightRules(listed.map((track) => track.id), h) : h.empty,
+            ...trackListView(id, order, listed, context, h),
           ],
         ),
       ),

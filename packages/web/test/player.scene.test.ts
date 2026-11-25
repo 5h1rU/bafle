@@ -704,13 +704,13 @@ describe("the player expanded: the page of the track it holds", () => {
 
     // Each is told by name, so the island's picture is known from the sheet's and stays where the island stands.
     expect(transition(sounding, clickedLink(trackPath(track.id)))).toEqual({
-      types: [PLAYER_OPENS],
+      types: [PLAYER_OPENS, `track-cover-${track.id}`],
     });
     // The browser's own Back: the URL has already moved, and the app only follows.
-    expect(transition(expandedOnFirst, changedUrl("/new"))).toEqual({ types: [PLAYER_CLOSES] });
+    expect(transition(expandedOnFirst, changedUrl("/new"))).toEqual({ types: [PLAYER_CLOSES, `track-cover-${track.id}`] });
     expect(
       transition(onOtherTracksPage, Message.ClickedPlayTrack({ trackId: explicitTrack.id, from: "Track" })),
-    ).toEqual({ types: [PLAYER_OPENS] });
+    ).toEqual({ types: [PLAYER_OPENS, `track-cover-${explicitTrack.id}`] });
     expect(transition(expandedOnFirst, player(Player.Message.ClickedNext()))).toBe(false);
     expect(transition(expandedOnFirst, said(1, "Ended"))).toBe(false);
     expect(transition(expandedOnFirst, said(1, "Sounding", { positionSeconds: 14 }))).toBe(false);
@@ -783,7 +783,7 @@ describe("the expanded player is on a sheet, and the sheet can be swiped away", 
         model: after(expandedOnFirst, changedUrl("/new")),
         message: changedUrl("/new"),
       }),
-    ).toEqual({ types: [PLAYER_CLOSES] });
+    ).toEqual({ types: [PLAYER_CLOSES, `track-cover-${track.id}`] });
   });
 
   test("Escape dismisses the whole sheet immediately, including across the history callback", () => {
@@ -1292,6 +1292,13 @@ describe("the flight: a track's cover is one element on its way to the island", 
     expect(transition(paused, tappedFirstRow)).toBe(false);
     // A track that follows the one before by itself is not the listener's tap.
     expect(transition(sounding, said(1, "Ended"))).toBe(false);
+  });
+
+  test("a keyboard selection stays immediate when its engine report shares the frame", () => {
+    const keyboard = after(onNew, Message.ChangedInputMethod({ method: "Keyboard" }));
+    const message = said(1, "Sounding");
+    const model = after(keyboard, tappedFirstRow, message);
+    expect(viewTransition({ previousModel: keyboard, model, message })).toBe(false);
   });
 
   test("the transition is told from the two Models, so the Message that shares its frame cannot hide it", () => {

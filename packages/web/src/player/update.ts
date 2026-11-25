@@ -264,10 +264,10 @@ const advance = (
     cue,
   );
 
-const next = (session: Session): Step =>
+const next = (session: Session, cue: Cue = "Chosen"): Step =>
   Array.match(session.later, {
     onEmpty: () => unchanged,
-    onNonEmpty: (later) => advance(session, later, "Chosen"),
+    onNonEmpty: (later) => advance(session, later, cue),
   });
 
 const playFromQueue = (session: Session, index: number, trackId: TrackId): Step => {
@@ -317,7 +317,7 @@ const restart = (session: Session): Step => {
   return Option.isSome(session.maybeDurationSeconds) ? seekTo(session, 0) : unchanged;
 };
 
-const previous = (session: Session): Step =>
+const previous = (session: Session, cue: Cue = "Chosen"): Step =>
   Array.match(session.earlier, {
     onEmpty: () => restart(session),
     onNonEmpty: (earlier) =>
@@ -329,7 +329,7 @@ const previous = (session: Session): Step =>
               current: () => Array.lastNonEmpty(earlier),
               later: Array.prepend(session.current),
             }),
-            "Chosen",
+            cue,
           ),
   });
 
@@ -513,8 +513,8 @@ const pressedMediaKey = (session: Session, key: MediaKey): Step =>
     Match.withReturnType<Step>(),
     Match.when("Play", () => play(session)),
     Match.when("Pause", () => silence(session)),
-    Match.when("Next", () => next(session)),
-    Match.when("Previous", () => previous(session)),
+    Match.when("Next", () => next(session, "Remote")),
+    Match.when("Previous", () => previous(session, "Remote")),
     Match.exhaustive,
   );
 

@@ -229,7 +229,7 @@ describe("the album page", () => {
         model: onAlbum,
         message: changedUrl(albumPath(album.id)),
       }),
-    ).toBe(true);
+    ).toEqual({ types: ["show-detail", `album-cover-${album.id}`] });
     // Held on the list while the album loads, nothing swaps.
     expect(
       viewTransition({

@@ -57,7 +57,7 @@ import {
   WaitForTypingPause,
   WaitToClearRowDone,
 } from "./command.ts";
-import { Message, type PlayOrigin } from "./message.ts";
+import { Message, type InputMethod, type PlayOrigin } from "./message.ts";
 import {
   addressOf,
   albumData,
@@ -93,7 +93,7 @@ import {
   urlToAppRoute,
 } from "./route.ts";
 import { type RowAction, RowMenu, type RowRef, rowMenuId, rowMenuIn } from "./rowMenu.ts";
-import { CHOOSE_TRACK, coverTransitionName } from "./view/artwork.ts";
+import { CHOOSE_TRACK, coverTransitionName, routeArtwork } from "./view/artwork.ts";
 import { pageIdOf } from "./view/layout.ts";
 
 /** What the app's Commands and Subscriptions need from the runtime. */
@@ -210,14 +210,14 @@ type Expecting = (requestId: string) => Awaiting;
 const forTheScreen: Expecting = (requestId) => Awaiting.Reply({ requestId });
 
 const forIntention =
-  (route: AppRoute): Expecting =>
+  (route: AppRoute, input: InputMethod): Expecting =>
   (requestId) =>
-    Awaiting.Intention({ requestId, route });
+    Awaiting.Intention({ requestId, route, ...(input === "Keyboard" && { viaKeyboard: true }) });
 
 const forArrival =
-  (route: AppRoute, entrance: Entrance): Expecting =>
+  (route: AppRoute, entrance: Entrance, input: InputMethod): Expecting =>
   (requestId) =>
-    Awaiting.Arrival({ requestId, route, entrance });
+    Awaiting.Arrival({ requestId, route, entrance, ...(input === "Keyboard" && { viaKeyboard: true }) });
 
 const maybeAwaitedRequestId = (awaiting: Awaiting): Option.Option<string> =>
   Awaiting.match(awaiting, {
@@ -603,7 +603,7 @@ const enterByUrl =
     const prepared = keepAnswerOnlyFor(route)(model);
     return needsNoWait(prepared, route)
       ? Update.combine(prepared, [showPage(route, entrance), load(route, forTheScreen)])
-      : load(route, forArrival(route, entrance))(prepared);
+      : load(route, forArrival(route, entrance, model.inputMethod))(prepared);
   };
 
 /**
@@ -669,7 +669,7 @@ const headFor =
       ? Update.combine(freed, [commit(route, addressOf(model)), load(route, forTheScreen)])
       : Update.combine(freed, [
           bringUrlToScreen(model.awaiting),
-          load(route, forIntention(route)),
+          load(route, forIntention(route, model.inputMethod)),
         ]);
   };
 
@@ -1189,7 +1189,10 @@ const maybePageChosen = (message: Menu.Message): Option.Option<"OpenSong" | "Ope
 
 const foldRowMenu = Update.foldChildAt({
   update: RowMenu.update,
-  readAt: (model: Model, row: RowRef) => Option.some(rowMenuIn(model.rowMenus, row)),
+  readAt: (model: Model, row: RowRef) => {
+    const menu = rowMenuIn(model.rowMenus, row);
+    return Option.some(modifyFields(menu, { isAnimated: () => model.inputMethod === "Pointer" }));
+  },
   writeAt: (model: Model, row: RowRef, nextMenu: Menu.Model) =>
     modifyFields(model, { rowMenus: HashMap.set(rowMenuId(row), nextMenu) }),
   toParentMessage: (row: RowRef, message: Menu.Message): Message =>
@@ -1200,6 +1203,9 @@ const foldRowMenu = Update.foldChildAt({
 
 export const update = (model: Model, message: Message) =>
   Message.match<UpdateReturn>(message, {
+    ChangedInputMethod: ({ method }) => ({
+      model: modifyFields(model, { inputMethod: () => method }),
+    }),
     ClickedLink: ({ request }) =>
       UrlRequest.match<UpdateReturn>(request, {
         Internal: ({ url }) => {
@@ -1342,6 +1348,7 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       // A fresh load knows nothing of the history behind it, so no page has a way back yet.
       trail: [],
       navigation: "Open",
+      inputMethod: "Pointer",
       rowMenus: HashMap.empty(),
       rowDone: { turn: 0, maybeRow: Option.none() },
       player: Player.init(),
@@ -1376,6 +1383,12 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   previousModel,
   model,
 }) => {
+  const awaited = previousModel.awaiting;
+  if (model.inputMethod === "Keyboard" ||
+    ((awaited._tag === "Intention" || awaited._tag === "Arrival") &&
+      awaited.viaKeyboard && isSameRoute(awaited.route, model.route))) {
+    return false;
+  }
   const wasExpanded = isPlayerExpanded(previousModel);
   const isExpanded = isPlayerExpanded(model);
   // NOTE: an expanded player that goes on to another track changes route,
@@ -1385,7 +1398,18 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   }
   if (wasExpanded === isExpanded) {
     return Option.match(Player.maybeChosenTrackId(previousModel.player, model.player), {
-      onNone: () => !isSamePage(previousModel.route, model.route),
+      onNone: () => {
+        if (isSamePage(previousModel.route, model.route)) {
+          return false;
+        }
+        const returning = Option.exists(wayBackOn(previousModel.trail), (route) =>
+          isSamePage(route, model.route));
+        const detail = returning ? previousModel.route : model.route;
+        return Option.match(routeArtwork(detail), {
+          onNone: () => true,
+          onSome: (artwork) => ({ types: ["show-detail", artwork] }),
+        });
+      },
       onSome: (id) => ({ types: [CHOOSE_TRACK, coverTransitionName(id)] }),
     });
   }
@@ -1402,5 +1426,6 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   // keeps that one where the island stands, at the foot of the box that
   // grows into the sheet, instead of letting it ride the box's top corner
   // up the screen.
-  return { types: [isExpanded ? PLAYER_OPENS : PLAYER_CLOSES] };
+  const expanded = isExpanded ? model : previousModel;
+  return { types: [isExpanded ? PLAYER_OPENS : PLAYER_CLOSES, ...Option.toArray(routeArtwork(expanded.route))] };
 };

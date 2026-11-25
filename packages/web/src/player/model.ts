@@ -75,10 +75,10 @@ export const Seek = defineTaggedUnion({
 export type Seek = typeof Seek.Type;
 
 /**
- * How the current track came to be current: the listener picked it, or it
- * followed the one before when that ended.
+ * How playback moved to this track: an in-app choice, the end of the
+ * previous track, or a headset, lock-screen or keyboard media control.
  */
-export const Cue = Schema.Literals(["Chosen", "Followed"]);
+export const Cue = Schema.Literals(["Chosen", "Followed", "Remote"]);
 export type Cue = typeof Cue.Type;
 
 /** Whether the source loaded is the one the catalog gave on being asked again after a failure. */

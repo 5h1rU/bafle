@@ -520,6 +520,13 @@ describe("rule 7: the swap is a cross-fade", () => {
     ).toBe(true);
   });
 
+  test("a keyboard navigation stays immediate when the pointer is used while its reply is pending", () => {
+    const waiting = after(onHome, Message.ChangedInputMethod({ method: "Keyboard" }), clickedLink("/new"));
+    const pointer = after(waiting, Message.ChangedInputMethod({ method: "Pointer" }));
+    const message = arrived(reply.newMusic(awaitedId(pointer)));
+    expect(viewTransition({ previousModel: pointer, model: after(pointer, message), message })).toBe(false);
+  });
+
   test("and not while the page is held, refreshed, or typed into", () => {
     expect(
       viewTransition({
@@ -1283,14 +1290,14 @@ describe("rule g: the cover is one element on its way between the row and the pa
         model: onTrack,
         message: arrived(reply.track(awaitedId(openingTrack))),
       }),
-    ).toBe(true);
+    ).toEqual({ types: ["show-detail", `track-cover-${track.id}`] });
     expect(
       viewTransition({
         previousModel: onTrack,
         model: after(onTrack, changedUrl("/new")),
         message: changedUrl("/new"),
       }),
-    ).toBe(true);
+    ).toEqual({ types: ["show-detail", `track-cover-${track.id}`] });
     // The row turning busy is not a swap.
     expect(
       viewTransition({

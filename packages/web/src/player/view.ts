@@ -14,7 +14,7 @@ import {
   retryIcon,
   spinnerIcon,
 } from "../view/icon.ts";
-import { coverTransitionName, trackFlightRules } from "../view/artwork.ts";
+import { coverTransitionName, artworkFlightRules } from "../view/artwork.ts";
 import { formatDuration } from "../view/time.ts";
 import { islandFigureView } from "./islandFigure.ts";
 import { Message } from "./message.ts";
@@ -380,7 +380,7 @@ const trackWordsView = (
       track.id,
       [
         h.Class(
-          "block min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none",
+          "island-words block min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none",
         ),
       ],
       [
@@ -635,7 +635,7 @@ const TAIL_CLASS =
   "dock-island-next flex h-9 w-[2.125rem] shrink-0 items-center justify-end minimized:pointer-events-none minimized:w-0";
 
 const NEXT_IN_ISLAND_CLASS =
-  "dock-island-next-control h-9 w-[2.125rem] shrink-0 pr-1 text-on-island hover:bg-on-island/10 active:bg-on-island/10 minimized:invisible minimized:opacity-0";
+  "h-9 w-[2.125rem] shrink-0 pr-1 text-on-island hover:bg-on-island/10 active:bg-on-island/10 minimized:invisible minimized:opacity-0";
 
 // NOTE: the swell is 54 pixels across and the body 44: the control's place
 // stands out of the row by five above and below, and the control sits in it
@@ -678,7 +678,6 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
   h.p([h.Role("status"), h.Class("sr-only")], [announcement(session)]);
 
 /**
- * The island: one dark figure over the foot of the page,/**
  * The island: one figure over the foot of the page, light on the light page
  * and dark on the dark one. The cover is a disc at its left end and
  * stands out a little above and below; the body curves up to meet it. The
@@ -691,14 +690,8 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
  * the menu has drawn back: the shell says which in `data-navigation`, and
  * the island moves. Its body keeps its height on the way.
  */
-// NOTE: how it moves is in styles.css, as `dock-island`. The places are
-// given as `left`, `right` and `bottom`, the very properties named there.
-// In the navigation's row its right end is brought in by two things that
-// move at different moments: a margin as wide as the tail, in step with the
-// tail being drawn in, and then the rest as the island narrows.
-// The section has no background of its own: the figure is drawn behind its
-// pieces (`islandFigure.ts`), and the Mount `DrawIslandFigure` gives it its
-// outline, worked out in `islandOutline.ts` from the sizes these pieces have.
+// The shell places the island. Its outline follows the settled width and
+// tail, while the controls and figure travel on their own transforms.
 const islandView = (
   model: Model,
   session: Session,
@@ -737,7 +730,7 @@ const islandView = (
         islandControlsView(session, h),
       ]),
       announcementView(session, h),
-      trackFlightRules([current.id], h),
+      artworkFlightRules([coverTransitionName(current.id)], h),
     ],
   );
 };

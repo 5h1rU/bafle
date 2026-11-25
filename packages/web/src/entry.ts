@@ -28,7 +28,7 @@ const CatalogConnection = ListenerApi.layerClientHttp(`${location.origin}/api`).
 const resources = Layer.mergeAll(CatalogConnection, HtmlAudioEngine.layer);
 
 // Older browsers can snapshot a page without supporting transition types.
-// A track selection needs types to exclude the rest of the catalog.
+// Shared artwork needs types so both snapshots can opt in the same picture.
 const canSelectCover = typeof ViewTransition !== "undefined" && "types" in ViewTransition.prototype &&
   CSS.supports("selector(:active-view-transition-type(choose-track))");
 
@@ -40,9 +40,19 @@ const application = Runtime.makeApplication({
   crash: { view: crashView },
   viewTransition: (context) => {
     const decision = viewTransition(context);
-    return !canSelectCover && typeof decision === "object" && decision.types.includes(CHOOSE_TRACK)
-      ? false
-      : decision;
+    if (typeof decision !== "object") {
+      return decision;
+    }
+    const [action, artwork] = decision.types;
+    if (!canSelectCover) {
+      return action === "show-detail";
+    }
+    // An album's numbered rows have no thumbnail. Only request a flight
+    // when the outgoing screen actually has a picture to hand over.
+    if (artwork && !document.querySelector(`[data-flight="${CSS.escape(artwork)}"]:not([inert] *)`)) {
+      return action === CHOOSE_TRACK ? false : { types: [action] };
+    }
+    return decision;
   },
   subscriptions,
   resources,

@@ -236,7 +236,7 @@ describe("the artist page", () => {
         model: onArtist,
         message: changedUrl(artistPath(artist.id)),
       }),
-    ).toBe(true);
+    ).toEqual({ types: ["show-detail", `artist-picture-${artist.id}`] });
     // Held on the shelf while the artist loads, nothing swaps.
     expect(
       viewTransition({

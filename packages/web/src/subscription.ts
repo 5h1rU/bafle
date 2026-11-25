@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Dom, Subscription } from "foldkit";
-import { Message } from "./message.ts";
+import { type InputMethod, Message } from "./message.ts";
 import type { Model } from "./model.ts";
 import * as Player from "./player/index.ts";
 import { isPageId, pageIdOf } from "./view/layout.ts";
@@ -149,6 +149,27 @@ const reachedTop: Stream.Stream<Message> = pagePositions.pipe(
  * from there.
  */
 const navigationSubscriptions = Subscription.make<Model, Message>()((entry) => ({
+  inputMethod: entry({}, {
+    modelToDependencies: () => ({}),
+    dependenciesToStream: () => {
+      const capture = (type: "keydown" | "pointerdown" | "wheel" | "click", method: InputMethod) =>
+        Dom.streamFromEventFilterMap({
+          target: document,
+          type,
+          options: { capture: true, passive: true },
+          filterMapEvent: (event) => type !== "click" ||
+            (event instanceof MouseEvent && event.isTrusted && event.detail === 0)
+            ? Option.some(method) : Option.none(),
+        });
+      return Stream.mergeAll([
+        capture("keydown", "Keyboard"), capture("click", "Keyboard"),
+        capture("pointerdown", "Pointer"), capture("wheel", "Pointer"),
+      ], { concurrency: "unbounded" }).pipe(
+        Stream.changes,
+        Stream.map((method) => Message.ChangedInputMethod({ method })),
+      );
+    },
+  }),
   pageScroll: entry(
     { isMinimized: Schema.Boolean, pageId: Schema.String },
     {

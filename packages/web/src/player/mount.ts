@@ -165,6 +165,32 @@ const lightOn = (
     ),
   });
 
+/** Keep the figure and transport continuous across the single layout change.
+ * The moving layers start at their currently displayed size on a reversal. */
+const dockResizeMotion = (island: Element) => {
+  const figures = island.querySelectorAll(":scope > .island-surface > .island-layer");
+  const controls = island.querySelector(':scope > .island-surface > [role="group"]');
+  const animations = new Map<Element, Animation>();
+  const move = (element: Element, from: string, duration: number) => {
+    animations.get(element)?.cancel();
+    animations.set(element, element.animate(
+      [{ transform: from }, { transform: "none" }],
+      { duration, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+    ));
+  };
+  return (oldWidth: number, width: number, oldTail: number, tail: number) => {
+    const duration = width < oldWidth ? 180 : 200;
+    figures.forEach((figure) => {
+      const scale = new DOMMatrixReadOnly(getComputedStyle(figure).transform).a;
+      move(figure, `scaleX(${scale * oldWidth / width})`, duration);
+    });
+    if (controls) {
+      const offset = new DOMMatrixReadOnly(getComputedStyle(controls).transform).e;
+      move(controls, `translateX(${offset + oldWidth - oldTail - width + tail}px)`, duration);
+    }
+  };
+};
+
 /**
  * Draws the island's outline for the width the island has, and again on
  * every change of that width or of the tail's. It writes the outline straight
@@ -184,7 +210,8 @@ export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
     Effect.gen(function* () {
       yield* Effect.acquireRelease(
         Effect.sync(() => {
-          const drawn = { outline: "", left: 0 };
+          const drawn = { outline: "", left: 0, width: 0, tail: 0 };
+          const animateResize = dockResizeMotion(element);
           const maybeTail = Option.fromNullishOr(
             element.querySelector(`[data-${ISLAND_TAIL_ATTRIBUTE}]`),
           );
@@ -219,6 +246,12 @@ export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
                   y: held.y,
                 }),
             });
+            if (drawn.width > 0 && drawn.tail !== tailWidth && element.closest('[data-input="Pointer"]') &&
+              matchMedia("(width < 48rem) and (prefers-reduced-motion: no-preference)").matches) {
+              animateResize(drawn.width, width, drawn.tail, tailWidth);
+            }
+            drawn.width = width;
+            drawn.tail = tailWidth;
             drawn.outline = outline;
             drawn.left = left;
           };

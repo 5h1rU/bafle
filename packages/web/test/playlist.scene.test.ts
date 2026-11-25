@@ -248,7 +248,7 @@ describe("the playlist page", () => {
         model: onPlaylist,
         message: changedUrl(playlistPath(playlist.id)),
       }),
-    ).toBe(true);
+    ).toEqual({ types: ["show-detail", `playlist-picture-${playlist.id}`] });
     // Held on the shelf while the playlist loads, nothing swaps.
     expect(
       viewTransition({

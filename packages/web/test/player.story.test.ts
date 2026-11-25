@@ -791,7 +791,13 @@ describe("the current track's own controls", () => {
     pairs.forEach(([start, key, click]) => {
       const byKey = Player.update(start, key);
       const byClick = Player.update(start, click);
-      expect(byKey.model).toEqual(byClick.model);
+      expect(Player.maybeChosenTrackId(start, byKey.model)).toEqual(Option.none());
+      const expectedSession = session(byClick.model);
+      const changedTrack = session(start).current.id !== expectedSession.current.id;
+      expect(session(byKey.model)).toEqual({
+        ...expectedSession,
+        cue: changedTrack ? "Remote" : expectedSession.cue,
+      });
       expect(byKey.model).not.toBe(start);
       expect(asked(byKey)).toEqual(asked(byClick));
     });

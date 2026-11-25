@@ -7,6 +7,7 @@ import { clsx } from "clsx";
 import * as Option from "effect/Option";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
+import { AppRoute } from "../route.ts";
 import { noteIcon } from "./icon.ts";
 import type { Presence } from "./layout.ts";
 
@@ -76,7 +77,7 @@ const headPictureView = (
   h.div(
     [
       h.Class(clsx("catalog-art relative aspect-square overflow-hidden bg-tile", shapeClass)),
-      h.Style(flightStyle),
+      ...flightAttributes(flightStyle, h),
     ],
     Option.match(maybeArtwork, {
       onNone: () => [missingPictureView(h)],
@@ -150,11 +151,9 @@ export const coverTransitionName = (trackId: TrackId): string =>
 
 export const CHOOSE_TRACK = "choose-track";
 
-/** The old list can identify the selected cover before the player renders:
- * the runtime supplies the same transition types to both snapshots. */
-export const trackFlightRules = <M>(ids: ReadonlyArray<TrackId>, h: HtmlBuilder<M>): Html => {
-  const rules = ids.map((id) => {
-    const name = coverTransitionName(id);
+/** The runtime supplies the same artwork name to the outgoing and incoming snapshots. */
+export const artworkFlightRules = <M>(names: ReadonlyArray<string>, h: HtmlBuilder<M>): Html => {
+  const rules = names.map((name) => {
     return `:root:active-view-transition-type(${name}) [data-flight="${name}"] { view-transition-name: ${name} !important; }`;
   });
   return h.style([], [rules.join("\n")]);
@@ -212,6 +211,20 @@ export const playlistPictureTransitionStyle = (
       }
     : {};
 
+/** A section has no shared artwork. Each detail page has exactly one candidate. */
+export const routeArtwork = (route: AppRoute): Option.Option<string> =>
+  AppRoute.matchOrElse(route, {
+    Track: ({ trackId }) => Option.some(coverTransitionName(trackId)),
+    Album: ({ albumId }) => Option.some(albumCoverTransitionName(albumId)),
+    Artist: ({ artistId }) => Option.some(artistPictureTransitionName(artistId)),
+    Playlist: ({ playlistId }) => Option.some(playlistPictureTransitionName(playlistId)),
+  }, () => Option.none());
+
+export const flightAttributes = <M>(style: Readonly<Record<string, string>>, h: HtmlBuilder<M>) =>
+  style.viewTransitionName
+    ? [h.DataAttribute("flight", style.viewTransitionName), h.Style(style)]
+    : [];
+
 /** Where a track's cover is, for a page that draws it. */
 export type CoverPlace = Readonly<{ presence: Presence; isInPlayer: boolean }>;
 
@@ -249,8 +262,7 @@ export const coverView = (
   h.div(
     [
       h.Class("catalog-art relative aspect-square overflow-hidden rounded-2xl bg-tile"),
-      ...(!isInPlayer ? [h.DataAttribute("flight", coverTransitionName(trackId))] : []),
-      h.Style(coverTransitionStyle(trackId, { presence: "OnScreen", isInPlayer })),
+      ...flightAttributes(coverTransitionStyle(trackId, { presence: "OnScreen", isInPlayer }), h),
     ],
     Option.match(maybeArtwork, {
       onNone: () => [missingPictureView(h)],

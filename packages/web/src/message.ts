@@ -14,7 +14,11 @@ import { Message as SheetMessage } from "./sheet/model.ts";
 export const PlayOrigin = Schema.Literals(["New", "Search", "Track", "Album", "Artist", "Playlist"]);
 export type PlayOrigin = typeof PlayOrigin.Type;
 
+export const InputMethod = Schema.Literals(["Keyboard", "Pointer"]);
+export type InputMethod = typeof InputMethod.Type;
+
 export const Message = defineMessageUnion({
+  ChangedInputMethod: { method: InputMethod },
   ClickedLink: { request: UrlRequest },
   ChangedUrl: { url: Url },
   ClickedBack: {},

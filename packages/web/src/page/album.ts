@@ -123,7 +123,7 @@ const foundView = (
                 }, h),
             }),
           ]),
-          trackListView("album-songs", "Ranked", tracks, { ...context, albumArtistId: album.artist.id }, h),
+          ...trackListView("album-songs", "Ranked", tracks, { ...context, albumArtistId: album.artist.id }, h),
         ]),
     }),
   ]);

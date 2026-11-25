@@ -111,11 +111,6 @@
   --ease-island-back: cubic-bezier(0.3, 1.18, 0.5, 1);
   --ease-menu-out: cubic-bezier(0.3, 1.1, 0.5, 1);
   --ease-menu-back: cubic-bezier(0.3, 1.04, 0.5, 1);
-  /* How long each spring is given: until it has come to rest. */
-  --dock-out: 500ms;
-  --dock-back: 620ms;
-  --menu-size-out: 200ms;
-  --menu-size-back: 180ms;
 }
 
 @supports (transition-timing-function: linear(0, 1)) {
@@ -143,122 +138,47 @@
   }
 }
 
-/* The capsule travels on a transform. Only its changing contour and the
-   space for its controls need layout, for the short sizing phase. */
+/* The two nav items keep their full layout slots. The active icon moves to
+   the centre of the compact button, regardless of which item owns it. */
 @layer components {
   @media (width < 48rem) {
-    .dock-island {
-      width: calc(100% - 2.5rem);
-    }
-    [data-navigation="minimized"] .dock-island {
-      width: calc(100% - 9.75rem);
-      transform: translate(3.625rem, 3.875rem);
-    }
-  }
-
-  @media (width < 48rem) and (prefers-reduced-motion: no-preference) {
-    .dock-surface {
-      transition:
-        top var(--menu-size-out) var(--ease-menu-out),
-        right var(--menu-size-out) var(--ease-menu-out),
-        bottom var(--menu-size-out) var(--ease-menu-out),
-        left var(--menu-size-out) var(--ease-menu-out);
-    }
-
-    .dock-menu {
-      transition: padding var(--menu-size-out) var(--ease-menu-out);
-    }
-
-    .dock-item {
-      transition:
-        flex-grow var(--menu-size-out) var(--ease-menu-out),
-        min-width var(--menu-size-out) var(--ease-menu-out),
-        padding var(--menu-size-out) var(--ease-menu-out),
-        opacity 160ms ease-out 60ms,
-        filter 160ms ease-out 60ms;
-    }
-
-    .dock-name {
-      transition:
-        opacity 140ms ease-out 100ms,
-        max-height var(--menu-size-out) var(--ease-menu-out);
-    }
-
-    .dock-search {
-      transition:
-        width var(--menu-size-out) var(--ease-menu-out),
-        height var(--menu-size-out) var(--ease-menu-out);
-    }
-
-    .dock-island {
-      transition:
-        transform var(--dock-out) var(--ease-island-out),
-        width 200ms var(--ease-dock-settle) 30ms;
-    }
-
-    /* The tail opens after the capsule has made room for Next. */
-    .dock-island-next {
-      transition: width 220ms var(--ease-dock-settle) 170ms;
-    }
-
-    .dock-island-next-control {
-      transition: opacity 140ms ease-out 220ms;
-    }
-
+    .dock-island { width: calc(100% - 2.5rem); }
+    .dock-surface { clip-path: inset(-2rem round 4rem); }
     [data-navigation="minimized"] {
-      .dock-surface {
-        transition:
-          top var(--menu-size-back) var(--ease-menu-back),
-          right var(--menu-size-back) var(--ease-menu-back),
-          bottom var(--menu-size-back) var(--ease-menu-back),
-          left var(--menu-size-back) var(--ease-menu-back);
-      }
-
-      .dock-menu {
-        transition: padding var(--menu-size-back) var(--ease-menu-back);
-      }
-
-      /* An item that leaves is gone from sight before it stops being there. */
-      .dock-item {
-        transition:
-          flex-grow var(--menu-size-back) var(--ease-menu-back),
-          min-width var(--menu-size-back) var(--ease-menu-back),
-          padding var(--menu-size-back) var(--ease-menu-back),
-          opacity 100ms ease-out,
-          filter 100ms ease-out,
-          visibility 0s 220ms;
-      }
-
-      .dock-name {
-        transition:
-          opacity 60ms ease-out,
-          max-height var(--menu-size-back) var(--ease-menu-back);
-      }
-
-      .dock-search {
-        transition:
-          width var(--menu-size-back) var(--ease-menu-back),
-          height var(--menu-size-back) var(--ease-menu-back);
-      }
-
       .dock-island {
-        transition:
-          transform var(--dock-back) var(--ease-island-back) 50ms,
-          width 180ms var(--ease-dock-settle);
+        width: calc(100% - 9.75rem);
+        transform: translate(3.625rem, 3.875rem);
       }
-
-      .dock-island-next {
-        transition: width 180ms var(--ease-dock-settle);
-      }
-
-      /* Next is under the control by the time it fades, and gone when the tail is. */
-      .dock-island-next-control {
-        transition:
-          opacity 80ms ease-out 90ms,
-          visibility 0s 180ms;
-      }
+      .dock-surface { clip-path: inset(0.375rem calc(100% - 3.125rem) 0.375rem 0.375rem round 2rem); opacity: 0; }
+      .dock-current:first-child { transform: translateX(calc(1.75rem - 50%)); }
+      .dock-current:nth-child(2) { transform: translateX(calc(1.75rem - 150%)); }
+      .dock-current svg { transform: translateY(0.5rem); }
+      .dock-search { transform: scale(calc(44 / 56)); }
+      .dock-search svg { transform: scale(calc(56 / 44)); }
     }
   }
+  @media (width < 48rem) and (prefers-reduced-motion: no-preference) {
+    [data-input="Pointer"] {
+      .dock-surface { transition: clip-path 200ms var(--ease-menu-out), opacity 140ms ease-out; }
+      .dock-circle, .dock-name, .dock-item:not(.dock-current) { transition: opacity 140ms ease-out; }
+      .dock-current, .dock-current svg, .dock-search, .dock-search svg {
+        transition: transform 200ms var(--ease-menu-out);
+      }
+      .dock-island { transition: transform 250ms var(--ease-island-out); }
+    }
+    [data-input="Pointer"][data-navigation="minimized"] {
+      .dock-surface { transition: clip-path 180ms var(--ease-menu-back), opacity 80ms ease-out 100ms; }
+      .dock-item:not(.dock-current) { transition: opacity 100ms ease-out, visibility 0s 100ms; }
+      .dock-current, .dock-current svg, .dock-search, .dock-search svg {
+        transition: transform 180ms var(--ease-menu-back);
+      }
+      .dock-island { transition: transform 250ms var(--ease-island-back); }
+    }
+  }
+}
+
+[data-input="Keyboard"] :is([data-glyph], .island-surface, .island-words, .player-cover, #main-navigation a) {
+  transition: none !important;
 }
 
 /* A press moves the entire figure independently of the dock spring. */
@@ -463,21 +383,15 @@ body {
   margin-block: clamp(2rem, 13.5dvh, 7.25rem) 3rem;
 }
 
-/* The page swap: the app asks for a view transition only when the page on
-   screen changes, and the runtime skips it under prefers-reduced-motion.
-   The default cross-fade is the effect wanted, only shorter. Every group
-   takes the same time, not just the root: the covers of the tracks on screen
-   are groups of their own, and would otherwise outlast the page they fade
-   with. */
+/* The page fades as a whole. Only the artwork named by this swap opts
+   into its own snapshot, on whichever side of the swap it is visible. */
 ::view-transition-group(*),
 ::view-transition-old(*),
 ::view-transition-new(*) {
   animation-duration: 150ms;
 }
 
-/* Per-track rules in the visible list and player opt just the travelling
-   cover back in, on both sides of a track selection. */
-:root:active-view-transition-type(choose-track) :where(.catalog-art) {
+:where(.catalog-art) {
   view-transition-name: none !important;
 }
 
@@ -488,41 +402,24 @@ body {
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* An album's cover travels the same way between its tile on a shelf and the
-   head of its page, growing as it goes and shrinking on the way back. It has
-   further to go and more to grow than a track's, so it is given a little
-   longer, and it arrives as the island does: a shade past its place, and
-   back. Its two pictures are the same picture at two sizes, so they are laid
-   one over the other at the box's own size and neither is seen to fade. */
-::view-transition-group(.album-cover) {
-  z-index: 1;
-  animation-duration: 420ms;
-  animation-timing-function: var(--ease-island-out);
-}
-
-::view-transition-old(.album-cover),
-::view-transition-new(.album-cover) {
-  block-size: 100%;
-  object-fit: cover;
-  animation-duration: 420ms;
-}
-
-/* An artist's picture and a playlist's travel as an album's cover does,
-   between the tile on a shelf and the head of the page. */
+/* A shelf tile and its detail portrait share one box as they change size. */
+::view-transition-group(.album-cover),
 ::view-transition-group(.artist-picture),
 ::view-transition-group(.playlist-picture) {
   z-index: 1;
-  animation-duration: 420ms;
-  animation-timing-function: var(--ease-island-out);
+  animation-duration: 250ms;
+  animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+::view-transition-old(.album-cover),
+::view-transition-new(.album-cover),
 ::view-transition-old(.artist-picture),
 ::view-transition-new(.artist-picture),
 ::view-transition-old(.playlist-picture),
 ::view-transition-new(.playlist-picture) {
   block-size: 100%;
   object-fit: cover;
-  animation-duration: 420ms;
+  animation-duration: 250ms;
 }
 
 /* The navigation is the same on both sides of a swap, so it does not fade
@@ -564,16 +461,16 @@ body {
   }
 }
 
-/* The flight: a track's cover on its way to the player. The name is on the
-   row, or on the track's page, before the tap and on the island after it, so
-   the browser moves the one picture between the two. It is the thing to
-   watch, so it takes longest, and it travels above the navigation and the
-   island it lands on. The same cover grows into the expanded player's and
-   shrinks back, in step with the box around it. A cover going the other way, back to the row of a
-   track the player gave up, travels under them like any other cover. */
+/* Give the cover the same clock as the player it travels to. Ordinary
+   page navigation finishes with the page fade, even with music playing. */
+:root { --player-swap-duration: 150ms; }
+:root:active-view-transition-type(choose-track) { --player-swap-duration: 250ms; }
+:root:active-view-transition-type(player-opens),
+:root:active-view-transition-type(player-closes) { --player-swap-duration: 380ms; }
+
 ::view-transition-group(.island-cover) {
   z-index: 2;
-  animation-duration: 380ms;
+  animation-duration: var(--player-swap-duration);
   animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);
 }
 
@@ -591,7 +488,7 @@ body {
 ::view-transition-group(player) {
   z-index: 1;
   clip-path: inset(-0.5rem round 2rem);
-  animation-duration: 380ms;
+  animation-duration: var(--player-swap-duration);
   animation-timing-function: cubic-bezier(0.3, 0, 0.1, 1);
 }
 
@@ -602,7 +499,7 @@ body {
   max-inline-size: none;
   object-fit: none;
   object-position: top left;
-  animation-duration: 380ms;
+  animation-duration: var(--player-swap-duration);
 }
 
 /* Opening and closing, one of the two pictures is the island's, and it is
@@ -659,6 +556,8 @@ body {
 /* The shadow is the figure once more, under the figure. It is a layer of
    its own so that it can be a picture of its own in a view transition (see
    below): inside the island's picture it would be cut where that picture is. */
+.island-surface > .island-layer { transform-origin: left center; }
+
 .island-shadow {
   z-index: -2;
   filter: drop-shadow(var(--island-shadow, none));
@@ -831,12 +730,12 @@ body {
 
 ::view-transition-new(island-shadow):only-child,
 ::view-transition-new(island-light):only-child {
-  animation: 200ms ease-out 300ms both navigation-arrive;
+  animation: 150ms ease-out calc(var(--player-swap-duration) - 150ms) both navigation-arrive;
 }
 
 /* Its first appearance, and only that: it rises into place once. */
 ::view-transition-new(player):only-child {
-  animation: 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both player-rise;
+  animation: var(--player-swap-duration) cubic-bezier(0.23, 1, 0.32, 1) both player-rise;
 }
 
 @keyframes player-rise {

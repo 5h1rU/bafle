@@ -59,6 +59,7 @@ import {
   searchRouter,
   trackRouter,
 } from "./route.ts";
+import { artworkFlightRules, routeArtwork } from "./view/artwork.ts";
 import { homeIcon, newIcon, searchIcon, spinnerIcon } from "./view/icon.ts";
 import {
   NAVIGATION_ID,
@@ -159,26 +160,11 @@ const ITEM_FOCUS_CLASS =
 const WIDE_LINK_CLASS =
   "md:h-auto md:w-auto md:flex-row md:justify-start md:gap-3 md:rounded-lg md:border-0 md:bg-transparent md:px-3 md:py-2 md:text-muted md:shadow-none md:backdrop-blur-none md:hover:text-ink md:data-current:bg-accent-wash md:data-current:text-accent";
 
-// NOTE: the menu's items share its width by `flex-grow`, half each, and the
-// menu draws back by that share going to nothing: what is left over is then
-// empty row, which is where the island comes down. The shares add up to one
-// so that the row starts emptying at once; were each item given a whole
-// share, the first half of the way would move nothing. The share is one over
-// the number of items in the menu: two.
-// How each piece moves is in styles.css, under the `dock-` names: the times
-// differ by piece and by direction, which is more than a class list can say.
 const MENU_ITEM_CLASS =
-  "dock-item min-w-0 grow-[0.5] basis-0 p-1 max-md:overflow-hidden md:grow-0 md:basis-auto md:p-0";
+  "dock-item min-w-0 grow basis-0 p-1 md:grow-0 md:basis-auto md:p-0";
 
-/** Drawn back, the item for where the listener is stays: it is what the circle shows. */
-const CIRCLE_ITEM_CLASS = "minimized:min-w-11 minimized:grow-0 minimized:p-0";
-
-// NOTE: every other item blurs and fades as its share goes, and only then
-// stops being there. It is there at once when the menu comes out again: the
-// focus is given to the menu in that same moment, and an element still on
-// its way to being visible does not take it.
-const LEAVING_ITEM_CLASS =
-  "minimized:invisible minimized:grow-0 minimized:p-0 minimized:opacity-0 minimized:blur-sm";
+const CIRCLE_ITEM_CLASS = "dock-current";
+const LEAVING_ITEM_CLASS = "minimized:invisible minimized:opacity-0";
 
 const MENU_LINK_CLASS = clsx(
   "pointer-events-auto flex h-full touch-manipulation flex-col items-center justify-center rounded-full text-muted transition-colors duration-200 hover:text-ink data-current:bg-ink/10 data-current:text-accent minimized:pointer-events-none minimized:text-ink minimized:data-current:bg-transparent minimized:data-current:text-accent",
@@ -198,7 +184,7 @@ const CIRCLE_ICON_CLASS = "minimized:visible";
 
 /** An item's name under its icon. Drawn back, the circle has room for the icon alone. */
 const MENU_NAME_CLASS =
-  "dock-name max-h-4 text-[0.625rem] leading-4 font-medium minimized:max-h-0 minimized:opacity-0 md:max-h-none md:text-sm md:leading-normal";
+  "dock-name text-[0.625rem] leading-4 font-medium minimized:opacity-0 md:text-sm md:leading-normal";
 
 /**
  * Search keeps its place at the far end, and is a little smaller while the
@@ -211,7 +197,7 @@ const SEARCH_ITEM_CLASS =
   "ml-auto flex h-14 w-16 shrink-0 items-center justify-center pl-2 md:ml-0 md:block md:h-auto md:w-auto md:pl-0";
 
 const SEARCH_LINK_CLASS = clsx(
-  "dock-search pointer-events-auto flex size-14 touch-manipulation items-center justify-center rounded-full text-ink data-current:text-accent minimized:size-11",
+  "dock-search pointer-events-auto flex size-14 touch-manipulation items-center justify-center rounded-full text-ink data-current:text-accent",
   FLOATING_CLASS,
   ITEM_FOCUS_CLASS,
   WIDE_LINK_CLASS,
@@ -271,15 +257,13 @@ const destinationView = (
  * end was, so nothing is seen to jump.
  */
 const menuSurfaceView = (h: HtmlBuilder<Message>): Html =>
-  h.div([
-    h.AriaHidden(true),
-    h.Class(
-      clsx(
-        "dock-surface absolute inset-y-0 right-16 left-0 rounded-full minimized:top-1.5 minimized:right-[calc(100%-3.125rem)] minimized:bottom-1.5 minimized:left-1.5 md:hidden",
-        FLOATING_CLASS,
-      ),
-    ),
-  ]);
+  h.div(
+    [h.AriaHidden(true), h.Class("pointer-events-none md:hidden")],
+    [
+      h.div([h.Class(clsx("dock-circle absolute top-1.5 left-1.5 size-11 rounded-full opacity-0 minimized:opacity-100", FLOATING_CLASS))]),
+      h.div([h.Class(clsx("dock-surface absolute inset-y-0 right-16 left-0 rounded-full", FLOATING_CLASS))]),
+    ],
+  );
 
 /**
  * What a press of the circle does. The circle shows the item for where the
@@ -329,7 +313,7 @@ const navigationView = (model: Model, h: HtmlBuilder<Message>): Html => {
           h.ul(
             [
               h.Role("list"),
-              h.Class("dock-menu relative flex h-full minimized:pl-1.5 md:flex-col md:gap-1"),
+              h.Class("relative flex h-full md:flex-col md:gap-1"),
             ],
             Array.map(items, (item) =>
               destinationView(
@@ -971,12 +955,14 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
       ...(Player.hasSession(model.player) && (!isPlayerExpanded(model) || isSheetAway(model))
         ? [h.DataAttribute("player", "")]
         : []),
+      h.DataAttribute("input", model.inputMethod),
       h.DataAttribute("navigation", model.navigation === "Minimized" ? "minimized" : "open"),
       h.Class(
         "group/shell relative flex h-dvh flex-col bg-canvas font-sans text-ink antialiased md:flex-row",
       ),
     ],
     [
+      artworkFlightRules(Option.toArray(routeArtwork(model.route)), h),
       h.header(
         [
           h.Class(

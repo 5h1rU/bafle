@@ -13,6 +13,8 @@ import {
   artistPictureTransitionStyle,
   type ArtworkShape,
   artworkView,
+  artworkFlightRules,
+  flightAttributes,
   playlistPictureTransitionStyle,
 } from "./artwork.ts";
 import { spinnerIcon } from "./icon.ts";
@@ -132,7 +134,7 @@ const tileContentView = (
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => [
   h.div(
-    [h.Class("catalog-art relative"), h.Style(tile.flightStyle)],
+    [h.Class("catalog-art relative"), ...flightAttributes(tile.flightStyle, h)],
     [
       artworkView(tile.maybeArtwork, shape, "medium", h),
       tile.isOpening
@@ -190,6 +192,7 @@ const shelfView = (
   h.section(
     [],
     [
+      artworkFlightRules(tiles.flatMap((tile) => tile.flightStyle.viewTransitionName ?? []), h),
       h.h2([h.Id(id), h.Class(SECTION_HEADING_CLASS)], [title]),
       h.ul(
         [
