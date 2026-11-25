@@ -1,0 +1,4 @@
+# Every page is open to crawlers. Without this file the path has no file
+# behind it, and the app's own page is served in its place.
+User-agent: *
+Allow: /

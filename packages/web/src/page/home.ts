@@ -55,6 +55,7 @@ const shelvesView = (
         "Square",
         Array.map(featured.albums, albumTile(isAlbumOpening, presence)),
         h,
+        "AtHead",
       ),
       maybeShelfView(
         "home-top-playlists",

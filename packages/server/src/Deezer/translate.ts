@@ -33,13 +33,29 @@ import type {
 
 type Image = string | null | undefined;
 
+// NOTE: Deezer's image server draws a picture in the format its address ends
+// in, and the catalog only ever hands out the JPEG's address. Nothing Deezer
+// publishes says so: it is what the server does (seen 2026-11-25, for covers,
+// artists, playlists, genres and stations, at all three sizes). Should it
+// stop, this is the line to take out.
+const DEEZER_JPEG = /(\/\d+x\d+-[0-9a-f]{6}-\d+-\d+-\d+)\.jpg$/;
+
+/**
+ * The same picture as WebP, which is a third to a half lighter than the
+ * JPEG at the same size. An address of any other shape is not one this
+ * knows how to ask differently, and is left as Deezer gave it.
+ */
+const asWebp = (url: string): string => url.replace(DEEZER_JPEG, "$1.webp");
+
 /**
  * Deezer's 250, 500 and 1000 pixel images, as the sizes Bafle draws. Its
  * 56 pixel image is too coarse for a thumbnail on a dense screen, so the 250
  * serves as the small one. Without all three there is no artwork.
  */
 export const toArtwork = (medium: Image, big: Image, xl: Image): Artwork | null =>
-  medium && big && xl ? { small: medium, medium: big, large: xl } : null;
+  medium && big && xl
+    ? { small: asWebp(medium), medium: asWebp(big), large: asWebp(xl) }
+    : null;
 
 const toCredit = (artist: { readonly id: number; readonly name: string }): ArtistCredit => ({
   id: ArtistId.make(String(artist.id)),

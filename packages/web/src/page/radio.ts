@@ -16,7 +16,12 @@ import {
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
 import { untitledShelfPlaceholderView } from "../view/placeholder.ts";
-import { type IsStationOpening, maybeShelfView, stationTile } from "../view/shelf.ts";
+import {
+  type IsStationOpening,
+  maybeShelfView,
+  type ShelfPlace,
+  stationTile,
+} from "../view/shelf.ts";
 
 // VIEW
 
@@ -41,6 +46,7 @@ const groupTitleId = (group: StationGroup): string => `radio-genre-${group.genre
 /** One genre's stations: a shelf under the genre's name, each tile leading to its station's page. */
 const maybeGroupView = (
   group: StationGroup,
+  place: ShelfPlace,
   presence: Presence,
   isStationOpening: IsStationOpening,
   h: HtmlBuilder<Message>,
@@ -52,6 +58,7 @@ const maybeGroupView = (
       "Square",
       Array.map(group.stations, stationTile(isStationOpening, presence)),
       h,
+      place,
     ),
     (shelf) => h.keyed("div")(group.genre.id, [], [shelf]),
   );
@@ -64,7 +71,10 @@ const groupsView = (
 ): Html =>
   Array.match(
     Array.getSomes(
-      Array.map(radio.groups, (group) => maybeGroupView(group, presence, isStationOpening, h)),
+      // The first genre's shelf is what the page opens with.
+      Array.map(radio.groups, (group, index) =>
+        maybeGroupView(group, index === 0 ? "AtHead" : "Below", presence, isStationOpening, h),
+      ),
     ),
     {
       onEmpty: () => h.p([h.Class(QUIET_LINE_CLASS)], ["The catalog has no stations right now."]),

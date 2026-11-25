@@ -87,6 +87,7 @@ const answerView = (
         "Round",
         Array.map(answer.results.artists, artistTile(isArtistOpening, context.presence)),
         h,
+        "AtHead",
       ),
       maybeShelfView(
         "search-albums",

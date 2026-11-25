@@ -20,9 +20,19 @@ export type ArtworkShape = "Square" | "Round";
 /** Which of a picture's renditions to load: a list row's thumbnail or a shelf's tile. */
 export type ArtworkSize = keyof Pick<Artwork, "small" | "medium">;
 
-const pictureView = <M>(url: string, h: HtmlBuilder<M>): Html =>
+/**
+ * When a picture is asked of the network. Most wait until the listener is
+ * near them: a page has far more pictures than a screen shows. The few a page
+ * opens with are asked for at once and ahead of the rest, since a picture
+ * that waits to learn it is on screen is the last thing of the page to arrive.
+ */
+export type PictureLoading = "AtOnce" | "WhenNear";
+
+const pictureView = <M>(url: string, loading: PictureLoading, h: HtmlBuilder<M>): Html =>
   h.img([
-    h.Loading("lazy"),
+    ...(loading === "AtOnce"
+      ? [h.Loading("eager"), h.Fetchpriority("high")]
+      : [h.Loading("lazy")]),
     h.Decoding("async"),
     h.Src(url),
     // The title sits beside every picture, so the picture itself says nothing new.
@@ -46,6 +56,7 @@ export const artworkView = <M>(
   shape: ArtworkShape,
   size: ArtworkSize,
   h: HtmlBuilder<M>,
+  loading: PictureLoading = "WhenNear",
 ): Html =>
   h.div(
     [
@@ -59,7 +70,7 @@ export const artworkView = <M>(
     [
       Option.match(maybeArtwork, {
         onNone: () => missingPictureView(h),
-        onSome: (artwork) => pictureView(artwork[size], h),
+        onSome: (artwork) => pictureView(artwork[size], loading, h),
       }),
     ],
   );

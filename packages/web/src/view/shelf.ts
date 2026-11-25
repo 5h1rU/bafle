@@ -24,6 +24,7 @@ import {
   artworkFlightRules,
   flightAttributes,
   genrePictureTransitionStyle,
+  type PictureLoading,
   playlistPictureTransitionStyle,
   stationPictureTransitionStyle,
 } from "./artwork.ts";
@@ -176,6 +177,25 @@ export const SHELF_ROW_CLASS =
 export const SHELF_TILE_CLASS = "w-36 shrink-0 snap-start sm:w-40";
 
 /**
+ * Where a row of tiles stands on its page: at its head, on screen as the
+ * page arrives, or below something else, where the listener scrolls to it.
+ */
+export type ShelfPlace = "AtHead" | "Below";
+
+// NOTE: a phone's row shows three tiles and a desktop's twice that. Four is
+// what every screen shows of the row at a page's head, or nearly: asking for
+// more at once would set pictures no one sees yet against the ones they do.
+const TILES_LOADED_AT_ONCE = 4;
+
+/**
+ * When a tile's picture is asked for. The first of the row at a page's head
+ * are what the page opens with, so they do not wait to learn they are on
+ * screen; every other waits until the listener is near it.
+ */
+const tileLoading = (place: ShelfPlace, index: number): PictureLoading =>
+  place === "AtHead" && index < TILES_LOADED_AT_ONCE ? "AtOnce" : "WhenNear";
+
+/**
  * What a tile shows. A tile whose page is on its way says so with its own
  * picture: the sleeve moves a little aside and its record comes part of the
  * way out from behind it and turns, for as long as the page takes, and goes
@@ -189,6 +209,7 @@ export const SHELF_TILE_CLASS = "w-36 shrink-0 snap-start sm:w-40";
 const tileContentView = (
   tile: Tile,
   shape: ArtworkShape,
+  loading: PictureLoading,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => [
   h.div(
@@ -200,7 +221,7 @@ const tileContentView = (
       h.span([h.AriaHidden(true), h.Class("tile-record")], []),
       h.div(
         [h.Class("tile-sleeve catalog-art relative"), ...flightAttributes(tile.flightStyle, h)],
-        [artworkView(tile.maybeArtwork, shape, "medium", h)],
+        [artworkView(tile.maybeArtwork, shape, "medium", h, loading)],
       ),
     ],
   ),
@@ -217,6 +238,7 @@ const tileView = (
   tile: Tile,
   shape: ArtworkShape,
   className: string,
+  loading: PictureLoading,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.keyed("li")(
@@ -230,7 +252,7 @@ const tileView = (
           h.DataAttribute(tile.attribute, tile.id),
           h.Class(TILE_LINK_CLASS),
         ],
-        tileContentView(tile, shape, h),
+        tileContentView(tile, shape, loading, h),
       ),
     ],
   );
@@ -245,6 +267,7 @@ const shelfView = (
   title: string,
   shape: ArtworkShape,
   tiles: Array.NonEmptyReadonlyArray<Tile>,
+  place: ShelfPlace,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.section(
@@ -263,22 +286,29 @@ const shelfView = (
             ),
           ),
         ],
-        Array.map(tiles, (tile) => tileView(tile, shape, SHELF_TILE_CLASS, h)),
+        Array.map(tiles, (tile, index) =>
+          tileView(tile, shape, SHELF_TILE_CLASS, tileLoading(place, index), h),
+        ),
       ),
     ],
   );
 
-/** A shelf, or nothing when there is nothing to put on it: a title over an empty row says less than no row. */
+/**
+ * A shelf, or nothing when there is nothing to put on it: a title over an
+ * empty row says less than no row. A page says which of its shelves it opens
+ * with, if any; a shelf it does not speak for stands below something else.
+ */
 export const maybeShelfView = (
   id: string,
   title: string,
   shape: ArtworkShape,
   tiles: ReadonlyArray<Tile>,
   h: HtmlBuilder<Message>,
+  place: ShelfPlace = "Below",
 ): Option.Option<Html> =>
   Array.match(tiles, {
     onEmpty: () => Option.none(),
-    onNonEmpty: (shelved) => Option.some(shelfView(id, title, shape, shelved, h)),
+    onNonEmpty: (shelved) => Option.some(shelfView(id, title, shape, shelved, place, h)),
   });
 
 /**
@@ -310,7 +340,10 @@ export const maybeTileGridView = (
             artworkFlightRules(shown.flatMap((tile) => tile.flightStyle.viewTransitionName ?? []), h),
             h.ul(
               [h.Role("list"), h.AriaLabelledBy(labelledBy), h.Class(TILE_GRID_CLASS)],
-              Array.map(shown, (tile) => tileView(tile, shape, TILE_GRID_TILE_CLASS, h)),
+              // The grid is all its page shows, so it is always at the page's head.
+              Array.map(shown, (tile, index) =>
+                tileView(tile, shape, TILE_GRID_TILE_CLASS, tileLoading("AtHead", index), h),
+              ),
             ),
           ],
         ),

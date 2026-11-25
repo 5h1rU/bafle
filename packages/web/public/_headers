@@ -1,0 +1,4 @@
+# The build names each of these files by its contents, so a name never comes
+# to mean another file: a browser may keep one for good and never ask again.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
