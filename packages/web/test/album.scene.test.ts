@@ -1,4 +1,5 @@
 import type { TrendingMusic } from "@bafle/domain/Catalog/MusicCatalog.external";
+import * as Option from "effect/Option";
 import { Animation, Menu } from "@foldkit/ui";
 import {
   all,
@@ -31,6 +32,7 @@ import {
   after,
   album,
   albumPath,
+  albumOpener,
   answered,
   arrived,
   changedUrl,
@@ -158,15 +160,16 @@ describe("the album page", () => {
         see(text(/3 songs/)).toExist(),
         // The rendition a row or a tile already loaded is drawn under the larger one.
         see(selector('img[src="https://img.test/al-1/small.jpg"][decoding="sync"]')).toExist(),
-        see(selector('img[src="https://img.test/al-1/medium.jpg"][decoding="async"]')).toExist(),
+        see(selector('img[src="https://img.test/al-1/large.jpg"][decoding="async"]')).toExist(),
         see(sectionTitle("Songs")).toExist(),
         inside(
           songs,
           expectAll(all.role("listitem")).toHaveCount(3),
+          expectAll(all.selector("img")).toHaveCount(0),
           // Each row plays, as a row of any list does, and is numbered: the order is the album's.
           see(playRow("One More Time")).toContainText("5:20"),
-          see(playRow("One More Time")).toContainText("1"),
-          see(playRow(TITLE)).toContainText("2"),
+          see(playRow("One More Time")).toContainText("01"),
+          see(playRow(TITLE)).toContainText("02"),
           see(text("This song has no audio to play.")).toExist(),
         ),
         // Opened from a list: the way out goes back through the history.
@@ -175,6 +178,18 @@ describe("the album page", () => {
       // An album is not a section: no item is the current page.
       inside(navigation, expectAll(all.selector("[aria-current]")).toHaveCount(0)),
     ));
+
+  test("Play album starts at the first playable song and queues the rest in album order", () => {
+    const found = answered(opened(albumPath(album.id)), (id) =>
+      reply.album(id, { ...reply.album(id).result, tracks: [silentTrack, albumOpener, track] }),
+    );
+    scene(app, given(found), see(role("button", { name: "Play album" })).toExist());
+    const play = Message.ClickedPlayAlbum({ firstTrackId: albumOpener.id });
+    const session = Option.getOrThrow(after(found, play, play).player.maybeSession);
+    expect(session.current.id).toBe(albumOpener.id);
+    expect(session.playback._tag).toBe("Acknowledged");
+    expect(session.later.map((next) => next.id)).toEqual([track.id]);
+  });
 
   test("the document is titled after the album", () => {
     expect(documentTitle(onAlbum)).toBe("Discovery · Bafle");
@@ -202,6 +217,7 @@ describe("the album page", () => {
       ),
       see(pageTitle("Discovery")).toExist(),
       see(text("0 songs")).toExist(),
+      see(role("button", { name: "Play album" })).toBeAbsent(),
       see(selector("#album-page time")).toBeAbsent(),
       see(text("The catalog lists no songs for this album.")).toExist(),
     ));

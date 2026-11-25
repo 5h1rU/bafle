@@ -796,10 +796,10 @@ const toggle = (session: Session): Step =>
  */
 export const choose = (
   model: Model,
-  choice: Readonly<{ trackId: TrackId; list: ReadonlyArray<TrackSummary> }>,
+  choice: Readonly<{ trackId: TrackId; list: ReadonlyArray<TrackSummary>; restart?: boolean }>,
 ): UpdateReturn =>
   withWhatFollows(model)(
-    Option.contains(maybeCurrentTrackId(model), choice.trackId)
+    !choice.restart && Option.contains(maybeCurrentTrackId(model), choice.trackId)
       ? onSession(toggle)(model)
       : Option.match(queueFrom(choice.list, choice.trackId), {
           onNone: () => ({ model }),

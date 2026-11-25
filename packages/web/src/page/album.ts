@@ -1,18 +1,19 @@
 import type { AlbumId } from "@bafle/domain/Catalog/Album";
 import type { Album } from "@bafle/domain/Catalog/FullAlbum";
+import { Button } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { AsyncData } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
-import type { Message } from "../message.ts";
+import { Message } from "../message.ts";
 import type { AlbumData } from "../model.ts";
-import { albumCoverView } from "../view/artwork.ts";
+import { isPlayable } from "../player/model.ts";
+import { albumCoverView, artworkView } from "../view/artwork.ts";
+import { playIcon } from "../view/icon.ts";
 import {
   PAGE_IDS,
-  PAGE_SECTIONS_CLASS,
-  PAGE_TITLE_CLASS,
-  QUIET_LINE_CLASS,
+  type Presence,
   SECTION_HEADING_CLASS,
   pageAttributes,
   pageTitleIdOf,
@@ -22,10 +23,12 @@ import { pageDataView } from "../view/pageData.ts";
 import { BLOCK_CLASS, trackListPlaceholderView } from "../view/placeholder.ts";
 import {
   explicitMarkerView,
-  maybeTrackSectionView,
+  trackListView,
   type TrackListContext,
 } from "../view/trackList.ts";
 import { wayBackView } from "../view/wayBack.ts";
+
+import "./album.css";
 
 // VIEW
 
@@ -41,45 +44,19 @@ export const titleOf = (album: AlbumData): string =>
     onSome: Option.match({ onNone: () => NOT_AVAILABLE, onSome: (found) => found.title }),
   });
 
-/** The cover beside the album's name, at the head of the page. */
-const HEAD_CLASS = "flex max-w-3xl items-end gap-5 md:gap-7";
-
-const COVER_CLASS = "w-28 shrink-0 sm:w-40 md:w-48";
-
-/**
- * The page before the catalog has answered: a block for the cover beside
- * lines for the title, the artist and the facts, then rows under the list's
- * title, which never depends on the catalog.
- */
 const placeholderView = (h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [],
-    [
-      h.div(
-        [h.AriaHidden(true), h.Class(HEAD_CLASS)],
-        [
-          h.div([h.Class(clsx(BLOCK_CLASS, COVER_CLASS, "aspect-square rounded-xl"))]),
-          h.div(
-            [h.Class("min-w-0 flex-1")],
-            [
-              h.div([h.Class(clsx(BLOCK_CLASS, "h-9 w-4/5 rounded"))]),
-              h.div([h.Class(clsx(BLOCK_CLASS, "mt-3 h-6 w-2/5 rounded"))]),
-              h.div([h.Class(clsx(BLOCK_CLASS, "mt-3 h-4 w-32 rounded"))]),
-            ],
-          ),
-        ],
-      ),
-      h.div(
-        [h.Class(PAGE_SECTIONS_CLASS)],
-        [
-          h.section(
-            [h.Class("max-w-3xl")],
-            [h.h2([h.Class(SECTION_HEADING_CLASS)], [SONGS]), trackListPlaceholderView(h)],
-          ),
-        ],
-      ),
-    ],
-  );
+  h.div([], [
+    h.div([h.Class("album-hero album-placeholder"), h.AriaHidden(true)], [
+      h.div([h.Class("album-caption")], [
+        h.div([h.Class(clsx(BLOCK_CLASS, "h-12 w-3/4 rounded"))]),
+        h.div([h.Class(clsx(BLOCK_CLASS, "mt-3 h-5 w-1/3 rounded"))]),
+      ]),
+    ]),
+    h.section([h.Class("album-songs")], [
+      h.h2([h.Class(SECTION_HEADING_CLASS)], [SONGS]),
+      trackListPlaceholderView(h),
+    ]),
+  ]);
 
 const songCount = (album: Album): string =>
   album.tracks.length === 1 ? "1 song" : `${album.tracks.length} songs`;
@@ -87,7 +64,7 @@ const songCount = (album: Album): string =>
 /** The year an album came out, and how many songs it has: only what the catalog knows. */
 const factsView = (album: Album, h: HtmlBuilder<Message>): Html =>
   h.p(
-    [h.Class("mt-2 text-sm text-muted tabular-nums")],
+    [h.Class("album-facts")],
     Option.match(Option.fromNullishOr(album.releaseDate), {
       onNone: () => [songCount(album)],
       onSome: (releaseDate) => [
@@ -97,44 +74,59 @@ const factsView = (album: Album, h: HtmlBuilder<Message>): Html =>
     }),
   );
 
-const headView = (album: Album, h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [h.Class(HEAD_CLASS)],
-    [
-      h.div([h.Class(COVER_CLASS)], [albumCoverView(album.id, Option.fromNullishOr(album.cover), h)]),
-      h.div(
-        [h.Class("min-w-0")],
-        [
-          h.h1(
-            [h.Id(pageTitleIdOf(PAGE_ID)), h.Class(PAGE_TITLE_CLASS)],
-            [album.title, album.explicit ? explicitMarkerView(h) : h.empty],
-          ),
-          h.p([h.Class("mt-1 text-lg text-muted")], [album.artist.name]),
-          factsView(album, h),
-        ],
-      ),
-    ],
-  );
+const headView = (album: Album, presence: Presence, h: HtmlBuilder<Message>): Html =>
+  h.header([h.Class("album-hero")], [
+    albumCoverView(album.id, presence, Option.fromNullishOr(album.cover), h),
+    h.div([h.Class("album-caption")], [
+      h.h1([h.Id(pageTitleIdOf(PAGE_ID))], [
+        album.title,
+        album.explicit ? explicitMarkerView(h) : h.empty,
+      ]),
+      h.p([h.Class("album-artist")], [album.artist.name]),
+      factsView(album, h),
+    ]),
+  ]);
 
-/**
- * The album, and its songs in the album's order, numbered. Each row plays,
- * and the album is then the queue.
- */
-const foundView = (album: Album, context: TrackListContext, h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [],
-    [
-      headView(album, h),
-      Option.match(
-        maybeTrackSectionView("album-songs", SONGS, "Ranked", album.tracks, context, h),
-        {
-          onNone: () =>
-            h.p([h.Class(QUIET_LINE_CLASS)], ["The catalog lists no songs for this album."]),
-          onSome: (songs) => h.div([h.Class(PAGE_SECTIONS_CLASS)], [songs]),
-        },
-      ),
-    ],
-  );
+const toolbarView = (album: Album, h: HtmlBuilder<Message>): Html =>
+  h.div([h.Class("album-toolbar")], [
+    h.div([h.AriaHidden(true), h.Class("album-compact")], [
+      artworkView(Option.fromNullishOr(album.cover), "Square", "small", h),
+      h.div([h.Class("min-w-0")], [
+        h.p([h.Class("truncate text-lg leading-tight font-bold")], [album.title]),
+        h.p([h.Class("truncate text-sm text-muted")], [album.artist.name]),
+      ]),
+    ]),
+  ]);
+
+const foundView = (
+  album: Album,
+  context: TrackListContext,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.div([h.Class("album-detail")], [
+    toolbarView(album, h),
+    headView(album, context.presence, h),
+    Array.match(album.tracks, {
+      onEmpty: () =>
+        h.p([h.Class("album-songs text-muted")], ["The catalog lists no songs for this album."]),
+      onNonEmpty: (tracks) =>
+        h.section([h.Class("album-songs")], [
+          h.div([h.Class("album-songs-heading")], [
+            h.h2([h.Id("album-songs"), h.Class(SECTION_HEADING_CLASS)], [SONGS]),
+            Option.match(Array.findFirst(tracks, isPlayable), {
+              onNone: () => h.empty,
+              onSome: (first) =>
+                Button.view({
+                  onClick: Message.ClickedPlayAlbum({ firstTrackId: first.id }),
+                  toView: (attrs) =>
+                    h.button([...attrs.button, h.Class("album-play")], [playIcon("size-4"), "Play album"]),
+                }, h),
+            }),
+          ]),
+          trackListView("album-songs", "Ranked", tracks, { ...context, albumArtistId: album.artist.id }, h),
+        ]),
+    }),
+  ]);
 
 /**
  * The catalog has no such album. That will not change, so there is nothing
@@ -176,11 +168,13 @@ export const view = (
   hasWayBack: boolean,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
-): Html =>
-  h.keyed("div")(albumId, pageAttributes(PAGE_ID, context.presence, h), [
-    wayBackView(hasWayBack, h),
+): Html => {
+  const hasAlbum = Option.isSome(Option.flatten(AsyncData.getData(album)));
+  const overlay = hasAlbum || AsyncData.isPending(album);
+  return h.keyed("div")(albumId, pageAttributes(PAGE_ID, context.presence, h), [
+    h.div([h.Class(clsx("album-return", { "album-overlay": overlay }))], [wayBackView(hasWayBack, h)]),
     h.div(
-      [h.AriaBusy(AsyncData.isPending(album)), h.Class("mt-4")],
+      [h.AriaBusy(AsyncData.isPending(album)), h.Class(clsx({ "album-unavailable": !overlay }))],
       [
         untitledView(album, h),
         pageDataView(
@@ -196,3 +190,4 @@ export const view = (
       ],
     ),
   ]);
+};

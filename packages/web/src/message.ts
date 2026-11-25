@@ -22,6 +22,7 @@ export const Message = defineMessageUnion({
   ClickedTryAgainOnTrack: { trackId: TrackId },
   ClickedTryAgainOnAlbum: { from: PlayOrigin, trackId: TrackId },
   UpdatedSearchField: { value: Schema.String },
+  ClickedPlayAlbum: { firstTrackId: TrackId },
   ClickedPlayTrack: { trackId: TrackId, from: PlayOrigin },
   GotRowMenuMessage: { from: PlayOrigin, trackId: TrackId, message: Menu.Message },
   ScrolledDown: {},

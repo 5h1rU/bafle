@@ -1258,6 +1258,12 @@ export const update = (model: Model, message: Message) =>
     // NOTE: playing is no navigation, with one exception. No navigation
     // Message reaches the player, and the player moves the route only while
     // it is expanded, when its page is the page of the track it holds.
+    ClickedPlayAlbum: ({ firstTrackId }) =>
+      Update.combine(model, [
+        foldPlayerChoice({ trackId: firstTrackId, list: albumTracksInDocument(model), restart: true }),
+        keepUpWithPlayer(model),
+      ]),
+
     ClickedPlayTrack: ({ trackId, from }) =>
       Update.combine(model, [
         foldPlayerChoice({ trackId, list: listPlayedFrom(model, from, trackId) }),

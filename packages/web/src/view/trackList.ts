@@ -1,3 +1,4 @@
+import type { ArtistId } from "@bafle/domain/Catalog/Artist";
 import type { AlbumId } from "@bafle/domain/Catalog/Album";
 import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
 import { Button, type Menu } from "@foldkit/ui";
@@ -96,6 +97,7 @@ const rowStateOf = <A>(data: AsyncData.AsyncData<Option.Option<A>, LoadError>): 
  */
 export type TrackListContext = Readonly<{
   presence: Presence;
+  albumArtistId?: ArtistId;
   from: PlayOrigin;
   trackDataOf: (trackId: TrackId) => TrackData;
   albumDataOf: (albumId: AlbumId) => AlbumData;
@@ -145,23 +147,12 @@ const nowPlayingMarkView = (status: TrackStatus, h: HtmlBuilder<Message>): Html 
   );
 };
 
-/** What every row shows, whatever can be done with it. */
-const rowContentView = (
+const trackThumbnailView = (
   track: TrackSummary,
-  maybePosition: Option.Option<number>,
   status: TrackStatus,
   presence: Presence,
   h: HtmlBuilder<Message>,
-): ReadonlyArray<Html> => [
-  Option.match(maybePosition, {
-    onNone: () => h.empty,
-    // Hidden from assistive technology: the ordered list already says the position.
-    onSome: (position) =>
-      h.span(
-        [h.AriaHidden(true), h.Class("w-6 shrink-0 text-right text-sm text-muted tabular-nums")],
-        [position.toString()],
-      ),
-  }),
+): Html =>
   h.div(
     [
       h.DataAttribute("cover", ""),
@@ -175,7 +166,28 @@ const rowContentView = (
       artworkView(Option.fromNullishOr(track.album.cover), "Square", "small", h),
       nowPlayingMarkView(status, h),
     ],
-  ),
+  );
+
+/** What every row shows, whatever can be done with it. */
+const rowContentView = (
+  track: TrackSummary,
+  maybePosition: Option.Option<number>,
+  status: TrackStatus,
+  context: TrackListContext,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> => [
+  Option.match(maybePosition, {
+    onNone: () => h.empty,
+    // Hidden from assistive technology: the ordered list already says the position.
+    onSome: (position) =>
+      h.span(
+        [h.AriaHidden(true), h.Class("relative w-6 shrink-0 text-right text-sm text-muted tabular-nums")],
+        context.from === "Album"
+          ? [String(position).padStart(2, "0"), nowPlayingMarkView(status, h)]
+          : [position.toString()],
+      ),
+  }),
+  context.from === "Album" ? h.empty : trackThumbnailView(track, status, context.presence, h),
   h.div(
     [h.Class("min-w-0 flex-1 text-left")],
     [
@@ -186,7 +198,9 @@ const rowContentView = (
           track.explicit ? explicitMarkerView(h) : h.empty,
         ],
       ),
-      h.p([h.Class("truncate text-sm text-muted")], [track.artist.name]),
+      context.albumArtistId === track.artist.id
+        ? h.empty
+        : h.p([h.Class("truncate text-sm text-muted")], [track.artist.name]),
     ],
   ),
   h.span(
@@ -237,7 +251,7 @@ const playRowView = (
               ),
             ),
           ],
-          rowContentView(track, maybePosition, status, context.presence, h),
+          rowContentView(track, maybePosition, status, context, h),
         ),
     },
     h,
@@ -252,7 +266,7 @@ const silentRowView = (
 ): Html =>
   h.div(
     [h.Class(ROW_PART_CLASS)],
-    rowContentView(track, maybePosition, "Elsewhere", context.presence, h),
+    rowContentView(track, maybePosition, "Elsewhere", context, h),
   );
 
 const MORE_CLASS =
@@ -618,7 +632,7 @@ const trackRowView = (
 /** Ranked lists number their rows: the order is the catalog's chart. */
 export type TrackOrder = "Ranked" | "Unranked";
 
-const trackListView = (
+export const trackListView = (
   labelledBy: string,
   order: TrackOrder,
   tracks: Array.NonEmptyReadonlyArray<TrackSummary>,

@@ -64,14 +64,14 @@ export const artworkView = <M>(
 /**
  * The picture at the head of a page. The page is reached from a row, which
  * has loaded the small rendition, or from a tile, which has loaded the
- * medium one: the small one is drawn under the medium one, so whichever is
- * on hand is on screen at once and the box never stands empty.
+ * medium one. A cached thumbnail fills the box while the final picture decodes.
  */
 const headPictureView = (
   shapeClass: string,
   flightStyle: Readonly<Record<string, string>>,
   maybeArtwork: Option.Option<Artwork>,
   h: HtmlBuilder<Message>,
+  size: "medium" | "large" = "medium",
 ): Html =>
   h.div(
     [
@@ -90,7 +90,7 @@ const headPictureView = (
         h.img([
           h.Decoding("async"),
           h.Fetchpriority("high"),
-          h.Src(artwork.medium),
+          h.Src(artwork[size]),
           h.Alt(""),
           h.Class("absolute inset-0 size-full object-cover"),
         ]),
@@ -98,21 +98,14 @@ const headPictureView = (
     }),
   );
 
-/**
- * An album's cover at the head of its page. The page is on screen whenever
- * it is drawn: the cover arrives from the tile it was chosen by.
- */
+/** The album hero shares its cover with the shelf tile during navigation. */
 export const albumCoverView = (
   albumId: AlbumId,
+  presence: Presence,
   maybeArtwork: Option.Option<Artwork>,
   h: HtmlBuilder<Message>,
 ): Html =>
-  headPictureView(
-    "rounded-xl",
-    albumCoverTransitionStyle(albumId, "OnScreen"),
-    maybeArtwork,
-    h,
-  );
+  headPictureView("album-cover", albumCoverTransitionStyle(albumId, presence), maybeArtwork, h, "large");
 
 /** An artist's picture at the head of their page: round, as their tile is, which it arrives from. */
 export const artistPictureView = (
