@@ -227,10 +227,7 @@ const rowContentView = (
 const rowLabel = (track: TrackSummary, status: TrackStatus): string =>
   `${status === "Sounding" || status === "Waiting" ? "Pause" : "Play"}: ${track.title}${track.explicit ? ", explicit," : ""} by ${track.artist.name}, ${formatDuration(track.durationSeconds)}`;
 
-// NOTE: the room at its far end keeps the song's length clear of the last
-// control: that control is a circle that lights under a pointer, and a
-// length hard against it was touched by the light.
-const ROW_PART_CLASS = "flex min-w-0 flex-1 items-center gap-4 py-2.5 pr-2 pl-2";
+const ROW_PART_CLASS = "flex min-w-0 flex-1 items-center gap-4 py-2.5 pl-2";
 
 /**
  * Pressing a row plays its track, and the whole row but its last control is
@@ -282,8 +279,13 @@ const silentRowView = (
     rowContentView(track, maybePosition, "Elsewhere", context, h),
   );
 
+// NOTE: the control answers a press over the whole of its place, a finger
+// wide, and lights a smaller circle within it. The song's length stands
+// hard against that place, and a circle the size of the place touched it:
+// the light is drawn in from the place's edge, and the row keeps its
+// spacing. The circle is a piece of its own behind the mark (`before`).
 const MORE_CLASS =
-  "flex size-11 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full text-muted hover:bg-panel hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent active:bg-tile data-[open]:bg-tile data-[open]:text-ink";
+  "relative isolate flex size-11 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full text-muted before:absolute before:inset-1.5 before:-z-10 before:rounded-full before:content-[''] hover:text-ink hover:before:bg-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent active:before:bg-tile data-[open]:text-ink data-[open]:before:bg-tile";
 
 /** Over the whole screen: nothing under it is pressed or scrolled while the menu is open. */
 const MENU_BACKDROP_CLASS = "fixed inset-0 z-40 touch-none";
