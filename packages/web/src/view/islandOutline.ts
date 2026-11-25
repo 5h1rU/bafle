@@ -128,13 +128,87 @@ const rightEnd = (swell: Point, width: number, tailWidth: number, endsAt: Point)
   ];
 };
 
+// THE CHIN
+//
+// On a desktop's screen the island has a second, lower piece under its body:
+// a chin that holds the progress of the sound (design/desktop.pen). It runs
+// from the cover to the swell, and each end is rounded and curves up into
+// the disc above it, as the body's top curves into them: a round corner of
+// the chin's own, and between that and the disc a join.
+
+/** How far the chin hangs below the body. */
+export const CHIN_DEPTH = 25;
+
+/** The round corners of the chin, by the cover and under the swell. */
+const CHIN_CORNER_BY_COVER = 26;
+const CHIN_CORNER_BY_SWELL = 22;
+
+/** The joins between those corners and the two discs. */
+const CHIN_JOIN_BY_COVER = 14;
+const CHIN_JOIN_BY_SWELL = 12;
+
+/** Where the chin's corner by the cover has its centre, from the island's left end. */
+const CHIN_STARTS_AT = 80;
+
+/** How far before the swell's centre the chin's corner under it has its centre. */
+const CHIN_ENDS_BEFORE_SWELL = 30;
+
+/**
+ * The centre of a join that touches a disc and a round corner of the chin
+ * from outside both: the sum of the radii away from each centre, which the
+ * three sides of a triangle fix. Of the two such places it is the lower one,
+ * under the disc.
+ */
+const chinJoin = (disc: Point, discRadius: number, corner: Point, cornerRadius: number, joinRadius: number): Point => {
+  const fromDisc = discRadius + joinRadius;
+  const fromCorner = cornerRadius + joinRadius;
+  const apart = Math.hypot(corner.x - disc.x, corner.y - disc.y);
+  const along = (fromDisc ** 2 - fromCorner ** 2 + apart ** 2) / (2 * apart);
+  const aside = Math.sqrt(Math.max(0, fromDisc ** 2 - along ** 2));
+  const toCorner: Point = { x: (corner.x - disc.x) / apart, y: (corner.y - disc.y) / apart };
+  const foot: Point = { x: disc.x + toCorner.x * along, y: disc.y + toCorner.y * along };
+  const one: Point = { x: foot.x - toCorner.y * aside, y: foot.y + toCorner.x * aside };
+  const other: Point = { x: foot.x + toCorner.y * aside, y: foot.y - toCorner.x * aside };
+  return one.y > other.y ? one : other;
+};
+
+/**
+ * The underside of an island with a chin, from the swell to the cover: down
+ * from under the swell into the chin's corner, along its foot, and up from
+ * its other corner into the cover.
+ */
+const chinUnderside = (cover: Point, swell: Point): Readonly<{ leavesSwellAt: Point; path: ReadonlyArray<string>; meetsCoverAt: Point }> => {
+  const foot = BODY_HEIGHT + CHIN_DEPTH;
+  const bySwell: Point = { x: swell.x - CHIN_ENDS_BEFORE_SWELL, y: foot - CHIN_CORNER_BY_SWELL };
+  const byCover: Point = { x: CHIN_STARTS_AT, y: foot - CHIN_CORNER_BY_COVER };
+  const swellJoin = chinJoin(swell, SWELL_RADIUS, bySwell, CHIN_CORNER_BY_SWELL, CHIN_JOIN_BY_SWELL);
+  const coverJoin = chinJoin(cover, COVER_RADIUS, byCover, CHIN_CORNER_BY_COVER, CHIN_JOIN_BY_COVER);
+  const leavesSwellAt = touchPoint(swell, SWELL_RADIUS, swellJoin, CHIN_JOIN_BY_SWELL);
+  const meetsCoverAt = touchPoint(cover, COVER_RADIUS, coverJoin, CHIN_JOIN_BY_COVER);
+
+  return {
+    leavesSwellAt,
+    meetsCoverAt,
+    path: [
+      joining(CHIN_JOIN_BY_SWELL, touchPoint(bySwell, CHIN_CORNER_BY_SWELL, swellJoin, CHIN_JOIN_BY_SWELL)),
+      around(CHIN_CORNER_BY_SWELL, { x: bySwell.x, y: foot }),
+      lineTo({ x: byCover.x, y: foot }),
+      around(CHIN_CORNER_BY_COVER, touchPoint(byCover, CHIN_CORNER_BY_COVER, coverJoin, CHIN_JOIN_BY_COVER)),
+      joining(CHIN_JOIN_BY_COVER, meetsCoverAt),
+    ],
+  };
+};
+
+/** The least an island with a chin can be across: its two corners must not meet. */
+const CHIN_NEEDS = CHIN_STARTS_AT + CHIN_ENDS_BEFORE_SWELL + SWELL_RADIUS + 8;
+
 /**
  * The island's outline as the `d` of an SVG path, for a box `width` wide
  * whose tail reaches `tailWidth` past the swell. It begins at the top of the
  * swell and goes round clockwise, so anything that travels along it sets out
- * over the main control.
+ * over the main control. With `hasChin`, its underside is the chin's.
  */
-export const islandOutline = (width: number, tailWidth: number): string => {
+export const islandOutline = (width: number, tailWidth: number, hasChin = false): string => {
   const tail = Math.max(0, tailWidth);
   const cover: Point = { x: COVER_RADIUS, y: MIDDLE };
   const swell: Point = { x: width - tail - SWELL_RADIUS, y: MIDDLE };
@@ -152,6 +226,20 @@ export const islandOutline = (width: number, tailWidth: number): string => {
   const coverEdge: Point = { x: coverJoin.x, y: 0 };
   const onSwell = touchPoint(swell, SWELL_RADIUS, swellJoin, SWELL_JOIN_RADIUS);
   const swellEdge: Point = { x: swellJoin.x, y: 0 };
+
+  if (hasChin && width - tail >= CHIN_NEEDS) {
+    const chin = chinUnderside(cover, swell);
+    return [
+      `M ${at(onSwell)}`,
+      ...rightEnd(swell, width, tail, chin.leavesSwellAt),
+      ...chin.path,
+      around(COVER_RADIUS, onCover, true),
+      joining(COVER_JOIN_RADIUS, coverEdge),
+      lineTo(swellEdge),
+      joining(SWELL_JOIN_RADIUS, onSwell),
+      "Z",
+    ].join(" ");
+  }
 
   return [
     `M ${at(onSwell)}`,

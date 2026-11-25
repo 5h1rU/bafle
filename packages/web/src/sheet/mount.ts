@@ -103,121 +103,27 @@ const enter = (scroller: HTMLElement, swipe: Swipe, entrance: Entrance): (() => 
   return () => cancelAnimationFrame(frame);
 };
 
-type Change = typeof Message.ChangedReach.Type | typeof Message.LetGo.Type;
-
-/**
- * How far along its way off the screen a sheet let go of has to be for it to
- * be going, and how fast it has to be moving that way for a shorter way to
- * do. In screens, and screens a second.
- */
-const GOING_FROM = 0.25;
-const FLICKED_FROM = 0.04;
-const FLICK_SCREENS_PER_SECOND = 0.7;
-/** How slowly back towards its place it can be moving and still be going. */
-const DRIFT_SCREENS_PER_SECOND = -0.1;
-/**
- * How far behind what is seen the page's own account of a moving box runs,
- * and the most, in screens, that is made up for.
- */
-const SEEN_AHEAD_SECONDS = 0.07;
-const SEEN_AHEAD_AT_MOST = 0.14;
-/** How long a sheet let go of is held where it stands, for its owner to take it. */
-const HELD_FOR_MILLISECONDS = 800;
-
-/**
- * Tells when the listener lets go of a sheet that is on its way off the
- * screen. The swipe is the browser's own scroll, and says nothing of the
- * finger: this watches where the box is scrolled to, and how fast, and asks
- * at the moment the finger lifts.
- */
-const watchLettingGo = (
-  scroller: HTMLElement,
-  { axis, wholeAt, goneAt }: Swipe,
-  onLetGo: () => void,
-): (() => void) => {
-  // How far along the way from whole to gone, in screens: 0 whole, 1 gone.
-  const along = (): number => {
-    const screen = screenPixels(scroller, axis);
-    if (screen === 0) {
-      return 0;
-    }
-    const at = (axis === "y" ? scroller.scrollTop : scroller.scrollLeft) / screen;
-    return (at - wholeAt) / (goneAt - wholeAt);
-  };
-  const last = { along: along(), time: performance.now(), speed: 0 };
-  const onScroll = (): void => {
-    const now = performance.now();
-    const here = along();
-    const elapsed = (now - last.time) / 1000;
-    if (elapsed > 0) {
-      last.speed = (here - last.along) / elapsed;
-    }
-    last.along = here;
-    last.time = now;
-  };
-  const onLift = (event: TouchEvent): void => {
-    // A finger still on the screen holds the sheet.
-    if (event.touches.length > 0) {
-      return;
-    }
-    const here = along();
-    // A sheet that has kept still since its last move is not moving.
-    const speed = performance.now() - last.time > 100 ? 0 : last.speed;
-    const isGoing =
-      (here >= GOING_FROM && speed >= DRIFT_SCREENS_PER_SECOND) ||
-      (here >= FLICKED_FROM && speed >= FLICK_SCREENS_PER_SECOND);
-    if (isGoing) {
-      // NOTE: the box is held where it is. Let go, it runs on by itself, and
-      // the browser runs it ahead of what the page knows of it: a picture of
-      // the sheet taken a moment later, for a transition, showed it where the
-      // page last knew it to be, a long step back from where it was seen. A
-      // box that cannot scroll stops where it stands, which asking it to
-      // scroll to where it is does not do while it is running. It is given
-      // its scroll back shortly, should its owner not have taken it away.
-      //
-      // What the page knows of where the box is runs a frame or two behind
-      // what is seen while a finger moves it, so the box is held a little
-      // further on than the page has it: where it was last moving to.
-      const screen = screenPixels(scroller, axis);
-      const further = Math.max(0, Math.min(speed * SEEN_AHEAD_SECONDS, SEEN_AHEAD_AT_MOST));
-      const heldAt = (wholeAt + (here + further) * (goneAt - wholeAt)) * screen;
-      // NOTE: the box snaps to its two ends, and a box that is put somewhere
-      // is taken to the nearer of them: the sheet went back to the top of
-      // the screen for a moment. So it is first told to snap to nothing.
-      const kept = { overflow: scroller.style.overflow, snap: scroller.style.scrollSnapType };
-      scroller.style.scrollSnapType = "none";
-      scrollTo(scroller, axis, heldAt, false);
-      scroller.style.overflow = "hidden";
-      setTimeout(() => {
-        scroller.style.overflow = kept.overflow;
-        scroller.style.scrollSnapType = kept.snap;
-      }, HELD_FOR_MILLISECONDS);
-      onLetGo();
-    }
-  };
-  scroller.addEventListener("scroll", onScroll, { passive: true });
-  scroller.addEventListener("touchend", onLift, { passive: true });
-  return () => {
-    scroller.removeEventListener("scroll", onScroll);
-    scroller.removeEventListener("touchend", onLift);
-  };
-};
-
 /**
  * Bound to the box that scrolls. As the sheet enters the document it brings
  * it to where it opens, and from then on tells the Model how much of the
  * sheet is on screen: all of it, some of it, or none. None is told only of a
  * sheet that has been seen, so one sliding in from off the screen is not
- * taken for one swiped away. It also tells when the listener lets go of a
- * sheet that is on its way out (`watchLettingGo`).
+ * taken for one swiped away.
  */
+// NOTE: nothing is done as the listener lets go of a sheet on its way out.
+// It once was: the box was held where it stood and its owner told, so that
+// the owner could take the sheet from there. On a phone the box could not be
+// held: let go, it runs on by itself ahead of what the page knows of it, and
+// the sheet was seen to jump back to the top of the screen before it went.
+// Let go, a sheet goes on off the screen by the browser's own scroll, which
+// is the one thing that moves it, and `Gone` is told when it has.
 // NOTE: `initialEdge` and `initialEntrance` because a Mount's args are read
 // once, as the element enters the document.
 export const FollowSheet = Mount.defineStream("FollowSheet", {
   args: { initialEdge: Edge, initialEntrance: Entrance },
-  messages: [Message.ChangedReach, Message.LetGo],
+  messages: [Message.ChangedReach],
   execute: ({ element, initialEdge, initialEntrance }) =>
-    Stream.callback<Change>((queue) =>
+    Stream.callback<typeof Message.ChangedReach.Type>((queue) =>
       Effect.gen(function* () {
         yield* Effect.acquireRelease(
           Effect.sync(() => {
@@ -243,13 +149,9 @@ export const FollowSheet = Mount.defineStream("FollowSheet", {
               Option.fromNullishOr(element.querySelector(`[data-${CONTENT_ATTRIBUTE}]`)),
               { onNone: () => undefined, onSome: (content) => watcher.observe(content) },
             );
-            const stopWatchingLettingGo = watchLettingGo(element, swipe, () => {
-              Queue.offerUnsafe(queue, Message.LetGo());
-            });
             return () => {
               cancelEntrance();
               watcher.disconnect();
-              stopWatchingLettingGo();
             };
           }),
           (release) => Effect.sync(release),

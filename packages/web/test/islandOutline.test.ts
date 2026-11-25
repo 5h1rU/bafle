@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   BODY_HEIGHT,
+  CHIN_DEPTH,
   COVER_RADIUS,
   islandOutline,
   SWELL_RADIUS,
@@ -106,5 +107,28 @@ describe("the island's outline", () => {
     const tailTop = BODY_HEIGHT / 2 - TAIL_HALF_HEIGHT;
     expect(Math.abs(before[2]![1] - tailTop)).toBeLessThan(0.1);
     expect(after[2]![1]).toBe(tailTop);
+  });
+});
+
+describe("an island with a chin", () => {
+  const ys = (outline: string): ReadonlyArray<number> => pointsOf(outline).map(([, y]) => y);
+
+  test("its underside is the chin's: it hangs a chin's depth below the body, from the cover to the swell", () => {
+    const outline = islandOutline(672, TAIL_WIDTH, true);
+    const foot = BODY_HEIGHT + CHIN_DEPTH;
+
+    expect(Math.max(...ys(outline))).toBe(foot);
+    // Its foot is level between its two round corners.
+    expect(outline).toContain(`L 80 ${String(foot)}`);
+    // Its top is the island's own: the chin changes nothing above the body's middle.
+    expect(outline.split(" A 27 27")[0]).toBe(islandOutline(672, TAIL_WIDTH).split(" A 27 27")[0]);
+  });
+
+  test("without one, nothing is lower than the body's foot but the swell and the cover", () => {
+    expect(Math.max(...ys(islandOutline(672, TAIL_WIDTH)))).toBeLessThan(BODY_HEIGHT + 6);
+  });
+
+  test("an island too narrow for a chin has none", () => {
+    expect(islandOutline(120, 0, true)).toBe(islandOutline(120, 0));
   });
 });

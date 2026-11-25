@@ -38,6 +38,7 @@ import {
 import {
   DrawIslandFigure,
   FollowIslandPress,
+  ISLAND_CHIN_ATTRIBUTE,
   ISLAND_TAIL_ATTRIBUTE,
   MeasureTitle,
   TITLE_LINE_ATTRIBUTE,
@@ -462,15 +463,21 @@ const fractionOfDuration = (seconds: number, duration: number): number =>
  * it runs on, the dot that is moved along it, and how much around the dot
  * answers a press.
  */
-type SeekLook = Readonly<{ rail: string; dot: string; reach: string }>;
+type SeekLook = Readonly<{ place: string; rail: string; dot: string; reach: string }>;
 
-const SEEK_ON_SHEET: SeekLook = { rail: "bg-player-rail", dot: "size-3 bg-ink", reach: "size-11" };
+const SEEK_ON_SHEET: SeekLook = {
+  place: "h-11",
+  rail: "bg-player-rail before:-inset-y-5",
+  dot: "size-3 bg-ink",
+  reach: "size-11",
+};
 
-// NOTE: on the island the bar stands between the track's words and the
-// controls, and the room round its dot is a pointer's, not a finger's: a
-// finger's width would reach over the control beside the bar's end.
+// NOTE: on the island the bar lies in the chin under the island's body,
+// which is lower than a finger is wide, and the room round the bar and its
+// dot is a pointer's: a finger's would reach up over the track's words.
 const SEEK_ON_ISLAND: SeekLook = {
-  rail: "bg-on-island/20",
+  place: "h-6",
+  rail: "bg-on-island/20 before:-inset-y-2.5",
   dot: "size-2.5 bg-on-island",
   reach: "size-6",
 };
@@ -499,7 +506,7 @@ const seekBarView = (
     [
       ...attributes.root,
       h.DataAttribute("seek", session.seek._tag),
-      h.Class("group/seek relative flex h-11 w-full touch-none items-center"),
+      h.Class(clsx("group/seek relative flex w-full touch-none items-center", look.place)),
     ],
     [
       h.div(
@@ -507,7 +514,7 @@ const seekBarView = (
           ...attributes.track,
           h.Class(
             clsx(
-              "[container-type:inline-size] h-1 w-full cursor-pointer rounded-full before:absolute before:inset-x-0 before:-inset-y-5 before:content-['']",
+              "[container-type:inline-size] h-1 w-full cursor-pointer rounded-full before:absolute before:inset-x-0 before:content-['']",
               look.rail,
             ),
           ),
@@ -815,15 +822,16 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
 // The shell places the island. Its outline follows the settled width and
 // tail, while the controls and figure travel on their own transforms.
 /** The island's words where they are no link: laid out as the link lays them out. */
-const ISLAND_WORDS_CLASS = "island-words-place flex h-full min-w-0 items-center gap-2.5 pr-2";
+const ISLAND_WORDS_CLASS = "flex h-full min-w-0 flex-1 items-center gap-2.5 pr-2";
 
 const ISLAND_TIME_CLASS = clsx(TIME_CLASS, "island-time");
 
 /**
  * The progress of the sound on the island of a desktop's screen, where the
- * player does not expand and the bar has no sheet to stand on: between the
- * track's words and the controls, with the time played before it and the
- * time left after it. It is the same slider as the expanded player's, and
+ * player does not expand and the bar has no sheet to stand on: in the chin
+ * under the island's body (design/desktop.pen; `chinUnderside` in
+ * view/islandOutline.ts), with the time played before it and the time left
+ * after it. It is the same slider as the expanded player's, and
  * does what that one does: dragged, pressed, or moved with the keys, the bar
  * and the time stand where the listener wants to be, as a wish, until the
  * engine says the sound is there. Before the engine has read the audio's
@@ -842,7 +850,7 @@ const islandProgressView = (session: Session, h: HtmlBuilder<Message>): Html => 
           [formatDuration(session.positionSeconds)],
         ),
         h.div(
-          [h.AriaHidden(true), h.Class("flex h-11 min-w-0 flex-1 items-center")],
+          [h.AriaHidden(true), h.Class("flex h-6 min-w-0 flex-1 items-center")],
           [
             h.div([
               h.Class(
@@ -961,14 +969,15 @@ const islandView = (
       h.Inert(isUnderSheet),
       h.DataAttribute("layout", "island"),
       h.DataAttribute("playback", playback._tag),
+      // The figure has a chin on a desktop's screen: read as it is drawn.
+      ...(isDesktop ? [h.DataAttribute(ISLAND_CHIN_ATTRIBUTE, "")] : []),
       h.OnMount(DrawIslandFigure()),
       h.Class(
         clsx(
           "dock-island absolute right-5 bottom-[5.125rem] left-5 z-30 flex h-11 items-center text-on-island md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
           {
             "[view-transition-name:player]": !isUnderSheet,
-            // What the island holds on a desktop's screen is laid out by
-            // the island's own width (player.css).
+            // Taller on a desktop's screen, by the chin under its body (player.css).
             "island-on-desktop": isDesktop,
           },
         ),
@@ -983,10 +992,12 @@ const islandView = (
         isDesktop
           ? h.div([h.Class(ISLAND_WORDS_CLASS)], words)
           : viewInputs.toTrackPageLink(current, words),
-        isDesktop ? islandProgressView(session, h) : h.empty,
         isDesktop ? islandExtrasView(model, session, viewInputs, h) : h.empty,
         islandControlsView(session, isDesktop, h),
       ]),
+      // NOTE: under the island's body, in the chin of its figure, and no
+      // part of the surface a press swells.
+      isDesktop ? islandProgressView(session, h) : h.empty,
       announcementView(session, h),
       artworkFlightRules([coverTransitionName(current.id)], h),
     ],

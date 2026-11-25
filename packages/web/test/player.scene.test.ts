@@ -904,18 +904,9 @@ describe("the expanded player is on a sheet, and the sheet can be swiped away", 
     expect(back.model.route).toEqual(expandedOnFirst.route);
   });
 
-  test("let go of on its way down, the player closes from where its sheet is, and is seen to draw back into its island", () => {
-    const letGo = update(swiping, sheet(Sheet.Message.LetGo()));
-    // It closes as its handle closes it, back through the history, with part of the sheet still on screen.
-    expect(names(letGo)).toEqual(["NavigateBack"]);
-    expect(letGo.model.playerSheet.reach).toBe("Partly");
-    // So the page change that follows is a transition: the sheet shrinks into the island from there.
-    const closed = after(letGo.model, changedUrl("/new"));
-    expect(
-      viewTransition({ previousModel: letGo.model, model: closed, message: changedUrl("/new") }),
-    ).toEqual({ types: [PLAYER_CLOSES, `track-cover-${track.id}`] });
-    // A sheet that is whole was not on its way: letting go of it is nothing.
-    expect(names(update(expandedOnFirst, sheet(Sheet.Message.LetGo())))).toEqual([]);
+  test("partly off the screen, nothing is asked of the history: the sheet goes on by itself, or comes back", () => {
+    expect(names(update(swiping, reaches("Partly")))).toEqual([]);
+    expect(swiping.route).toEqual(expandedOnFirst.route);
   });
 
   test("swiped off the screen, the player closes the way its control closes it: back through the history", () => {

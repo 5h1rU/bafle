@@ -1119,11 +1119,6 @@ const foldPlayerSheet = Update.foldChild({
   foldOutMessage: (said: Sheet.OutMessage): Step =>
     Sheet.OutMessage.match<Step>(said, {
       Left: () => leavePlayer,
-      // Let go of on its way down, the sheet is taken from where it is: the
-      // player closes as its handle closes it, and is seen to draw back into
-      // its island from there, instead of sliding on off the foot of the
-      // screen past an island it has nothing to do with.
-      Leaving: () => closePlayer,
       RequestedClose: () => (model) =>
         model.playerSheet.dismissedByKeyboard ? leavePlayer(model) : closePlayer(model),
     }),

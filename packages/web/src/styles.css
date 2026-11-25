@@ -1156,6 +1156,63 @@ body {
   }
 }
 
+/* CLOSING ON A NARROW SCREEN: THE SHEET GOES DOWN
+
+   On a narrow screen the sheet is the screen, and it is closed the way it
+   is swiped away: it goes down off the foot of the screen, whole, and what
+   was behind it is there, with the island coming in its place. Its handle
+   and the browser's Back look as a swipe does.
+
+   It was once the island's opening the other way round: the sheet's box
+   shrank to the island, its face fading, while the cover flew from the head
+   of the sheet to the island's disc. On a phone that came apart into one
+   thing after another: the sheet gone, then a cover crossing a bare page,
+   then an island; and with the face left longer, the cover was seen twice.
+   A sheet that goes as one piece cannot come apart.
+
+   So for this the sheet and the two covers give up their names, and are
+   part of the page's own picture: the page that leaves is the sheet, and it
+   is drawn over the page that comes and slid off it. The island is on one
+   side only, and comes in where it stands. On a wider screen the sheet is a
+   column beside the navigation, and still draws back into its island. */
+@media (width < 48rem) {
+  :root:active-view-transition-type(player-closes) .player-sheet {
+    view-transition-name: none;
+  }
+
+  :root:active-view-transition-type(player-closes) :is([data-layout="expanded"], [data-layout="island"]) [data-cover] {
+    view-transition-name: none !important;
+  }
+
+  :root:active-view-transition-type(player-closes)::view-transition-group(root) {
+    animation-duration: 320ms;
+  }
+
+  :root:active-view-transition-type(player-closes)::view-transition-old(root),
+  :root:active-view-transition-type(player-closes)::view-transition-new(root) {
+    mix-blend-mode: normal;
+  }
+
+  :root:active-view-transition-type(player-closes)::view-transition-old(root) {
+    z-index: 1;
+    animation: 320ms cubic-bezier(0.4, 0, 0.85, 0.6) both sheet-goes-down;
+  }
+
+  :root:active-view-transition-type(player-closes)::view-transition-new(root) {
+    animation: none;
+  }
+
+  :root:active-view-transition-type(player-closes)::view-transition-new(player) {
+    animation: 200ms ease-out 120ms both island-takes-its-place;
+  }
+}
+
+@keyframes sheet-goes-down {
+  to {
+    transform: translateY(100%);
+  }
+}
+
 /* THE ISLAND'S FIGURE
 
    What the island is drawn on (player/islandFigure.ts): three layers the

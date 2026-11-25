@@ -206,15 +206,9 @@ describe("a sheet's Model", () => {
     expect(Sheet.update(gone.model, Message.ChangedReach({ reach: "Gone" })).outMessage).toBeUndefined();
   });
 
-  test("let go of on its way off the screen, it says so while part of it is still there, for its owner to take it from where it is", () => {
-    const partly = Sheet.update(atRest, Message.ChangedReach({ reach: "Partly" })).model;
-    const letGo = Sheet.update(partly, Message.LetGo());
-    expect(letGo.model).toBe(partly);
-    expect(letGo.outMessage).toEqual(OutMessage.Leaving());
-    // A sheet that is whole was not on its way, and of one that is gone `Left` has been said.
-    expect(Sheet.update(atRest, Message.LetGo()).outMessage).toBeUndefined();
-    const gone = Sheet.update(partly, Message.ChangedReach({ reach: "Gone" })).model;
-    expect(Sheet.update(gone, Message.LetGo()).outMessage).toBeUndefined();
+  test("partly off the screen it says nothing to its owner: it may yet come back", () => {
+    const partly = Sheet.update(atRest, Message.ChangedReach({ reach: "Partly" }));
+    expect(partly.outMessage).toBeUndefined();
   });
 
   test("Escape and its close control ask its owner for it to go, and move nothing", () => {

@@ -23,6 +23,9 @@ import { IslandLight } from "./model.ts";
 /** Marks the piece of the island whose width is how far the tail reaches. */
 export const ISLAND_TAIL_ATTRIBUTE = "island-tail";
 
+/** Marks an island whose figure has a chin under its body, for the progress of the sound. */
+export const ISLAND_CHIN_ATTRIBUTE = "island-chin";
+
 /** Marks every path that is drawn along the island's outline. */
 export const ISLAND_OUTLINE_ATTRIBUTE = "island-outline";
 
@@ -297,7 +300,11 @@ export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
               onNone: () => 0,
               onSome: (tail) => pixels(getComputedStyle(tail).width),
             });
-            const outline = islandOutline(width, tailWidth);
+            const outline = islandOutline(
+              width,
+              tailWidth,
+              element.hasAttribute(`data-${ISLAND_CHIN_ATTRIBUTE}`),
+            );
             if (outline === drawn.outline) {
               return;
             }
