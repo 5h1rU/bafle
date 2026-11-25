@@ -116,6 +116,7 @@ const foundView = (
             "artist-top-songs",
             TOP_SONGS,
             "Ranked",
+            "Columns",
             artist.topTracks,
             context,
             h,

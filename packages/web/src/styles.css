@@ -292,6 +292,43 @@ button:focus-visible [data-glyph] {
   }
 }
 
+/* A LIST IN TWO COLUMNS
+
+   Top songs, wherever they are listed (New, an artist's page, a genre's),
+   take the page's width:
+   where the list is wide enough for two columns of rows it is laid out in
+   two, the first half down the first and the second half down the second,
+   so it still reads from its top. How many rows a column holds the view
+   says (`--rows`); whether there are columns at all goes by the list's own
+   width, not the screen's, since the queue opens beside the page on a
+   desktop's screen and takes room from it. A row has its place whatever its
+   neighbours say under themselves, so nothing changes column.
+
+   The row at the head of the second column comes after the foot of the
+   first in the list, and is no neighbour of it on the page: lit, it leaves
+   that row's line alone. */
+@layer components {
+  .track-columns-place {
+    container-type: inline-size;
+  }
+
+  @container (width >= 42rem) {
+    .track-columns {
+      display: grid;
+      grid-auto-flow: column;
+      grid-template-rows: repeat(var(--rows), auto);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 2.5rem;
+    }
+
+    .track-row:has(+ .track-row[data-column-head]):not(:has(> [data-in-player])):not(
+        :has(.track-row-play:is(:hover, :active))
+      ) {
+      border-bottom-color: var(--color-line);
+    }
+  }
+}
+
 /* A CHANGE OF PAGE THE BROWSER HAS ALREADY SHOWN
 
    A swipe from the screen's edge goes back, or forward, and the browser

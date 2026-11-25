@@ -45,7 +45,7 @@ const chartsView = (
 ): Html =>
   Array.match(
     Array.getSomes([
-      maybeTrackSectionView("new-top-songs", TOP_SONGS, "Ranked", trending.tracks, context, h),
+      maybeTrackSectionView("new-top-songs", TOP_SONGS, "Ranked", "Columns", trending.tracks, context, h),
       maybeShelfView(
         "new-top-albums",
         TOP_ALBUMS,

@@ -123,7 +123,15 @@ const foundView = (
       headView(genre, h),
       Array.match(
         Array.getSomes([
-          maybeTrackSectionView("genre-top-songs", TOP_SONGS, "Ranked", genre.topTracks, context, h),
+          maybeTrackSectionView(
+            "genre-top-songs",
+            TOP_SONGS,
+            "Ranked",
+            "Columns",
+            genre.topTracks,
+            context,
+            h,
+          ),
           maybeShelfView(
             "genre-top-albums",
             TOP_ALBUMS,

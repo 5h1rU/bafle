@@ -99,6 +99,7 @@ const answerView = (
         "search-songs",
         "Songs",
         "Unranked",
+        "Single",
         answer.results.tracks,
         context,
         h,

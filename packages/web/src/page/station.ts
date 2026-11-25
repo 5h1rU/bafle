@@ -108,7 +108,7 @@ const foundView = (station: Station, context: TrackListContext, h: HtmlBuilder<M
     [
       headView(station, h),
       Option.match(
-        maybeTrackSectionView("station-songs", SONGS, "Unranked", station.tracks, context, h),
+        maybeTrackSectionView("station-songs", SONGS, "Unranked", "Single", station.tracks, context, h),
         {
           onNone: () =>
             h.p([h.Class(QUIET_LINE_CLASS)], ["The catalog lists no songs for this station."]),

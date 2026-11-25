@@ -32,6 +32,7 @@ import { documentTitle, view } from "../src/view.ts";
 import {
   after,
   album,
+  albumOpener,
   albumPath,
   answered,
   arrived,
@@ -41,6 +42,8 @@ import {
   chose,
   choseFromRow,
   clickedLink,
+  explicitTrack,
+  fullGenre,
   genre,
   genrePath,
   nextId,
@@ -497,6 +500,28 @@ describe("the genre page", () => {
         see(backControl).toExist(),
       ),
     ));
+
+  test("its songs take the page's width: the list says how many a column holds, and which row heads the second", () => {
+    // Three songs: two down the first column, one down the second.
+    const three = [track, explicitTrack, albumOpener];
+    const withThree = answered(
+      openingGenreFromTile,
+      (requestId) => reply.genre(requestId, { ...fullGenre, topTracks: three }),
+      genrePath(genre.id),
+    );
+
+    scene(
+      app,
+      given(withThree),
+      inside(
+        onScreen,
+        see(selector("#genre-page ol.track-columns")).toHaveStyle("--rows", "2"),
+        expectAll(all.selector("#genre-page ol.track-columns li")).toHaveCount(3),
+        expectAll(all.selector("#genre-page ol.track-columns [data-column-head]")).toHaveCount(1),
+        see(selector(`#genre-page [data-column-head] [data-track="${albumOpener.id}"]`)).toExist(),
+      ),
+    );
+  });
 
   test("a kind with nothing popular has no shelf, and a genre with nothing at all says so", () => {
     scene(

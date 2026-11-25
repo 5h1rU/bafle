@@ -613,6 +613,7 @@ const noticeView = (
 const trackRowView = (
   track: TrackSummary,
   maybePosition: Option.Option<number>,
+  isColumnHead: boolean,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -621,7 +622,13 @@ const trackRowView = (
 
   return h.keyed("li")(
     track.id,
-    [h.Class(TRACK_ROW_LINE_CLASS)],
+    [
+      // NOTE: read by the style sheet, for the line under the row before
+      // this one: in two columns that row is the foot of the other column,
+      // and no neighbour of this one (`track-columns` in styles.css).
+      ...(isColumnHead ? [h.DataAttribute("column-head", "")] : []),
+      h.Class(TRACK_ROW_LINE_CLASS),
+    ],
     [
       h.div(
         [
@@ -647,32 +654,70 @@ const trackRowView = (
 /** Ranked lists number their rows: the order is the catalog's chart. */
 export type TrackOrder = "Ranked" | "Unranked";
 
+/**
+ * How a list uses the room it is given. `Single` is one column of a width
+ * that reads well, however wide the page. `Columns` takes the page's whole
+ * width and, where that is wide enough for two columns of rows, lays the
+ * list out in two: the first half down the first, the second half down the
+ * second, so a chart still reads from its top. On a narrow page it is the
+ * one column either way.
+ *
+ * Top songs are `Columns` wherever they are listed, on New, on an artist's
+ * page and on a genre's: a chart is one thing, and looks one way. The songs
+ * of an album, a playlist or a station, and those a search found, are
+ * `Single`.
+ */
+export type TrackSpread = "Single" | "Columns";
+
+const COLUMNS = 2;
+
 export const trackListView = (
   labelledBy: string,
   order: TrackOrder,
+  spread: TrackSpread,
   tracks: Array.NonEmptyReadonlyArray<TrackSummary>,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
-): ReadonlyArray<Html> => [
-  context.presence === "OnScreen" && context.from !== "Album"
-    ? artworkFlightRules(tracks.map((track) => coverTransitionName(track.id)), h)
-    : h.empty,
-  order === "Ranked"
-    ? h.ol(
-        [h.Role("list"), h.AriaLabelledBy(labelledBy), h.Class("mt-2")],
-        Array.map(tracks, (track, index) => trackRowView(track, Option.some(index + 1), context, h)),
-      )
-    : h.ul(
-        [h.Role("list"), h.AriaLabelledBy(labelledBy), h.Class("mt-2")],
-        Array.map(tracks, (track) => trackRowView(track, Option.none(), context, h)),
-      ),
-];
+): ReadonlyArray<Html> => {
+  // NOTE: how many rows a column holds is said to the style sheet, which
+  // decides by the list's own width whether there are columns at all.
+  const rowsInColumn = Math.ceil(tracks.length / COLUMNS);
+  const listAttributes = [
+    h.Role("list"),
+    h.AriaLabelledBy(labelledBy),
+    ...(spread === "Columns"
+      ? [h.Style({ "--rows": String(rowsInColumn) }), h.Class("track-columns mt-2")]
+      : [h.Class("mt-2")]),
+  ];
+  const isColumnHead = (index: number): boolean =>
+    spread === "Columns" && index > 0 && index % rowsInColumn === 0;
+
+  return [
+    context.presence === "OnScreen" && context.from !== "Album"
+      ? artworkFlightRules(tracks.map((track) => coverTransitionName(track.id)), h)
+      : h.empty,
+    order === "Ranked"
+      ? h.ol(
+          listAttributes,
+          Array.map(tracks, (track, index) =>
+            trackRowView(track, Option.some(index + 1), isColumnHead(index), context, h),
+          ),
+        )
+      : h.ul(
+          listAttributes,
+          Array.map(tracks, (track, index) =>
+            trackRowView(track, Option.none(), isColumnHead(index), context, h),
+          ),
+        ),
+  ];
+};
 
 /** A titled list of tracks, or nothing when there are none. */
 export const maybeTrackSectionView = (
   id: string,
   title: string,
   order: TrackOrder,
+  spread: TrackSpread,
   tracks: ReadonlyArray<TrackSummary>,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
@@ -682,10 +727,10 @@ export const maybeTrackSectionView = (
     onNonEmpty: (listed) =>
       Option.some(
         h.section(
-          [h.Class("max-w-3xl")],
+          [h.Class(spread === "Columns" ? "track-columns-place" : "max-w-3xl")],
           [
             h.h2([h.Id(id), h.Class(SECTION_HEADING_CLASS)], [title]),
-            ...trackListView(id, order, listed, context, h),
+            ...trackListView(id, order, spread, listed, context, h),
           ],
         ),
       ),

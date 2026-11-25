@@ -112,7 +112,7 @@ const foundView = (
           // it: pressed, it plays its song and the songs under it are what
           // comes next (playback rule 1).
           h.h2([h.Id("album-songs"), h.Class(SECTION_HEADING_CLASS)], [SONGS]),
-          ...trackListView("album-songs", "Ranked", tracks, { ...context, albumArtistId: album.artist.id }, h),
+          ...trackListView("album-songs", "Ranked", "Single", tracks, { ...context, albumArtistId: album.artist.id }, h),
         ]),
     }),
   ]);
