@@ -3,13 +3,19 @@ import { AlbumId } from "@bafle/domain/Catalog/Album";
 import { ArtistId } from "@bafle/domain/Catalog/Artist";
 import { Album } from "@bafle/domain/Catalog/FullAlbum";
 import { Artist } from "@bafle/domain/Catalog/FullArtist";
+import { Genre } from "@bafle/domain/Catalog/FullGenre";
 import { Playlist } from "@bafle/domain/Catalog/FullPlaylist";
+import { Station } from "@bafle/domain/Catalog/FullStation";
+import { GenreId } from "@bafle/domain/Catalog/Genre";
 import {
   FeaturedMusic,
+  MusicGenres,
+  RadioStations,
   SearchResults,
   TrendingMusic,
 } from "@bafle/domain/Catalog/MusicCatalog.external";
 import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
+import { StationId } from "@bafle/domain/Catalog/Station";
 import { Track, TrackId } from "@bafle/domain/Catalog/Track";
 import { Menu } from "@foldkit/ui";
 import * as Array from "effect/Array";
@@ -40,6 +46,14 @@ export type NewMusicData = typeof NewMusicData.schema.Type;
 export const SearchData = AsyncData.Schema(SearchAnswer, LoadError);
 export type SearchData = typeof SearchData.schema.Type;
 
+/** What the Genres section shows: every genre the catalog files music under. */
+export const GenreListData = AsyncData.Schema(MusicGenres, LoadError);
+export type GenreListData = typeof GenreListData.schema.Type;
+
+/** What the Radio section shows: the catalog's stations, under the genre each belongs to. */
+export const StationListData = AsyncData.Schema(RadioStations, LoadError);
+export type StationListData = typeof StationListData.schema.Type;
+
 /**
  * What the catalog said about one track. No track is an answer too: the
  * catalog does not have it, and asking again will not change that.
@@ -58,6 +72,14 @@ export type ArtistData = typeof ArtistData.schema.Type;
 /** What the catalog said about one playlist. As with a track, no playlist is an answer too. */
 export const PlaylistData = AsyncData.Schema(Schema.Option(Playlist), LoadError);
 export type PlaylistData = typeof PlaylistData.schema.Type;
+
+/** What the catalog said about one genre. As with a track, no genre is an answer too. */
+export const GenreData = AsyncData.Schema(Schema.Option(Genre), LoadError);
+export type GenreData = typeof GenreData.schema.Type;
+
+/** What the catalog said about one station. As with a track, no station is an answer too. */
+export const StationData = AsyncData.Schema(Schema.Option(Station), LoadError);
+export type StationData = typeof StationData.schema.Type;
 
 /** Whether a page takes the screen because the listener went back to it, or otherwise. */
 export const Entrance = Schema.Literals(["Returning", "Arriving"]);
@@ -126,6 +148,8 @@ export const Model = Schema.Struct({
   requestIds: DomainFoldkit.CommandIds,
   home: HomeData.schema,
   newMusic: NewMusicData.schema,
+  genreList: GenreListData.schema,
+  stationList: StationListData.schema,
   search: SearchData.schema,
   /**
    * What every search answered since the app loaded found, under its term.
@@ -161,6 +185,18 @@ export const Model = Schema.Struct({
   artists: Schema.HashMap(ArtistId, ArtistData.schema),
   /** What the catalog said about every playlist asked for since the app loaded, kept as `artists` is. */
   playlists: Schema.HashMap(PlaylistId, PlaylistData.schema),
+  /**
+   * What the catalog said about every genre asked for since the app loaded,
+   * kept as `artists` is. A genre is only ever chosen from its tile on the
+   * Genres section, which says that it is opening.
+   */
+  genres: Schema.HashMap(GenreId, GenreData.schema),
+  /**
+   * What the catalog said about every station asked for since the app
+   * loaded, kept as `artists` is. A station is only ever chosen from a shelf
+   * of the Radio section, so its tile says that it is opening.
+   */
+  stations: Schema.HashMap(StationId, StationData.schema),
   /**
    * The URL change the app has asked the browser for and not yet heard of: a
    * new entry for a page that took the screen, or the current entry rewritten
@@ -245,16 +281,35 @@ export const playlistDataIn = (
 export const playlistData = (model: Model, playlistId: PlaylistId): PlaylistData =>
   playlistDataIn(model.playlists, playlistId);
 
+/** What is held about a genre among those asked for: nothing yet when it never was. */
+export const genreDataIn = (genres: Model["genres"], genreId: GenreId): GenreData =>
+  AsyncData.fromOptionOrIdle(HashMap.get(genres, genreId));
+
+/** What the app holds about a genre. */
+export const genreData = (model: Model, genreId: GenreId): GenreData =>
+  genreDataIn(model.genres, genreId);
+
+/** What is held about a station among those asked for: nothing yet when it never was. */
+export const stationDataIn = (stations: Model["stations"], stationId: StationId): StationData =>
+  AsyncData.fromOptionOrIdle(HashMap.get(stations, stationId));
+
+/** What the app holds about a station. */
+export const stationData = (model: Model, stationId: StationId): StationData =>
+  stationDataIn(model.stations, stationId);
+
 /**
- * The catalog has already said it has no such track, album, artist or
- * playlist: asking again would say the same.
+ * The catalog has already said it has no such track, album, artist,
+ * playlist, genre or station: asking again would say the same.
  */
 export const isKnownMissing = <A>(
   data: AsyncData.AsyncData<Option.Option<A>, LoadError>,
 ): boolean => Option.exists(AsyncData.getData(data), Option.isNone);
 
-/** The pages that are lists of their own and no section: an album's, an artist's, a playlist's. */
-type ListPage = "Album" | "Artist" | "Playlist";
+/**
+ * The pages that are lists of their own and no section: an album's, an
+ * artist's, a playlist's, a genre's, a station's.
+ */
+type ListPage = "Album" | "Artist" | "Playlist" | "Genre" | "Station";
 
 const maybeAlbumIdOf = (route: AppRoute): Option.Option<AlbumId> =>
   route._tag === "Album" ? Option.some(route.albumId) : Option.none();
@@ -264,6 +319,12 @@ const maybeArtistIdOf = (route: AppRoute): Option.Option<ArtistId> =>
 
 const maybePlaylistIdOf = (route: AppRoute): Option.Option<PlaylistId> =>
   route._tag === "Playlist" ? Option.some(route.playlistId) : Option.none();
+
+const maybeGenreIdOf = (route: AppRoute): Option.Option<GenreId> =>
+  route._tag === "Genre" ? Option.some(route.genreId) : Option.none();
+
+const maybeStationIdOf = (route: AppRoute): Option.Option<StationId> =>
+  route._tag === "Station" ? Option.some(route.stationId) : Option.none();
 
 /** Whose page of a kind is in the document: the one on screen, else the nearest one behind it. */
 const maybeIdInDocument =
@@ -337,6 +398,34 @@ export const maybePlaylistIdInDocument: (
 export const hasWayBackFromPlaylist: (route: AppRoute, trail: Model["trail"]) => boolean =
   hasWayBackFrom("Playlist");
 
+/**
+ * The genre whose page is in the document, as an album's is: a genre's page
+ * is a list and shelves, kept behind the song, the album, the artist or the
+ * playlist reached from it. One genre's page is kept at a time.
+ */
+export const maybeGenreIdInDocument: (
+  route: AppRoute,
+  trail: Model["trail"],
+) => Option.Option<GenreId> = maybeIdInDocument(maybeGenreIdOf);
+
+/** Whether the genre's page in the document has a page behind it, as for an album's. */
+export const hasWayBackFromGenre: (route: AppRoute, trail: Model["trail"]) => boolean =
+  hasWayBackFrom("Genre");
+
+/**
+ * The station whose page is in the document, as an album's is: a station's
+ * page is a list, kept behind the song or the album reached from it. One
+ * station's page is kept at a time.
+ */
+export const maybeStationIdInDocument: (
+  route: AppRoute,
+  trail: Model["trail"],
+) => Option.Option<StationId> = maybeIdInDocument(maybeStationIdOf);
+
+/** Whether the station's page in the document has a page behind it, as for an album's. */
+export const hasWayBackFromStation: (route: AppRoute, trail: Model["trail"]) => boolean =
+  hasWayBackFrom("Station");
+
 /** A page with data, or with a failure to state, has more to show than placeholders. */
 const hasSomethingToShow = <A>(data: AsyncData.AsyncData<A, LoadError>): boolean =>
   AsyncData.hasData(data) || AsyncData.hasError(data);
@@ -350,12 +439,16 @@ export const canShow = (model: Model, route: AppRoute): boolean =>
   AppRoute.match(route, {
     Home: () => hasSomethingToShow(model.home),
     New: () => hasSomethingToShow(model.newMusic),
+    Genres: () => hasSomethingToShow(model.genreList),
+    Radio: () => hasSomethingToShow(model.stationList),
     Search: () => Option.isNone(searchedTerm(route)) || hasSomethingToShow(model.search),
     Track: ({ trackId }) =>
       hasSomethingToShow(trackData(model, trackId)) || isPlayersTrack(model, route),
     Album: ({ albumId }) => hasSomethingToShow(albumData(model, albumId)),
     Artist: ({ artistId }) => hasSomethingToShow(artistData(model, artistId)),
     Playlist: ({ playlistId }) => hasSomethingToShow(playlistData(model, playlistId)),
+    Genre: ({ genreId }) => hasSomethingToShow(genreData(model, genreId)),
+    Station: ({ stationId }) => hasSomethingToShow(stationData(model, stationId)),
     NotFound: () => true,
   });
 
@@ -368,6 +461,8 @@ export const isLoaded = (model: Model, route: AppRoute): boolean =>
   AppRoute.match(route, {
     Home: () => AsyncData.hasData(model.home),
     New: () => AsyncData.hasData(model.newMusic),
+    Genres: () => AsyncData.hasData(model.genreList),
+    Radio: () => AsyncData.hasData(model.stationList),
     Search: () =>
       Option.match(searchedTerm(route), {
         onNone: () => true,
@@ -378,6 +473,8 @@ export const isLoaded = (model: Model, route: AppRoute): boolean =>
     Album: ({ albumId }) => AsyncData.hasData(albumData(model, albumId)),
     Artist: ({ artistId }) => AsyncData.hasData(artistData(model, artistId)),
     Playlist: ({ playlistId }) => AsyncData.hasData(playlistData(model, playlistId)),
+    Genre: ({ genreId }) => AsyncData.hasData(genreData(model, genreId)),
+    Station: ({ stationId }) => AsyncData.hasData(stationData(model, stationId)),
     NotFound: () => true,
   });
 

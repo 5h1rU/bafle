@@ -3,13 +3,17 @@ import { Bafle, BafleHandlers } from "@bafle/domain/Bafle.model";
 import { AlbumId } from "@bafle/domain/Catalog/Album";
 import { ArtistId } from "@bafle/domain/Catalog/Artist";
 import { TOP_TRACKS } from "@bafle/domain/Catalog/ArtistDetail.query";
+import { GenreId } from "@bafle/domain/Catalog/Genre";
+import { GENRE_TOP_TRACKS } from "@bafle/domain/Catalog/GenreDetail.query";
 import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
+import { StationId } from "@bafle/domain/Catalog/Station";
+import { STATION_TRACKS } from "@bafle/domain/Catalog/StationDetail.query";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import { ListenerApi } from "@bafle/domain/ListenerApi.api";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { DeezerMusicCatalog } from "../src/Deezer/DeezerMusicCatalog.ts";
+import { DeezerMusicCatalog, SHELF_SIZE } from "../src/Deezer/DeezerMusicCatalog.ts";
 import { type Answer, fakeDeezer, stocked } from "./deezer.ts";
 
 /** Bafle hosted in memory, as the Worker hosts it, reading a fake Deezer. */
@@ -131,5 +135,61 @@ it.live("a listener opens a playlist, and is told when it does not exist", () =>
       .PlaylistDetail({ playlistId: PlaylistId.make("404") })
       .pipe(Effect.flip);
     expect(missing).toMatchObject({ _tag: "PlaylistNotFound", playlistId: "404" });
+  }).pipe(Effect.scoped, Effect.provide(layer));
+});
+
+it.live("a listener browses the genres, opens one, and is told when it does not exist", () => {
+  const { deezer, layer } = worldOver(stocked);
+  return Effect.gen(function* () {
+    const bafle = yield* ListenerApi.clientInProcess;
+    const all = yield* bafle.GenreList({});
+    expect(all.genres.map((genre) => genre.name)).toEqual(["Pop", "Alternative"]);
+
+    const genre = yield* bafle.GenreDetail({ genreId: GenreId.make("132") });
+    expect(genre.name).toBe("Pop");
+    expect(genre.topTracks.map((track) => track.title)).toEqual([
+      "One More Time",
+      "Harder, Better, Faster, Stronger",
+      "Third",
+    ]);
+    expect(genre.albums.map((album) => album.title)).toEqual(["Discovery"]);
+    expect(genre.artists.map((artist) => artist.name)).toEqual(["Daft Punk"]);
+    expect(genre.playlists.map((playlist) => playlist.title)).toEqual(["Chill Hits", "Untitled"]);
+    // The page lists fewer tracks than a shelf holds, so the chart is asked for a shelf's worth.
+    expect(GENRE_TOP_TRACKS).toBeLessThanOrEqual(SHELF_SIZE);
+    const chart = deezer.asked.find((url) => url.pathname === "/chart/132");
+    expect(chart?.searchParams.get("limit")).toBe(String(SHELF_SIZE));
+
+    const missing = yield* bafle.GenreDetail({ genreId: GenreId.make("404") }).pipe(Effect.flip);
+    expect(missing).toMatchObject({ _tag: "GenreNotFound", genreId: "404" });
+  }).pipe(Effect.scoped, Effect.provide(layer));
+});
+
+it.live("a listener browses the stations, opens one, and is told when it does not exist", () => {
+  const { deezer, layer } = worldOver(stocked);
+  return Effect.gen(function* () {
+    const bafle = yield* ListenerApi.clientInProcess;
+    const radio = yield* bafle.StationList({});
+    expect(radio.groups.map((group) => group.genre.name)).toEqual(["Pop", "Electro"]);
+    expect(radio.groups.map((group) => group.stations.map((station) => station.title))).toEqual([
+      ["The '80s", "Electro Pop"],
+      ["Electro"],
+    ]);
+
+    const station = yield* bafle.StationDetail({ stationId: StationId.make("38305") });
+    expect(station.title).toBe("The '80s");
+    expect(station.tracks.map((track) => track.title)).toEqual([
+      "One More Time",
+      "Harder, Better, Faster, Stronger",
+      "Third",
+    ]);
+    // The page says how many songs it lists, and Deezer is asked for that many.
+    const songs = deezer.asked.find((url) => url.pathname === "/radio/38305/tracks");
+    expect(songs?.searchParams.get("limit")).toBe(String(STATION_TRACKS));
+
+    const missing = yield* bafle
+      .StationDetail({ stationId: StationId.make("404") })
+      .pipe(Effect.flip);
+    expect(missing).toMatchObject({ _tag: "StationNotFound", stationId: "404" });
   }).pipe(Effect.scoped, Effect.provide(layer));
 });

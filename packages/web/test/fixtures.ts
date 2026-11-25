@@ -5,14 +5,22 @@ import { ArtistNotFound } from "@bafle/domain/Catalog/ArtistNotFound.rejection";
 import { CatalogUnavailable } from "@bafle/domain/Catalog/CatalogUnavailable.rejection";
 import type { Album } from "@bafle/domain/Catalog/FullAlbum";
 import type { Artist } from "@bafle/domain/Catalog/FullArtist";
+import type { Genre } from "@bafle/domain/Catalog/FullGenre";
 import type { Playlist } from "@bafle/domain/Catalog/FullPlaylist";
+import type { Station } from "@bafle/domain/Catalog/FullStation";
+import { GenreId, type GenreSummary } from "@bafle/domain/Catalog/Genre";
+import { GenreNotFound } from "@bafle/domain/Catalog/GenreNotFound.rejection";
 import type {
   FeaturedMusic,
+  MusicGenres,
+  RadioStations,
   SearchResults,
   TrendingMusic,
 } from "@bafle/domain/Catalog/MusicCatalog.external";
 import { PlaylistId, type PlaylistSummary } from "@bafle/domain/Catalog/Playlist";
 import { PlaylistNotFound } from "@bafle/domain/Catalog/PlaylistNotFound.rejection";
+import { StationId, type StationSummary } from "@bafle/domain/Catalog/Station";
+import { StationNotFound } from "@bafle/domain/Catalog/StationNotFound.rejection";
 import { type Track, TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
 import { TrackNotFound } from "@bafle/domain/Catalog/TrackNotFound.rejection";
 import * as DomainFoldkit from "@alchemy.run/domain/Foldkit";
@@ -153,6 +161,63 @@ export const fullPlaylist: Playlist = {
 
 export const playlistPath = (playlistId: PlaylistId): string => `/playlist/${playlistId}`;
 
+export const genre: GenreSummary = {
+  id: GenreId.make("ge-1"),
+  name: "Electro",
+  picture: null,
+};
+
+/** A second genre, with a picture. */
+export const otherGenre: GenreSummary = {
+  id: GenreId.make("ge-2"),
+  name: "Dance",
+  picture: artwork("ge-2"),
+};
+
+export const allGenres: MusicGenres = { genres: [genre, otherGenre] };
+
+/**
+ * The first genre, as its own page shows it: two tracks played most, each on
+ * an album of its own, and one album, one artist and one playlist.
+ */
+export const fullGenre: Genre = {
+  ...genre,
+  topTracks: [track, explicitTrack],
+  albums: [album],
+  artists: [artist],
+  playlists: [playlist],
+};
+
+export const genrePath = (genreId: GenreId): string => `/genre/${genreId}`;
+
+export const station: StationSummary = {
+  id: StationId.make("st-1"),
+  title: "French House",
+  picture: null,
+};
+
+/** A second station, with a picture, under another genre. */
+export const otherStation: StationSummary = {
+  id: StationId.make("st-2"),
+  title: "Club Classics",
+  picture: artwork("st-2"),
+};
+
+export const allStations: RadioStations = {
+  groups: [
+    { genre: { id: genre.id, name: genre.name }, stations: [station] },
+    { genre: { id: otherGenre.id, name: otherGenre.name }, stations: [otherStation] },
+  ],
+};
+
+/** The first station, as its own page shows it: three songs, the last with nothing to play. */
+export const fullStation: Station = {
+  ...station,
+  tracks: [explicitTrack, track, silentTrack],
+};
+
+export const stationPath = (stationId: StationId): string => `/station/${stationId}`;
+
 export const featured: FeaturedMusic = {
   albums: [album],
   playlists: [playlist],
@@ -286,6 +351,41 @@ export const reply = {
     Catalog.Message.FailedPlaylistDetail({ requestId, failure: refused }),
   playlistLost: (requestId: string) =>
     Catalog.Message.FailedPlaylistDetail({ requestId, failure: lost }),
+  genres: (requestId: string, result: MusicGenres = allGenres) =>
+    Catalog.Message.SucceededGenreList({ requestId, result }),
+  genresRefused: (requestId: string) =>
+    Catalog.Message.FailedGenreList({ requestId, failure: refused }),
+  genresLost: (requestId: string) => Catalog.Message.FailedGenreList({ requestId, failure: lost }),
+  genre: (requestId: string, result: Genre = fullGenre) =>
+    Catalog.Message.SucceededGenreDetail({ requestId, result }),
+  /** The catalog has no such genre: a final refusal, as for a track. */
+  genreMissing: (requestId: string, genreId: GenreId = genre.id) =>
+    Catalog.Message.FailedGenreDetail({
+      requestId,
+      failure: { _tag: "Rejected", rejection: new GenreNotFound({ genreId }) },
+    }),
+  genreRefused: (requestId: string) =>
+    Catalog.Message.FailedGenreDetail({ requestId, failure: refused }),
+  genreLost: (requestId: string) =>
+    Catalog.Message.FailedGenreDetail({ requestId, failure: lost }),
+  radio: (requestId: string, result: RadioStations = allStations) =>
+    Catalog.Message.SucceededStationList({ requestId, result }),
+  radioRefused: (requestId: string) =>
+    Catalog.Message.FailedStationList({ requestId, failure: refused }),
+  radioLost: (requestId: string) =>
+    Catalog.Message.FailedStationList({ requestId, failure: lost }),
+  station: (requestId: string, result: Station = fullStation) =>
+    Catalog.Message.SucceededStationDetail({ requestId, result }),
+  /** The catalog has no such station: a final refusal, as for a track. */
+  stationMissing: (requestId: string, stationId: StationId = station.id) =>
+    Catalog.Message.FailedStationDetail({
+      requestId,
+      failure: { _tag: "Rejected", rejection: new StationNotFound({ stationId }) },
+    }),
+  stationRefused: (requestId: string) =>
+    Catalog.Message.FailedStationDetail({ requestId, failure: refused }),
+  stationLost: (requestId: string) =>
+    Catalog.Message.FailedStationDetail({ requestId, failure: lost }),
 };
 
 /** A reply as `update` receives it. A late reply is sent this way: its Command is long gone. */
@@ -375,4 +475,26 @@ export const onPlaylist: Model = answered(
   openingPlaylistFromTile,
   reply.playlist,
   playlistPath(playlist.id),
+);
+
+/** Genres on screen with every genre, reached by a direct link: nothing is behind it. */
+export const onGenres: Model = answered(opened("/genres"), reply.genres);
+
+/** Genres still on screen; the listener chose the first genre's tile, which has never loaded. */
+export const openingGenreFromTile: Model = chose(onGenres, genrePath(genre.id));
+
+/** The first genre's page on screen, opened from that tile: Genres is behind it, as it was left. */
+export const onGenre: Model = answered(openingGenreFromTile, reply.genre, genrePath(genre.id));
+
+/** Radio on screen with its stations, reached by a direct link: nothing is behind it. */
+export const onRadio: Model = answered(opened("/radio"), reply.radio);
+
+/** Radio still on screen; the listener chose the first station's tile, which has never loaded. */
+export const openingStationFromTile: Model = chose(onRadio, stationPath(station.id));
+
+/** The first station's page on screen, opened from that tile: Radio is behind it, as it was left. */
+export const onStation: Model = answered(
+  openingStationFromTile,
+  reply.station,
+  stationPath(station.id),
 );

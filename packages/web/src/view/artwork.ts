@@ -1,7 +1,9 @@
 import type { AlbumId } from "@bafle/domain/Catalog/Album";
 import type { ArtistId } from "@bafle/domain/Catalog/Artist";
 import type { Artwork } from "@bafle/domain/Catalog/Artwork";
+import type { GenreId } from "@bafle/domain/Catalog/Genre";
 import type { PlaylistId } from "@bafle/domain/Catalog/Playlist";
+import type { StationId } from "@bafle/domain/Catalog/Station";
 import type { TrackId } from "@bafle/domain/Catalog/Track";
 import { clsx } from "clsx";
 import * as Option from "effect/Option";
@@ -99,14 +101,29 @@ const headPictureView = (
     }),
   );
 
-/** The album hero shares its cover with the shelf tile during navigation. */
+/**
+ * The cover at the head of an album's page. It does not travel by itself:
+ * the head it lies in does, with the title over it (`albumHeadFlightAttributes`).
+ */
 export const albumCoverView = (
-  albumId: AlbumId,
-  presence: Presence,
   maybeArtwork: Option.Option<Artwork>,
   h: HtmlBuilder<Message>,
-): Html =>
-  headPictureView("album-cover", albumCoverTransitionStyle(albumId, presence), maybeArtwork, h, "large");
+): Html => headPictureView("album-cover", {}, maybeArtwork, h, "large");
+
+/**
+ * What makes the head of an album's page the piece that travels to and from
+ * the album's tile on a shelf: the cover with the title and the facts over
+ * it, as one picture. Were the cover to travel alone, it would land bare and
+ * the words would appear over it afterwards, a step behind; in one picture
+ * they grow out of the tile together and shrink back into it together.
+ */
+// NOTE: the head also carries the class `catalog-art`, which is what keeps
+// the name off outside a flight (styles.css).
+export const albumHeadFlightAttributes = (
+  albumId: AlbumId,
+  presence: Presence,
+  h: HtmlBuilder<Message>,
+) => flightAttributes(albumCoverTransitionStyle(albumId, presence), h);
 
 /** An artist's picture at the head of their page: round, as their tile is, which it arrives from. */
 export const artistPictureView = (
@@ -130,6 +147,32 @@ export const playlistPictureView = (
   headPictureView(
     "rounded-xl",
     playlistPictureTransitionStyle(playlistId, "OnScreen"),
+    maybeArtwork,
+    h,
+  );
+
+/** A genre's picture at the head of its page, which arrives from its tile as a playlist's does. */
+export const genrePictureView = (
+  genreId: GenreId,
+  maybeArtwork: Option.Option<Artwork>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  headPictureView(
+    "rounded-xl",
+    genrePictureTransitionStyle(genreId, "OnScreen"),
+    maybeArtwork,
+    h,
+  );
+
+/** A station's picture at the head of its page, which arrives from its tile as a playlist's does. */
+export const stationPictureView = (
+  stationId: StationId,
+  maybeArtwork: Option.Option<Artwork>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  headPictureView(
+    "rounded-xl",
+    stationPictureTransitionStyle(stationId, "OnScreen"),
     maybeArtwork,
     h,
   );
@@ -211,6 +254,43 @@ export const playlistPictureTransitionStyle = (
       }
     : {};
 
+// NOTE: a genre's picture and a station's travel exactly as a playlist's
+// does, a square tile to a square head, so they travel in its class: the
+// style sheet times that one flight once, and the three can never drift apart.
+const SQUARE_PICTURE_FLIGHT_CLASS = "playlist-picture";
+
+/** The name a genre's picture travels under, as a playlist's does: from its tile to the head of its page, and back. */
+export const genrePictureTransitionName = (genreId: GenreId): string =>
+  `genre-picture-${ident(genreId)}`;
+
+/** What makes a genre's picture one element to a view transition, on the page on screen only. */
+export const genrePictureTransitionStyle = (
+  genreId: GenreId,
+  presence: Presence,
+): Readonly<Record<string, string>> =>
+  presence === "OnScreen"
+    ? {
+        viewTransitionName: genrePictureTransitionName(genreId),
+        viewTransitionClass: SQUARE_PICTURE_FLIGHT_CLASS,
+      }
+    : {};
+
+/** The name a station's picture travels under, as a playlist's does. */
+export const stationPictureTransitionName = (stationId: StationId): string =>
+  `station-picture-${ident(stationId)}`;
+
+/** What makes a station's picture one element to a view transition, on the page on screen only. */
+export const stationPictureTransitionStyle = (
+  stationId: StationId,
+  presence: Presence,
+): Readonly<Record<string, string>> =>
+  presence === "OnScreen"
+    ? {
+        viewTransitionName: stationPictureTransitionName(stationId),
+        viewTransitionClass: SQUARE_PICTURE_FLIGHT_CLASS,
+      }
+    : {};
+
 /** A section has no shared artwork. Each detail page has exactly one candidate. */
 export const routeArtwork = (route: AppRoute): Option.Option<string> =>
   AppRoute.matchOrElse(route, {
@@ -218,6 +298,8 @@ export const routeArtwork = (route: AppRoute): Option.Option<string> =>
     Album: ({ albumId }) => Option.some(albumCoverTransitionName(albumId)),
     Artist: ({ artistId }) => Option.some(artistPictureTransitionName(artistId)),
     Playlist: ({ playlistId }) => Option.some(playlistPictureTransitionName(playlistId)),
+    Genre: ({ genreId }) => Option.some(genrePictureTransitionName(genreId)),
+    Station: ({ stationId }) => Option.some(stationPictureTransitionName(stationId)),
   }, () => Option.none());
 
 export const flightAttributes = <M>(style: Readonly<Record<string, string>>, h: HtmlBuilder<M>) =>

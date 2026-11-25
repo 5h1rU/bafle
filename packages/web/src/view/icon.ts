@@ -29,6 +29,26 @@ export const newIcon = (className: string): Html =>
     "M18.5 15.5v4M16.5 17.5h4",
   ]);
 
+/** Four tiles: music sorted into its kinds. */
+export const genresIcon = (className: string): Html =>
+  outlineIcon(className, [
+    "M4.5 4.5h6v6h-6v-6Z",
+    "M13.5 4.5h6v6h-6v-6Z",
+    "M4.5 13.5h6v6h-6v-6Z",
+    "M13.5 13.5h6v6h-6v-6Z",
+  ]);
+
+/** A mast and the waves it sends out: a station on air. */
+export const radioIcon = (className: string): Html =>
+  outlineIcon(className, [
+    "M12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
+    "M12 13.5V20",
+    "M8.8 15.2a4.5 4.5 0 0 1 0-6.4",
+    "M15.2 8.8a4.5 4.5 0 0 1 0 6.4",
+    "M6 18a8.5 8.5 0 0 1 0-12",
+    "M18 6a8.5 8.5 0 0 1 0 12",
+  ]);
+
 export const searchIcon = (className: string): Html =>
   outlineIcon(className, ["M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13Z", "M15.5 15.5 20 20"]);
 

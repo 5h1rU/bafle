@@ -124,6 +124,37 @@ export const DeezerPlaylistPage = Schema.Struct({
 });
 export type DeezerPlaylistPage = typeof DeezerPlaylistPage.Type;
 
+/** A genre, in a list or asked for by id: Deezer sends the same of it either way. */
+export const DeezerGenre = Schema.Struct({
+  id: Schema.Number,
+  name: Schema.String,
+  picture_medium: Image,
+  picture_big: Image,
+  picture_xl: Image,
+});
+export type DeezerGenre = typeof DeezerGenre.Type;
+
+/** The genre Deezer lists first: all of them at once, which is no genre. */
+export const DEEZER_ALL_GENRES = 0;
+
+/** A station, which Deezer calls a radio, in a list or asked for by id. */
+export const DeezerRadio = Schema.Struct({
+  id: Schema.Number,
+  title: Schema.String,
+  picture_medium: Image,
+  picture_big: Image,
+  picture_xl: Image,
+});
+export type DeezerRadio = typeof DeezerRadio.Type;
+
+/** The stations of one genre: the genre's id and its name, which Deezer calls `title` here, and its radios. */
+export const DeezerRadioGenre = Schema.Struct({
+  id: Schema.Number,
+  title: Schema.String,
+  radios: Schema.Array(DeezerRadio),
+});
+export type DeezerRadioGenre = typeof DeezerRadioGenre.Type;
+
 /**
  * Every list Deezer answers with is wrapped in `data`. A refusal (a quota, a
  * bad parameter) arrives with status 200 and an `error` field instead, so it
@@ -142,3 +173,16 @@ export const pageOf = <Item extends Schema.Top>(item: Item) =>
     total: Schema.optional(Schema.NullOr(Schema.Number)),
     next: Schema.optional(Schema.NullOr(Schema.String)),
   });
+
+/**
+ * What is played most in one genre, every kind in one answer. Deezer sends
+ * podcasts too, which Bafle does not read, and a kind it has nothing for can
+ * be left out.
+ */
+export const DeezerChart = Schema.Struct({
+  tracks: Schema.optional(Schema.NullOr(listOf(DeezerTrack))),
+  albums: Schema.optional(Schema.NullOr(listOf(DeezerAlbum))),
+  artists: Schema.optional(Schema.NullOr(listOf(DeezerArtist))),
+  playlists: Schema.optional(Schema.NullOr(listOf(DeezerPlaylist))),
+});
+export type DeezerChart = typeof DeezerChart.Type;

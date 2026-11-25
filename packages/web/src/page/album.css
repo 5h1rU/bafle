@@ -93,6 +93,25 @@
   background: rgb(22 15 21 / 65%);
 }
 .album-return > :is(button, a):active { background: rgb(22 15 21 / 85%); }
+
+/* The head of the page travels from the album's tile as one picture: the
+   cover with its title over it (`albumHeadFlightAttributes`). The way back
+   lies over that picture and is not part of it, so in the swap that brings
+   the page in it is a picture of its own, above the head, and comes on the
+   head's clock instead of appearing once the head has landed. */
+:root:active-view-transition-type(show-detail) .album-return > :is(button, a) {
+  view-transition-name: album-return;
+}
+::view-transition-group(album-return) { z-index: 2; }
+::view-transition-new(album-return):only-child {
+  animation: 250ms cubic-bezier(0.23, 1, 0.32, 1) both album-return-arrive;
+}
+::view-transition-old(album-return):only-child {
+  animation: 120ms ease-out both album-return-leave;
+}
+@keyframes album-return-arrive { from { opacity: 0; } }
+@keyframes album-return-leave { to { opacity: 0; } }
+
 .album-compact { margin-left: 3.5rem; display: flex; min-width: 0; gap: .75rem; align-items: center; }
 .album-compact > :first-child { flex: none; width: 3rem; }
 

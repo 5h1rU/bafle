@@ -3,12 +3,18 @@ import type { AlbumId } from "@bafle/domain/Catalog/Album";
 import type { ArtistId } from "@bafle/domain/Catalog/Artist";
 import type { Album } from "@bafle/domain/Catalog/FullAlbum";
 import type { Artist } from "@bafle/domain/Catalog/FullArtist";
+import type { Genre } from "@bafle/domain/Catalog/FullGenre";
 import type { Playlist } from "@bafle/domain/Catalog/FullPlaylist";
+import type { Station } from "@bafle/domain/Catalog/FullStation";
+import type { GenreId } from "@bafle/domain/Catalog/Genre";
 import type {
   FeaturedMusic,
+  MusicGenres,
+  RadioStations,
   TrendingMusic,
 } from "@bafle/domain/Catalog/MusicCatalog.external";
 import type { PlaylistId } from "@bafle/domain/Catalog/Playlist";
+import type { StationId } from "@bafle/domain/Catalog/Station";
 import type { Track, TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
 import * as Array from "effect/Array";
 import { identity, pipe } from "effect/Function";
@@ -28,24 +34,32 @@ import {
   type LoadError,
   toAlbumOutcome,
   toArtistOutcome,
+  toGenreOutcome,
   toLoadError,
   toPlaylistOutcome,
+  toStationOutcome,
   toTrackOutcome,
 } from "./catalog.ts";
 import {
   askAlbumDetail,
   askArtistDetail,
   askCatalogSearch,
+  askGenreDetail,
+  askGenreList,
   askHomeFeed,
   askNewMusic,
   askPlaylistDetail,
+  askStationDetail,
+  askStationList,
   askTrackDetail,
   FocusAlbumTile,
   FocusArtistTile,
+  FocusGenreTile,
   FocusNavigation,
   FocusPage,
   FocusPlaylistTile,
   FocusSearchField,
+  FocusStationTile,
   FocusTrackRow,
   LoadExternal,
   NavigateBack,
@@ -65,10 +79,13 @@ import {
   Awaiting,
   canShow,
   type Entrance,
+  genreData,
   maybeAlbumIdInDocument,
   maybeArtistIdInDocument,
+  maybeGenreIdInDocument,
   maybeHeadedFor,
   maybePlaylistIdInDocument,
+  maybeStationIdInDocument,
   isKnownMissing,
   isLoaded,
   initialPlayerSheet,
@@ -78,6 +95,7 @@ import {
   type Navigation,
   playlistData,
   type SearchAnswer,
+  stationData,
   trackData,
   wayBackOn,
 } from "./model.ts";
@@ -122,6 +140,17 @@ const newMusicPage: Page<TrendingMusic> = {
   write: (model, nextNewMusic) => modifyFields(model, { newMusic: () => nextNewMusic }),
 };
 
+const genreListPage: Page<MusicGenres> = {
+  read: (model) => model.genreList,
+  write: (model, nextGenreList) => modifyFields(model, { genreList: () => nextGenreList }),
+};
+
+const stationListPage: Page<RadioStations> = {
+  read: (model) => model.stationList,
+  write: (model, nextStationList) =>
+    modifyFields(model, { stationList: () => nextStationList }),
+};
+
 const searchPage: Page<SearchAnswer> = {
   read: (model) => model.search,
   write: (model, nextSearch) => modifyFields(model, { search: () => nextSearch }),
@@ -157,6 +186,19 @@ const playlistPage = (playlistId: PlaylistId): Page<Option.Option<Playlist>> => 
   read: (model) => playlistData(model, playlistId),
   write: (model, nextPlaylist) =>
     modifyFields(model, { playlists: heldUnder(playlistId, nextPlaylist) }),
+});
+
+/** A genre's page keeps what the catalog told it under the genre's id. */
+const genrePage = (genreId: GenreId): Page<Option.Option<Genre>> => ({
+  read: (model) => genreData(model, genreId),
+  write: (model, nextGenre) => modifyFields(model, { genres: heldUnder(genreId, nextGenre) }),
+});
+
+/** A station's page keeps what the catalog told it under the station's id. */
+const stationPage = (stationId: StationId): Page<Option.Option<Station>> => ({
+  read: (model) => stationData(model, stationId),
+  write: (model, nextStation) =>
+    modifyFields(model, { stations: heldUnder(stationId, nextStation) }),
 });
 
 /** Loading for the first time, or again over what is already held. */
@@ -244,24 +286,38 @@ const focusSearchFieldOnSearch: Step = (model) =>
 
 /** The sections: the pages the navigation leads to. */
 const isSection = (route: AppRoute): boolean =>
-  route._tag === "Home" || route._tag === "New" || route._tag === "Search";
+  route._tag === "Home" ||
+  route._tag === "New" ||
+  route._tag === "Genres" ||
+  route._tag === "Radio" ||
+  route._tag === "Search";
 
 /**
  * The pages an album is opened from: a section, an artist's page, a
- * playlist's. Each has rows whose menu asks for an album, or a shelf of them.
+ * playlist's, a genre's, a station's. Each has rows whose menu asks for an
+ * album, or a shelf of them.
  */
 const leadsToAlbums = (route: AppRoute): boolean =>
-  isSection(route) || route._tag === "Artist" || route._tag === "Playlist";
+  isSection(route) ||
+  route._tag === "Artist" ||
+  route._tag === "Playlist" ||
+  route._tag === "Genre" ||
+  route._tag === "Station";
+
+/** The pages an artist or a playlist is opened from: a section, or a genre's page. Each shelves them. */
+const leadsToArtistsAndPlaylists = (route: AppRoute): boolean =>
+  isSection(route) || route._tag === "Genre";
 
 /**
  * What takes the focus when another page takes the screen. Back from a track
  * it is the row that opened it, so the list is as the listener left it, down
  * to where the keyboard was. Back from an album it is what opened the album:
  * the row whose menu it was asked from, else its tile on a shelf. Back from
- * an artist or a playlist it is the tile, the only way to either. A track's
- * page takes it itself, and so does an album's, an artist's and a
- * playlist's: what held it is now behind the page. Search gives it to its
- * field.
+ * an artist or a playlist it is the tile, the only way to either, and so it
+ * is back from a genre, on Genres, and from a station, on Radio. A track's
+ * page takes it itself, and so does an album's, an artist's, a playlist's, a
+ * genre's and a station's: what held it is now behind the page. Search gives
+ * it to its field.
  */
 const focusOn = (model: Model, entered: AppRoute, entrance: Entrance) => {
   const left = model.route;
@@ -275,11 +331,21 @@ const focusOn = (model: Model, entered: AppRoute, entrance: Entrance) => {
       onSome: (row) => [FocusTrackRow({ pageId, trackId: row.trackId })],
     });
   }
-  if (entrance === "Returning" && left._tag === "Artist" && isSection(entered)) {
+  if (entrance === "Returning" && left._tag === "Artist" && leadsToArtistsAndPlaylists(entered)) {
     return [FocusArtistTile({ pageId, artistId: left.artistId })];
   }
-  if (entrance === "Returning" && left._tag === "Playlist" && isSection(entered)) {
+  if (
+    entrance === "Returning" &&
+    left._tag === "Playlist" &&
+    leadsToArtistsAndPlaylists(entered)
+  ) {
     return [FocusPlaylistTile({ pageId, playlistId: left.playlistId })];
+  }
+  if (entrance === "Returning" && left._tag === "Genre" && entered._tag === "Genres") {
+    return [FocusGenreTile({ pageId, genreId: left.genreId })];
+  }
+  if (entrance === "Returning" && left._tag === "Station" && entered._tag === "Radio") {
+    return [FocusStationTile({ pageId, stationId: left.stationId })];
   }
   return AppRoute.matchOrElse(
     entered,
@@ -289,6 +355,8 @@ const focusOn = (model: Model, entered: AppRoute, entrance: Entrance) => {
       Album: () => [FocusPage({ pageId })],
       Artist: () => [FocusPage({ pageId })],
       Playlist: () => [FocusPage({ pageId })],
+      Genre: () => [FocusPage({ pageId })],
+      Station: () => [FocusPage({ pageId })],
     },
     () => [],
   );
@@ -322,6 +390,8 @@ const load =
     AppRoute.match<UpdateReturn>(route, {
       Home: () => requestPage(model, homePage, askHomeFeed, expecting),
       New: () => requestPage(model, newMusicPage, askNewMusic, expecting),
+      Genres: () => requestPage(model, genreListPage, askGenreList, expecting),
+      Radio: () => requestPage(model, stationListPage, askStationList, expecting),
       Search: () =>
         Option.match(searchedTerm(route), {
           onNone: () => ({ model }),
@@ -350,6 +420,23 @@ const load =
         return isKnownMissing(page.read(model))
           ? { model }
           : requestPage(model, page, askPlaylistDetail(playlistId), expecting);
+      },
+      Genre: ({ genreId }) => {
+        const page = genrePage(genreId);
+        return isKnownMissing(page.read(model))
+          ? { model }
+          : requestPage(model, page, askGenreDetail(genreId), expecting);
+      },
+      // NOTE: a station is not asked for again once its songs are held. A
+      // catalog deals a station's songs afresh each time it is asked, so the
+      // refresh every other page gets behind its screen would put another
+      // list under the listener: the row they played would be gone, and Back
+      // to the station would not find it as it was left (navigation rule 9).
+      Station: ({ stationId }) => {
+        const page = stationPage(stationId);
+        return isKnownMissing(page.read(model)) || isHeld(page.read(model))
+          ? { model }
+          : requestPage(model, page, askStationDetail(stationId), expecting);
       },
       NotFound: () => ({ model }),
     });
@@ -411,8 +498,8 @@ const needsNoWait = (model: Model, route: AppRoute): boolean =>
   isLoaded(model, route) || !canShow(model, model.route) || isPlayersTrack(model, route);
 
 /**
- * Stop waiting for every track, or every album, artist or playlist: at most
- * one was being asked for, and only it changes.
+ * Stop waiting for every track, or every album, artist, playlist, genre or
+ * station: at most one was being asked for, and only it changes.
  */
 const standDownEach = <Id, A>(
   held: HashMap.HashMap<Id, PageData<A>>,
@@ -434,11 +521,15 @@ const abandon = (model: Model): Model =>
     awaiting: () => Awaiting.Nothing(),
     home: standDown,
     newMusic: standDown,
+    genreList: standDown,
+    stationList: standDown,
     search: standDown,
     tracks: standDownEach,
     albums: standDownEach,
     artists: standDownEach,
     playlists: standDownEach,
+    genres: standDownEach,
+    stations: standDownEach,
   });
 
 const withNavigation =
@@ -521,8 +612,8 @@ const commit =
  * to open, or that the catalog does not have, says so on its row. So does an
  * album asked from a row's menu. One chosen from a shelf is as a section is:
  * a tile has no room to state a failure either, so its page takes the screen
- * with what there is to say. An artist and a playlist are only ever chosen
- * from a shelf, so theirs always does.
+ * with what there is to say. An artist, a playlist, a genre and a station
+ * are only ever chosen from a tile, so theirs always does.
  */
 const canCommit = (model: Model, route: AppRoute): boolean =>
   AppRoute.matchOrElse(
@@ -810,6 +901,30 @@ const receivePlaylist = (
     () => ({ model }),
   );
 
+/** A reply about a genre is about the one awaited, as a reply about a track is. */
+const receiveGenre = (
+  model: Model,
+  requestId: string,
+  outcome: Result.Result<Option.Option<Genre>, LoadError>,
+): UpdateReturn =>
+  AppRoute.matchOrElse<UpdateReturn>(
+    awaitedRoute(model),
+    { Genre: ({ genreId }) => receive(model, genrePage(genreId), requestId, outcome) },
+    () => ({ model }),
+  );
+
+/** A reply about a station is about the one awaited, as a reply about a track is. */
+const receiveStation = (
+  model: Model,
+  requestId: string,
+  outcome: Result.Result<Option.Option<Station>, LoadError>,
+): UpdateReturn =>
+  AppRoute.matchOrElse<UpdateReturn>(
+    awaitedRoute(model),
+    { Station: ({ stationId }) => receive(model, stationPage(stationId), requestId, outcome) },
+    () => ({ model }),
+  );
+
 /** A reply about an album is about the one awaited, as a reply about a track is. */
 const receiveAlbum = (
   model: Model,
@@ -863,6 +978,22 @@ const receiveCatalogMessage = (model: Model, message: typeof Catalog.Message.Typ
       receivePlaylist(model, requestId, Result.succeed(Option.some(result))),
     FailedPlaylistDetail: ({ requestId, failure }) =>
       receivePlaylist(model, requestId, toPlaylistOutcome(failure)),
+    SucceededGenreList: ({ requestId, result }) =>
+      receive(model, genreListPage, requestId, Result.succeed(result)),
+    FailedGenreList: ({ requestId, failure }) =>
+      receive(model, genreListPage, requestId, Result.fail(toLoadError(failure))),
+    SucceededGenreDetail: ({ requestId, result }) =>
+      receiveGenre(model, requestId, Result.succeed(Option.some(result))),
+    FailedGenreDetail: ({ requestId, failure }) =>
+      receiveGenre(model, requestId, toGenreOutcome(failure)),
+    SucceededStationList: ({ requestId, result }) =>
+      receive(model, stationListPage, requestId, Result.succeed(result)),
+    FailedStationList: ({ requestId, failure }) =>
+      receive(model, stationListPage, requestId, Result.fail(toLoadError(failure))),
+    SucceededStationDetail: ({ requestId, result }) =>
+      receiveStation(model, requestId, Result.succeed(Option.some(result))),
+    FailedStationDetail: ({ requestId, failure }) =>
+      receiveStation(model, requestId, toStationOutcome(failure)),
   });
 
 /**
@@ -1003,12 +1134,29 @@ const playlistTracksInDocument = (model: Model): ReadonlyArray<TrackSummary> =>
     Option.match({ onNone: () => [], onSome: (playlist) => playlist.tracks }),
   );
 
+/** The most played tracks of the genre whose page is in the document: the list its rows are drawn from. */
+const genreTopTracksInDocument = (model: Model): ReadonlyArray<TrackSummary> =>
+  pipe(
+    maybeGenreIdInDocument(model.route, model.trail),
+    Option.flatMap((genreId) => Option.flatten(AsyncData.getData(genreData(model, genreId)))),
+    Option.match({ onNone: () => [], onSome: (genre) => genre.topTracks }),
+  );
+
+/** The songs of the station whose page is in the document: the list its rows are drawn from. */
+const stationTracksInDocument = (model: Model): ReadonlyArray<TrackSummary> =>
+  pipe(
+    maybeStationIdInDocument(model.route, model.trail),
+    Option.flatMap((stationId) => Option.flatten(AsyncData.getData(stationData(model, stationId)))),
+    Option.match({ onNone: () => [], onSome: (station) => station.tracks }),
+  );
+
 /**
  * The list a track was played from, as the page it is on holds it: what
  * plays after it. A track played from its own page is a list of one, and
  * one played from its album's page is followed by the rest of the album.
- * From an artist's page it is their most played tracks, and from a
- * playlist's the playlist.
+ * From an artist's page it is their most played tracks, from a playlist's
+ * the playlist, from a genre's the tracks played most in it, and from a
+ * station's the songs the station lists.
  */
 const listPlayedFrom = (
   model: Model,
@@ -1035,6 +1183,8 @@ const listPlayedFrom = (
     Match.when("Album", () => albumTracksInDocument(model)),
     Match.when("Artist", () => artistTopTracksInDocument(model)),
     Match.when("Playlist", () => playlistTracksInDocument(model)),
+    Match.when("Genre", () => genreTopTracksInDocument(model)),
+    Match.when("Station", () => stationTracksInDocument(model)),
     Match.exhaustive,
   );
 
@@ -1053,7 +1203,13 @@ const followTrack =
     const route = AppRoute.Track({ trackId });
     const shown = modifyFields(model, { route: () => route });
     return Awaiting.match<UpdateReturn>(model.awaiting, {
-      Arrival: () => ({ model: shown }),
+      // NOTE: the page the browser went to, still loading, can be this very
+      // one: the URL is already its own, and the reply awaited is from then
+      // on a reply for the page on screen.
+      Arrival: (awaited) =>
+        isSamePage(awaited.route, route)
+          ? { model: modifyFields(shown, { awaiting: () => forTheScreen(awaited.requestId) }) }
+          : { model: shown },
       // NOTE: a page the listener is waiting for that turns out to be this
       // very one has arrived by another way: its reply must not add an entry.
       Intention: (awaited) =>
@@ -1314,6 +1470,8 @@ export const update = (model: Model, message: Message) =>
     CompletedFocusAlbumTile: () => ({ model }),
     CompletedFocusArtistTile: () => ({ model }),
     CompletedFocusPlaylistTile: () => ({ model }),
+    CompletedFocusGenreTile: () => ({ model }),
+    CompletedFocusStationTile: () => ({ model }),
     CompletedFocusNavigation: () => ({ model }),
     CompletedScrollPageToTop: () => ({ model }),
   });
@@ -1337,6 +1495,8 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       requestIds: { session: "page", sent: 0 },
       home: AsyncData.Idle(),
       newMusic: AsyncData.Idle(),
+      genreList: AsyncData.Idle(),
+      stationList: AsyncData.Idle(),
       search: AsyncData.Idle(),
       searched: HashMap.empty(),
       tracks: HashMap.empty(),
@@ -1344,6 +1504,8 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       albumRows: HashMap.empty(),
       artists: HashMap.empty(),
       playlists: HashMap.empty(),
+      genres: HashMap.empty(),
+      stations: HashMap.empty(),
       maybeAskedRoute: Option.none(),
       // A fresh load knows nothing of the history behind it, so no page has a way back yet.
       trail: [],

@@ -1,7 +1,9 @@
 import { AlbumId } from "@bafle/domain/Catalog/Album";
 import { ArtistId } from "@bafle/domain/Catalog/Artist";
+import { GenreId } from "@bafle/domain/Catalog/Genre";
 import { MusicCatalog } from "@bafle/domain/Catalog/MusicCatalog.external";
 import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
+import { StationId } from "@bafle/domain/Catalog/Station";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -15,6 +17,7 @@ import {
   type Answer,
   deezerTrack,
   fakeDeezer,
+  genreChart,
   longAlbumPage,
   longAlbumTracks,
   stocked,
@@ -510,6 +513,236 @@ it.effect("playlist: any other refusal is the catalog being unavailable", () => 
     const catalog = yield* MusicCatalog;
     const refused = yield* catalog
       .playlist({ playlistId: PlaylistId.make("429") })
+      .pipe(Effect.flip);
+    expect(refused._tag).toBe("CatalogUnavailable");
+  }).pipe(Effect.provide(layer));
+});
+
+const pop = { id: "132", name: "Pop", picture: artwork(132) };
+const eighties = { id: "38305", title: "The '80s", picture: artwork(38305) };
+
+it.effect("genres: every genre Deezer lists but the one that stands for all of them", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    expect(yield* catalog.genres()).toEqual({
+      genres: [
+        pop,
+        // No pictures: no artwork.
+        { id: "85", name: "Alternative", picture: null },
+      ],
+    });
+    expect(deezer.asked.map((url) => url.pathname)).toEqual(["/genre"]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("genres: a list that cannot be read is the catalog being unavailable", () => {
+  const { layer } = catalogOver({});
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog.genres().pipe(Effect.flip);
+    expect(refused._tag).toBe("CatalogUnavailable");
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("genre: one genre in full, with what is played most in it", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    expect(yield* catalog.genre({ genreId: GenreId.make("132"), topTracks: 2 })).toEqual({
+      ...pop,
+      // The chart came with three: as many as were asked for are kept.
+      topTracks: [{ ...harder, id: "3135553", title: "One More Time" }, harder],
+      albums: [discovery],
+      artists: [{ ...daftPunk, picture: artwork(27) }],
+      playlists: [
+        {
+          id: "908622995",
+          title: "Chill Hits",
+          curator: "Deezer Editors",
+          picture: artwork(908622995),
+          trackCount: 60,
+        },
+        { id: "5", title: "Untitled", curator: "Deezer", picture: null, trackCount: 0 },
+      ],
+    });
+    // The genre first, then its chart: one answer for every kind, asked for a shelf's worth.
+    expect(deezer.asked.map((url) => `${url.pathname}?${url.searchParams}`)).toEqual([
+      "/genre/132?",
+      "/chart/132?limit=" + SHELF_SIZE,
+    ]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("genre: a page that lists more tracks than a shelf holds asks the chart for that many", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    yield* catalog.genre({ genreId: GenreId.make("132"), topTracks: SHELF_SIZE + 5 });
+    expect(deezer.asked[1]?.searchParams.get("limit")).toBe(String(SHELF_SIZE + 5));
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("genre: a kind the chart leaves out is a kind with nothing popular", () => {
+  const { playlists: _playlists, artists: _artists, ...thinner } = genreChart;
+  const { layer } = catalogOver({ ...stocked, "/chart/132": { body: thinner } });
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const genre = yield* catalog.genre({ genreId: GenreId.make("132"), topTracks: 10 });
+    expect(genre.topTracks).toHaveLength(3);
+    expect(genre.artists).toEqual([]);
+    expect(genre.playlists).toEqual([]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("genre: one whose chart cannot be read is the catalog being unavailable", () => {
+  const { "/chart/132": _chart, ...withoutChart } = stocked;
+  const { layer } = catalogOver(withoutChart);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog
+      .genre({ genreId: GenreId.make("132"), topTracks: 10 })
+      .pipe(Effect.flip);
+    expect(refused._tag).toBe("CatalogUnavailable");
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("genre: Deezer's \"no data\" is the genre not being found, and its chart is never asked for", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog
+      .genre({ genreId: GenreId.make("404"), topTracks: 10 })
+      .pipe(Effect.flip);
+    expect(refused).toMatchObject({ _tag: "GenreNotFound", genreId: "404" });
+    // Deezer would have answered a chart for it all the same.
+    expect(deezer.asked.map((url) => url.pathname)).toEqual(["/genre/404"]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("genre: an id that is not one of Deezer's is not found, and Deezer is never asked", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog
+      .genre({ genreId: GenreId.make("../chart/0"), topTracks: 10 })
+      .pipe(Effect.flip);
+    expect(refused._tag).toBe("GenreNotFound");
+    // Nor is the id Deezer keeps for all genres at once: it is no genre.
+    const all = yield* catalog.genre({ genreId: GenreId.make("0"), topTracks: 10 }).pipe(Effect.flip);
+    expect(all._tag).toBe("GenreNotFound");
+    expect(deezer.asked).toEqual([]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("genre: any other refusal is the catalog being unavailable", () => {
+  const { layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog
+      .genre({ genreId: GenreId.make("429"), topTracks: 10 })
+      .pipe(Effect.flip);
+    expect(refused._tag).toBe("CatalogUnavailable");
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("stations: Deezer's radios under their genres, each station once and no genre without one", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    expect(yield* catalog.stations()).toEqual({
+      groups: [
+        {
+          genre: { id: "132", name: "Pop" },
+          stations: [eighties, { id: "30771", title: "Electro Pop", picture: null }],
+        },
+        // Electro Pop is filed here too: it stays under the first genre that listed it.
+        {
+          genre: { id: "106", name: "Electro" },
+          stations: [{ id: "31061", title: "Electro", picture: artwork(38305) }],
+        },
+        // Dance is left with none, and Folk had none: neither is a group.
+      ],
+    });
+    expect(deezer.asked.map((url) => url.pathname)).toEqual(["/radio/genres"]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("stations: a list that cannot be read is the catalog being unavailable", () => {
+  const { layer } = catalogOver({});
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog.stations().pipe(Effect.flip);
+    expect(refused._tag).toBe("CatalogUnavailable");
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("station: one station in full, the songs it plays now each kept once", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    expect(yield* catalog.station({ stationId: StationId.make("38305"), tracks: 7 })).toEqual({
+      ...eighties,
+      tracks: [
+        { ...harder, id: "3135553", title: "One More Time" },
+        harder,
+        { ...harder, id: "3", title: "Third", previewUrl: null },
+      ],
+    });
+    // Which station first, then its songs: as many as were asked for.
+    expect(deezer.asked.map((url) => `${url.pathname}?${url.searchParams}`)).toEqual([
+      "/radio/38305?",
+      "/radio/38305/tracks?limit=7",
+    ]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("station: one whose songs cannot be read is the catalog being unavailable", () => {
+  const { "/radio/38305/tracks": _tracks, ...withoutTracks } = stocked;
+  const { layer } = catalogOver(withoutTracks);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog
+      .station({ stationId: StationId.make("38305"), tracks: 7 })
+      .pipe(Effect.flip);
+    expect(refused._tag).toBe("CatalogUnavailable");
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("station: Deezer's \"no data\" is the station not being found, and its songs are never asked for", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog
+      .station({ stationId: StationId.make("404"), tracks: 7 })
+      .pipe(Effect.flip);
+    expect(refused).toMatchObject({ _tag: "StationNotFound", stationId: "404" });
+    expect(deezer.asked.map((url) => url.pathname)).toEqual(["/radio/404"]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("station: an id that is not one of Deezer's is not found, and Deezer is never asked", () => {
+  const { deezer, layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog
+      .station({ stationId: StationId.make("../track/1"), tracks: 7 })
+      .pipe(Effect.flip);
+    expect(refused._tag).toBe("StationNotFound");
+    const zero = yield* catalog
+      .station({ stationId: StationId.make("0"), tracks: 7 })
+      .pipe(Effect.flip);
+    expect(zero._tag).toBe("StationNotFound");
+    expect(deezer.asked).toEqual([]);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("station: any other refusal is the catalog being unavailable", () => {
+  const { layer } = catalogOver(stocked);
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const refused = yield* catalog
+      .station({ stationId: StationId.make("429"), tracks: 7 })
       .pipe(Effect.flip);
     expect(refused._tag).toBe("CatalogUnavailable");
   }).pipe(Effect.provide(layer));

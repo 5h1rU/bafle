@@ -9,7 +9,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message.ts";
 import type { AlbumData } from "../model.ts";
 import { isPlayable } from "../player/model.ts";
-import { albumCoverView, artworkView } from "../view/artwork.ts";
+import { albumCoverView, albumHeadFlightAttributes, artworkView } from "../view/artwork.ts";
 import { playIcon } from "../view/icon.ts";
 import {
   PAGE_IDS,
@@ -75,8 +75,8 @@ const factsView = (album: Album, h: HtmlBuilder<Message>): Html =>
   );
 
 const headView = (album: Album, presence: Presence, h: HtmlBuilder<Message>): Html =>
-  h.header([h.Class("album-hero")], [
-    albumCoverView(album.id, presence, Option.fromNullishOr(album.cover), h),
+  h.header([h.Class("album-hero catalog-art"), ...albumHeadFlightAttributes(album.id, presence, h)], [
+    albumCoverView(Option.fromNullishOr(album.cover), h),
     h.div([h.Class("album-caption")], [
       h.h1([h.Id(pageTitleIdOf(PAGE_ID))], [
         album.title,

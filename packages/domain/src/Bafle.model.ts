@@ -3,9 +3,13 @@ import * as Layer from "effect/Layer";
 import { AlbumDetail, AlbumDetailLive } from "./Catalog/AlbumDetail.query.ts";
 import { ArtistDetail, ArtistDetailLive } from "./Catalog/ArtistDetail.query.ts";
 import { CatalogSearch, CatalogSearchLive } from "./Catalog/CatalogSearch.query.ts";
+import { GenreDetail, GenreDetailLive } from "./Catalog/GenreDetail.query.ts";
+import { GenreList, GenreListLive } from "./Catalog/GenreList.query.ts";
 import { HomeFeed, HomeFeedLive } from "./Catalog/HomeFeed.query.ts";
 import { NewMusic, NewMusicLive } from "./Catalog/NewMusic.query.ts";
 import { PlaylistDetail, PlaylistDetailLive } from "./Catalog/PlaylistDetail.query.ts";
+import { StationDetail, StationDetailLive } from "./Catalog/StationDetail.query.ts";
+import { StationList, StationListLive } from "./Catalog/StationList.query.ts";
 import { TrackDetail, TrackDetailLive } from "./Catalog/TrackDetail.query.ts";
 
 /**
@@ -23,6 +27,10 @@ export class Bafle extends Domain.Model("Bafle", {
     AlbumDetail,
     ArtistDetail,
     PlaylistDetail,
+    GenreList,
+    GenreDetail,
+    StationList,
+    StationDetail,
   ],
 }) {}
 
@@ -35,4 +43,8 @@ export const BafleHandlers = Layer.mergeAll(
   AlbumDetailLive,
   ArtistDetailLive,
   PlaylistDetailLive,
+  GenreListLive,
+  GenreDetailLive,
+  StationListLive,
+  StationDetailLive,
 );

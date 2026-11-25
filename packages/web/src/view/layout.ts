@@ -18,11 +18,15 @@ export const QUIET_LINE_CLASS = "mt-8 text-muted";
 export const PAGE_IDS: Readonly<Record<AppRoute["_tag"], string>> = {
   Home: "home-page",
   New: "new-page",
+  Genres: "genres-page",
+  Radio: "radio-page",
   Search: "search-page",
   Track: "track-page",
   Album: "album-page",
   Artist: "artist-page",
   Playlist: "playlist-page",
+  Genre: "genre-page",
+  Station: "station-page",
   NotFound: "not-found-page",
 };
 
@@ -54,6 +58,12 @@ export const ARTIST_TILE_ATTRIBUTE = "artist-tile";
 
 /** The data attribute that marks a shelf's tile with its playlist, as an album's tile is marked. */
 export const PLAYLIST_TILE_ATTRIBUTE = "playlist-tile";
+
+/** The data attribute that marks a tile with its genre, as an album's tile is marked. */
+export const GENRE_TILE_ATTRIBUTE = "genre-tile";
+
+/** The data attribute that marks a shelf's tile with its station, as an album's tile is marked. */
+export const STATION_TILE_ATTRIBUTE = "station-tile";
 
 /**
  * Whether a page is the one on screen, or kept behind it. A kept page stays

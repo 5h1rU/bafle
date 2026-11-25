@@ -11,12 +11,18 @@ import { Catalog, REPLY_TIMEOUT } from "../src/catalog.ts";
 import {
   askAlbumDetail,
   askArtistDetail,
+  askGenreDetail,
+  askGenreList,
   askHomeFeed,
   askPlaylistDetail,
+  askStationDetail,
+  askStationList,
   askTrackDetail,
   FocusAlbumTile,
   FocusArtistTile,
+  FocusGenreTile,
   FocusPlaylistTile,
+  FocusStationTile,
   FocusTrackRow,
   NavigateBack,
   NavigateInternal,
@@ -31,8 +37,12 @@ import {
   albumPath,
   artist,
   artistPath,
+  genre,
+  genrePath,
   playlist,
   playlistPath,
+  station,
+  stationPath,
   track,
   trackPath,
 } from "./fixtures.ts";
@@ -168,6 +178,36 @@ it.effect("a shelf that no longer has the artist or the playlist gives the focus
   }),
 );
 
+it.effect("the tile of a genre or of a station is found by its kind too, and a page without it takes the focus itself", () =>
+  Effect.gen(function* () {
+    document.body.innerHTML = `
+      <div id="${PAGE_IDS.Genres}" tabindex="0">
+        <a href="/genre/other" data-genre-tile="other">Another</a>
+        <a href="${genrePath(genre.id)}" data-genre-tile="${genre.id}">The genre</a>
+      </div>
+      <div id="${PAGE_IDS.Radio}" tabindex="0">
+        <a href="/station/${genre.id}" data-station-tile="${genre.id}">A station with the genre's id</a>
+        <a href="${stationPath(station.id)}" data-station-tile="${station.id}">The station</a>
+      </div>`;
+
+    expect(yield* FocusGenreTile({ pageId: PAGE_IDS.Genres, genreId: genre.id }).effect).toEqual(
+      Message.CompletedFocusGenreTile(),
+    );
+    expect(document.activeElement?.textContent).toBe("The genre");
+
+    expect(
+      yield* FocusStationTile({ pageId: PAGE_IDS.Radio, stationId: station.id }).effect,
+    ).toEqual(Message.CompletedFocusStationTile());
+    expect(document.activeElement?.textContent).toBe("The station");
+
+    // Radio has no tile for the genre, and Genres none for the station.
+    yield* FocusGenreTile({ pageId: PAGE_IDS.Radio, genreId: genre.id }).effect;
+    expect(document.activeElement?.id).toBe(PAGE_IDS.Radio);
+    yield* FocusStationTile({ pageId: PAGE_IDS.Genres, stationId: station.id }).effect;
+    expect(document.activeElement?.id).toBe(PAGE_IDS.Genres);
+  }),
+);
+
 /** The app's client over a network that takes every request and never answers one. */
 const hungServer = () => {
   const signals: Array<AbortSignal> = [];
@@ -252,6 +292,47 @@ it.effect("every query has the same limit, and reports it as its own failure", (
       Message.GotCatalogMessage({
         message: Catalog.Message.FailedPlaylistDetail({
           requestId: "page:3",
+          failure: { _tag: "Unknown" },
+        }),
+      }),
+    );
+
+    const askingGenres = yield* Effect.forkChild(askGenreList("page:4").effect);
+    yield* TestClock.adjust(REPLY_TIMEOUT);
+    expect(yield* Fiber.join(askingGenres)).toEqual(
+      Message.GotCatalogMessage({
+        message: Catalog.Message.FailedGenreList({ requestId: "page:4", failure: { _tag: "Unknown" } }),
+      }),
+    );
+
+    const askingGenre = yield* Effect.forkChild(askGenreDetail(genre.id)("page:5").effect);
+    yield* TestClock.adjust(REPLY_TIMEOUT);
+    expect(yield* Fiber.join(askingGenre)).toEqual(
+      Message.GotCatalogMessage({
+        message: Catalog.Message.FailedGenreDetail({
+          requestId: "page:5",
+          failure: { _tag: "Unknown" },
+        }),
+      }),
+    );
+
+    const askingStations = yield* Effect.forkChild(askStationList("page:6").effect);
+    yield* TestClock.adjust(REPLY_TIMEOUT);
+    expect(yield* Fiber.join(askingStations)).toEqual(
+      Message.GotCatalogMessage({
+        message: Catalog.Message.FailedStationList({
+          requestId: "page:6",
+          failure: { _tag: "Unknown" },
+        }),
+      }),
+    );
+
+    const askingStation = yield* Effect.forkChild(askStationDetail(station.id)("page:7").effect);
+    yield* TestClock.adjust(REPLY_TIMEOUT);
+    expect(yield* Fiber.join(askingStation)).toEqual(
+      Message.GotCatalogMessage({
+        message: Catalog.Message.FailedStationDetail({
+          requestId: "page:7",
           failure: { _tag: "Unknown" },
         }),
       }),

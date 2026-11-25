@@ -11,7 +11,16 @@ import { Message as SheetMessage } from "./sheet/model.ts";
 // MESSAGE
 
 /** The page a track was played from: its list there is what plays after it. */
-export const PlayOrigin = Schema.Literals(["New", "Search", "Track", "Album", "Artist", "Playlist"]);
+export const PlayOrigin = Schema.Literals([
+  "New",
+  "Search",
+  "Track",
+  "Album",
+  "Artist",
+  "Playlist",
+  "Genre",
+  "Station",
+]);
 export type PlayOrigin = typeof PlayOrigin.Type;
 
 export const InputMethod = Schema.Literals(["Keyboard", "Pointer"]);
@@ -47,6 +56,8 @@ export const Message = defineMessageUnion({
   CompletedFocusAlbumTile: {},
   CompletedFocusArtistTile: {},
   CompletedFocusPlaylistTile: {},
+  CompletedFocusGenreTile: {},
+  CompletedFocusStationTile: {},
   CompletedFocusNavigation: {},
   CompletedScrollPageToTop: {},
   CompletedWaitToClearRowDone: { turn: Schema.Int },

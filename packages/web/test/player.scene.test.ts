@@ -915,6 +915,28 @@ describe("the player expanded, told from the two Models", () => {
     expect(names(elsewhere)).not.toContain("ReplaceTrackUrl");
   });
 
+  test("going on to the very track the browser had gone to, still loading, takes that page's reply for the screen", () => {
+    // Forward, or a jump through the history, to the next track's own page: the player is held until it loads.
+    const browserWent = update(expandedOnFirst, changedUrl(trackPath(explicitTrack.id)));
+    expect(browserWent.model.route).toEqual(AppRoute.Track({ trackId: track.id }));
+    expect(browserWent.model.awaiting).toMatchObject({
+      _tag: "Arrival",
+      requestId: nextId(expandedOnFirst),
+    });
+
+    const followed = update(browserWent.model, player(Player.Message.ClickedNext()));
+    expect(followed.model.route).toEqual(AppRoute.Track({ trackId: explicitTrack.id }));
+    expect(isPlayerExpanded(followed.model)).toBe(true);
+    // No page is waited for any more: the one that was is on screen, and its reply fills it in place.
+    expect(followed.model.awaiting).toEqual({
+      _tag: "Reply",
+      requestId: nextId(expandedOnFirst),
+    });
+    // The URL is already that page's: nothing rewrites it, and nothing is added.
+    expect(names(followed)).not.toContain("ReplaceTrackUrl");
+    expect(names(followed)).not.toContain("NavigateInternal");
+  });
+
   test("Back out of an expanded player leaves the player as it was", () => {
     const closed = update(expandedOnFirst, changedUrl("/new"));
     expect(closed.model.route).toEqual(AppRoute.New());
@@ -1338,8 +1360,8 @@ describe("a second of progress redraws no page", () => {
     );
 
     const [before, afterProgress, afterStall] = drawn;
-    expect(before).toHaveLength(7);
-    // Home, New, Search, the album's place, the artist's, the playlist's and the passing place: each the same object, so nothing under it was diffed.
+    expect(before).toHaveLength(11);
+    // Home, New, Search, the album's place, the artist's, the playlist's, Genres, Radio, the genre's place, the station's and the passing place: each the same object, so nothing under it was diffed.
     before?.forEach((place, index) => expect(afterProgress?.[index]).toBe(place));
     // New lists the track that stalled: it is drawn again. Home has nothing to show of it.
     expect(afterStall?.[1]).not.toBe(before?.[1]);

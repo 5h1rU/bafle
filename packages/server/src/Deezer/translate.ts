@@ -4,7 +4,15 @@ import type { Artwork } from "@bafle/domain/Catalog/Artwork";
 import { PlaylistId, type PlaylistSummary } from "@bafle/domain/Catalog/Playlist";
 import type { Album } from "@bafle/domain/Catalog/FullAlbum";
 import type { Artist } from "@bafle/domain/Catalog/FullArtist";
+import type { Genre } from "@bafle/domain/Catalog/FullGenre";
 import type { Playlist } from "@bafle/domain/Catalog/FullPlaylist";
+import type { Station } from "@bafle/domain/Catalog/FullStation";
+import { GenreId, type GenreSummary } from "@bafle/domain/Catalog/Genre";
+import {
+  type StationGroup,
+  StationId,
+  type StationSummary,
+} from "@bafle/domain/Catalog/Station";
 import { type Track, TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
 import * as Array from "effect/Array";
 import type {
@@ -13,8 +21,12 @@ import type {
   DeezerAlbumTrack,
   DeezerArtist,
   DeezerArtistAlbum,
+  DeezerChart,
+  DeezerGenre,
   DeezerPlaylist,
   DeezerPlaylistPage,
+  DeezerRadio,
+  DeezerRadioGenre,
   DeezerTrack,
   DeezerTrackPage,
 } from "./DeezerSchemas.ts";
@@ -150,4 +162,73 @@ export const toPlaylist = (playlist: DeezerPlaylist): PlaylistSummary => ({
   curator: playlist.user?.name ?? "Deezer",
   picture: toArtwork(playlist.picture_medium, playlist.picture_big, playlist.picture_xl),
   trackCount: Math.round(playlist.nb_tracks ?? 0),
+});
+
+export const toGenre = (genre: DeezerGenre): GenreSummary => ({
+  id: GenreId.make(String(genre.id)),
+  name: genre.name,
+  picture: toArtwork(genre.picture_medium, genre.picture_big, genre.picture_xl),
+});
+
+/**
+ * A genre with what Deezer's chart for it lists: at most `topTracks` of its
+ * tracks and `shelfSize` of each other kind, since one answer carries every
+ * kind and was asked for the most that any of them needs.
+ */
+export const toFullGenre = (
+  genre: DeezerGenre,
+  chart: DeezerChart,
+  topTracks: number,
+  shelfSize: number,
+): Genre => ({
+  ...toGenre(genre),
+  topTracks: Array.take(chart.tracks?.data ?? [], topTracks).map(toTrack),
+  albums: Array.take(chart.albums?.data ?? [], shelfSize).map(toAlbum),
+  artists: Array.take(chart.artists?.data ?? [], shelfSize).map(toArtist),
+  playlists: Array.take(chart.playlists?.data ?? [], shelfSize).map(toPlaylist),
+});
+
+export const toStation = (radio: DeezerRadio): StationSummary => ({
+  id: StationId.make(String(radio.id)),
+  title: radio.title,
+  picture: toArtwork(radio.picture_medium, radio.picture_big, radio.picture_xl),
+});
+
+/**
+ * Deezer's stations by genre, as Bafle groups them. Deezer files some
+ * stations under two genres: each is kept once, under the first genre that
+ * lists it, and a genre left with none has no group.
+ */
+export const toStationGroups = (
+  genres: ReadonlyArray<DeezerRadioGenre>,
+): ReadonlyArray<StationGroup> => {
+  const grouped = Array.reduce(
+    genres,
+    { groups: Array.empty<StationGroup>(), listed: Array.empty<number>() },
+    ({ groups, listed }, genre) => {
+      const fresh = Array.dedupeWith(
+        genre.radios.filter((radio) => !listed.includes(radio.id)),
+        (a, b) => a.id === b.id,
+      );
+      return {
+        groups: Array.isReadonlyArrayNonEmpty(fresh)
+          ? [
+              ...groups,
+              {
+                genre: { id: GenreId.make(String(genre.id)), name: genre.title },
+                stations: fresh.map(toStation),
+              },
+            ]
+          : groups,
+        listed: [...listed, ...fresh.map((radio) => radio.id)],
+      };
+    },
+  );
+  return grouped.groups;
+};
+
+/** A station with the tracks Deezer deals for it, each once. */
+export const toFullStation = (radio: DeezerRadio, tracks: ReadonlyArray<DeezerTrack>): Station => ({
+  ...toStation(radio),
+  tracks: Array.dedupeWith(tracks.map(toTrack), (a, b) => a.id === b.id),
 });

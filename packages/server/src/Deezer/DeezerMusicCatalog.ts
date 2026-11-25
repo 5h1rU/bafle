@@ -1,8 +1,10 @@
 import { AlbumNotFound } from "@bafle/domain/Catalog/AlbumNotFound.rejection";
 import { ArtistNotFound } from "@bafle/domain/Catalog/ArtistNotFound.rejection";
 import { CatalogUnavailable } from "@bafle/domain/Catalog/CatalogUnavailable.rejection";
+import { GenreNotFound } from "@bafle/domain/Catalog/GenreNotFound.rejection";
 import { MusicCatalog } from "@bafle/domain/Catalog/MusicCatalog.external";
 import { PlaylistNotFound } from "@bafle/domain/Catalog/PlaylistNotFound.rejection";
+import { StationNotFound } from "@bafle/domain/Catalog/StationNotFound.rejection";
 import { TrackNotFound } from "@bafle/domain/Catalog/TrackNotFound.rejection";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -10,14 +12,19 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Schema from "effect/Schema";
 import {
+  DEEZER_ALL_GENRES,
   DEEZER_NO_DATA,
   DeezerAlbum,
   DeezerAlbumPage,
   DeezerAlbumTrack,
   DeezerArtist,
   DeezerArtistAlbum,
+  DeezerChart,
+  DeezerGenre,
   DeezerPlaylist,
   DeezerPlaylistPage,
+  DeezerRadio,
+  DeezerRadioGenre,
   DeezerRefusal,
   DeezerTrack,
   DeezerTrackPage,
@@ -29,16 +36,20 @@ import {
   toArtist,
   toFullAlbum,
   toFullArtist,
+  toFullGenre,
   toFullPlaylist,
+  toFullStation,
   toFullTrack,
+  toGenre,
   toPlaylist,
+  toStationGroups,
   toTrack,
 } from "./translate.ts";
 
 /** Deezer's public API. It needs no key for the catalog. */
 export const DEEZER_API = "https://api.deezer.com";
 
-/** How many items a shelf on Home or New holds. */
+/** How many items a shelf on Home or New holds, and a shelf of what is popular in a genre. */
 export const SHELF_SIZE = 20;
 
 /** How many items of a list that is read whole are asked for at a time: the most Deezer hands over. */
@@ -106,6 +117,13 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
     };
 
     const together = { concurrency: "unbounded" } as const;
+
+    /**
+     * Whether an id can be one of Deezer's: a number, and not zero. Deezer
+     * keeps zero for all genres at once, which is no genre, and has no
+     * station under it.
+     */
+    const isOneOfDeezers = (id: string): boolean => /^\d+$/.test(id) && Number(id) !== 0;
 
     return {
       featured: () =>
@@ -234,6 +252,56 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
         const isWhole = answer.nb_tracks != null && first.length >= answer.nb_tracks;
         const tracks = isWhole ? first : yield* whole(`/playlist/${playlistId}/tracks`, DeezerTrack);
         return toFullPlaylist(answer, tracks);
+      }),
+      genres: () =>
+        list("/genre", DeezerGenre).pipe(
+          Effect.map((genres) => ({
+            genres: genres.filter((genre) => genre.id !== DEEZER_ALL_GENRES).map(toGenre),
+          })),
+        ),
+      genre: Effect.fn(function* ({ genreId, topTracks }) {
+        // As with a track: an id that is no number was never one of Deezer's.
+        if (!isOneOfDeezers(genreId)) return yield* new GenreNotFound({ genreId });
+        const answer = yield* read(
+          `/genre/${genreId}`,
+          Schema.Union([DeezerRefusal, DeezerGenre]),
+        );
+        if ("error" in answer) {
+          if (answer.error.code === DEEZER_NO_DATA) return yield* new GenreNotFound({ genreId });
+          yield* Effect.logWarning(`Deezer refused /genre/${genreId}`, answer.error);
+          return yield* new CatalogUnavailable();
+        }
+        // The genre is one of Deezer's: only now is its chart asked for.
+        // Deezer answers a chart for any id at all, so the chart alone would
+        // never tell a genre it does not have. One answer carries every
+        // kind, so it is asked for the most that any of them needs.
+        const chart = yield* read(`/chart/${genreId}`, DeezerChart, {
+          limit: Math.max(topTracks, SHELF_SIZE),
+        });
+        return toFullGenre(answer, chart, topTracks, SHELF_SIZE);
+      }),
+      stations: () =>
+        list("/radio/genres", DeezerRadioGenre).pipe(
+          Effect.map((genres) => ({ groups: toStationGroups(genres) })),
+        ),
+      station: Effect.fn(function* ({ stationId, tracks }) {
+        // As with a track: an id that is no number was never one of Deezer's.
+        if (!isOneOfDeezers(stationId)) return yield* new StationNotFound({ stationId });
+        const answer = yield* read(
+          `/radio/${stationId}`,
+          Schema.Union([DeezerRefusal, DeezerRadio]),
+        );
+        if ("error" in answer) {
+          if (answer.error.code === DEEZER_NO_DATA) {
+            return yield* new StationNotFound({ stationId });
+          }
+          yield* Effect.logWarning(`Deezer refused /radio/${stationId}`, answer.error);
+          return yield* new CatalogUnavailable();
+        }
+        // A station has no end, so its list has no count and no pages: as
+        // many songs as were asked for are dealt, and that is the list.
+        const playing = yield* list(`/radio/${stationId}/tracks`, DeezerTrack, { limit: tracks });
+        return toFullStation(answer, playing);
       }),
     };
   }),

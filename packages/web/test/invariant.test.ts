@@ -1,6 +1,8 @@
 import { AlbumId } from "@bafle/domain/Catalog/Album";
 import { ArtistId } from "@bafle/domain/Catalog/Artist";
+import { GenreId } from "@bafle/domain/Catalog/Genre";
 import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
+import { StationId } from "@bafle/domain/Catalog/Station";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import * as Array from "effect/Array";
 import { pipe } from "effect/Function";
@@ -18,12 +20,14 @@ import {
   artistData,
   Awaiting,
   canShow,
+  genreData,
   isPlayerExpanded,
   isPlayersTrack,
   maybeHeadedFor,
   type Model,
   playlistData,
   type Row,
+  stationData,
   trackData,
   wayBack,
 } from "../src/model.ts";
@@ -48,11 +52,17 @@ import {
   explicitTrack,
   fullAlbum,
   fullArtist,
+  fullGenre,
   fullPlaylist,
+  fullStation,
   fullTrack,
+  genre,
+  genrePath,
   playlist,
   playlistPath,
   reply,
+  station,
+  stationPath,
   track,
   trackPath,
   url,
@@ -78,6 +88,10 @@ import {
 //
 // So are artists and playlists, which are only ever opened from a shelf's tile: found, failed and
 // missing, played from, gone on from to an album or a song, and gone back from.
+//
+// So are the Genres and Radio sections, and the genres and stations their tiles lead to: found,
+// failed and missing, played from, gone on from to a song, an album, an artist or a playlist, and
+// gone back from.
 //
 // The browser's history is walked along with the app: a page chosen by a link pushes an entry when
 // it takes the screen, typing rewrites one, Back, Forward and the history menu move through them.
@@ -117,6 +131,22 @@ const PLAYLIST_PATHS: Array.NonEmptyReadonlyArray<string> = [
   playlistPath(playlist.id),
   playlistPath(MISSING_PLAYLIST_ID),
 ];
+/** A genre and a station the catalog has withdrawn: a section loaded before that still leads to each. */
+const MISSING_GENRE_ID = GenreId.make("ge-404");
+const MISSING_STATION_ID = StationId.make("st-404");
+
+const GENRE_PATHS: Array.NonEmptyReadonlyArray<string> = [
+  genrePath(genre.id),
+  genrePath(genre.id),
+  genrePath(MISSING_GENRE_ID),
+];
+const STATION_PATHS: Array.NonEmptyReadonlyArray<string> = [
+  stationPath(station.id),
+  stationPath(station.id),
+  stationPath(MISSING_STATION_ID),
+];
+/** The two sections the menu gained: each leads to pages of its own kind. */
+const NEW_SECTION_LINKS: Array.NonEmptyReadonlyArray<string> = ["/genres", "/radio"];
 const PATHS: Array.NonEmptyReadonlyArray<string> = [
   "/",
   "/new",
@@ -129,6 +159,7 @@ const PATHS: Array.NonEmptyReadonlyArray<string> = [
   ...ALBUM_PATHS,
   ...ARTIST_PATHS,
   ...PLAYLIST_PATHS,
+  ...NEW_SECTION_LINKS,
 ];
 
 /** The rows a list has: the tracks of the lists, the second on the album that is gone. */
@@ -197,6 +228,12 @@ const hasArtistInput = Schema.is(
 );
 const hasPlaylistInput = Schema.is(
   Schema.Struct({ requestId: Schema.String, input: Schema.Struct({ playlistId: PlaylistId }) }),
+);
+const hasGenreInput = Schema.is(
+  Schema.Struct({ requestId: Schema.String, input: Schema.Struct({ genreId: GenreId }) }),
+);
+const hasStationInput = Schema.is(
+  Schema.Struct({ requestId: Schema.String, input: Schema.Struct({ stationId: StationId }) }),
 );
 const hasPauseId = Schema.is(Schema.Struct({ pauseId: Schema.String }));
 const hasUrl = Schema.is(Schema.Struct({ url: Schema.String }));
@@ -429,6 +466,58 @@ const replyTo = (command: Issued, fate: Fate): Option.Option<Message> => {
       ),
     );
   }
+  if (name === "GenreList" && hasRequestId(args)) {
+    const { requestId } = args;
+    return Option.some(
+      arrived(
+        { Answered: reply.genres, Refused: reply.genresRefused, TimedOut: reply.genresLost }[fate](
+          requestId,
+        ),
+      ),
+    );
+  }
+  if (name === "StationList" && hasRequestId(args)) {
+    const { requestId } = args;
+    return Option.some(
+      arrived(
+        { Answered: reply.radio, Refused: reply.radioRefused, TimedOut: reply.radioLost }[fate](
+          requestId,
+        ),
+      ),
+    );
+  }
+  if (name === "GenreDetail" && hasGenreInput(args)) {
+    const { requestId, input } = args;
+    if (fate === "Refused") {
+      return Option.some(arrived(reply.genreRefused(requestId)));
+    }
+    if (fate === "TimedOut") {
+      return Option.some(arrived(reply.genreLost(requestId)));
+    }
+    return Option.some(
+      arrived(
+        input.genreId === MISSING_GENRE_ID
+          ? reply.genreMissing(requestId, input.genreId)
+          : reply.genre(requestId, { ...fullGenre, id: input.genreId }),
+      ),
+    );
+  }
+  if (name === "StationDetail" && hasStationInput(args)) {
+    const { requestId, input } = args;
+    if (fate === "Refused") {
+      return Option.some(arrived(reply.stationRefused(requestId)));
+    }
+    if (fate === "TimedOut") {
+      return Option.some(arrived(reply.stationLost(requestId)));
+    }
+    return Option.some(
+      arrived(
+        input.stationId === MISSING_STATION_ID
+          ? reply.stationMissing(requestId, input.stationId)
+          : reply.station(requestId, { ...fullStation, id: input.stationId }),
+      ),
+    );
+  }
   if (name === "WaitForTypingPause" && hasPauseId(args)) {
     return Option.some(Message.CompletedWaitForTypingPause({ pauseId: args.pauseId }));
   }
@@ -489,7 +578,18 @@ const moveHistory = (history: History, command: Issued): Option.Option<Moved> =>
 const currentPath = (history: History): string =>
   Option.getOrElse(Array.get(history.entries, history.index), () => "/");
 
-type PageName = "home" | "newMusic" | "search" | "track" | "album" | "artist" | "playlist";
+type PageName =
+  | "home"
+  | "newMusic"
+  | "genreList"
+  | "stationList"
+  | "search"
+  | "track"
+  | "album"
+  | "artist"
+  | "playlist"
+  | "genre"
+  | "station";
 
 const pendingTrackIds = (model: Model): ReadonlyArray<TrackId> =>
   pipe(
@@ -519,10 +619,32 @@ const pendingPlaylistIds = (model: Model): ReadonlyArray<PlaylistId> =>
     Array.map(([playlistId]) => playlistId),
   );
 
+const pendingGenreIds = (model: Model): ReadonlyArray<GenreId> =>
+  pipe(
+    HashMap.toEntries(model.genres),
+    Array.filter(([, data]) => AsyncData.isPending(data)),
+    Array.map(([genreId]) => genreId),
+  );
+
+const pendingStationIds = (model: Model): ReadonlyArray<StationId> =>
+  pipe(
+    HashMap.toEntries(model.stations),
+    Array.filter(([, data]) => AsyncData.isPending(data)),
+    Array.map(([stationId]) => stationId),
+  );
+
 const pendingPages = (model: Model): ReadonlyArray<PageName> =>
   Array.getSomes([
     Option.liftPredicate<PageName>("home", () => AsyncData.isPending(model.home)),
     Option.liftPredicate<PageName>("newMusic", () => AsyncData.isPending(model.newMusic)),
+    Option.liftPredicate<PageName>("genreList", () => AsyncData.isPending(model.genreList)),
+    Option.liftPredicate<PageName>("stationList", () => AsyncData.isPending(model.stationList)),
+    Option.liftPredicate<PageName>("genre", () =>
+      Array.isReadonlyArrayNonEmpty(pendingGenreIds(model)),
+    ),
+    Option.liftPredicate<PageName>("station", () =>
+      Array.isReadonlyArrayNonEmpty(pendingStationIds(model)),
+    ),
     Option.liftPredicate<PageName>("search", () => AsyncData.isPending(model.search)),
     Option.liftPredicate<PageName>("track", () =>
       Array.isReadonlyArrayNonEmpty(pendingTrackIds(model)),
@@ -542,11 +664,15 @@ const pageOf = (route: AppRoute): Option.Option<PageName> =>
   AppRoute.match<Option.Option<PageName>>(route, {
     Home: () => Option.some("home"),
     New: () => Option.some("newMusic"),
+    Genres: () => Option.some("genreList"),
+    Radio: () => Option.some("stationList"),
     Search: () => Option.some("search"),
     Track: () => Option.some("track"),
     Album: () => Option.some("album"),
     Artist: () => Option.some("artist"),
     Playlist: () => Option.some("playlist"),
+    Genre: () => Option.some("genre"),
+    Station: () => Option.some("station"),
     NotFound: () => Option.none(),
   });
 
@@ -558,11 +684,15 @@ const showsTryAgain = (model: Model): boolean =>
   AppRoute.match(model.route, {
     Home: () => AsyncData.hasError(model.home),
     New: () => AsyncData.hasError(model.newMusic),
+    Genres: () => AsyncData.hasError(model.genreList),
+    Radio: () => AsyncData.hasError(model.stationList),
     Search: () => AsyncData.hasError(model.search),
     Track: ({ trackId }) => AsyncData.hasError(trackData(model, trackId)),
     Album: ({ albumId }) => AsyncData.hasError(albumData(model, albumId)),
     Artist: ({ artistId }) => AsyncData.hasError(artistData(model, artistId)),
     Playlist: ({ playlistId }) => AsyncData.hasError(playlistData(model, playlistId)),
+    Genre: ({ genreId }) => AsyncData.hasError(genreData(model, genreId)),
+    Station: ({ stationId }) => AsyncData.hasError(stationData(model, stationId)),
     NotFound: () => false,
   });
 
@@ -622,6 +752,16 @@ const listsArtist = (model: Model): boolean =>
 const listsPlaylist = (model: Model): boolean =>
   model.route._tag === "Playlist" &&
   Option.exists(AsyncData.getData(playlistData(model, model.route.playlistId)), Option.isSome);
+
+/** Whether the page on screen is a genre's, with its rows and its shelves. */
+const listsGenre = (model: Model): boolean =>
+  model.route._tag === "Genre" &&
+  Option.exists(AsyncData.getData(genreData(model, model.route.genreId)), Option.isSome);
+
+/** Whether the page on screen is a station's, with its rows. */
+const listsStation = (model: Model): boolean =>
+  model.route._tag === "Station" &&
+  Option.exists(AsyncData.getData(stationData(model, model.route.stationId)), Option.isSome);
 
 /** The rows of the list on screen that offer Try again for their album: it failed to open from them. */
 const failedAlbumRows = (model: Model): ReadonlyArray<Row> =>
@@ -720,6 +860,44 @@ const broken = (model: Model): ReadonlyArray<string> => {
       "a playlist known to be missing is never asked for again",
       Array.every(
         HashMap.toValues(model.playlists),
+        (data) =>
+          !AsyncData.isPending(data) || !Option.exists(AsyncData.getData(data), Option.isNone),
+      ),
+    ],
+    [
+      "the only genre ever pending is the one the listener is opening or looking at",
+      Array.every(
+        pendingGenreIds(model),
+        (genreId) => awaited._tag === "Genre" && awaited.genreId === genreId,
+      ),
+    ],
+    [
+      "a genre with nothing held and nothing asked has no entry",
+      Array.every(HashMap.toValues(model.genres), (data) => !AsyncData.isIdle(data)),
+    ],
+    [
+      "a genre known to be missing is never asked for again",
+      Array.every(
+        HashMap.toValues(model.genres),
+        (data) =>
+          !AsyncData.isPending(data) || !Option.exists(AsyncData.getData(data), Option.isNone),
+      ),
+    ],
+    [
+      "the only station ever pending is the one the listener is opening or looking at",
+      Array.every(
+        pendingStationIds(model),
+        (stationId) => awaited._tag === "Station" && awaited.stationId === stationId,
+      ),
+    ],
+    [
+      "a station with nothing held and nothing asked has no entry",
+      Array.every(HashMap.toValues(model.stations), (data) => !AsyncData.isIdle(data)),
+    ],
+    [
+      "a station known to be missing is never asked for again",
+      Array.every(
+        HashMap.toValues(model.stations),
         (data) =>
           !AsyncData.isPending(data) || !Option.exists(AsyncData.getData(data), Option.isNone),
       ),
@@ -1142,6 +1320,58 @@ const acting = (walk: Walk, seed: number): Happening => {
       : clicks("/");
   }
 
+  const genreRoll = nextSeed(shelfChoice) % 100;
+  const genreChoice = nextSeed(nextSeed(shelfChoice));
+  if (genreRoll < 5) {
+    // The menu's two other sections, chosen from wherever the listener is.
+    return clicks(pick(NEW_SECTION_LINKS, genreChoice));
+  }
+  if (genreRoll < 85 && walk.model.route._tag === "Genres" && AsyncData.hasData(walk.model.genreList)) {
+    return clicks(pick(GENRE_PATHS, genreChoice));
+  }
+  if (genreRoll < 85 && walk.model.route._tag === "Radio" && AsyncData.hasData(walk.model.stationList)) {
+    return clicks(pick(STATION_PATHS, genreChoice));
+  }
+  if (genreRoll < 30 && (listsGenre(walk.model) || listsStation(walk.model))) {
+    const from: PlayOrigin = walk.model.route._tag === "Genre" ? "Genre" : "Station";
+    return {
+      label: `taps a row of the ${from === "Genre" ? "genre" : "station"} to play`,
+      message: Message.ClickedPlayTrack({ trackId: pick(PLAYABLE_IDS, genreChoice), from }),
+      ...unchanged,
+    };
+  }
+  if (genreRoll < 50 && (listsGenre(walk.model) || listsStation(walk.model))) {
+    const from: PlayOrigin = walk.model.route._tag === "Genre" ? "Genre" : "Station";
+    return {
+      label: `chooses Go to album on a row of the ${from === "Genre" ? "genre" : "station"}`,
+      message: choseFromRow(from, pick(ROW_TRACK_IDS, genreChoice), "OpenAlbum"),
+      ...unchanged,
+    };
+  }
+  if (genreRoll < 68 && listsGenre(walk.model)) {
+    // The genre's own shelves: their tiles lead to albums, artists and playlists as any shelf's do.
+    return clicks(
+      pick([...ALBUM_PATHS, ...ARTIST_PATHS, ...PLAYLIST_PATHS], genreChoice),
+    );
+  }
+  if (genreRoll < 68 && listsStation(walk.model)) {
+    return {
+      label: "chooses Song details on a row of the station",
+      message: choseFromRow("Station", track.id, "OpenSong"),
+      ...unchanged,
+    };
+  }
+  if (genreRoll < 85 && (walk.model.route._tag === "Genre" || walk.model.route._tag === "Station")) {
+    // The page's own way back, as a track's page has it.
+    return Option.isSome(wayBack(walk.model))
+      ? {
+          label: `clicks the ${walk.model.route._tag === "Genre" ? "genre" : "station"} page's Back`,
+          message: Message.ClickedBack(),
+          ...unchanged,
+        }
+      : clicks("/");
+  }
+
   if (roll < 12 && walk.history.index > 0) {
     const history = { entries: walk.history.entries, index: walk.history.index - 1 };
     return {
@@ -1387,6 +1617,33 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching("chooses Go to album on a row of the playlist")).toBeGreaterThan(WALKS / 100);
   expect(reaching("chooses Song details on a row of the playlist")).toBeGreaterThan(WALKS / 100);
   expect(reaching("clicks the playlist page's Back")).toBeGreaterThan(WALKS / 200);
+  // Genres and Radio: chosen from the menu, found and failed; and the genres and stations their
+  // tiles lead to: found, failed, missing, played from, gone on from to an album or a song, and left.
+  expect(reaching("clicks link /genres")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("clicks link /radio")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("SucceededGenreList")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("FailedGenreList")).toBeGreaterThan(WALKS / 50);
+  expect(reaching("SucceededStationList")).toBeGreaterThan(WALKS / 20);
+  expect(reaching("FailedStationList")).toBeGreaterThan(WALKS / 50);
+  expect(reaching("pushes /genres")).toBeGreaterThan(WALKS / 50);
+  expect(reaching("pushes /radio")).toBeGreaterThan(WALKS / 50);
+  expect(reaching("clicks link /genre/")).toBeGreaterThan(WALKS / 50);
+  expect(reaching("SucceededGenreDetail")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("GenreNotFound")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("FailedGenreDetail")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("pushes /genre/")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("taps a row of the genre to play")).toBeGreaterThan(WALKS / 300);
+  expect(reaching("chooses Go to album on a row of the genre")).toBeGreaterThan(WALKS / 300);
+  expect(reaching("clicks the genre page's Back")).toBeGreaterThan(WALKS / 200);
+  expect(reaching("clicks link /station/")).toBeGreaterThan(WALKS / 50);
+  expect(reaching("SucceededStationDetail")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("StationNotFound")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("FailedStationDetail")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("pushes /station/")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("taps a row of the station to play")).toBeGreaterThan(WALKS / 300);
+  expect(reaching("chooses Go to album on a row of the station")).toBeGreaterThan(WALKS / 300);
+  expect(reaching("chooses Song details on a row of the station")).toBeGreaterThan(WALKS / 300);
+  expect(reaching("clicks the station page's Back")).toBeGreaterThan(WALKS / 200);
   // A request nobody answered: the Command's timeout, reported as a lost reply.
   expect(reaching('"failure":{"_tag":"Unknown"}')).toBeGreaterThan(WALKS / 10);
   // Playing, and everything an engine can answer with, while all of the above goes on.

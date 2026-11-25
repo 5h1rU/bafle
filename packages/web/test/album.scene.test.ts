@@ -222,6 +222,21 @@ describe("the album page", () => {
       see(text("The catalog lists no songs for this album.")).toExist(),
     ));
 
+  test("the head of the page is the piece that travels from the tile: the cover with its title over it, as one", () =>
+    scene(
+      app,
+      given(onAlbum),
+      // The name is on the head, which holds the cover, the title and the facts.
+      see(selector("#album-page .album-hero")).toHaveAttr("data-flight", `album-cover-${album.id}`),
+      inside(
+        selector("#album-page .album-hero"),
+        see(pageTitle("Discovery")).toExist(),
+        see(selector(".album-cover")).toExist(),
+        // The cover inside it has no name of its own: two pieces by one name end a transition.
+        see(selector(".album-cover")).not.toHaveAttr("data-flight", `album-cover-${album.id}`),
+      ),
+    ));
+
   test("opening it and leaving it are swaps like any other: they ask for a transition", () => {
     expect(
       viewTransition({

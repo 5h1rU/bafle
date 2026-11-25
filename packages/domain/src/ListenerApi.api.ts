@@ -1,7 +1,7 @@
 import * as Domain from "@alchemy.run/domain";
 import { Bafle } from "./Bafle.model.ts";
 
-/** What the player app reaches: the pages a listener browses, and the track, the album, the artist or the playlist they open. */
+/** What the player app reaches: the pages a listener browses, and the track, the album, the artist, the playlist, the genre or the station they open. */
 export class ListenerApi extends Domain.Api(
   "ListenerApi",
   {
@@ -14,6 +14,10 @@ export class ListenerApi extends Domain.Api(
       "AlbumDetail",
       "ArtistDetail",
       "PlaylistDetail",
+      "GenreList",
+      "GenreDetail",
+      "StationList",
+      "StationDetail",
     ],
   },
   { description: "Browse and search the music catalog." },

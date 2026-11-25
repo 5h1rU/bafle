@@ -88,16 +88,18 @@ const placeholders = all.selector('[aria-busy="true"] [aria-hidden="true"]');
 const placeholderBlocks = all.selector('[aria-busy="true"] [aria-hidden="true"] .animate-pulse');
 
 describe("the shell", () => {
-  test("names the app and leads to its three pages, marking the one on screen", () =>
+  test("names the app and leads to its five sections, marking the one on screen", () =>
     scene(
       app,
       given(onHome),
       see(text("Bafle")).toExist(),
       inside(
         navigation,
-        expectAll(all.role("link")).toHaveCount(3),
+        expectAll(all.role("link")).toHaveCount(5),
         see(destination("Home")).toHaveAttr("aria-current", "page"),
         see(destination("New")).not.toHaveAttr("aria-current"),
+        see(destination("Genres")).not.toHaveAttr("aria-current"),
+        see(destination("Radio")).not.toHaveAttr("aria-current"),
         see(destination("Search")).not.toHaveAttr("aria-current"),
       ),
     ));
@@ -1139,8 +1141,8 @@ describe("rule f: the pages behind the one on screen are kept, and hidden", () =
       app,
       given(onTrack),
       // Each page has its place; only the place of the page on screen is visible.
-      expectAll(all.selector("main div.absolute.inset-0")).toHaveCount(7),
-      expectAll(all.selector("main div.absolute.inset-0.invisible")).toHaveCount(6),
+      expectAll(all.selector("main div.absolute.inset-0")).toHaveCount(11),
+      expectAll(all.selector("main div.absolute.inset-0.invisible")).toHaveCount(10),
       expectAll(all.selector("main .invisible #new-page")).toHaveCount(1),
       expectAll(all.selector("main .invisible #home-page")).toHaveCount(1),
       expectAll(all.selector("main .invisible #track-page")).toHaveCount(0),

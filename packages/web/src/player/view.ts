@@ -405,7 +405,14 @@ const trackWordsView = (
   ];
 };
 
-const TIME_CLASS = "w-9 shrink-0 text-xs tabular-nums";
+// NOTE: a time has a box of a fixed size that lays out nothing outside
+// itself (`contain`). The elapsed time changes once a second while there is
+// sound, and it is the one thing in the player whose change is a change of
+// layout. The player is drawn in a box that scrolls and snaps (`sheet/`),
+// and a browser that lays such a box out again may put it back on the place
+// it last rested at, which under a swipe is the sheet whole: a tick of the
+// clock must not reach that box.
+const TIME_CLASS = "h-4 w-9 shrink-0 overflow-hidden text-xs tabular-nums [contain:strict]";
 
 const fractionOfDuration = (seconds: number, duration: number): number =>
   Math.max(0, Math.min(1, seconds / duration));
@@ -793,7 +800,7 @@ const sheetView = (
           ...viewInputs.contentAttributes,
         ],
         [
-          h.div([h.Class("sticky top-0 z-10 -mx-6 flex h-11 items-center justify-center bg-panel/65 px-6 backdrop-blur-xl")], [
+          h.div([h.Class("player-bar sticky top-0 z-10 -mx-6 flex h-11 items-center justify-center bg-panel/65 px-6 backdrop-blur-xl")], [
             viewInputs.toCollapseControl(),
             queueToggleView(queueOpen, h),
           ]),

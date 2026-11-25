@@ -1,6 +1,8 @@
 import { AlbumId } from "@bafle/domain/Catalog/Album";
 import { ArtistId } from "@bafle/domain/Catalog/Artist";
+import { GenreId } from "@bafle/domain/Catalog/Genre";
 import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
+import { StationId } from "@bafle/domain/Catalog/Station";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -14,9 +16,11 @@ import { searchRouter, trackRouter } from "./route.ts";
 import {
   ALBUM_TILE_ATTRIBUTE,
   ARTIST_TILE_ATTRIBUTE,
+  GENRE_TILE_ATTRIBUTE,
   NAVIGATION_ID,
   pageTitleIdOf,
   PLAYLIST_TILE_ATTRIBUTE,
+  STATION_TILE_ATTRIBUTE,
   TRACK_ROW_ATTRIBUTE,
 } from "./view/layout.ts";
 
@@ -175,6 +179,36 @@ export const FocusPlaylistTile = Command.define("FocusPlaylistTile", {
     ),
 });
 
+/** Focus goes to a genre's tile, as it goes to an album's: back from the genre, without scrolling. */
+export const FocusGenreTile = Command.define("FocusGenreTile", {
+  args: { pageId: Schema.String, genreId: GenreId },
+  messages: [Message.CompletedFocusGenreTile],
+  execute: ({ pageId, genreId }) =>
+    // A page shows a genre's tile once.
+    Dom.focus(`#${pageId} [data-${GENRE_TILE_ATTRIBUTE}="${genreId}"]`, {
+      preventScroll: true,
+    }).pipe(
+      Effect.catch(() => Dom.focus(`#${pageId}`, { preventScroll: true })),
+      Effect.ignore,
+      Effect.as(Message.CompletedFocusGenreTile()),
+    ),
+});
+
+/** Focus goes to a station's tile, as it goes to an album's: back from the station, without scrolling. */
+export const FocusStationTile = Command.define("FocusStationTile", {
+  args: { pageId: Schema.String, stationId: StationId },
+  messages: [Message.CompletedFocusStationTile],
+  execute: ({ pageId, stationId }) =>
+    // A page shelves a station once.
+    Dom.focus(`#${pageId} [data-${STATION_TILE_ATTRIBUTE}="${stationId}"]`, {
+      preventScroll: true,
+    }).pipe(
+      Effect.catch(() => Dom.focus(`#${pageId}`, { preventScroll: true })),
+      Effect.ignore,
+      Effect.as(Message.CompletedFocusStationTile()),
+    ),
+});
+
 /**
  * Focus goes to the navigation when its circle was pressed: the circle is
  * gone, and the item for where the listener is stands in its place. On a
@@ -279,4 +313,32 @@ export const askPlaylistDetail =
     asking(
       Catalog.PlaylistDetail({ input: { playlistId }, requestId }),
       Catalog.Message.FailedPlaylistDetail({ requestId, failure: UNANSWERED }),
+    );
+
+export const askGenreList: Request = (requestId) =>
+  asking(
+    Catalog.GenreList({ input: {}, requestId }),
+    Catalog.Message.FailedGenreList({ requestId, failure: UNANSWERED }),
+  );
+
+export const askGenreDetail =
+  (genreId: GenreId): Request =>
+  (requestId) =>
+    asking(
+      Catalog.GenreDetail({ input: { genreId }, requestId }),
+      Catalog.Message.FailedGenreDetail({ requestId, failure: UNANSWERED }),
+    );
+
+export const askStationList: Request = (requestId) =>
+  asking(
+    Catalog.StationList({ input: {}, requestId }),
+    Catalog.Message.FailedStationList({ requestId, failure: UNANSWERED }),
+  );
+
+export const askStationDetail =
+  (stationId: StationId): Request =>
+  (requestId) =>
+    asking(
+      Catalog.StationDetail({ input: { stationId }, requestId }),
+      Catalog.Message.FailedStationDetail({ requestId, failure: UNANSWERED }),
     );

@@ -11,10 +11,10 @@ const WAY_BACK_CLASS =
 
 /**
  * The way out of a page that is no section: a track's, an album's, an
- * artist's, a playlist's. When the app knows of a page behind it, it goes
- * back to it through the browser's history, so that page is found as it was
- * left and the history gains no entry. On a direct link there is nothing
- * behind, and it is a plain link to Home.
+ * artist's, a playlist's, a genre's, a station's. When the app knows of a
+ * page behind it, it goes back to it through the browser's history, so that
+ * page is found as it was left and the history gains no entry. On a direct
+ * link there is nothing behind, and it is a plain link to Home.
  */
 export const wayBackView = (hasWayBack: boolean, h: HtmlBuilder<Message>): Html =>
   hasWayBack

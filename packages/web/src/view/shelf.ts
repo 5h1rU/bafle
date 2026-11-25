@@ -1,13 +1,21 @@
 import type { AlbumId, AlbumSummary } from "@bafle/domain/Catalog/Album";
 import type { ArtistId, ArtistSummary } from "@bafle/domain/Catalog/Artist";
 import type { Artwork } from "@bafle/domain/Catalog/Artwork";
+import type { GenreId, GenreSummary } from "@bafle/domain/Catalog/Genre";
 import type { PlaylistId, PlaylistSummary } from "@bafle/domain/Catalog/Playlist";
+import type { StationId, StationSummary } from "@bafle/domain/Catalog/Station";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
-import { albumRouter, artistRouter, playlistRouter } from "../route.ts";
+import {
+  albumRouter,
+  artistRouter,
+  genreRouter,
+  playlistRouter,
+  stationRouter,
+} from "../route.ts";
 import {
   albumCoverTransitionStyle,
   artistPictureTransitionStyle,
@@ -15,15 +23,19 @@ import {
   artworkView,
   artworkFlightRules,
   flightAttributes,
+  genrePictureTransitionStyle,
   playlistPictureTransitionStyle,
+  stationPictureTransitionStyle,
 } from "./artwork.ts";
 import { spinnerIcon } from "./icon.ts";
 import {
   ALBUM_TILE_ATTRIBUTE,
   ARTIST_TILE_ATTRIBUTE,
+  GENRE_TILE_ATTRIBUTE,
   PLAYLIST_TILE_ATTRIBUTE,
   type Presence,
   SECTION_HEADING_CLASS,
+  STATION_TILE_ATTRIBUTE,
 } from "./layout.ts";
 
 // MODEL
@@ -35,6 +47,7 @@ import {
 export type Tile = Readonly<{
   id: string;
   title: string;
+  /** The second line. A tile with nothing more to say than its title has none, and is one line shorter. */
   subtitle: string;
   maybeArtwork: Option.Option<Artwork>;
   /** Where the tile leads: the page of what it shows. */
@@ -55,6 +68,12 @@ export type IsArtistOpening = (artistId: ArtistId) => boolean;
 
 /** Whether a playlist chosen from a shelf is on its way to the screen. */
 export type IsPlaylistOpening = (playlistId: PlaylistId) => boolean;
+
+/** Whether a genre chosen from its tile is on its way to the screen. */
+export type IsGenreOpening = (genreId: GenreId) => boolean;
+
+/** Whether a station chosen from a shelf is on its way to the screen. */
+export type IsStationOpening = (stationId: StationId) => boolean;
 
 /** What a page that shelves every kind reads to say which of its tiles is opening. */
 export type TilesOpening = Readonly<{
@@ -109,6 +128,41 @@ export const artistTile =
     flightStyle: artistPictureTransitionStyle(artist.id, presence),
   });
 
+/**
+ * A genre's tile is the way to its page, as an album's is, and its picture
+ * goes there the same way. Its name is all there is to say of it.
+ */
+export const genreTile =
+  (isOpening: IsGenreOpening, presence: Presence) =>
+  (genre: GenreSummary): Tile => ({
+    id: genre.id,
+    title: genre.name,
+    subtitle: "",
+    maybeArtwork: Option.fromNullishOr(genre.picture),
+    href: genreRouter({ genreId: genre.id }),
+    isOpening: isOpening(genre.id),
+    attribute: GENRE_TILE_ATTRIBUTE,
+    flightStyle: genrePictureTransitionStyle(genre.id, presence),
+  });
+
+/**
+ * A station's tile is the way to its page, as an album's is, and its picture
+ * goes there the same way. The shelf it stands on is named after its genre,
+ * so its title is all there is to say of it.
+ */
+export const stationTile =
+  (isOpening: IsStationOpening, presence: Presence) =>
+  (station: StationSummary): Tile => ({
+    id: station.id,
+    title: station.title,
+    subtitle: "",
+    maybeArtwork: Option.fromNullishOr(station.picture),
+    href: stationRouter({ stationId: station.id }),
+    isOpening: isOpening(station.id),
+    attribute: STATION_TILE_ATTRIBUTE,
+    flightStyle: stationPictureTransitionStyle(station.id, presence),
+  });
+
 // VIEW
 
 // NOTE: the row cuts off what it does not show, sideways and upwards alike,
@@ -154,16 +208,23 @@ const tileContentView = (
     ],
   ),
   h.p([h.Class("mt-3 truncate text-sm font-medium")], [tile.title]),
-  h.p([h.Class("truncate text-sm text-muted")], [tile.subtitle]),
+  tile.subtitle === ""
+    ? h.empty
+    : h.p([h.Class("truncate text-sm text-muted")], [tile.subtitle]),
 ];
 
 const TILE_LINK_CLASS =
   "block touch-manipulation rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
-const tileView = (tile: Tile, shape: ArtworkShape, h: HtmlBuilder<Message>): Html =>
+const tileView = (
+  tile: Tile,
+  shape: ArtworkShape,
+  className: string,
+  h: HtmlBuilder<Message>,
+): Html =>
   h.keyed("li")(
     tile.id,
-    [h.Class(SHELF_TILE_CLASS)],
+    [h.Class(className)],
     [
       h.a(
         [
@@ -205,7 +266,7 @@ const shelfView = (
             ),
           ),
         ],
-        Array.map(tiles, (tile) => tileView(tile, shape, h)),
+        Array.map(tiles, (tile) => tileView(tile, shape, SHELF_TILE_CLASS, h)),
       ),
     ],
   );
@@ -221,4 +282,40 @@ export const maybeShelfView = (
   Array.match(tiles, {
     onEmpty: () => Option.none(),
     onNonEmpty: (shelved) => Option.some(shelfView(id, title, shape, shelved, h)),
+  });
+
+/**
+ * Tiles that fill the page's width and wrap, for a page that shows all of
+ * one kind and has no row to scroll: as many columns as there is room for,
+ * two on a narrow screen.
+ */
+export const TILE_GRID_CLASS = "mt-8 grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-5";
+
+export const TILE_GRID_TILE_CLASS = "min-w-0";
+
+/**
+ * Every tile of a page at once, in a grid. The grid is named by what names
+ * the page, since it is all the page shows. Nothing to show is no grid.
+ */
+export const maybeTileGridView = (
+  labelledBy: string,
+  shape: ArtworkShape,
+  tiles: ReadonlyArray<Tile>,
+  h: HtmlBuilder<Message>,
+): Option.Option<Html> =>
+  Array.match(tiles, {
+    onEmpty: () => Option.none(),
+    onNonEmpty: (shown) =>
+      Option.some(
+        h.div(
+          [],
+          [
+            artworkFlightRules(shown.flatMap((tile) => tile.flightStyle.viewTransitionName ?? []), h),
+            h.ul(
+              [h.Role("list"), h.AriaLabelledBy(labelledBy), h.Class(TILE_GRID_CLASS)],
+              Array.map(shown, (tile) => tileView(tile, shape, TILE_GRID_TILE_CLASS, h)),
+            ),
+          ],
+        ),
+      ),
   });

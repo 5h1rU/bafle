@@ -2,7 +2,9 @@ import type * as Domain from "@alchemy.run/domain";
 import * as DomainFoldkit from "@alchemy.run/domain/Foldkit";
 import type { Album } from "@bafle/domain/Catalog/FullAlbum";
 import type { Artist } from "@bafle/domain/Catalog/FullArtist";
+import type { Genre } from "@bafle/domain/Catalog/FullGenre";
 import type { Playlist } from "@bafle/domain/Catalog/FullPlaylist";
+import type { Station } from "@bafle/domain/Catalog/FullStation";
 import type { Track } from "@bafle/domain/Catalog/Track";
 import { ListenerApi } from "@bafle/domain/ListenerApi.api";
 import * as Duration from "effect/Duration";
@@ -28,7 +30,7 @@ export const REPLY_TIMEOUT = Duration.seconds(10);
 export const LoadError = Schema.Literals(["CatalogUnavailable", "Unreachable"]);
 export type LoadError = typeof LoadError.Type;
 
-/** How a query for a list page can fail, as its reply Message carries it: the three fail alike. */
+/** How a query for a list page can fail, as its reply Message carries it: they all fail alike. */
 type ListFailure = (typeof Catalog.Message.FailedHomeFeed.Type)["failure"];
 
 type TrackFailure = (typeof Catalog.Message.FailedTrackDetail.Type)["failure"];
@@ -38,6 +40,10 @@ type AlbumFailure = (typeof Catalog.Message.FailedAlbumDetail.Type)["failure"];
 type ArtistFailure = (typeof Catalog.Message.FailedArtistDetail.Type)["failure"];
 
 type PlaylistFailure = (typeof Catalog.Message.FailedPlaylistDetail.Type)["failure"];
+
+type GenreFailure = (typeof Catalog.Message.FailedGenreDetail.Type)["failure"];
+
+type StationFailure = (typeof Catalog.Message.FailedStationDetail.Type)["failure"];
 
 export const toLoadError = (failure: ListFailure): LoadError =>
   Match.value(failure).pipe(
@@ -111,6 +117,38 @@ export const toPlaylistOutcome = (
     Match.tagsExhaustive({
       Rejected: ({ rejection }) =>
         rejection._tag === "PlaylistNotFound"
+          ? Result.succeed(Option.none())
+          : Result.fail(rejection._tag),
+      Denied: () => Result.fail("Unreachable"),
+      Unknown: () => Result.fail("Unreachable"),
+    }),
+  );
+
+/** What a failed query for a genre settles as: as for a track, its absence is an answer. */
+export const toGenreOutcome = (
+  failure: GenreFailure,
+): Result.Result<Option.Option<Genre>, LoadError> =>
+  Match.value(failure).pipe(
+    Match.withReturnType<Result.Result<Option.Option<Genre>, LoadError>>(),
+    Match.tagsExhaustive({
+      Rejected: ({ rejection }) =>
+        rejection._tag === "GenreNotFound"
+          ? Result.succeed(Option.none())
+          : Result.fail(rejection._tag),
+      Denied: () => Result.fail("Unreachable"),
+      Unknown: () => Result.fail("Unreachable"),
+    }),
+  );
+
+/** What a failed query for a station settles as: as for a track, its absence is an answer. */
+export const toStationOutcome = (
+  failure: StationFailure,
+): Result.Result<Option.Option<Station>, LoadError> =>
+  Match.value(failure).pipe(
+    Match.withReturnType<Result.Result<Option.Option<Station>, LoadError>>(),
+    Match.tagsExhaustive({
+      Rejected: ({ rejection }) =>
+        rejection._tag === "StationNotFound"
           ? Result.succeed(Option.none())
           : Result.fail(rejection._tag),
       Denied: () => Result.fail("Unreachable"),

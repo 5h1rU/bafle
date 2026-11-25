@@ -5,9 +5,13 @@ import { AlbumNotFound } from "@bafle/domain/Catalog/AlbumNotFound.rejection";
 import { ArtistId } from "@bafle/domain/Catalog/Artist";
 import { ArtistNotFound } from "@bafle/domain/Catalog/ArtistNotFound.rejection";
 import { CatalogUnavailable } from "@bafle/domain/Catalog/CatalogUnavailable.rejection";
+import { GenreId } from "@bafle/domain/Catalog/Genre";
+import { GenreNotFound } from "@bafle/domain/Catalog/GenreNotFound.rejection";
 import { MusicCatalog } from "@bafle/domain/Catalog/MusicCatalog.external";
 import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import { PlaylistNotFound } from "@bafle/domain/Catalog/PlaylistNotFound.rejection";
+import { StationId } from "@bafle/domain/Catalog/Station";
+import { StationNotFound } from "@bafle/domain/Catalog/StationNotFound.rejection";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import { TrackNotFound } from "@bafle/domain/Catalog/TrackNotFound.rejection";
 import { ListenerApi } from "@bafle/domain/ListenerApi.api";
@@ -18,11 +22,15 @@ import * as HttpEffect from "effect/http/HttpEffect";
 import * as Layer from "effect/Layer";
 import { Catalog } from "../src/catalog.ts";
 import {
+  allGenres,
+  allStations,
   featured,
   found,
   fullAlbum,
   fullArtist,
+  fullGenre,
   fullPlaylist,
+  fullStation,
   fullTrack,
   trending,
 } from "./fixtures.ts";
@@ -51,6 +59,16 @@ const WorkingCatalog = MusicCatalog.toLayer(
       playlistId === fullPlaylist.id
         ? Effect.succeed(fullPlaylist)
         : Effect.fail(new PlaylistNotFound({ playlistId })),
+    genres: () => Effect.succeed(allGenres),
+    genre: ({ genreId }) =>
+      genreId === fullGenre.id
+        ? Effect.succeed(fullGenre)
+        : Effect.fail(new GenreNotFound({ genreId })),
+    stations: () => Effect.succeed(allStations),
+    station: ({ stationId }) =>
+      stationId === fullStation.id
+        ? Effect.succeed(fullStation)
+        : Effect.fail(new StationNotFound({ stationId })),
   }),
 );
 
@@ -63,6 +81,10 @@ const BrokenCatalog = MusicCatalog.toLayer(
     album: () => Effect.fail(new CatalogUnavailable()),
     artist: () => Effect.fail(new CatalogUnavailable()),
     playlist: () => Effect.fail(new CatalogUnavailable()),
+    genres: () => Effect.fail(new CatalogUnavailable()),
+    genre: () => Effect.fail(new CatalogUnavailable()),
+    stations: () => Effect.fail(new CatalogUnavailable()),
+    station: () => Effect.fail(new CatalogUnavailable()),
   }),
 );
 
@@ -118,6 +140,19 @@ it.live("the queries are answered over plain HTTP", () =>
     ).toEqual(
       Catalog.Message.SucceededPlaylistDetail({ requestId: "page:6", result: fullPlaylist }),
     );
+    expect(yield* Catalog.GenreList({ input: {}, requestId: "page:7" }).effect).toEqual(
+      Catalog.Message.SucceededGenreList({ requestId: "page:7", result: allGenres }),
+    );
+    expect(
+      yield* Catalog.GenreDetail({ input: { genreId: fullGenre.id }, requestId: "page:8" }).effect,
+    ).toEqual(Catalog.Message.SucceededGenreDetail({ requestId: "page:8", result: fullGenre }));
+    expect(yield* Catalog.StationList({ input: {}, requestId: "page:9" }).effect).toEqual(
+      Catalog.Message.SucceededStationList({ requestId: "page:9", result: allStations }),
+    );
+    expect(
+      yield* Catalog.StationDetail({ input: { stationId: fullStation.id }, requestId: "page:10" })
+        .effect,
+    ).toEqual(Catalog.Message.SucceededStationDetail({ requestId: "page:10", result: fullStation }));
   }).pipe(Effect.provide(connectedTo(WorkingCatalog))),
 );
 
@@ -165,6 +200,29 @@ it.live("so are an artist and a playlist the catalog does not have", () =>
       _tag: "FailedPlaylistDetail",
       requestId: "page:1",
       failure: { _tag: "Rejected", rejection: { _tag: "PlaylistNotFound", playlistId } },
+    });
+  }).pipe(Effect.provide(connectedTo(WorkingCatalog))),
+);
+
+it.live("so are a genre and a station the catalog does not have", () =>
+  Effect.gen(function* () {
+    const genreId = GenreId.make("ge-404");
+    const noGenre = yield* Catalog.GenreDetail({ input: { genreId }, requestId: "page:0" }).effect;
+    expect(noGenre).toMatchObject({
+      _tag: "FailedGenreDetail",
+      requestId: "page:0",
+      failure: { _tag: "Rejected", rejection: { _tag: "GenreNotFound", genreId } },
+    });
+
+    const stationId = StationId.make("st-404");
+    const noStation = yield* Catalog.StationDetail({
+      input: { stationId },
+      requestId: "page:1",
+    }).effect;
+    expect(noStation).toMatchObject({
+      _tag: "FailedStationDetail",
+      requestId: "page:1",
+      failure: { _tag: "Rejected", rejection: { _tag: "StationNotFound", stationId } },
     });
   }).pipe(Effect.provide(connectedTo(WorkingCatalog))),
 );

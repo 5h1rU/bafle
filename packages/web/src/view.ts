@@ -1,6 +1,8 @@
 import type { AlbumId } from "@bafle/domain/Catalog/Album";
 import type { ArtistId } from "@bafle/domain/Catalog/Artist";
+import type { GenreId } from "@bafle/domain/Catalog/Genre";
 import type { PlaylistId } from "@bafle/domain/Catalog/Playlist";
+import type { StationId } from "@bafle/domain/Catalog/Station";
 import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
 import { Button, Nav } from "@foldkit/ui";
 import { clsx } from "clsx";
@@ -24,18 +26,26 @@ import {
   artistDataIn,
   Awaiting,
   canShow,
+  genreData,
+  genreDataIn,
   hasWayBackFromAlbum,
   hasWayBackFromArtist,
+  hasWayBackFromGenre,
   hasWayBackFromPlaylist,
+  hasWayBackFromStation,
   isPlayerExpanded,
   isPlayersTrack,
   maybeAlbumIdInDocument,
   maybeArtistIdInDocument,
+  maybeGenreIdInDocument,
   maybeHeadedFor,
   maybePlaylistIdInDocument,
+  maybeStationIdInDocument,
   type Model,
   playlistData,
   playlistDataIn,
+  stationData,
+  stationDataIn,
   trackData,
   trackDataIn,
   wayBackOn,
@@ -45,22 +55,35 @@ import * as Sheet from "./sheet/index.ts";
 import { rowMenuIn } from "./rowMenu.ts";
 import * as Album from "./page/album.ts";
 import * as Artist from "./page/artist.ts";
+import * as Genre from "./page/genre.ts";
+import * as Genres from "./page/genres.ts";
 import * as Home from "./page/home.ts";
 import * as NewMusic from "./page/newMusic.ts";
 import * as NotFound from "./page/notFound.ts";
 import * as Playlist from "./page/playlist.ts";
+import * as Radio from "./page/radio.ts";
 import * as Search from "./page/search.ts";
+import * as Station from "./page/station.ts";
 import * as Track from "./page/track.ts";
 import {
   AppRoute,
+  genresRouter,
   homeRouter,
   newRouter,
+  radioRouter,
   searchedTerm,
   searchRouter,
   trackRouter,
 } from "./route.ts";
 import { artworkFlightRules, routeArtwork } from "./view/artwork.ts";
-import { homeIcon, newIcon, searchIcon, spinnerIcon } from "./view/icon.ts";
+import {
+  genresIcon,
+  homeIcon,
+  newIcon,
+  radioIcon,
+  searchIcon,
+  spinnerIcon,
+} from "./view/icon.ts";
 import {
   NAVIGATION_ID,
   PAGE_IDS,
@@ -78,26 +101,35 @@ const APP_NAME = "Bafle";
 /** The pages the navigation leads to: the sections of the app, each kept once it has loaded. */
 type Destination = Exclude<
   AppRoute["_tag"],
-  "Track" | "Album" | "Artist" | "Playlist" | "NotFound"
+  "Track" | "Album" | "Artist" | "Playlist" | "Genre" | "Station" | "NotFound"
 >;
 
-const DESTINATIONS: ReadonlyArray<Destination> = ["Home", "New", "Search"];
+// NOTE: the order is the menu's, and the style sheet counts on it: Search is
+// last, apart from the menu, and each item of the menu is told by its place
+// to find its way into the circle (`dock-current` in styles.css).
+const DESTINATIONS: ReadonlyArray<Destination> = ["Home", "New", "Genres", "Radio", "Search"];
 
 const DESTINATION_HREFS: Readonly<Record<Destination, string>> = {
   Home: homeRouter(),
   New: newRouter(),
+  Genres: genresRouter(),
+  Radio: radioRouter(),
   Search: searchRouter({ maybeTerm: Option.none() }),
 };
 
 const DESTINATION_ICONS: Readonly<Record<Destination, (className: string) => Html>> = {
   Home: homeIcon,
   New: newIcon,
+  Genres: genresIcon,
+  Radio: radioIcon,
   Search: searchIcon,
 };
 
 const DESTINATION_NAMES: Readonly<Record<Destination, string>> = {
   Home: "Home",
   New: "New",
+  Genres: "Genres",
+  Radio: "Radio",
   Search: "Search",
 };
 
@@ -105,6 +137,8 @@ const pageName = (model: Model, route: AppRoute): string =>
   AppRoute.match(route, {
     Home: () => DESTINATION_NAMES.Home,
     New: () => DESTINATION_NAMES.New,
+    Genres: () => DESTINATION_NAMES.Genres,
+    Radio: () => DESTINATION_NAMES.Radio,
     Search: () => DESTINATION_NAMES.Search,
     Track: ({ trackId }) =>
       isPlayersTrack(model, route)
@@ -116,14 +150,16 @@ const pageName = (model: Model, route: AppRoute): string =>
     Album: ({ albumId }) => Album.titleOf(albumData(model, albumId)),
     Artist: ({ artistId }) => Artist.titleOf(artistData(model, artistId)),
     Playlist: ({ playlistId }) => Playlist.titleOf(playlistData(model, playlistId)),
+    Genre: ({ genreId }) => Genre.titleOf(genreData(model, genreId)),
+    Station: ({ stationId }) => Station.titleOf(stationData(model, stationId)),
     NotFound: () => NotFound.TITLE,
   });
 
 /**
  * The app is heading for this destination and its page is not on screen yet.
  * A track is no destination of the navigation, and neither is an album, an
- * artist or a playlist: the row it was opened from says that it is loading,
- * or the tile.
+ * artist, a playlist, a genre or a station: the row it was opened from says
+ * that it is loading, or the tile.
  */
 const isLoadingDestination = (model: Model, destination: Destination): boolean =>
   model.route._tag !== destination &&
@@ -137,13 +173,18 @@ const isLoadingDestination = (model: Model, destination: Destination): boolean =
 type MenuSection = Exclude<Destination, "Search">;
 
 const maybeMenuSection = (route: AppRoute): Option.Option<MenuSection> =>
-  route._tag === "Home" || route._tag === "New" ? Option.some(route._tag) : Option.none();
+  route._tag === "Home" ||
+  route._tag === "New" ||
+  route._tag === "Genres" ||
+  route._tag === "Radio"
+    ? Option.some(route._tag)
+    : Option.none();
 
 /**
  * What the circle shows when the menu has drawn back to it: the section on
  * screen. On a page that is none of the menu's, Search, a track, an album,
- * an artist or a playlist, it shows the nearest one behind the page, and
- * Home when there is none.
+ * an artist, a playlist, a genre or a station, it shows the nearest one
+ * behind the page, and Home when there is none.
  */
 const circleSection = (model: Model): MenuSection =>
   Option.getOrElse(maybeMenuSection(model.route), () =>
@@ -435,6 +476,53 @@ const tilesOpeningIn = (
   isPlaylistOpening: (playlistId) => AsyncData.isLoading(playlistDataIn(playlists, playlistId)),
 });
 
+/**
+ * The Genres section's place. Its tiles are the only way to a genre, so one
+ * is opening whenever the catalog is being asked for it for the first time.
+ */
+const genresPlaceView = (
+  genreList: Model["genreList"],
+  presence: Presence,
+  genres: Model["genres"],
+  h: HtmlBuilder<Message>,
+): Html =>
+  pagePlaceView(
+    presence,
+    isInDocument(presence, genreList)
+      ? [
+          Genres.view(
+            genreList,
+            presence,
+            (genreId) => AsyncData.isLoading(genreDataIn(genres, genreId)),
+            h,
+          ),
+        ]
+      : [],
+    h,
+  );
+
+/** The Radio section's place. Its tiles are the only way to a station, as the Genres section's are to a genre. */
+const radioPlaceView = (
+  stationList: Model["stationList"],
+  presence: Presence,
+  stations: Model["stations"],
+  h: HtmlBuilder<Message>,
+): Html =>
+  pagePlaceView(
+    presence,
+    isInDocument(presence, stationList)
+      ? [
+          Radio.view(
+            stationList,
+            presence,
+            (stationId) => AsyncData.isLoading(stationDataIn(stations, stationId)),
+            h,
+          ),
+        ]
+      : [],
+    h,
+  );
+
 const homePlaceView = (
   home: Model["home"],
   presence: Presence,
@@ -672,6 +760,99 @@ const playlistPlaceView = (
   );
 };
 
+/**
+ * The genre's place. Its page is a list and shelves of every kind, so it is
+ * kept as an album's is: in the document while it is on screen and, once it
+ * holds data, while the listener is on a page reached from it.
+ */
+const genrePlaceView = (
+  genreId: GenreId | undefined,
+  presence: Presence,
+  hasWayBack: boolean,
+  genres: Model["genres"],
+  tracks: Model["tracks"],
+  albums: Model["albums"],
+  albumRows: Model["albumRows"],
+  artists: Model["artists"],
+  playlists: Model["playlists"],
+  playingTrackId: TrackId | undefined,
+  playingStatus: Player.TrackStatus,
+  rowMenus: Model["rowMenus"],
+  rowDone: Model["rowDone"],
+  h: HtmlBuilder<Message>,
+): Html => {
+  if (genreId === undefined) {
+    return pagePlaceView("Kept", [], h);
+  }
+  const genre = genreDataIn(genres, genreId);
+
+  return pagePlaceView(
+    presence,
+    isInDocument(presence, genre)
+      ? [
+          Genre.view(
+            genreId,
+            genre,
+            hasWayBack,
+            listContext(
+              presence,
+              "Genre",
+              { tracks, albums, albumRows, rowMenus, rowDone },
+              playingTrackId,
+              playingStatus,
+            ),
+            tilesOpeningIn(albums, albumRows, artists, playlists),
+            h,
+          ),
+        ]
+      : [],
+    h,
+  );
+};
+
+/** The station's place. Its page is a list, so it is kept as an album's is. */
+const stationPlaceView = (
+  stationId: StationId | undefined,
+  presence: Presence,
+  hasWayBack: boolean,
+  stations: Model["stations"],
+  tracks: Model["tracks"],
+  albums: Model["albums"],
+  albumRows: Model["albumRows"],
+  playingTrackId: TrackId | undefined,
+  playingStatus: Player.TrackStatus,
+  rowMenus: Model["rowMenus"],
+  rowDone: Model["rowDone"],
+  h: HtmlBuilder<Message>,
+): Html => {
+  if (stationId === undefined) {
+    return pagePlaceView("Kept", [], h);
+  }
+  const station = stationDataIn(stations, stationId);
+
+  return pagePlaceView(
+    presence,
+    isInDocument(presence, station)
+      ? [
+          Station.view(
+            stationId,
+            station,
+            hasWayBack,
+            listContext(
+              presence,
+              "Station",
+              { tracks, albums, albumRows, rowMenus, rowDone },
+              playingTrackId,
+              playingStatus,
+            ),
+            h,
+          ),
+        ]
+      : [],
+    h,
+  );
+};
+
 /** The pages that are not kept: each is built when it takes the screen and gone when it leaves. */
 const passingPlaceView = (
   route: AppRoute,
@@ -709,13 +890,18 @@ const lazySearchPlace = createLazy();
 const lazyAlbumPlace = createLazy();
 const lazyArtistPlace = createLazy();
 const lazyPlaylistPlace = createLazy();
+const lazyGenresPlace = createLazy();
+const lazyRadioPlace = createLazy();
+const lazyGenrePlace = createLazy();
+const lazyStationPlace = createLazy();
 const lazyPassingPlace = createLazy();
 
 /**
  * Every page has its place, always in the same order, and the sections stay
- * in theirs once loaded, as an album, an artist and a playlist do while a
- * page reached from them is on screen. Going from one to another, or back
- * from a track, changes which place is drawn and rebuilds nothing.
+ * in theirs once loaded, as an album, an artist, a playlist, a genre and a
+ * station do while a page reached from them is on screen. Going from one to
+ * another, or back from a track, changes which place is drawn and rebuilds
+ * nothing.
  */
 const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> => {
   const playingTrackId = Option.getOrUndefined(Player.maybeCurrentTrackId(model.player));
@@ -792,6 +978,48 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       presenceOf(model, "Playlist"),
       hasWayBackFromPlaylist(model.route, model.trail),
       model.playlists,
+      model.tracks,
+      model.albums,
+      model.albumRows,
+      playingTrackId,
+      playingStatus,
+      model.rowMenus,
+      model.rowDone,
+      h,
+    ]),
+    lazyGenresPlace(genresPlaceView, [
+      model.genreList,
+      presenceOf(model, "Genres"),
+      model.genres,
+      h,
+    ]),
+    lazyRadioPlace(radioPlaceView, [
+      model.stationList,
+      presenceOf(model, "Radio"),
+      model.stations,
+      h,
+    ]),
+    lazyGenrePlace(genrePlaceView, [
+      Option.getOrUndefined(maybeGenreIdInDocument(model.route, model.trail)),
+      presenceOf(model, "Genre"),
+      hasWayBackFromGenre(model.route, model.trail),
+      model.genres,
+      model.tracks,
+      model.albums,
+      model.albumRows,
+      model.artists,
+      model.playlists,
+      playingTrackId,
+      playingStatus,
+      model.rowMenus,
+      model.rowDone,
+      h,
+    ]),
+    lazyStationPlace(stationPlaceView, [
+      Option.getOrUndefined(maybeStationIdInDocument(model.route, model.trail)),
+      presenceOf(model, "Station"),
+      hasWayBackFromStation(model.route, model.trail),
+      model.stations,
       model.tracks,
       model.albums,
       model.albumRows,

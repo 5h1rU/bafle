@@ -198,6 +198,71 @@ export const longPlaylistTracks = {
 /** A playlist Deezer has no picture or curator for. */
 export const barePlaylist = { id: 5, title: "Untitled", picture_medium: "", type: "playlist" };
 
+/** A genre, as Deezer lists it and as it answers for it by id. */
+export const deezerGenre = {
+  id: 132,
+  name: "Pop",
+  picture: "https://api.deezer.com/genre/132/image",
+  ...pictures("picture", 132),
+  type: "genre",
+};
+
+/** All genres at once: Deezer lists it first, and it is no genre. */
+export const deezerAllGenres = { ...deezerGenre, id: 0, name: "All" };
+
+/** A genre Deezer has no picture for. */
+export const bareGenre = { id: 85, name: "Alternative", type: "genre" };
+
+/** What is played most in a genre: every kind in one answer, and podcasts, which Bafle does not read. */
+export const genreChart = {
+  tracks: {
+    data: [
+      { ...deezerTrack, id: 3135553, title: "One More Time", position: 1 },
+      { ...deezerTrack, position: 2 },
+      { ...deezerTrack, id: 3, title: "Third", position: 3 },
+    ],
+    total: 3,
+  },
+  albums: { data: [{ ...deezerAlbum, position: 1 }], total: 1 },
+  artists: { data: [{ ...deezerArtist, position: 1 }], total: 1 },
+  playlists: { data: [deezerPlaylist, barePlaylist], total: 2 },
+  podcasts: { data: [{ id: 1, title: "A podcast" }], total: 1 },
+};
+
+/** A station, which Deezer calls a radio, as a list has it and as it answers for it by id. */
+export const deezerRadio = {
+  id: 38305,
+  title: "The '80s",
+  description: "The '80s",
+  ...pictures("picture", 38305),
+  tracklist: "https://api.deezer.com/radio/38305/tracks",
+  type: "radio",
+};
+
+/** A station Deezer has no picture for. */
+export const bareRadio = { id: 30771, title: "Electro Pop", type: "radio" };
+
+/** Deezer's stations under their genres. One station is filed under two of them, and one genre has none of its own. */
+export const radioGenres = {
+  data: [
+    { id: 132, title: "Pop", radios: [deezerRadio, bareRadio] },
+    { id: 106, title: "Electro", radios: [bareRadio, { ...deezerRadio, id: 31061, title: "Electro" }] },
+    { id: 113, title: "Dance", radios: [bareRadio] },
+    { id: 466, title: "Folk", radios: [] },
+  ],
+};
+
+/** The songs a station plays now. Deezer says neither how many there are nor that more follow. */
+export const radioTracks = {
+  data: [
+    { ...deezerTrack, id: 3135553, title: "One More Time", readable: true },
+    deezerTrack,
+    // Dealt twice: a page lists a track once.
+    { ...deezerTrack, id: 3135553, title: "One More Time", readable: true },
+    { ...deezerTrack, id: 3, title: "Third", preview: "" },
+  ],
+};
+
 /** A Deezer where every list has something in it. */
 export const stocked = {
   "/editorial/0/selection": { body: { data: [deezerAlbum] } },
@@ -229,4 +294,16 @@ export const stocked = {
   "/playlist/429": {
     body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } },
   },
+  "/genre": { body: { data: [deezerAllGenres, deezerGenre, bareGenre] } },
+  "/genre/132": { body: deezerGenre },
+  "/chart/132": { body: genreChart },
+  "/genre/404": { body: { error: { type: "DataException", message: "no data", code: 800 } } },
+  // Deezer answers a chart for any id at all, a genre it does not have included.
+  "/chart/404": { body: genreChart },
+  "/genre/429": { body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } } },
+  "/radio/genres": { body: radioGenres },
+  "/radio/38305": { body: deezerRadio },
+  "/radio/38305/tracks": { body: radioTracks },
+  "/radio/404": { body: { error: { type: "DataException", message: "no data", code: 800 } } },
+  "/radio/429": { body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } } },
 } satisfies Record<string, Answer>;
