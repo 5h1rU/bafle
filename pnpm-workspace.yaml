@@ -28,6 +28,9 @@ catalog:
   vite: ^8.3.5
   vitest: ^5.0.4
 
+patchedDependencies:
+  foldkit@0.170.0: patches/foldkit@0.170.0.patch
+
 permissions:
   '@alchemy.run/domain':
     skills: true

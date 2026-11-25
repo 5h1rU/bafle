@@ -183,6 +183,7 @@ const resolveStart = (order: number) =>
  */
 const islandEnters = Mount.resolveAll(
   [Player.DrawIslandFigure, Player.Message.CompletedDrawIslandFigure()],
+  [Player.FollowIslandPress, Player.Message.CompletedFollowIslandPress()],
   [Player.StartIslandLight, Player.Message.CompletedStartIslandLight()],
   [
     Player.MeasureTitle,
@@ -195,7 +196,7 @@ const islandEnters = Mount.resolveAll(
 // Mounts it is given out of its own list as it finds them, so a step used
 // in a second scene would have none left to look for.
 const islandLeaves = () =>
-  Mount.expectEnded(Player.DrawIslandFigure, Player.StartIslandLight, Player.MeasureTitle);
+  Mount.expectEnded(Player.DrawIslandFigure, Player.FollowIslandPress, Player.StartIslandLight, Player.MeasureTitle);
 
 /** The island's light was told its new pace, and has taken it. */
 const lightChangesPace = () =>
@@ -465,6 +466,32 @@ const expandedOnFirst: Model = after(
 );
 
 describe("the player expanded: the page of the track it holds", () => {
+  test("the queue opens over the song details and stays open as its last song starts", () =>
+    scene(
+      app,
+      given(expandedOnFirst),
+      sheetEnters(),
+      inside(expandedLayout, click(role("button", { name: "Playing Next" }))),
+      inside(expandedLayout,
+        see(role("button", { name: "Playing Next" })).toHaveAttr("aria-expanded", "true"),
+        click(role("button", { name: "Play: Technologic by Daft Punk" })),
+      ),
+      inside(expandedLayout,
+        see(role("heading", { name: "Technologic", level: 1 })).toExist(),
+        see(text("No upcoming songs.")).toExist(),
+      ),
+      resolveStart(2),
+      thresholdPasses(2),
+      Command.resolveAll(
+        [ReplaceTrackUrl, Message.CompletedReplaceTrackUrl()],
+        [Catalog.TrackDetail, reply.track(nextId(expandedOnFirst), bareTrack)],
+      ),
+      inside(expandedLayout,
+        click(role("button", { name: "Playing Next" })),
+        see(selector("[data-detail]")).toExist(),
+      ),
+    ));
+
   test("the island pressed: the player is the screen at once, on the track's own route, waiting for nothing", () =>
     scene(
       app,
@@ -987,6 +1014,7 @@ describe("the island", () => {
       given(sounding),
       Mount.resolveAll(
         [Player.DrawIslandFigure, Player.Message.CompletedDrawIslandFigure()],
+        [Player.FollowIslandPress, Player.Message.CompletedFollowIslandPress()],
         [Player.StartIslandLight, Player.Message.CompletedStartIslandLight()],
         [
           Player.MeasureTitle,

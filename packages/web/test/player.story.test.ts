@@ -622,6 +622,37 @@ describe("what must not strand the player while a source is replaced", () => {
 });
 
 describe("the queue", () => {
+  test("choosing a later song starts it once and keeps its place for Previous and Next", () => {
+    const open = after(sounding, Message.ClickedQueue());
+    const jump = Player.update(open, Message.ClickedQueueItem({ index: 1, trackId: thirdTrack.id }));
+    expect(asked(jump)[0]).toEqual(["StartPlayback", {
+      order: 2, source: thirdTrack.previewUrl, positionSeconds: 0,
+    }]);
+    expect(session(jump.model)).toMatchObject({
+      earlier: [track, explicitTrack], current: thirdTrack, later: [], pane: "Queue",
+    });
+    expect(session(after(jump.model, Message.ClickedPrevious())).current.id).toBe(explicitTrack.id);
+  });
+
+  test("editing upcoming songs leaves playback alone and ignores an edit overtaken by another", () => {
+    const editing = after(sounding, Message.ClickedQueue(), Message.ClickedEditQueue());
+    const moved = Player.update(editing, Message.ClickedQueueEdit({
+      index: 1, trackId: thirdTrack.id, action: "Earlier",
+    }));
+    expect(asked(moved)).toEqual([]);
+    expect(session(moved.model)).toEqual({ ...session(editing), later: [thirdTrack, explicitTrack] });
+    const stale = after(moved.model, Message.ClickedQueueEdit({
+      index: 1, trackId: thirdTrack.id, action: "Remove",
+    }));
+    expect(stale).toBe(moved.model);
+    const removed = Player.update(stale, Message.ClickedQueueEdit({
+      index: 0, trackId: thirdTrack.id, action: "Remove",
+    }));
+    expect(asked(removed)).toEqual([]);
+    expect(session(removed.model).later).toEqual([explicitTrack]);
+    expect(session(after(removed.model, Message.ClickedNext())).current.id).toBe(explicitTrack.id);
+  });
+
   test("at the end of a track the next one starts by itself, from acknowledged", () => {
     const followed = Player.update(soundingMiddle, said(1, "Ended", { positionSeconds: 30 }));
 

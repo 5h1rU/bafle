@@ -114,3 +114,6 @@ export const detailsIcon = (className: string): Html =>
     "M12 11v5.5",
     "M12 7.75v.01",
   ]);
+
+export const removeIcon = (className: string): Html =>
+  outlineIcon(className, ["M5 12h14"]);

@@ -17,7 +17,7 @@ export type ArtworkShape = "Square" | "Round";
 /** Which of a picture's renditions to load: a list row's thumbnail or a shelf's tile. */
 export type ArtworkSize = keyof Pick<Artwork, "small" | "medium">;
 
-const pictureView = (url: string, h: HtmlBuilder<Message>): Html =>
+const pictureView = <M>(url: string, h: HtmlBuilder<M>): Html =>
   h.img([
     h.Loading("lazy"),
     h.Decoding("async"),
@@ -27,7 +27,7 @@ const pictureView = (url: string, h: HtmlBuilder<Message>): Html =>
     h.Class("size-full object-cover"),
   ]);
 
-export const missingPictureView = (h: HtmlBuilder<Message>): Html =>
+export const missingPictureView = <M>(h: HtmlBuilder<M>): Html =>
   h.div(
     [h.Class("flex size-full items-center justify-center text-muted")],
     [noteIcon("size-2/5")],
@@ -38,11 +38,11 @@ export const missingPictureView = (h: HtmlBuilder<Message>): Html =>
  * fixed ratio over a neutral fill, so nothing around it moves when it loads.
  * Without a picture the box holds a placeholder mark instead.
  */
-export const artworkView = (
+export const artworkView = <M>(
   maybeArtwork: Option.Option<Artwork>,
   shape: ArtworkShape,
   size: ArtworkSize,
-  h: HtmlBuilder<Message>,
+  h: HtmlBuilder<M>,
 ): Html =>
   h.div(
     [

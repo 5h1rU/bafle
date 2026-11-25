@@ -31,6 +31,66 @@ export const TITLE_LINE_ATTRIBUTE = "title-line";
 /** The title fits when it is no wider than its place, give or take the rounding of a layout. */
 const FITS_WITHIN_PIXELS = 0.5;
 
+/** A quick tap can begin and end between two paints in iOS Safari. Hold
+ * its visual feedback through the attack, independently of the click. */
+const followIslandPress = (surface: Element): (() => void) => {
+  const listeners = new AbortController();
+  const options = { signal: listeners.signal, passive: true };
+  let pointer: number | undefined;
+  let pressedAt = 0;
+  let releaseTimer: number | undefined;
+  const clear = () => {
+    window.clearTimeout(releaseTimer);
+    pointer = undefined;
+    surface.removeAttribute("data-pressed");
+  };
+  const press = () => {
+    window.clearTimeout(releaseTimer);
+    pressedAt = performance.now();
+    surface.setAttribute("data-pressed", "");
+  };
+  const release = () => {
+    releaseTimer = window.setTimeout(clear, Math.max(0, 100 - (performance.now() - pressedAt)));
+  };
+  const isControl = (target: EventTarget | null) =>
+    target instanceof Element && target.closest('a, button:not([aria-disabled="true"])') !== null;
+
+  surface.addEventListener("pointerdown", (event) => {
+    if (event instanceof PointerEvent && event.isPrimary && event.button === 0 && isControl(event.target)) {
+      pointer = event.pointerId;
+      press();
+    }
+  }, options);
+  window.addEventListener("pointerup", (event) => {
+    if (event.pointerId === pointer) release();
+  }, options);
+  window.addEventListener("pointercancel", (event) => {
+    if (event.pointerId === pointer) clear();
+  }, options);
+  surface.addEventListener("click", (event) => {
+    if (event instanceof MouseEvent && event.detail === 0 && isControl(event.target)) {
+      press();
+      release();
+    }
+  }, options);
+  window.addEventListener("blur", clear, options);
+  return () => {
+    listeners.abort();
+    clear();
+  };
+};
+
+export const FollowIslandPress = Mount.define("FollowIslandPress", {
+  messages: [Message.CompletedFollowIslandPress],
+  execute: ({ element }) => Effect.gen(function* () {
+    yield* Effect.acquireRelease(
+      Effect.sync(() => followIslandPress(element)),
+      (stop) => Effect.sync(stop),
+    );
+    return Message.CompletedFollowIslandPress();
+  }),
+});
+
 /** A place still changing width is not measured until it has stood this long. */
 const MEASURES_AFTER = Duration.millis(120);
 
@@ -54,7 +114,7 @@ const measureTitle = (place: Element): Option.Option<Measure> =>
     const placeStyle = getComputedStyle(place);
     const placePixels =
       place.clientWidth - pixels(placeStyle.paddingLeft) - pixels(placeStyle.paddingRight);
-    const wordsPixels = words.getBoundingClientRect().width;
+    const wordsPixels = pixels(getComputedStyle(words).width);
     const gapPixels = pixels(getComputedStyle(line).columnGap);
 
     return Message.MeasuredTitle({
@@ -142,7 +202,7 @@ export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
             }
             const tailWidth = Option.match(maybeTail, {
               onNone: () => 0,
-              onSome: (tail) => tail.getBoundingClientRect().width,
+              onSome: (tail) => pixels(getComputedStyle(tail).width),
             });
             const outline = islandOutline(width, tailWidth);
             if (outline === drawn.outline) {

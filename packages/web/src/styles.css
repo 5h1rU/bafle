@@ -19,6 +19,12 @@
   --color-accent-wash: #efdfec;
   --color-on-accent: #ffffff;
 
+  /* The stopped signal has the same night palette in either colour scheme. */
+  --color-crash-canvas: #160f15;
+  --color-crash-ink: #f9f5f8;
+  --color-crash-muted: #c3b5bf;
+  --color-crash-orchid: #f2d2ef;
+
   /* The island has colours of its own: the figure, its words, the
      aubergine of its main control, and the orchid of the light that
      travels its edge while there is sound. It is a light figure on the
@@ -264,6 +270,84 @@
   }
 }
 
+/* A press moves the entire figure independently of the dock spring. */
+@media (prefers-reduced-motion: no-preference) {
+  .island-surface {
+    transition: scale 280ms var(--ease-island-out);
+  }
+
+  .island-surface[data-pressed] {
+    scale: 1.025 1.055;
+    transition: scale 85ms ease-out;
+  }
+}
+
+.player-ambience {
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  height: min(100%, 62svh, 34rem);
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.24;
+  mask-image: linear-gradient(black, transparent);
+}
+
+.player-ambience img {
+  filter: blur(36px);
+  scale: 1.3;
+}
+
+.player-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.25rem 0.875rem;
+  align-items: center;
+}
+
+.player-cover {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, 42svh, 23rem);
+  border-radius: 1rem;
+  box-shadow: 0 10px 24px -12px rgb(24 6 20 / 45%);
+}
+
+.player-title {
+  font-size: clamp(1.5rem, 5.5vw, 1.875rem);
+  line-height: 1.12;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+  margin-bottom: 0.25rem;
+}
+
+[data-pane]:not([data-pane="Artwork"]) .player-summary {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+[data-pane]:not([data-pane="Artwork"]) .player-cover {
+  grid-column: auto;
+  width: 3.75rem;
+  border-radius: 0.625rem;
+}
+
+[data-pane]:not([data-pane="Artwork"]) .player-title {
+  font-size: 1.125rem;
+}
+
+/* Keep transport and the way out within reach while browsing a long queue.
+   A short landscape viewport needs the full height for its rows. */
+@media (min-height: 30rem) {
+  [data-pane]:not([data-pane="Artwork"]) .player-deck {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding-bottom: 0.5rem;
+    background-color: var(--color-panel);
+  }
+}
+
 /* THE ROWS OF A LIST
 
    A row is one piece. The control that plays its track has no colour of its
@@ -316,6 +400,36 @@
 /* Before the app has drawn anything, the page is already its own colour, not white. */
 body {
   background-color: var(--color-canvas);
+}
+
+.crash-screen {
+  color-scheme: dark;
+  background: var(--color-crash-canvas);
+  color: var(--color-crash-ink);
+}
+
+.crash-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: 35rem;
+  margin-inline: auto;
+  padding-top: max(clamp(1.5rem, 6.5dvh, 3.5rem), env(safe-area-inset-top));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+}
+
+.crash-speaker {
+  width: 1.5rem;
+  height: 2rem;
+  margin-left: 0.25rem;
+  background: currentColor;
+  mask: url("/icons/monochrome.svg") center / 3rem 3rem no-repeat;
+}
+
+.crash-message {
+  margin-block: clamp(2rem, 13.5dvh, 7.25rem) 3rem;
 }
 
 /* The page swap: the app asks for a view transition only when the page on

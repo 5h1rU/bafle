@@ -846,7 +846,7 @@ const trackPageLinkView =
         h.Href(trackRouter({ trackId: track.id })),
         h.AriaLabel(`Open the player: ${track.title} by ${track.artist.name}`),
         h.Class(
-          "flex h-full min-w-0 flex-1 touch-manipulation items-center rounded-full pr-2 pl-2.5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-island-light",
+          "flex h-full min-w-0 flex-1 touch-manipulation items-center gap-2.5 rounded-full pr-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-island-light",
         ),
       ],
       content,

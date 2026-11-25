@@ -1,4 +1,4 @@
-import { Track } from "@bafle/domain/Catalog/Track";
+import { Track, TrackId } from "@bafle/domain/Catalog/Track";
 import { Slider } from "@foldkit/ui";
 import * as Schema from "effect/Schema";
 import { defineMessageUnion } from "foldkit/message";
@@ -15,6 +15,14 @@ export const Message = defineMessageUnion({
   ClickedPause: {},
   ClickedNext: {},
   ClickedPrevious: {},
+  ClickedQueue: {},
+  ClickedEditQueue: {},
+  ClickedQueueItem: { index: Schema.Int, trackId: TrackId },
+  ClickedQueueEdit: {
+    index: Schema.Int,
+    trackId: TrackId,
+    action: Schema.Literals(["Earlier", "Later", "Remove"]),
+  },
   ClickedTryAgain: {},
   PressedMediaKey: { key: MediaKey },
   GotSeekSliderMessage: { message: Slider.Message },
@@ -36,6 +44,7 @@ export const Message = defineMessageUnion({
   CompletedWaitToTravelTitle: { run: Schema.Int },
   CompletedTravelTitle: { run: Schema.Int },
   CompletedDrawIslandFigure: {},
+  CompletedFollowIslandPress: {},
   CompletedChangeIslandLightPace: {},
   CompletedStartIslandLight: {},
 });

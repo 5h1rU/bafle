@@ -32,12 +32,14 @@ import {
 } from "./model.ts";
 import {
   DrawIslandFigure,
+  FollowIslandPress,
   ISLAND_TAIL_ATTRIBUTE,
   MeasureTitle,
   TITLE_LINE_ATTRIBUTE,
   TITLE_WORDS_ATTRIBUTE,
 } from "./mount.ts";
 import { TITLE_PIXELS_PER_SECOND } from "./command.ts";
+import { queuePanelView, queueToggleView } from "./queue.ts";
 
 // VIEW
 
@@ -611,7 +613,7 @@ const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>)
         STEP_ON_PANEL_CLASS,
         h,
       ),
-      mainControlView(session, "size-12", ON_PANEL, h),
+      mainControlView(session, "size-14", ON_PANEL, h),
       stepControlView(
         nextLabel(session),
         Message.ClickedNext(),
@@ -734,10 +736,14 @@ const islandView = (
       ),
     ],
     [
-      ...islandFigureView(current.album.cover?.small, model.light, h),
-      coverView(current, "-my-[3px] size-[3.125rem] rounded-full", "small", h, !isUnderSheet),
-      viewInputs.toTrackPageLink(current, trackWordsView(session, model.title, h)),
-      islandControlsView(session, h),
+      h.div([h.OnMount(FollowIslandPress()), h.Class("island-surface relative isolate flex size-full items-center")], [
+        ...islandFigureView(current.album.cover?.small, model.light, h),
+        viewInputs.toTrackPageLink(current, [
+          coverView(current, "-my-[3px] size-[3.125rem] rounded-full", "small", h, !isUnderSheet),
+          ...trackWordsView(session, model.title, h),
+        ]),
+        islandControlsView(session, h),
+      ]),
       announcementView(session, h),
     ],
   );
@@ -765,12 +771,14 @@ const sheetView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const { current } = session;
+  const queueOpen = session.pane !== "Artwork";
 
   return h.section(
     [
       h.Id(PLAYER_ID),
       h.AriaLabel("Player"),
       h.DataAttribute("layout", "expanded"),
+      h.DataAttribute("pane", session.pane),
       h.DataAttribute("playback", session.playback._tag),
       // NOTE: `box-content`, because the sheet is given padding past its
       // edge (see `sheetStyles`): its height is then that of what is seen of
@@ -792,36 +800,38 @@ const sheetView = (
         [
           h.Class(
             clsx(
-              "rounded-t-[inherit] border-x border-t border-line px-6 pb-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+              "relative isolate rounded-t-[inherit] border-x border-t border-line px-6 pb-[max(2rem,env(safe-area-inset-bottom))] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
               viewInputs.isSheetWhole ? "overflow-y-auto" : "overflow-hidden",
             ),
           ),
           ...viewInputs.contentAttributes,
         ],
         [
-          viewInputs.toCollapseControl(),
-          h.div(
-            [h.Class("mx-auto mt-2 w-full max-w-sm")],
-            [coverView(current, "aspect-square w-full rounded-2xl", "large", h)],
-          ),
-          h.keyed("div")(
-            current.id,
-            [
-              h.Class(
-                "mt-6 min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none",
-              ),
-            ],
-            [
-              h.h1(
-                [h.Id(viewInputs.titleId), h.Class("truncate text-2xl font-bold tracking-tight")],
-                [current.title],
-              ),
-              h.p([h.Class("truncate text-lg text-muted")], [current.artist.name]),
-            ],
-          ),
-          h.div([h.Class("mt-2")], [progressOrNoticeView(session, h)]),
-          stepsView(session, "mt-2 flex items-center justify-center gap-6", h),
-          h.div([h.Class("mt-8")], [viewInputs.toDetail(current)]),
+          h.div([h.Class("player-deck relative isolate -mx-6 px-6")], [
+            current.album.cover
+              ? h.div([h.AriaHidden(true), h.Class("player-ambience")], [
+                  h.img([h.Src(current.album.cover.small), h.Alt(""), h.Class("size-full object-cover")]),
+                ])
+              : h.empty,
+            viewInputs.toCollapseControl(),
+            h.div([h.Class("player-summary")], [
+              coverView(current, "player-cover aspect-square", "large", h),
+              h.keyed("div")(current.id, [h.Class("min-w-0")], [
+                h.h1([h.Id(viewInputs.titleId), h.Class("player-title")], [current.title]),
+                h.p([h.Class("truncate text-base font-medium text-muted")], [current.artist.name]),
+              ]),
+              queueToggleView(queueOpen, h),
+            ]),
+            h.div([h.Class("mt-3")], [progressOrNoticeView(session, h)]),
+            stepsView(session, "flex items-center justify-center gap-8", h),
+          ]),
+          h.div([h.Class("mt-6 border-t border-line pt-4")], [
+            queuePanelView(session, h),
+            queueOpen ? h.empty : h.div([], [
+              h.h2([h.Class("mb-3 text-xl font-bold tracking-tight")], ["Song details"]),
+              viewInputs.toDetail(current),
+            ]),
+          ]),
           announcementView(session, h),
         ],
       ),

@@ -270,6 +270,40 @@ const next = (session: Session): Step =>
     onNonEmpty: (later) => advance(session, later, "Chosen"),
   });
 
+const playFromQueue = (session: Session, index: number, trackId: TrackId): Step => {
+  const current = session.later[index];
+  if (current?.id !== trackId) {
+    return unchanged;
+  }
+  return startTrack({
+    ...session,
+    earlier: [...session.earlier, session.current, ...session.later.slice(0, index)],
+    current,
+    later: session.later.slice(index + 1),
+  }, "Chosen");
+};
+
+const editQueue = (session: Session, edit: typeof Message.ClickedQueueEdit.Type): Step => {
+  const { index, trackId, action } = edit;
+  const track = session.later[index];
+  if (session.pane !== "EditingQueue" || track?.id !== trackId) {
+    return unchanged;
+  }
+  const later = [...session.later];
+  if (action === "Remove") {
+    later.splice(index, 1);
+  } else {
+    const to = action === "Earlier" ? index - 1 : index + 1;
+    const neighbor = later[to];
+    if (!neighbor) {
+      return unchanged;
+    }
+    later[index] = neighbor;
+    later[to] = track;
+  }
+  return settle({ ...session, later });
+};
+
 /**
  * Back to the start of the current track. One that is loaded goes there
  * where it stands; one that fell silent without the listener's wish is
@@ -696,6 +730,17 @@ const handle = (model: Model, message: Message) =>
     ClickedPause: () => onSession(silence)(model),
     ClickedNext: () => onSession(next)(model),
     ClickedPrevious: () => onSession(previous)(model),
+    ClickedQueue: () => onSession((session) =>
+      settle({ ...session, pane: session.pane === "Artwork" ? "Queue" : "Artwork" }),
+    )(model),
+    ClickedEditQueue: () => onSession((session) =>
+      session.pane === "Artwork" ? unchanged : settle({
+        ...session, pane: session.pane === "Queue" ? "EditingQueue" : "Queue",
+      }),
+    )(model),
+    ClickedQueueItem: ({ index, trackId }) =>
+      onSession((session) => playFromQueue(session, index, trackId))(model),
+    ClickedQueueEdit: (edit) => onSession((session) => editQueue(session, edit))(model),
     ClickedTryAgain: () => onSession(play)(model),
     PressedMediaKey: ({ key }) => onSession((session) => pressedMediaKey(session, key))(model),
 
@@ -726,6 +771,7 @@ const handle = (model: Model, message: Message) =>
     CompletedSeekPlayback: () => ({ model }),
     CompletedPublishNowPlaying: () => ({ model }),
     CompletedDrawIslandFigure: () => ({ model }),
+    CompletedFollowIslandPress: () => ({ model }),
     CompletedStartIslandLight: () => ({ model }),
     CompletedChangeIslandLightPace: () => ({ model }),
   });

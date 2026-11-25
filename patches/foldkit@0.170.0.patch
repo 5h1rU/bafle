@@ -1,0 +1,23 @@
+diff --git a/dist/vdom.js b/dist/vdom.js
+index 61eb8697143dd615ad0ef313249abe5ac776d4ff..d46537277248bde6ecd739b8450ee4f9a6d3e050 100644
+--- a/dist/vdom.js
++++ b/dist/vdom.js
+@@ -119,7 +119,17 @@ const patchFreshInto = (container, nextVNode, onRootPatched) => {
+     }
+     const placeholder = container.ownerDocument.createComment('');
+     parent.replaceChild(placeholder, container);
+-    return patch(toVNode(placeholder), nextVNode, onRootPatched);
++    try {
++        return patch(toVNode(placeholder), nextVNode, onRootPatched);
++    }
++    catch (error) {
++        // A failed first patch can leave the placeholder in the document before
++        // there is a committed root. Give the crash view its mount point back.
++        if (placeholder.parentNode === parent) {
++            parent.replaceChild(container, placeholder);
++        }
++        throw error;
++    }
+ };
+ export const __patchVNode = (maybeCurrentVNode, nextVNode, container, seen, onRootPatched) => {
+     const dedupedVNode = nextVNode !== null ? dedupeSharedVNodes(nextVNode, seen) : h('!');

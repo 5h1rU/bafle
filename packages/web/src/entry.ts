@@ -8,6 +8,7 @@ import { Model } from "./model.ts";
 import * as HtmlAudioEngine from "./player/htmlAudioEngine.ts";
 import { subscriptions } from "./subscription.ts";
 import { view } from "./view.ts";
+import { crashView } from "./view/crash.ts";
 
 /**
  * The Api client for the life of the app, over plain HTTP on the app's own
@@ -30,6 +31,7 @@ const application = Runtime.makeApplication({
   init,
   update,
   view,
+  crash: { view: crashView },
   viewTransition,
   subscriptions,
   resources,

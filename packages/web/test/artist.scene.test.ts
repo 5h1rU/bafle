@@ -101,6 +101,7 @@ const resolveStart = (order: number) =>
  */
 const islandEnters = Mount.resolveAll(
   [Player.DrawIslandFigure, Player.Message.CompletedDrawIslandFigure()],
+  [Player.FollowIslandPress, Player.Message.CompletedFollowIslandPress()],
   [Player.StartIslandLight, Player.Message.CompletedStartIslandLight()],
   [
     Player.MeasureTitle,
