@@ -12,6 +12,7 @@ export default Alchemy.Stack(
     state: Alchemy.localState(),
   },
   Effect.gen(function* () {
+    const stage = yield* Alchemy.Stage;
     const bafle = yield* BafleWorker;
     // The player, built with Vite. Its Worker serves the build and forwards
     // /api to Bafle, so the app and the Api share one origin.
@@ -19,10 +20,12 @@ export default Alchemy.Stack(
       rootDir: "packages/web",
       main: "src/worker.ts",
       env: { BAFLE: bafle },
-      // Production is served at bafle.app, a zone of the same Cloudflare
-      // account: the custom domain brings its own DNS record and
-      // certificate. www only redirects to it. `alchemy dev` ignores this.
-      domain: { name: "bafle.app", redirects: ["www.bafle.app"] },
+      // Production (`--stage prod`) is served at bafle.app, a zone of the
+      // same Cloudflare account: the custom domain brings its own DNS record
+      // and certificate, and www only redirects to it. A hostname serves one
+      // Worker, so every other stage detaches any domain (`null`) and keeps
+      // its workers.dev address. `alchemy dev` ignores this.
+      domain: stage === "prod" ? { name: "bafle.app", redirects: ["www.bafle.app"] } : null,
       assets: {
         runWorkerFirst: ["/api", "/api/*"],
         // The app has its own routes (/new, /search): a path with no file
