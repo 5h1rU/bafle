@@ -145,11 +145,8 @@
    it keeps its size and goes up with the page, as any picture scrolled
    past does, and only grows dim, until it is clear. Then, as the strip at
    the head's foot is about to reach the top of the screen and be the bar,
-   the thumbnail comes in its place there, at its own size, and only grows
-   bright. It came a little large once, and settled to its size over the
-   last few pixels of the scroll: scrolled past at any speed that was a jolt
-   at the top of the screen, the cover seen to hit the edge and shake into
-   place. A cover that grew smaller while it could
+   the bar's own thumbnail grows bright in the bar, where it stands: nothing
+   of the cover moves to get there. A cover that grew smaller while it could
    still be seen read as a picture being squeezed, however late it began and
    however dim it was; one that goes and is then in the bar reads as the
    picture giving the page over and taking its place there.
@@ -198,7 +195,9 @@
     .album-hero .album-cover { animation-name: album-cover-draws-back; }
     .album-hero::after { animation-name: album-veil-lifts; }
     .album-caption { transform-origin: left bottom; animation-name: album-caption-rises; }
-    .album-compact > :last-child {
+    /* The bar's thumbnail and its title grow bright together, in the bar,
+       as the head's cover and words give way under them. */
+    .album-compact > * {
       animation-name: album-compact-title-comes;
       animation-timing-function: linear;
     }
@@ -207,41 +206,20 @@
     0%, 68% { background-color: rgb(22 15 21); }
     100% { background-color: var(--color-panel); }
   }
-  /* At its own size, growing dim, for most of the way: it is clear well
-     before the strip at the head's foot is the bar. It is put in the
-     thumbnail's place while it is clear, between two frames a hair apart,
-     so that nothing is seen to shrink: a cover on its way from the size of
-     the screen to the size of a thumbnail is an ugly thing at any opacity.
-     What is seen is the last of it only: the thumbnail, in its place and at
-     its size, growing bright as the bar arrives, with the bar's title
-     (`album-compact-title-comes`). Nothing of it moves or changes size
-     while it can be seen. */
+  /* At its own size, growing dim, and clear well before the strip at the
+     head's foot is the bar. It is never put anywhere else: it goes, and the
+     bar's own thumbnail comes.
+
+     It was once moved, while clear, to the thumbnail's place at the head's
+     foot, to grow bright there and be taken over by the bar's as the strip
+     arrived. The two were to stand in one place at that moment, and on a
+     phone they did not: the head's went on up past the bar's place for a
+     frame or two before the bar's took over, and the cover was seen to hit
+     the top of the screen and drop back. A thumbnail that is the bar's from
+     the start stands where the bar stands, and cannot be anywhere else. */
   @keyframes album-cover-draws-back {
     0% { opacity: 1; }
-    80% {
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border-radius: 0;
-      opacity: 0;
-    }
-    80.5% {
-      top: calc(100% - (var(--album-bar-inner) + var(--album-thumb)) / 2);
-      left: var(--album-thumb-left);
-      width: var(--album-thumb);
-      height: var(--album-thumb);
-      border-radius: .375rem;
-      opacity: 0;
-    }
-    100% {
-      top: calc(100% - (var(--album-bar-inner) + var(--album-thumb)) / 2);
-      left: var(--album-thumb-left);
-      width: var(--album-thumb);
-      height: var(--album-thumb);
-      border-radius: .375rem;
-      opacity: 1;
-    }
+    80%, 100% { opacity: 0; }
   }
   @keyframes album-veil-lifts { 0%, 60% { opacity: 1; } 80%, 100% { opacity: 0; } }
   @keyframes album-caption-rises {

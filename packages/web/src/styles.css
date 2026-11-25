@@ -769,8 +769,8 @@ body {
    is not the same share of the time.
 
    Opening: the island's disc gives way at once; the cover travels whole,
-   and from a third of the way in time, when it is nearly there, fades into
-   the sheet.
+   and only when it is there, in the last fifth of the time, fades into the
+   sheet's own, which comes then and not before (`head-comes-last`).
 
    Closing is not the same the other way round, though it once was. The way
    is eased, and goes fast at its start whichever way it is travelled: going
@@ -805,10 +805,37 @@ body {
 
 @keyframes cover-lands {
   0% { opacity: 0; }
-  10%, 35% { opacity: 1; }
-  50% { opacity: 0.45; }
-  72% { opacity: 0.03; }
+  10%, 80% { opacity: 1; }
   100% { opacity: 0; }
+}
+
+/* NOTE: while the cover is on its way the sheet has no cover of its own to
+   show, nor the veil and the title that lie over it. The cover that travels
+   grows from the island's disc, at the island's near end, and the sheet's
+   box grows from the whole island: on the way the cover is narrower than
+   the sheet, and the sheet's own cover, already at its full size in that
+   box, was seen beside it and through it, the same picture twice and a step
+   apart. So the head of the sheet is empty until the cover is there, and
+   then its own cover, its veil and its title come as the travelling one
+   goes, in the one place and at the one size. */
+:root:active-view-transition-type(player-opens) .player-sheet :is(.player-art, .player-caption) {
+  animation: var(--player-swap-duration) linear both head-comes-last;
+}
+
+:root:active-view-transition-type(player-opens) .player-sheet .player-head::after {
+  animation: var(--player-swap-duration) linear both head-comes-last;
+}
+
+:root:active-view-transition-type(player-opens) .player-sheet .player-head {
+  animation: var(--player-swap-duration) linear both head-ground-comes-last;
+}
+
+@keyframes head-comes-last {
+  0%, 80% { opacity: 0; }
+}
+
+@keyframes head-ground-comes-last {
+  0%, 80% { background-color: transparent; }
 }
 
 @keyframes cover-lifts {
