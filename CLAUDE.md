@@ -7,7 +7,7 @@ A music player whose music provider sits behind an Effect service, so the provid
 - **Model**: `@alchemy.run/domain` (domain-driven design on Effect) in `packages/domain`. It imports only `@alchemy.run/domain` and `effect`.
 - **Server**: a Cloudflare Worker in `packages/server` that hosts the model and holds the provider adapters.
 - **App**: Foldkit (The Elm Architecture on Effect) in `packages/web`.
-- **Infrastructure**: Alchemy, one stack in `alchemy.run.ts`, deployed to Cloudflare.
+- **Infrastructure**: Alchemy, one stack in `alchemy.run.ts`, deployed to Cloudflare. Production is `https://bafle.app` (a zone in the same account, the app Worker's custom domain; `www.bafle.app` redirects to it). The Api Worker stays on workers.dev, since the app reaches it through a service binding.
 
 ## Skills to load before working
 

@@ -19,6 +19,10 @@ export default Alchemy.Stack(
       rootDir: "packages/web",
       main: "src/worker.ts",
       env: { BAFLE: bafle },
+      // Production is served at bafle.app, a zone of the same Cloudflare
+      // account: the custom domain brings its own DNS record and
+      // certificate. www only redirects to it. `alchemy dev` ignores this.
+      domain: { name: "bafle.app", redirects: ["www.bafle.app"] },
       assets: {
         runWorkerFirst: ["/api", "/api/*"],
         // The app has its own routes (/new, /search): a path with no file
