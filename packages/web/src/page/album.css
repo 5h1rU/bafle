@@ -145,8 +145,11 @@
    it keeps its size and goes up with the page, as any picture scrolled
    past does, and only grows dim, until it is clear. Then, as the strip at
    the head's foot is about to reach the top of the screen and be the bar,
-   the thumbnail comes in its place there, a little large, and settles to
-   its size and its brightness. A cover that grew smaller while it could
+   the thumbnail comes in its place there, at its own size, and only grows
+   bright. It came a little large once, and settled to its size over the
+   last few pixels of the scroll: scrolled past at any speed that was a jolt
+   at the top of the screen, the cover seen to hit the edge and shake into
+   place. A cover that grew smaller while it could
    still be seen read as a picture being squeezed, however late it began and
    however dim it was; one that goes and is then in the bar reads as the
    picture giving the page over and taking its place there.
@@ -204,17 +207,18 @@
     0%, 68% { background-color: rgb(22 15 21); }
     100% { background-color: var(--color-panel); }
   }
-  /* At its own size, growing dim, for all of the way but the very last: it
-     is clear by the time the strip at the head's foot is about to be the
-     bar. It is put in the thumbnail's place while it is clear, between two
-     frames a hair apart, so that nothing is seen to shrink: a cover on its
-     way from the size of the screen to the size of a thumbnail is an ugly
-     thing at any opacity. What is seen is the last of it only: the
-     thumbnail, a little large, coming to its size and its brightness as the
-     bar arrives. */
+  /* At its own size, growing dim, for most of the way: it is clear well
+     before the strip at the head's foot is the bar. It is put in the
+     thumbnail's place while it is clear, between two frames a hair apart,
+     so that nothing is seen to shrink: a cover on its way from the size of
+     the screen to the size of a thumbnail is an ugly thing at any opacity.
+     What is seen is the last of it only: the thumbnail, in its place and at
+     its size, growing bright as the bar arrives, with the bar's title
+     (`album-compact-title-comes`). Nothing of it moves or changes size
+     while it can be seen. */
   @keyframes album-cover-draws-back {
     0% { opacity: 1; }
-    90% {
+    80% {
       top: 0;
       left: 0;
       width: 100%;
@@ -222,11 +226,11 @@
       border-radius: 0;
       opacity: 0;
     }
-    90.5% {
-      top: calc(100% - (var(--album-bar-inner) + var(--album-thumb) * 1.25) / 2);
-      left: calc(var(--album-thumb-left) - var(--album-thumb) * .125);
-      width: calc(var(--album-thumb) * 1.25);
-      height: calc(var(--album-thumb) * 1.25);
+    80.5% {
+      top: calc(100% - (var(--album-bar-inner) + var(--album-thumb)) / 2);
+      left: var(--album-thumb-left);
+      width: var(--album-thumb);
+      height: var(--album-thumb);
       border-radius: .375rem;
       opacity: 0;
     }
@@ -239,7 +243,7 @@
       opacity: 1;
     }
   }
-  @keyframes album-veil-lifts { 0%, 60% { opacity: 1; } 90%, 100% { opacity: 0; } }
+  @keyframes album-veil-lifts { 0%, 60% { opacity: 1; } 80%, 100% { opacity: 0; } }
   @keyframes album-caption-rises {
     0%, 10% { transform: none; opacity: 1; }
     64% { opacity: 1; }
@@ -282,6 +286,10 @@
 .album-songs [data-now-playing] .now-bar { background: var(--color-accent); }
 .album-songs [data-now-playing] svg { color: var(--color-accent); }
 .album-songs [data-now-playing] .now-spinner { margin-bottom: 0; }
+/* A song that could not be played: the mark stands where the row's number
+   was, in the colour of what went wrong. */
+.album-songs [data-now-playing="Failed"] { background: var(--color-canvas); }
+.album-songs [data-now-playing="Failed"] svg { color: var(--color-danger); }
 @media (min-width: 48rem) {
   #album-page { --album-hero-height: clamp(20rem, 46svh, 34rem); }
   .album-caption { padding-bottom: 2rem; }

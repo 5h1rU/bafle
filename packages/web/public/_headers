@@ -2,3 +2,8 @@
 # to mean another file: a browser may keep one for good and never ask again.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The worker that keeps the app's shell is asked for anew each time: a
+# browser that kept it would go on running the one before.
+/sw.js
+  Cache-Control: no-cache

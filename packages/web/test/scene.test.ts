@@ -354,7 +354,7 @@ describe("rule 5: failures are stated in place", () => {
     );
   });
 
-  test("a refresh that fails leaves the page as it was, under a quiet notice", () => {
+  test("a refresh that fails leaves the page as it was, under a notice over it", () => {
     const refreshingHome = chose(onNew, "/");
 
     scene(
@@ -362,13 +362,34 @@ describe("rule 5: failures are stated in place", () => {
       given(answered(refreshingHome, reply.homeRefused)),
       inside(onScreen, see(pageTitle("Home")).toExist(), see(text("Discovery")).toExist()),
       see(role("alert")).toBeAbsent(),
-      see(text("Showing what loaded earlier. The music catalog is not answering right now.")).toExist(),
+      see(text("The catalog is not answering. Showing what loaded earlier.")).toExist(),
+      // The notice is over the page and no part of it.
+      inside(onScreen, see(text(/Showing what loaded earlier/)).toBeAbsent()),
       click(tryAgain),
       Command.resolve(FocusPage, Message.CompletedFocusPage()),
       inside(onScreen, see(text("Discovery")).toExist()),
       Command.resolve(Catalog.HomeFeed, reply.home(nextId(refreshingHome))),
       see(text(/Showing what loaded earlier/)).toBeAbsent(),
     );
+  });
+
+  test("the notice is put away by its own control, and comes back when the catalog fails again", () => {
+    const refreshingHome = chose(onNew, "/");
+    const stale = answered(refreshingHome, reply.homeRefused);
+    const dismissed = after(stale, Message.ClickedDismissStaleNotice());
+
+    scene(
+      app,
+      given(stale),
+      click(role("button", { name: "Dismiss" })),
+      see(text(/Showing what loaded earlier/)).toBeAbsent(),
+      // What is on the page is where it was.
+      inside(onScreen, see(pageTitle("Home")).toExist(), see(text("Discovery")).toExist()),
+    );
+    expect(dismissed.staleNotice).toBe("Dismissed");
+    // Asked again and failed again: that is news, and is said again.
+    const again = answered(after(dismissed, Message.ClickedTryAgain()), reply.homeRefused);
+    expect(again.staleNotice).toBe("Open");
   });
 });
 
@@ -516,12 +537,9 @@ describe("rule 6: search keeps its results while it loads", () => {
     scene(
       app,
       given(after(askedForMore, arrived(reply.searchRefused(awaitedId(askedForMore))))),
-      inside(
-        results,
-        see(text("Discovery")).toExist(),
-        see(text(/Showing what loaded earlier/)).toExist(),
-        see(tryAgain).toExist(),
-      ),
+      inside(results, see(text("Discovery")).toExist()),
+      see(text(/Showing what loaded earlier/)).toExist(),
+      see(tryAgain).toExist(),
     );
   });
 });
@@ -781,7 +799,7 @@ describe("A4: a row says that its track failed to open", () => {
   const failedToOpen = answered(openingTrack, reply.trackRefused);
   const failure = "This song could not be opened. The music catalog is not answering right now.";
 
-  test("the list stays as it is, and the row states the failure with a way to try again", () =>
+  test("the list stays as it is, and the row marks the failure in its last control, with no line of its own", () =>
     scene(
       app,
       given(failedToOpen),
@@ -796,10 +814,10 @@ describe("A4: a row says that its track failed to open", () => {
           see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-busy", "false"),
           inside(rowOf(track.id), see(text("3:44")).toExist()),
           expectAll(all.selector("svg.animate-spin")).toHaveCount(0),
-          see(text(failure)).toExist(),
-          // One way to try again, for the row that failed, and it says which.
-          expectAll(tryAgainButtons).toHaveCount(1),
-          see(tryAgainOn("Harder, Better, Faster, Stronger")).toHaveText("Try again"),
+          // Said to assistive technology, and marked on the row's last control: no control under the row.
+          see(text(failure)).toHaveAttr("role", "status"),
+          expectAll(all.selector("[data-amiss]")).toHaveCount(1),
+          expectAll(tryAgainButtons).toHaveCount(0),
           // The other row is as it was.
           see(trackRow(/Technologic/)).toHaveAttr("aria-busy", "false"),
           inside(rowOf(explicitTrack.id), see(text("4:05")).toExist()),
@@ -836,45 +854,11 @@ describe("A4: a row says that its track failed to open", () => {
       ).toHaveAttr("role", "status"),
     ));
 
-  test("Try again is an ordinary button after the row, so the keyboard reaches it", () =>
+  test("the row is the height it was: what it has to say takes no room", () =>
     scene(
       app,
       given(failedToOpen),
-      inside(
-        topSongs,
-        see(tryAgainOn("Harder, Better, Faster, Stronger")).toHaveAttr("type", "button"),
-        see(tryAgainOn("Harder, Better, Faster, Stronger")).not.toHaveAttr("tabindex"),
-        see(tryAgainOn("Harder, Better, Faster, Stronger")).not.toHaveAttr("disabled"),
-        see(tryAgainOn("Harder, Better, Faster, Stronger")).toHaveClass("focus-visible:outline-2"),
-        // It is not inside the row's last control: a button in a button is no button at all.
-        inside(
-          trackRow(/Harder, Better, Faster, Stronger/),
-          see(tryAgainOn("Harder, Better, Faster, Stronger")).toBeAbsent(),
-        ),
-      ),
-    ));
-
-  test("Try again retries in place: the row loads again, and takes the focus the button held", () =>
-    scene(
-      app,
-      given(failedToOpen),
-      click(tryAgainOn("Harder, Better, Faster, Stronger")),
-      Command.expectExact(Catalog.TrackDetail, FocusTrackRow),
-      Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
-      inside(
-        onScreen,
-        see(pageTitle("New")).toExist(),
-        see(trackRow(/Harder, Better, Faster, Stronger/)).toHaveAttr("aria-busy", "true"),
-        // Loading, and no longer failed.
-        see(text(failure)).toBeAbsent(),
-        expectAll(tryAgainButtons).toHaveCount(0),
-      ),
-      Command.resolve(Catalog.TrackDetail, reply.track(nextId(failedToOpen))),
-      Command.resolveAll(
-        [NavigateInternal, Message.CompletedNavigateInternal()],
-        [FocusPage, Message.CompletedFocusPage()],
-      ),
-      inside(onScreen, see(pageTitle("Harder, Better, Faster, Stronger")).toExist()),
+      inside(topSongs, see(text(failure)).toHaveClass("sr-only")),
     ));
 
   test("the failure stays on its row while another row is opened", () =>
@@ -884,7 +868,7 @@ describe("A4: a row says that its track failed to open", () => {
       inside(
         topSongs,
         see(text(failure)).toExist(),
-        see(tryAgainOn("Harder, Better, Faster, Stronger")).toExist(),
+        expectAll(all.selector("[data-amiss]")).toHaveCount(1),
         see(trackRow(/Technologic/)).toHaveAttr("aria-busy", "true"),
       ),
     ));
@@ -1135,9 +1119,9 @@ describe("B: a track reached through the browser's history fails in its own page
         onScreen,
         see(pageTitle("Harder, Better, Faster, Stronger")).toExist(),
         see(text("March 12, 2001")).toExist(),
-        see(text(/Showing what loaded earlier/)).toExist(),
-        see(tryAgain).toExist(),
       ),
+      see(text(/Showing what loaded earlier/)).toExist(),
+      see(tryAgain).toExist(),
       see(role("alert")).toBeAbsent(),
     );
   });

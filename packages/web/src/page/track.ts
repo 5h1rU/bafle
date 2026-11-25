@@ -11,10 +11,18 @@ import { AsyncData } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message.ts";
 import type { TrackData } from "../model.ts";
-import { isPlayable, type TrackStatus } from "../player/model.ts";
+import { isPlayable, type QueuePlace, type TrackStatus } from "../player/model.ts";
 import { type AppRoute, homeRouter } from "../route.ts";
 import { artworkView, coverView } from "../view/artwork.ts";
-import { pauseIcon, playIcon, retryIcon, spinnerIcon } from "../view/icon.ts";
+import {
+  checkIcon,
+  pauseIcon,
+  playIcon,
+  playLastIcon,
+  playNextIcon,
+  retryIcon,
+  spinnerIcon,
+} from "../view/icon.ts";
 import {
   PAGE_IDS,
   PAGE_TITLE_CLASS,
@@ -153,12 +161,71 @@ const playControlFace = (status: TrackStatus): Readonly<{ icon: Html; words: str
   );
 
 /**
+ * What a track's page needs to know of the queue: whether its track can be
+ * put in it, which is once something else is playing, and whether it has
+ * just been, and where.
+ */
+export type Queueing = Readonly<{
+  isOffered: boolean;
+  maybeQueued: Option.Option<QueuePlace>;
+}>;
+
+const QUEUE_LOOKS: Readonly<
+  Record<QueuePlace, Readonly<{ label: string; done: string; icon: (className: string) => Html }>>
+> = {
+  Next: { label: "Play next", done: "Plays next", icon: playNextIcon },
+  Last: { label: "Add to queue", done: "Added to the queue", icon: playLastIcon },
+};
+
+/**
+ * One of the page's two ways to put its track in the queue: right after the
+ * current track, or after all the rest. It is what a row's menu offers for
+ * its track. Pressed, it shows for a moment that it was done.
+ */
+const queueControlView = (
+  track: Track,
+  place: QueuePlace,
+  maybeQueued: Option.Option<QueuePlace>,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const look = QUEUE_LOOKS[place];
+  const isDone = Option.contains(maybeQueued, place);
+
+  return Button.view(
+    {
+      onClick: Message.ClickedQueueTrack({ trackId: track.id, place }),
+      toView: (attributes) =>
+        h.button(
+          [
+            ...attributes.button,
+            h.AriaLabel(`${look.label}: ${track.title}`),
+            h.Class(
+              "inline-flex h-11 cursor-pointer touch-manipulation items-center justify-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-tile",
+            ),
+          ],
+          [
+            isDone ? checkIcon("size-5 text-accent") : look.icon("size-5 text-muted"),
+            isDone ? look.done : look.label,
+          ],
+        ),
+    },
+    h,
+  );
+};
+
+/**
  * The page's own control for its track. While the player holds the track it
  * is that track's control: it shows what the player is doing and a press
- * stops the sound or brings it back. A track with nothing to play has no
- * control, and the page says why.
+ * stops the sound or brings it back. Beside it, once something else is
+ * playing, are the two ways to put the track in the queue. A track with
+ * nothing to play has no control, and the page says why.
  */
-const playControlView = (track: Track, status: TrackStatus, h: HtmlBuilder<Message>): Html => {
+const playControlView = (
+  track: Track,
+  status: TrackStatus,
+  queueing: Queueing,
+  h: HtmlBuilder<Message>,
+): Html => {
   if (!isPlayable(track)) {
     return h.p([h.Class("mt-6 text-sm text-muted")], ["This song has no audio to play."]);
   }
@@ -185,9 +252,26 @@ const playControlView = (track: Track, status: TrackStatus, h: HtmlBuilder<Messa
         },
         h,
       ),
+      ...(queueing.isOffered && status === "Elsewhere"
+        ? [
+            queueControlView(track, "Next", queueing.maybeQueued, h),
+            queueControlView(track, "Last", queueing.maybeQueued, h),
+          ]
+        : []),
       status === "Failed"
         ? h.p([h.Class("text-sm text-muted")], ["This song could not be played."])
         : h.empty,
+      // Said to assistive technology: the control's own words change, and a
+      // change of name is not always read out.
+      h.p(
+        [h.Role("status"), h.Class("sr-only")],
+        [
+          Option.match(queueing.maybeQueued, {
+            onNone: () => "",
+            onSome: (place) => `${QUEUE_LOOKS[place].done}.`,
+          }),
+        ],
+      ),
     ],
   );
 };
@@ -204,7 +288,12 @@ const creditsView = (track: Track, h: HtmlBuilder<Message>): ReadonlyArray<Html>
   ),
 ];
 
-const foundView = (track: Track, status: TrackStatus, h: HtmlBuilder<Message>): Html =>
+const foundView = (
+  track: Track,
+  status: TrackStatus,
+  queueing: Queueing,
+  h: HtmlBuilder<Message>,
+): Html =>
   h.div(
     [h.Class(LAYOUT_CLASS)],
     [
@@ -227,7 +316,7 @@ const foundView = (track: Track, status: TrackStatus, h: HtmlBuilder<Message>): 
             [track.title, track.explicit ? explicitMarkerView(h) : h.empty],
           ),
           h.p([h.Class("mt-1 text-lg text-muted")], [track.album.title]),
-          playControlView(track, status, h),
+          playControlView(track, status, queueing, h),
           ...creditsView(track, h),
         ],
       ),
@@ -271,6 +360,7 @@ export const view = (
   track: TrackData,
   maybeWayBack: Option.Option<AppRoute>,
   status: TrackStatus,
+  queueing: Queueing,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.keyed("div")(trackId, pageAttributes(PAGE_ID, "OnScreen", h), [
@@ -285,7 +375,7 @@ export const view = (
           () => placeholderView(h),
           Option.match({
             onNone: () => notAvailableView(h),
-            onSome: (found) => foundView(found, status, h),
+            onSome: (found) => foundView(found, status, queueing, h),
           }),
           h,
         ),

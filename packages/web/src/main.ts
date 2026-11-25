@@ -857,6 +857,9 @@ const receive = <A>(
   }
   const settled = modifyFields(page.write(model, AsyncData.settle(page.read(model), outcome)), {
     awaiting: () => Awaiting.Nothing(),
+    // NOTE: a notice the listener put away was about an earlier failure.
+    // The catalog failing to answer again is news, and is said again.
+    staleNotice: (staleNotice) => (Result.isFailure(outcome) ? "Open" : staleNotice),
   });
   return Awaiting.matchOrElse<UpdateReturn>(
     model.awaiting,
@@ -1475,11 +1478,13 @@ const respond = (model: Model, message: Message) =>
 
     ClickedTryAgain: () => Update.combine(model, [reload, focusPage]),
 
-    ClickedTryAgainOnTrack: ({ trackId }) =>
-      Update.combine(model, [follow(AppRoute.Track({ trackId })), focusTrackRow(trackId)]),
+    ClickedDismissStaleNotice: () => ({
+      model: modifyFields(model, { staleNotice: () => "Dismissed" }),
+    }),
 
-    ClickedTryAgainOnAlbum: ({ from, trackId }) =>
-      Update.combine(model, [openAlbumFromRow({ from, trackId }), focusTrackRow(trackId)]),
+    // NOTE: a track's page is a list of one, and its track is queued as a
+    // row's is: the page's control shows that it was done, for a moment.
+    ClickedQueueTrack: ({ trackId, place }) => queueFromRow({ from: "Track", trackId }, place)(model),
 
     UpdatedSearchField: ({ value }) =>
       rewriteSearchTerm(Option.liftPredicate(value, String.isNonEmpty))(model),
@@ -1666,6 +1671,7 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       trail: [],
       navigation: "Open",
       launch: "Launching",
+      staleNotice: "Open",
       // NOTE: what the screen is, the document says as the app starts
       // (`screens` in subscription.ts). Until it has, nothing has been
       // played, and the two screens differ only in what the player is.

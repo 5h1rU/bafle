@@ -69,7 +69,9 @@ const songs = role("list", { name: "Songs" });
 const topSongs = role("list", { name: "Top songs" });
 const more = (title: string) => role("button", { name: `More: ${title}` });
 const playRow = (title: string) => role("button", { name: new RegExp(`^Play: ${title}`) });
-const item = (name: string) => role("menuitem", { name });
+const item = (name: string | RegExp) => role("menuitem", { name });
+/** The last control of a row that has a page that would not open, or is not to be had, to answer for. */
+const amiss = all.selector("[data-amiss]");
 const items = all.role("menuitem");
 const tryAgain = role("button", { name: "Try again" });
 const tryAgainButtons = all.role("button", { name: /^Try again/ });
@@ -334,7 +336,7 @@ describe("rule 6: a row says that its album failed to open", () => {
   const failed = answered(openingFromFirstOfTwo, reply.albumRefused);
   const failure = "This album could not be opened. The music catalog is not answering right now.";
 
-  test("the list stays as it is, and the row that asked states the failure with a way to try again", () =>
+  test("the list stays as it is, and the row that asked marks the failure in its last control, with no line of its own", () =>
     scene(
       app,
       given(failed),
@@ -349,8 +351,9 @@ describe("rule 6: a row says that its album failed to open", () => {
           // Said politely, on one row: the other row on the album has nothing to say of it.
           see(text(failure)).toHaveAttr("role", "status"),
           expectAll(saying(failure)).toHaveCount(1),
-          expectAll(tryAgainButtons).toHaveCount(1),
-          see(tryAgainOnAlbum).toHaveText("Try again"),
+          // One row is marked, and no row has a control under it.
+          expectAll(amiss).toHaveCount(1),
+          expectAll(tryAgainButtons).toHaveCount(0),
         ),
       ),
       see(role("alert")).toBeAbsent(),
@@ -366,38 +369,43 @@ describe("rule 6: a row says that its album failed to open", () => {
       ).toHaveAttr("role", "status"),
     ));
 
-  test("Try again retries in place: the row loads again, takes the focus, and the album opens", () =>
+  test("the row's menu says why on the item, and the item pressed tries again in place", () =>
     scene(
       app,
-      given(failed),
-      click(tryAgainOnAlbum),
-      Command.expectExact(Catalog.AlbumDetail, FocusTrackRow),
-      Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      given(after(failed, pressedMore("New", track.id))),
+      menuEnters,
+      see(item(/Go to album.*The music catalog is not answering right now.*Tap to try again/)).toExist(),
+      expectAll(all.selector('[data-item-state="failed"]')).toHaveCount(1),
+      click(item(/Go to album/)),
+      Command.expectExact(Catalog.AlbumDetail),
       inside(
         onScreen,
         see(pageTitle("New")).toExist(),
-        see(more(TITLE)).toHaveAttr("aria-busy", "true"),
         see(text(failure)).toBeAbsent(),
-        expectAll(tryAgainButtons).toHaveCount(0),
+        expectAll(amiss).toHaveCount(0),
       ),
       Command.resolve(Catalog.AlbumDetail, reply.album(nextId(failed))),
       Command.resolveAll(
         [NavigateInternal, Message.CompletedNavigateInternal()],
         [FocusPage, Message.CompletedFocusPage()],
       ),
+      Mount.expectEnded(Menu.PortalMenuBackdrop, Menu.AnchorMenu),
       inside(onScreen, see(pageTitle("Discovery")).toExist()),
     ));
 
-  test("a row whose song and whose album both failed says which each Try again is for", () =>
+  test("a row whose song and whose album both failed says each on its own item", () =>
     scene(
       app,
-      given(answered(chose(failed, trackPath(track.id)), reply.trackRefused)),
-      inside(
-        topSongs,
-        expectAll(tryAgainButtons).toHaveCount(2),
-        see(role("button", { name: `Try again: ${TITLE}` })).toHaveText("Try the song again"),
-        see(tryAgainOnAlbum).toHaveText("Try the album again"),
+      given(
+        after(
+          answered(chose(failed, trackPath(track.id)), reply.trackRefused),
+          pressedMore("New", track.id),
+        ),
       ),
+      menuEnters,
+      expectAll(all.selector('[data-item-state="failed"]')).toHaveCount(2),
+      see(item(/Go to album.*Tap to try again/)).toExist(),
+      see(item(/Song details.*Tap to try again/)).toExist(),
     ));
 });
 
@@ -422,14 +430,14 @@ describe("rule 7: a row says that the catalog does not have its album", () => {
       see(role("alert")).toBeAbsent(),
     ));
 
-  test("the row's menu stops offering the album", () =>
+  test("the row's menu lists the album as not available, and it is not to be pressed", () =>
     scene(
       app,
       given(after(missing, pressedMore("New", track.id))),
       menuEnters,
-      expectAll(items).toHaveCount(1),
+      expectAll(items).toHaveCount(2),
       see(item("Song details")).toExist(),
-      see(item("Go to album")).toBeAbsent(),
+      see(item(/Go to album.*Not available/)).toHaveAttr("aria-disabled", "true"),
     ));
 
   test("and so does the menu of every other row on that album", () =>
@@ -441,19 +449,21 @@ describe("rule 7: a row says that the catalog does not have its album", () => {
       see(item("Song details")).toExist(),
     ));
 
-  test("a row with nothing left to offer has no control at its end", () => {
+  test("a row with nothing left to open still has its control, which says so of both", () => {
     // Its song is gone from the catalog too, and nothing is playing to queue it behind.
     const bothGone = answered(chose(missing, trackPath(track.id)), reply.trackMissing);
 
     scene(
       app,
-      given(bothGone),
+      given(after(bothGone, pressedMore("New", track.id))),
+      menuEnters,
       inside(
         topSongs,
-        see(more(TITLE)).toBeAbsent(),
-        expectAll(all.selector("span[data-track-row]")).toHaveCount(1),
         see(text("This song is not available. This album is not available.")).toExist(),
       ),
+      expectAll(items).toHaveCount(2),
+      expectAll(all.selector('[data-item-state="not-available"]')).toHaveCount(2),
+      see(item(/Song details.*Not available/)).toHaveAttr("aria-disabled", "true"),
     );
   });
 });

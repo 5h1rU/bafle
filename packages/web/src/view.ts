@@ -41,6 +41,7 @@ import {
   maybeGenreIdInDocument,
   maybeHeadedFor,
   maybePlaylistIdInDocument,
+  maybeStaleError,
   maybeStationIdInDocument,
   type Model,
   playlistData,
@@ -77,6 +78,7 @@ import {
   trackRouter,
 } from "./route.ts";
 import { artworkFlightRules, routeArtwork } from "./view/artwork.ts";
+import { staleBannerView } from "./view/feedback.ts";
 import {
   genresIcon,
   homeIcon,
@@ -908,6 +910,7 @@ const passingPlaceView = (
   trail: Model["trail"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
+  rowDone: Model["rowDone"],
   h: HtmlBuilder<Message>,
 ): Html =>
   AppRoute.matchOrElse(
@@ -922,6 +925,15 @@ const passingPlaceView = (
               trackDataIn(tracks, trackId),
               wayBackOn(trail),
               Player.statusFor(playingTrackId, playingStatus, trackId),
+              {
+                // A queue is what comes after a track: there is one once something plays.
+                isOffered: playingTrackId !== undefined,
+                maybeQueued: pipe(
+                  rowDone.maybeRow,
+                  Option.filter((row) => row.from === "Track" && row.trackId === trackId),
+                  Option.map((row) => row.place),
+                ),
+              },
               h,
             ),
           ],
@@ -1087,6 +1099,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
           model.trail,
           playingTrackId,
           playingStatus,
+          model.rowDone,
           h,
         ]),
   ];
@@ -1306,6 +1319,15 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
         [h.Class("relative min-h-0 min-w-0 flex-1")],
         [
           h.main([h.Class("absolute inset-0")], pagesView(model, h)),
+          // NOTE: over the page and no part of it: the page does not move
+          // when this comes or is put away. Under the expanded player there
+          // is no page to speak of.
+          model.staleNotice === "Open" && !isPlayerExpanded(model)
+            ? Option.match(maybeStaleError(model), {
+                onNone: () => h.empty,
+                onSome: (error) => staleBannerView(error, h),
+              })
+            : h.empty,
           // NOTE: expanded, the player is the page on screen and is drawn in
           // its place among the pages: there is no island under itself. The
           // island is drawn again as the player's sheet uncovers the page it

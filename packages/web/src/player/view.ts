@@ -409,8 +409,11 @@ const trackWordsView = (
   const track = session.current;
 
   return [
+    // NOTE: keyed by the track, so another track's words are another
+    // element; and not by the track's id alone, which is the key of the
+    // cover beside them.
     h.keyed("span")(
-      track.id,
+      `${track.id}/words`,
       [
         h.Class(
           "island-words block min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none",

@@ -1141,6 +1141,71 @@ describe("a track with nothing to play", () => {
     ));
 });
 
+describe("a track's own page puts its track in the queue", () => {
+  const playNext = role("button", { name: "Play next: Technologic" });
+  const addToQueue = role("button", { name: "Add to queue: Technologic" });
+
+  test("once something else is playing it offers both ways, as a row's menu does", () =>
+    scene(
+      app,
+      given(onOtherTracksPage),
+      islandEnters,
+      inside(selector("#track-page"), see(playNext).toExist(), see(addToQueue).toExist()),
+      click(playNext),
+      Command.resolve(WaitToClearRowDone, Message.CompletedWaitToClearRowDone({ turn: 1 })),
+    ));
+
+  test("pressed, the track is next in the queue and the control says so for a moment", () => {
+    const queued = after(
+      onOtherTracksPage,
+      Message.ClickedQueueTrack({ trackId: explicitTrack.id, place: "Next" }),
+    );
+    expect(Option.getOrThrow(queued.player.maybeSession).later[0]?.id).toBe(explicitTrack.id);
+
+    scene(
+      app,
+      given(queued),
+      islandEnters,
+      inside(selector("#track-page"), see(playNext).toContainText("Plays next")),
+    );
+  });
+
+  test("with nothing playing there is no queue to put it in, and for the track that plays there is none either", () => {
+    scene(app, given(onTrack), inside(selector("#track-page"), see(role("button", { name: /^Play next/ })).toBeAbsent()));
+    const onItsOwnPage = after(
+      onTrack,
+      Message.ClickedPlayTrack({ trackId: track.id, from: "Track" }),
+    );
+    expect(isPlayerExpanded(onItsOwnPage)).toBe(true);
+  });
+});
+
+describe("a row never grows a line", () => {
+  test("a song that could not be played is marked where it would have shown that it sounds", () => {
+    const failed = after(chosen, said(1, "Failed"), player(Player.Message.FailedRefreshSource({ order: 1 })));
+
+    scene(
+      app,
+      given(failed),
+      islandEnters,
+      inside(
+        rowOf(track.id),
+        see(rowMark("Failed")).toExist(),
+      ),
+      // Said to assistive technology, and taking no room in the list.
+      see(text("This song could not be played.")).toHaveClass("sr-only"),
+    );
+  });
+
+  test("a song with nothing to play says so where its length would be", () =>
+    scene(
+      app,
+      given(after(onHome, clickedLink("/new"), arrived(reply.newMusic(nextId(onHome), { ...trending, tracks: [track, silentTrack] })), changedUrl("/new"))),
+      inside(rowOf(silentTrack.id), see(selector("[data-silent]")).toHaveText("No audio")),
+      see(text("This song has no audio to play.")).toHaveClass("sr-only"),
+    ));
+});
+
 describe("the island", () => {
   test("is a labelled region whose controls name what they do and to which track", () =>
     scene(
@@ -1686,7 +1751,9 @@ describe("the menu at the end of a row", () => {
       Command.resolve(Catalog.TrackDetail, reply.trackLost(nextId(sounding))),
       // Still open, and the way to try again is where the listener's finger is.
       see(more("Technologic")).toHaveAttr("aria-expanded", "true"),
-      see(item(/Song details.*Could not open\. Try again/)).toExist(),
+      // In the colour of what went wrong, with why, and how to try again.
+      see(item(/Song details.*Bafle could not be reached.*Tap to try again/)).toExist(),
+      see(selector('[data-item-state="failed"]')).toExist(),
       inside(role("menu"), expectAll(all.selector("svg.animate-spin")).toHaveCount(0)),
       click(item(/Song details/)),
       inside(item(/Song details/), expectAll(all.selector("svg.animate-spin")).toHaveCount(1)),

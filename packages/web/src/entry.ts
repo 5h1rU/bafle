@@ -145,3 +145,13 @@ const application = Runtime.makeApplication({
 });
 
 Runtime.run(application);
+
+// NOTE: the app's shell is kept for when there is no network (`public/sw.js`),
+// so the app added to a home screen starts without one and says in its own
+// words that it could not reach the catalog. Only in a build: while the app
+// is being worked on, a page kept from a moment ago is the wrong page.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  });
+}

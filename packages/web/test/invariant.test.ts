@@ -1248,8 +1248,8 @@ const acting = (walk: Walk, seed: number): Happening => {
   if (albumRoll < 70 && Array.isReadonlyArrayNonEmpty(failedAlbums)) {
     const row = pick(failedAlbums, albumChoice);
     return {
-      label: "clicks Try again on a row's album",
-      message: Message.ClickedTryAgainOnAlbum({ from: row.from, trackId: row.trackId }),
+      label: "presses Go to album again on the row that failed",
+      message: choseFromRow(row.from, row.trackId, "OpenAlbum"),
       ...unchanged,
     };
   }
@@ -1404,9 +1404,10 @@ const acting = (walk: Walk, seed: number): Happening => {
   }
   const failed = failedTrackIds(walk.model);
   if (roll < 34 && listsTracks(walk.model) && Array.isReadonlyArrayNonEmpty(failed)) {
+    const from: PlayOrigin = walk.model.route._tag === "Search" ? "Search" : "New";
     return {
-      label: "clicks Try again on a row",
-      message: Message.ClickedTryAgainOnTrack({ trackId: pick(failed, choice) }),
+      label: "presses Song details again on the row that failed",
+      message: choseFromRow(from, pick(failed, choice), "OpenSong"),
       ...unchanged,
     };
   }
@@ -1582,7 +1583,9 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching("TrackNotFound")).toBeGreaterThan(WALKS / 50);
   expect(reaching("types")).toBeGreaterThan(WALKS / 10);
   expect(reaching("clicks Try again")).toBeGreaterThan(WALKS / 50);
-  expect(reaching("clicks Try again on a row")).toBeGreaterThan(WALKS / 100);
+  // NOTE: fewer than a hundredth of the walks. The figure it had counted the
+  // album's retry with it, whose name began with this one's.
+  expect(reaching("presses Song details again on the row that failed")).toBeGreaterThan(WALKS / 300);
   expect(reaching("FailedTrackDetail")).toBeGreaterThan(WALKS / 20);
   // Pages chosen by a link did take the screen, and the URL with them.
   expect(reaching("pushes /track/")).toBeGreaterThan(WALKS / 20);
@@ -1594,7 +1597,7 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching("AlbumNotFound")).toBeGreaterThan(WALKS / 50);
   expect(reaching("FailedAlbumDetail")).toBeGreaterThan(WALKS / 20);
   expect(reaching("pushes /album/")).toBeGreaterThan(WALKS / 20);
-  expect(reaching("clicks Try again on a row's album")).toBeGreaterThan(WALKS / 200);
+  expect(reaching("presses Go to album again on the row that failed")).toBeGreaterThan(WALKS / 200);
   expect(reaching("taps a row of the album to play")).toBeGreaterThan(WALKS / 100);
   expect(reaching("chooses Song details on a row of the album")).toBeGreaterThan(WALKS / 100);
   expect(reaching("clicks the album page's Back")).toBeGreaterThan(WALKS / 100);

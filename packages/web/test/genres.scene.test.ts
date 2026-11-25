@@ -269,7 +269,7 @@ describe("rule 6: Genres says its failure on the page", () => {
     );
   });
 
-  test("a refresh that fails leaves the grid as it was, under a quiet notice", () => {
+  test("a refresh that fails leaves the grid as it was, under a notice over the page", () => {
     const refreshing = chose(after(onGenresFromHome, changedUrl("/")), "/genres");
 
     scene(
@@ -277,9 +277,7 @@ describe("rule 6: Genres says its failure on the page", () => {
       given(answered(refreshing, reply.genresLost)),
       inside(onScreen, see(pageTitle("Genres")).toExist(), see(genreTile).toExist()),
       see(role("alert")).toBeAbsent(),
-      see(
-        text("Showing what loaded earlier. Bafle could not be reached. Check your connection."),
-      ).toExist(),
+      see(text("You are offline. Showing what loaded earlier.")).toExist(),
     );
   });
 });

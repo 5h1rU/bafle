@@ -173,6 +173,14 @@ export const gripDotsIcon = (className: string): Html =>
 export const closeIcon = (className: string): Html =>
   outlineIcon(className, ["M6.5 6.5 17.5 17.5", "M17.5 6.5 6.5 17.5"]);
 
+/** A ring with a stroke and a dot in it: something went wrong here. */
+export const alertIcon = (className: string): Html =>
+  outlineIcon(className, [
+    "M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17Z",
+    "M12 7.75v5",
+    "M12 16.25v.01",
+  ]);
+
 /** Three bars: the handle a row of a list is taken up by, to be put elsewhere in it. */
 export const gripIcon = (className: string): Html =>
   outlineIcon(className, ["M5 8.5h14", "M5 12h14", "M5 15.5h14"]);

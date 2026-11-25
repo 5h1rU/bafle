@@ -40,6 +40,7 @@ import {
   bareTrack,
   changedUrl,
   chose,
+  choseFromRow,
   clickedLink,
   explicitTrack,
   featured,
@@ -535,11 +536,11 @@ describe("A4: a track that fails to open says so on its row", () => {
     );
   });
 
-  test("Try again on the row asks again in place; the row takes the focus the button held", () =>
+  test("the item of the row's menu, pressed again, asks again in place", () =>
     story(
       update,
       given(failedToOpen),
-      message(Message.ClickedTryAgainOnTrack({ trackId: track.id })),
+      message(choseFromRow("New", track.id, "OpenSong")),
       model((model) => {
         expect(model.route).toEqual(AppRoute.New());
         // Loading, and no longer failed: a row is in one state at a time.
@@ -550,9 +551,7 @@ describe("A4: a track that fails to open says so on its row", () => {
       }),
       Command.expectExact(
         Catalog.TrackDetail({ input: { trackId: track.id }, requestId: nextId(failedToOpen) }),
-        FocusTrackRow({ pageId: PAGE_IDS.New, trackId: track.id }),
       ),
-      Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
       Command.resolve(Catalog.TrackDetail, reply.track(nextId(failedToOpen))),
       model((model) => {
         expect(model.route).toEqual(trackRoute);
@@ -572,7 +571,7 @@ describe("A4: a track that fails to open says so on its row", () => {
 
   test("a retry that fails again says so again, still on its row", () => {
     const failedAgain = answered(
-      after(failedToOpen, Message.ClickedTryAgainOnTrack({ trackId: track.id })),
+      after(failedToOpen, choseFromRow("New", track.id, "OpenSong")),
       reply.trackLost,
     );
     expect(failedAgain.route).toEqual(AppRoute.New());
@@ -580,7 +579,7 @@ describe("A4: a track that fails to open says so on its row", () => {
   });
 
   test("a retry abandoned for another row leaves the first a plain row: it was tried again", () => {
-    const retrying = after(failedToOpen, Message.ClickedTryAgainOnTrack({ trackId: track.id }));
+    const retrying = after(failedToOpen, choseFromRow("New", track.id, "OpenSong"));
     const openingAnother = chose(retrying, trackPath(explicitTrack.id));
     expect(HashMap.has(openingAnother.tracks, track.id)).toBe(false);
   });
@@ -615,9 +614,10 @@ describe("A5: a track the catalog does not have says so on its row, for good", (
       message(clickedLink(trackPath(track.id))),
       model((model) => expect(model).toBe(missing)),
       Command.expectNone(),
-      message(Message.ClickedTryAgainOnTrack({ trackId: track.id })),
-      model((model) => expect(model.awaiting).toEqual(Awaiting.Nothing())),
-      Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      // Its item in the row's menu is not to be pressed; were it, nothing would be asked.
+      message(choseFromRow("New", track.id, "OpenSong")),
+      model((model) => expect(model).toBe(missing)),
+      Command.expectNone(),
     ));
 
   test("other rows open as before", () => {

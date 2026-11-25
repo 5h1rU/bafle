@@ -6,6 +6,7 @@ import { UrlRequest } from "foldkit/navigation";
 import { Url } from "foldkit/url";
 import { Catalog } from "./catalog.ts";
 import { Message as PlayerMessage } from "./player/message.ts";
+import { QueuePlace } from "./player/model.ts";
 import { Screen } from "./screen.ts";
 import { Message as SheetMessage } from "./sheet/model.ts";
 
@@ -35,8 +36,10 @@ export const Message = defineMessageUnion({
   ChangedUrl: { url: Url },
   ClickedBack: {},
   ClickedTryAgain: {},
-  ClickedTryAgainOnTrack: { trackId: TrackId },
-  ClickedTryAgainOnAlbum: { from: PlayOrigin, trackId: TrackId },
+  /** The control that puts away the notice over a page that could not be refreshed. */
+  ClickedDismissStaleNotice: {},
+  /** A track's own page asks for its track to be put in the queue. */
+  ClickedQueueTrack: { trackId: TrackId, place: QueuePlace },
   UpdatedSearchField: { value: Schema.String },
   ClickedPlayTrack: { trackId: TrackId, from: PlayOrigin },
   GotRowMenuMessage: { from: PlayOrigin, trackId: TrackId, message: Menu.Message },

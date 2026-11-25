@@ -160,16 +160,15 @@ describe("Go to album, from a row's menu", () => {
     expect(asked(failing)).toEqual([]);
   });
 
-  test("Try again on the row asks again in place, and gives the row the focus the button held", () => {
+  test("the item of the row's menu, pressed again, asks again in place", () => {
     const failed = answered(openingAlbumFromRow, reply.albumRefused);
-    const retried = update(failed, Message.ClickedTryAgainOnAlbum(row));
+    const retried = update(failed, choseFromRow(row.from, row.trackId, "OpenAlbum"));
 
     expect(retried.model.route).toEqual(AppRoute.New());
     expect(retried.model.awaiting).toMatchObject({ _tag: "Intention", route: albumRoute });
     expect(albumData(retried.model, album.id)).toEqual(AlbumData.Loading());
     expect(asked(retried)).toEqual([
       ["AlbumDetail", { input: { albumId: album.id }, requestId: "page:3" }],
-      ["FocusTrackRow", { pageId: PAGE_IDS.New, trackId: track.id }],
     ]);
   });
 
@@ -181,13 +180,13 @@ describe("Go to album, from a row's menu", () => {
 
     expect(missing.model.route).toEqual(AppRoute.New());
     expect(albumData(missing.model, album.id)).toEqual(AlbumData.Success({ data: Option.none() }));
-    // What was chosen is gone from the row's menu: the row is given the focus back.
+    // What was chosen is no longer to be pressed in the row's menu: the row is given the focus back.
     expect(asked(missing)).toEqual([
       ["FocusTrackRow", { pageId: PAGE_IDS.New, trackId: track.id }],
     ]);
 
     // Asking for it again, by a Message that was already on its way, changes nothing.
-    const again = update(missing.model, Message.ClickedTryAgainOnAlbum(row));
+    const again = update(missing.model, choseFromRow(row.from, row.trackId, "OpenAlbum"));
     expect(again.model.awaiting).toEqual(Awaiting.Nothing());
     expect(again.model.route).toEqual(AppRoute.New());
     expect(names(again)).not.toContain("AlbumDetail");

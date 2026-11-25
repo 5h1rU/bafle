@@ -4,6 +4,7 @@ import * as Match from "effect/Match";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { LoadError } from "../catalog.ts";
 import { Message } from "../message.ts";
+import { closeIcon } from "./icon.ts";
 
 // VIEW
 
@@ -56,16 +57,61 @@ export const failureView = (what: string, error: LoadError, h: HtmlBuilder<Messa
     ],
   );
 
-/** A refresh failed behind content that is still on screen: a quiet line above it, nothing replaced. */
-export const staleNoticeView = (error: LoadError, h: HtmlBuilder<Message>): Html =>
+/** Why a page shows what it loaded earlier, in a few words: there is little room over a page. */
+const staleReason = (error: LoadError): string =>
+  Match.value(error).pipe(
+    Match.when("CatalogUnavailable", () => "The catalog is not answering."),
+    Match.when("Unreachable", () => "You are offline."),
+    Match.exhaustive,
+  );
+
+/**
+ * A refresh failed behind content that is still on screen. It is said over
+ * the top of the page, on a piece of its own that takes no room in the page:
+ * what is on the page stays where it is when the notice comes, and when the
+ * listener puts it away. It offers to try again, and to be put away.
+ */
+// NOTE: on a narrow screen it keeps clear of the page's top corner, where a
+// page that is no section has its way back (`wayBack.ts`).
+export const staleBannerView = (error: LoadError, h: HtmlBuilder<Message>): Html =>
   h.div(
     [
       h.Class(
-        "mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line bg-panel px-4 py-2 text-sm text-muted",
+        "pointer-events-none absolute top-2 right-3 left-16 z-30 flex justify-center md:top-3 md:right-6 md:left-6",
       ),
     ],
     [
-      h.p([h.Role("status")], [`Showing what loaded earlier. ${reason(error)}`]),
-      tryAgainView("text-accent underline underline-offset-2 hover:no-underline", h),
+      h.div(
+        [
+          h.DataAttribute("stale-notice", ""),
+          h.Class(
+            "pointer-events-auto flex max-w-full items-center gap-3 rounded-2xl border border-line bg-panel/90 py-1.5 pr-1.5 pl-4 text-sm shadow-lg backdrop-blur-xl",
+          ),
+        ],
+        [
+          h.p(
+            [h.Role("status"), h.Class("min-w-0")],
+            [`${staleReason(error)} Showing what loaded earlier.`],
+          ),
+          tryAgainView("shrink-0 text-accent underline underline-offset-2 hover:no-underline", h),
+          Button.view(
+            {
+              onClick: Message.ClickedDismissStaleNotice(),
+              toView: (attributes) =>
+                h.button(
+                  [
+                    ...attributes.button,
+                    h.AriaLabel("Dismiss"),
+                    h.Class(
+                      "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted hover:bg-tile hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                    ),
+                  ],
+                  [closeIcon("size-4")],
+                ),
+            },
+            h,
+          ),
+        ],
+      ),
     ],
   );

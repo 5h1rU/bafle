@@ -18,6 +18,10 @@
   --color-accent: #6e2763;
   --color-accent-wash: #efdfec;
   --color-on-accent: #ffffff;
+  /* What went wrong: a page that would not open, a song that would not
+     play. The one colour that is not the mark's, so that it is not taken
+     for one more thing lit in the accent. */
+  --color-danger: #b3261e;
   /* The record that comes out of a tile's sleeve while its page is fetched. */
   --color-record: #150e13;
 
@@ -84,6 +88,7 @@
     --color-accent: #e3a6d8;
     --color-accent-wash: #3b2036;
     --color-on-accent: #24121f;
+    --color-danger: #ffb4ab;
     /* Lighter than the page, or the record would be lost against it. */
     --color-record: #33262f;
     /* Lighter than the page, or the figure would be lost against it. */

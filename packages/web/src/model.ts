@@ -155,6 +155,13 @@ export type RowDone = typeof RowDone.Type;
 export const Row = Schema.Struct({ from: PlayOrigin, trackId: TrackId });
 export type Row = typeof Row.Type;
 
+/**
+ * The notice over a page that shows what it held because it could not be
+ * refreshed: there to be read, or put away by the listener.
+ */
+export const StaleNotice = Schema.Literals(["Open", "Dismissed"]);
+export type StaleNotice = typeof StaleNotice.Type;
+
 export const Model = Schema.Struct({
   /**
    * The route whose page is on screen. It is the browser's URL too, except
@@ -242,6 +249,12 @@ export const Model = Schema.Struct({
    * mark the page opened with gives way when it has, and not before.
    */
   launch: Launch,
+  /**
+   * Whether the listener has put away the notice that the page on screen
+   * could not be brought up to date. It is put away until the next time the
+   * catalog cannot be asked: a notice closed says nothing of the next one.
+   */
+  staleNotice: StaleNotice,
   /**
    * Whether the screen is a desktop's, as the document last said. It decides
    * what the player is: on a compact screen it expands into a sheet, on a
@@ -480,6 +493,30 @@ export const canShow = (model: Model, route: AppRoute): boolean =>
     Genre: ({ genreId }) => hasSomethingToShow(genreData(model, genreId)),
     Station: ({ stationId }) => hasSomethingToShow(stationData(model, stationId)),
     NotFound: () => true,
+  });
+
+/** Why what a page holds could not be refreshed, when it holds something and could not. */
+const staleErrorOf = <A>(data: AsyncData.AsyncData<A, LoadError>): Option.Option<LoadError> =>
+  AsyncData.hasData(data) ? AsyncData.getError(data) : Option.none();
+
+/**
+ * Why the page on screen shows what it loaded earlier instead of what the
+ * catalog has now, when that is the case: a refresh behind it failed.
+ */
+export const maybeStaleError = (model: Model): Option.Option<LoadError> =>
+  AppRoute.match(model.route, {
+    Home: () => staleErrorOf(model.home),
+    New: () => staleErrorOf(model.newMusic),
+    Genres: () => staleErrorOf(model.genreList),
+    Radio: () => staleErrorOf(model.stationList),
+    Search: () => staleErrorOf(model.search),
+    Track: ({ trackId }) => staleErrorOf(trackData(model, trackId)),
+    Album: ({ albumId }) => staleErrorOf(albumData(model, albumId)),
+    Artist: ({ artistId }) => staleErrorOf(artistData(model, artistId)),
+    Playlist: ({ playlistId }) => staleErrorOf(playlistData(model, playlistId)),
+    Genre: ({ genreId }) => staleErrorOf(genreData(model, genreId)),
+    Station: ({ stationId }) => staleErrorOf(stationData(model, stationId)),
+    NotFound: () => Option.none(),
   });
 
 /**
