@@ -639,12 +639,13 @@ export type TrackOrder = "Ranked" | "Unranked";
 /**
  * How a list uses the room it is given. `Single` is one column of a width
  * that reads well, however wide the page, and as long as the list is.
- * `Columns` takes the page's width and is never taller than a few rows: the
- * list is laid out in columns of `ROWS_IN_COLUMN` at most, as many as it
- * takes, the first rows down the first and the next down the one after, so
- * a chart still reads from its top. The columns stand in a row that goes on
- * sideways and snaps, as a shelf does: a wide page shows two of them and a
- * narrow one shows one, with the next showing at the edge.
+ * `Columns` takes the page's width and, where it is wide, is never taller
+ * than a few rows: the list is laid out in columns of `ROWS_IN_COLUMN` at
+ * most, as many as it takes, the first rows down the first and the next
+ * down the one after, so a chart still reads from its top. The columns
+ * stand in a row that goes on sideways and snaps, as a shelf does, two of
+ * them seen at once. Where the list is narrow, on a phone, it is one column
+ * of all its rows (`track-columns` in styles.css).
  *
  * Top songs are `Columns` wherever they are listed, on New, on an artist's
  * page and on a genre's: a chart is one thing, and looks one way. So are

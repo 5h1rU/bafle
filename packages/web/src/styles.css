@@ -301,65 +301,74 @@ button:focus-visible [data-glyph] {
 
    Top songs, wherever they are listed (New, an artist's page, a genre's),
    and the songs a search found, take the page's width and are never taller
-   than a few rows. The list is laid out in columns of as many rows as the
-   view says (`--rows`), the first rows down the first column and the next
-   down the one after, so it still reads from its top; and the columns stand
-   in a row that goes on sideways and snaps, a column at its leading edge,
-   as a shelf does. A long list is then as tall as a short one, and what
-   stands under it is in reach.
+   than a few rows where the list is wide. Narrow, on a phone, the list is
+   one column, every row under the one before, as a list of an album's
+   songs is: a row that went on sideways there held one column at a time
+   and hid the rest of the chart behind a swipe.
 
-   How many columns are seen at once goes by the list's own width, not the
-   screen's, since the queue opens beside the page on a desktop's screen and
-   takes room from it: one where the list is narrow, two where it is wide
-   enough for two columns of rows. When there are more than are seen, each
-   is a little narrower, so that the next one shows at the edge and says
-   there is more that way (`--peek`); a list that is all in view (the view
-   says how many columns it has, `data-columns`) has nothing to show there,
-   and its columns take all the width.
+   Wide enough for two columns of rows, the list is laid out in columns of
+   as many rows as the view says (`--rows`), the first rows down the first
+   column and the next down the one after, so it still reads from its top;
+   and the columns stand in a row that goes on sideways and snaps, a column
+   at its leading edge, as a shelf does. A long list is then as tall as a
+   short one, and what stands under it is in reach. When there are more
+   columns than the two seen, each is a little narrower, so that the next
+   one shows at the edge and says there is more that way (`--peek`); a list
+   that is all in view (the view says how many columns it has,
+   `data-columns`) has nothing to show there, and its columns take all the
+   width.
+
+   Which of the two goes by the list's own width, not the screen's, since
+   the queue opens beside the page on a desktop's screen and takes room
+   from it.
 
    The row at the head of a column comes after the foot of the column before
    in the list, and is no neighbour of it on the page: lit, it leaves that
-   row's line alone. */
+   row's line alone. In one column it is that row's neighbour like any
+   other. */
 @layer components {
   .track-columns-place {
     container-type: inline-size;
   }
 
   .track-columns {
-    --seen: 1;
-    --gap: 1.25rem;
-    --peek: 1.75rem;
-    display: grid;
-    grid-auto-flow: column;
-    grid-template-rows: repeat(var(--rows), auto);
-    grid-auto-columns: calc((100% - (var(--seen) - 1) * var(--gap) - var(--peek)) / var(--seen));
-    column-gap: var(--gap);
-  }
-
-  .track-columns > * {
-    scroll-snap-align: start;
-  }
-
-  .track-columns[data-columns="1"] {
-    --peek: 0rem;
-  }
-
-  .track-row:has(+ .track-row[data-column-head]):not(:has(> [data-in-player])):not(
-      :has(.track-row-play:is(:hover, :active))
-    ) {
-    border-bottom-color: var(--color-line);
+    display: flex;
+    flex-direction: column;
   }
 
   @container (width >= 42rem) {
     .track-columns {
-      --seen: 2;
       --gap: 2.5rem;
       --peek: 3rem;
+      display: grid;
+      grid-auto-flow: column;
+      grid-template-rows: repeat(var(--rows), auto);
+      grid-auto-columns: calc((100% - var(--gap) - var(--peek)) / 2);
+      column-gap: var(--gap);
     }
 
     .track-columns:is([data-columns="1"], [data-columns="2"]) {
       --peek: 0rem;
     }
+
+    .track-columns > * {
+      scroll-snap-align: start;
+    }
+
+    .track-row:has(+ .track-row[data-column-head]):not(:has(> [data-in-player])):not(
+        :has(.track-row-play:is(:hover, :active))
+      ) {
+      border-bottom-color: var(--color-line);
+    }
+  }
+}
+
+/* NOTE: one column has nothing to turn. Where a browser cannot read the
+   scroll the arrows would still come under the pointer, so they are taken
+   away; not in a layer, since the arrows' own rules are not. */
+@container (width < 42rem) {
+  [data-turning="rows"] > .turning-place {
+    display: none;
   }
 }
 

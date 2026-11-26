@@ -126,7 +126,7 @@ export const trackListPlaceholderView = (h: HtmlBuilder<Message>): Html =>
     Array.makeBy(TRACK_PLACEHOLDER_ROWS, () => trackRowPlaceholderView(h)),
   );
 
-/** The two columns a wide page shows of a list in columns; a narrow one shows the first, and the edge of the second. */
+/** The two columns a wide page shows of a list in columns; a narrow one shows their rows in one column. */
 const TRACK_PLACEHOLDER_COLUMNS = 2;
 
 /**
