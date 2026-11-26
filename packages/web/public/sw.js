@@ -117,7 +117,7 @@ const page = async (request) => {
     return response;
   });
   if (kept === undefined) {
-    return fromNetwork;
+    return fromNetwork.catch(() => Response.error());
   }
   const late = new Promise((resolve) => setTimeout(() => resolve(kept), PAGE_WAITS_MS));
   return Promise.race([fromNetwork.catch(() => kept), late]);
@@ -129,7 +129,7 @@ const built = async (request) => {
   if (kept !== undefined) {
     return kept;
   }
-  const response = await fetch(request);
+  const response = await fetch(request).catch(() => Response.error());
   if (isTheFile(response)) {
     const cache = await caches.open(CACHE);
     await cache.put(request, response.clone());
@@ -137,16 +137,15 @@ const built = async (request) => {
   return response;
 };
 
-/** Any other file of the app's own: the network's, and the one kept when there is no network. */
-const other = async (request) => {
+/** A file the shell names: the network's, and the one kept when there is no network. */
+// NOTE: with neither, the answer is a network error and not a rejection. The
+// page sees the same failed request either way, but a rejection handed to
+// `respondWith` is also reported in the console as an error of this script's.
+const shellFile = async (request) => {
   try {
     return await fetch(request);
-  } catch (error) {
-    const kept = await caches.match(request);
-    if (kept !== undefined) {
-      return kept;
-    }
-    throw error;
+  } catch {
+    return (await caches.match(request)) ?? Response.error();
   }
 };
 
@@ -160,5 +159,14 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(page(request));
     return;
   }
-  event.respondWith(isBuilt(url) ? built(request) : other(request));
+  if (isBuilt(url)) {
+    event.respondWith(built(request));
+    return;
+  }
+  // NOTE: nothing else of the app's own is ever kept (an icon a home screen
+  // asks for, a launch picture), so there is nothing to answer it with but
+  // the network: it is left to the browser, as the catalog is.
+  if (SHELL_FILES.includes(url.pathname)) {
+    event.respondWith(shellFile(request));
+  }
 });
