@@ -5,6 +5,7 @@ import { Runtime } from "foldkit";
 import {
   CLOSE_DETAIL,
   init,
+  ISLAND_APPEARS,
   OPEN_DETAIL,
   POP_PAGE,
   PUSH_PAGE,
@@ -133,7 +134,14 @@ const application = Runtime.makeApplication({
       return { types: [POP_PAGE] };
     }
     if (artwork !== undefined && !hasPicture) {
-      return action === CHOOSE_TRACK ? false : { types: [action] };
+      if (action !== CHOOSE_TRACK) {
+        return { types: [action] };
+      }
+      // A track chosen where the list has no picture of it (an album's
+      // numbered rows) has nothing to carry to the island, and nothing is
+      // set moving for it. The first one is the exception: the island
+      // itself comes then, with its cover on it.
+      return decision.types.includes(ISLAND_APPEARS) ? { types: [ISLAND_APPEARS] } : false;
     }
     return decision;
   },

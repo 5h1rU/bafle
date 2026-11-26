@@ -194,7 +194,8 @@ describe("the island on a desktop's screen", () => {
         see(text(TITLE)).toExist(),
         see(queueControl).toHaveAttr("aria-expanded", "false"),
         see(role("button", { name: `More: ${TITLE}` })).toExist(),
-        see(role("button", { name: `Back to the start: ${TITLE}` })).toBeEnabled(),
+        // Nothing was played before it, so there is no track for Previous to lead to.
+        see(role("button", { name: "Previous track" })).toBeDisabled(),
         see(role("button", { name: `Pause: ${TITLE}` })).toExist(),
         see(role("button", { name: "Next track: Technologic" })).toBeEnabled(),
       ),
@@ -258,7 +259,7 @@ describe("the island on a desktop's screen", () => {
         see(role("link", { name: `Open the player: ${TITLE} by Daft Punk` })).toExist(),
         see(queueControl).toBeAbsent(),
         see(role("button", { name: `More: ${TITLE}` })).toBeAbsent(),
-        see(role("button", { name: /^(Back to the start|Previous track)/ })).toBeAbsent(),
+        see(role("button", { name: /^Previous track/ })).toBeAbsent(),
         see(role("slider")).toBeAbsent(),
       ),
     ));

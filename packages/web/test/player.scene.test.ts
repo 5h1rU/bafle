@@ -1213,7 +1213,7 @@ describe("the island", () => {
           trackPath(track.id),
         ),
         // Going back, and the progress bar, are the expanded player's.
-        see(role("button", { name: /^(Back to the start|Previous track)/ })).toBeAbsent(),
+        see(role("button", { name: /^Previous track/ })).toBeAbsent(),
         see(role("slider")).toBeAbsent(),
       ),
     ));
@@ -1225,8 +1225,8 @@ describe("the island", () => {
       sheetEnters(),
       inside(
         expandedLayout,
-        // Each step names where it leads: the first track has only its own start behind it.
-        see(control("Back to the start")).toBeEnabled(),
+        // The first track has none behind it: Previous is not to be pressed, as Next is not after the last.
+        see(role("button", { name: "Previous track" })).toBeDisabled(),
         see(text("0:12")).toExist(),
         // The length is the engine's, not the one the catalog lists for the recording.
         see(seekBar).toHaveAttr("aria-valuenow", "12"),
@@ -1517,7 +1517,10 @@ describe("the flight: a track's cover is one element on its way to the island", 
       viewTransition({ previousModel, model: update(previousModel, message).model, message });
 
     // The first track played, another row tapped, Next: the listener's own choices.
-    expect(transition(onNew, tappedFirstRow)).toEqual({ types: ["choose-track", coverName] });
+    // The first one finds no island, and brings it: that is said with it, and never again.
+    expect(transition(onNew, tappedFirstRow)).toEqual({
+      types: ["choose-track", coverName, "island-appears"],
+    });
     expect(
       transition(sounding, Message.ClickedPlayTrack({ trackId: explicitTrack.id, from: "New" })),
     ).toEqual({ types: ["choose-track", `track-cover-${explicitTrack.id}`] });
@@ -1546,7 +1549,7 @@ describe("the flight: a track's cover is one element on its way to the island", 
     // A tap and the engine's first word for it can land in one frame: the runtime tells the last.
     const model = after(onNew, tappedFirstRow, said(1, "Sounding"));
     expect(viewTransition({ previousModel: onNew, model, message: said(1, "Sounding") })).toEqual({
-      types: ["choose-track", coverName],
+      types: ["choose-track", coverName, "island-appears"],
     });
   });
 });

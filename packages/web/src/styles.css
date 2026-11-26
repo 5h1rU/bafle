@@ -1439,15 +1439,58 @@ body {
   animation: 150ms ease-out calc(var(--player-swap-duration) - 150ms) both navigation-arrive;
 }
 
-/* Its first appearance, and only that: it rises into place once. */
-::view-transition-new(player):only-child {
-  animation: var(--player-swap-duration) cubic-bezier(0.23, 1, 0.32, 1) both player-rise;
+/* THE ISLAND'S FIRST APPEARANCE
+
+   Until a track is played there is no island. The first one brings it, and
+   it is seen to come: it rises into its place and grows clear on the way,
+   once (`ISLAND_APPEARS` in main.ts). Where the island stands at the foot of
+   the screen it comes up from under that foot; on a narrow screen it stands
+   over the navigation, and rises only a short way: it is nearly in its
+   place by the time it is clear enough to be seen over the menu's edge.
+
+   It is the box that moves, and not the picture in it: the box is cut a
+   little outside the island (see `::view-transition-group(player)` above),
+   and a picture that rose inside a box standing still was cut by it for
+   most of its way, and seen only as it arrived. The shadow and the light
+   are pictures of their own and rise by the same clock, so the three stay
+   one figure. So does the cover on its way from its row: it has the time
+   and the curve of the rise, and lands on its disc as the island comes to
+   rest under it. A curve that went past its place and came back, as the
+   dock's springs do, would move the island under a cover already still. */
+:root:active-view-transition-type(island-appears) {
+  --player-swap-duration: 420ms;
+  --island-rise: 2rem;
 }
 
-@keyframes player-rise {
+@media (width >= 48rem) {
+  :root:active-view-transition-type(island-appears) {
+    --island-rise: 6.5rem;
+  }
+}
+
+:root:active-view-transition-type(island-appears)::view-transition-group(player),
+:root:active-view-transition-type(island-appears)::view-transition-group(island-shadow),
+:root:active-view-transition-type(island-appears)::view-transition-group(island-light) {
+  animation:
+    var(--player-swap-duration) cubic-bezier(0.3, 0, 0.1, 1) both island-rises,
+    calc(var(--player-swap-duration) * 0.6) ease-out both island-grows-clear;
+}
+
+:root:active-view-transition-type(island-appears)::view-transition-new(player),
+:root:active-view-transition-type(island-appears)::view-transition-new(island-shadow),
+:root:active-view-transition-type(island-appears)::view-transition-new(island-light) {
+  animation: none;
+}
+
+@keyframes island-rises {
+  from {
+    translate: 0 var(--island-rise);
+  }
+}
+
+@keyframes island-grows-clear {
   from {
     opacity: 0;
-    transform: translateY(calc(100% + 1rem));
   }
 }
 

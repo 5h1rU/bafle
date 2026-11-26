@@ -24,6 +24,7 @@ import { formatDuration } from "../view/time.ts";
 import { islandFigureView } from "./islandFigure.ts";
 import { Message } from "./message.ts";
 import {
+  hasEarlier,
   hasLater,
   isShowingActivity,
   isUnderWay,
@@ -264,10 +265,13 @@ const stepControlView = (
     h,
   );
 
-/** Where Previous leads: the track before, or the start of this one when it is the first. */
+/**
+ * Where Previous leads: the track before. The first track has none behind
+ * it, and Previous is then not to be pressed, as Next is not after the last.
+ */
 const previousLabel = (session: Session): string =>
   Option.match(Array.last(session.earlier), {
-    onNone: () => `Back to the start: ${session.current.title}`,
+    onNone: () => "Previous track",
     onSome: (track) => `Previous track: ${track.title}`,
   });
 
@@ -704,7 +708,7 @@ const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>)
       stepControlView(
         previousLabel(session),
         Message.ClickedPrevious(),
-        true,
+        hasEarlier(session),
         previousIcon(STEP_GLYPH_CLASS),
         STEP_ON_SHEET_CLASS,
         h,
@@ -769,7 +773,7 @@ const islandControlsView = (
         ? stepControlView(
             previousLabel(session),
             Message.ClickedPrevious(),
-            true,
+            hasEarlier(session),
             previousIcon("size-5"),
             PREVIOUS_IN_ISLAND_CLASS,
             h,

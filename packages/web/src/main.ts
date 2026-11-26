@@ -1821,6 +1821,13 @@ export const CLOSE_DETAIL = "close-detail";
 export const PUSH_PAGE = "push-page";
 export const POP_PAGE = "pop-page";
 
+/**
+ * Said with `CHOOSE_TRACK` when the track is the first the listener plays:
+ * until then there is no island, and it is seen to come, rising into its
+ * place, where any later track finds it standing.
+ */
+export const ISLAND_APPEARS = "island-appears";
+
 /** What a transition is called when the island grows into the player, and when the player shrinks back. */
 export const PLAYER_OPENS = "player-opens";
 export const PLAYER_CLOSES = "player-closes";
@@ -1916,7 +1923,14 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
           types: [returning ? CLOSE_DETAIL : OPEN_DETAIL, ...Option.toArray(routeArtwork(detail))],
         };
       },
-      onSome: (id) => ({ types: [CHOOSE_TRACK, coverTransitionName(id)] }),
+      onSome: (id) => ({
+        types: [
+          CHOOSE_TRACK,
+          coverTransitionName(id),
+          // NOTE: after the cover's name, which is what is read second (`entry.ts`).
+          ...(Option.isNone(previousModel.player.maybeSession) ? [ISLAND_APPEARS] : []),
+        ],
+      }),
     });
   }
   // NOTE: a sheet the listener swiped off the screen has already gone, and

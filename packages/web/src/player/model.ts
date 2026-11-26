@@ -395,3 +395,7 @@ export const shownPositionSeconds = (session: Session): number =>
   });
 
 export const hasLater = (session: Session): boolean => Array.isReadonlyArrayNonEmpty(session.later);
+
+/** Whether a track was played before this one, for Previous to lead back to. */
+export const hasEarlier = (session: Session): boolean =>
+  Array.isReadonlyArrayNonEmpty(session.earlier);
