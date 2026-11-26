@@ -36,6 +36,7 @@ import {
 } from "./icon.ts";
 import { type Presence, SECTION_HEADING_CLASS, TRACK_ROW_ATTRIBUTE } from "./layout.ts";
 import { formatDuration } from "./time.ts";
+import { turningRowIdOf, turningView } from "./turning.ts";
 
 // VIEW
 
@@ -702,16 +703,17 @@ export const trackListView = (
   const listAttributes = [
     h.Role("list"),
     h.AriaLabelledBy(labelledBy),
-    ...(spread === "Columns" ? trackColumnsAttributes(tracks.length, h) : [h.Class("mt-2")]),
+    ...(spread === "Columns"
+      ? [
+          h.Id(turningRowIdOf(labelledBy)),
+          ...trackColumnsAttributes(tracks.length, h, "turning-row"),
+        ]
+      : [h.Class("mt-2")]),
   ];
   const rowsInColumn = rowsInColumnOf(tracks.length);
   const isColumnHead = (index: number): boolean =>
     spread === "Columns" && index > 0 && index % rowsInColumn === 0;
-
-  return [
-    context.presence === "OnScreen" && context.from !== "Album"
-      ? artworkFlightRules(tracks.map((track) => coverTransitionName(track.id)), h)
-      : h.empty,
+  const list =
     order === "Ranked"
       ? h.ol(
           listAttributes,
@@ -724,7 +726,15 @@ export const trackListView = (
           Array.map(tracks, (track, index) =>
             trackRowView(track, Option.none(), rowLoading(spread, index), isColumnHead(index), context, h),
           ),
-        ),
+        );
+
+  return [
+    context.presence === "OnScreen" && context.from !== "Album"
+      ? artworkFlightRules(tracks.map((track) => coverTransitionName(track.id)), h)
+      : h.empty,
+    // NOTE: a list in columns goes on sideways, so where there is a pointer
+    // it is turned by its two arrows, as a shelf is.
+    spread === "Columns" ? turningView(labelledBy, "Rows", list, h) : list,
   ];
 };
 

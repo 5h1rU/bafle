@@ -109,6 +109,10 @@ export const retryIcon = (className: string): Html =>
 export const forwardIcon = (className: string): Html =>
   outlineIcon(className, ["M9.5 5.5 16 12l-6.5 6.5"]);
 
+/** Points back, to what came before. */
+export const backIcon = (className: string): Html =>
+  outlineIcon(className, ["M14.5 5.5 8 12l6.5 6.5"]);
+
 /** An arrow up and out: what it stands on opens a page of its own. */
 export const openIcon = (className: string): Html =>
   outlineIcon(className, ["M7.5 16.5 16.5 7.5", "M9 7.5h7.5V15"]);

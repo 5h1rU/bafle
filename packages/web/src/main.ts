@@ -71,6 +71,7 @@ import {
   LetGoOfSearchField,
   ScrollPageToTop,
   ShowSearchFromTop,
+  TurnRow,
   WaitForTypingPause,
   WaitToClearRowDone,
 } from "./command.ts";
@@ -1730,6 +1731,11 @@ const respond = (model: Model, message: Message) =>
     CompletedFocusSearchField: () => ({ model }),
 
     CompletedShowSearchFromTop: () => ({ model }),
+
+    // NOTE: where a row stands is the document's and no part of the Model:
+    // the arrow is heard here and the row is turned there.
+    ClickedTurnRow: ({ rowId, way }) => ({ model, commands: [TurnRow({ rowId, way })] }),
+    CompletedTurnRow: () => ({ model }),
 
     // NOTE: the listener has gone from typing to reading what was found, as
     // a drag of the page says: the field gives up the focus, and with it a

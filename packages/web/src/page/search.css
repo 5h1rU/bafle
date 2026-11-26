@@ -357,6 +357,12 @@
   scroll-snap-align: start;
 }
 
+/* The arrows that turn the row stand at the middle of its covers, which
+   are a third of the row here and not a shelf's tile. */
+.search-albums-place .turning {
+  --turning-tile: calc((100% - 1.5rem) / 3);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .search-intro {
     transition: opacity calc(var(--search-travel) * 0.32) linear calc(var(--search-travel) * 0.54);
@@ -580,5 +586,10 @@
   .search-album {
     flex: none;
     max-width: 23.25rem;
+  }
+
+  /* A grid is not turned. */
+  .search-albums-place .turning-place {
+    display: none;
   }
 }

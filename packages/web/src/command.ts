@@ -4,9 +4,11 @@ import { GenreId } from "@bafle/domain/Catalog/Genre";
 import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import { StationId } from "@bafle/domain/Catalog/Station";
 import { TrackId } from "@bafle/domain/Catalog/Track";
+import * as Array from "effect/Array";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import { flow, pipe } from "effect/Function";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Dom } from "foldkit";
 import { back, load, pushUrl, replaceUrl } from "foldkit/navigation";
@@ -15,6 +17,7 @@ import { Message } from "./message.ts";
 import type { ListedSection } from "./model.ts";
 import { searchRouter, trackRouter } from "./route.ts";
 import { asWait } from "./timing.ts";
+import { type Span, turnedFrom, TurnWay } from "./turn.ts";
 import { firstPicturesOf } from "./view/firstPictures.ts";
 import {
   ALBUM_TILE_ATTRIBUTE,
@@ -268,6 +271,47 @@ export const LetGoOfSearchField = Command.define("LetGoOfSearchField", {
     Effect.ignore,
     Effect.as(Message.CompletedLetGoOfSearchField()),
   ),
+});
+
+/** How far in from its edges a row keeps what it snaps to: the page's own margin. */
+const insetOf = (value: string): number => {
+  const inset = Number.parseFloat(value);
+  return Number.isNaN(inset) ? 0 : inset;
+};
+
+/**
+ * Turn a row that goes on sideways a screenful, as one of its arrows asks:
+ * the row is scrolled to where `turnedFrom` says, a piece at its leading
+ * edge, and at once for a listener who asked for less motion. A row with no
+ * more that way, or one that has left the document, stays as it is.
+ */
+export const TurnRow = Command.define("TurnRow", {
+  args: { rowId: Schema.String, way: TurnWay },
+  messages: [Message.CompletedTurnRow],
+  execute: ({ rowId, way }) =>
+    Effect.sync(() => {
+      const row = document.getElementById(rowId);
+      if (row === null) {
+        return;
+      }
+      const style = getComputedStyle(row);
+      const lead = insetOf(style.scrollPaddingInlineStart);
+      const edge = row.getBoundingClientRect().left - row.scrollLeft;
+      const pieces = Array.map(Array.fromIterable(row.children), (piece): Span => {
+        const box = piece.getBoundingClientRect();
+        return { from: box.left - edge, to: box.right - edge };
+      });
+      const seen: Span = {
+        from: row.scrollLeft + lead,
+        to: row.scrollLeft + row.clientWidth - insetOf(style.scrollPaddingInlineEnd),
+      };
+      const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+
+      Option.match(turnedFrom(way, pieces, seen), {
+        onNone: () => undefined,
+        onSome: (from) => row.scrollTo({ left: from - lead, behavior }),
+      });
+    }).pipe(Effect.ignore, Effect.as(Message.CompletedTurnRow())),
 });
 
 /** A query to the catalog, still missing the id its reply will be recognised by. */

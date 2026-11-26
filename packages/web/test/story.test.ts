@@ -16,6 +16,7 @@ import {
   LetGoOfSearchField,
   ScrollPageToTop,
   ShowSearchFromTop,
+  TurnRow,
   WaitForTypingPause,
 } from "../src/command.ts";
 import { init, update } from "../src/main.ts";
@@ -1469,6 +1470,16 @@ describe("rule 6: search keeps its results while it loads", () => {
       message(Message.DraggedSearchPage()),
       Command.expectExact(LetGoOfSearchField()),
       Command.resolve(LetGoOfSearchField, Message.CompletedLetGoOfSearchField()),
+    ));
+
+  test("an arrow of a row that goes on sideways turns that row, and the Model is as it was", () =>
+    story(
+      update,
+      given(onSearch),
+      message(Message.ClickedTurnRow({ rowId: "search-artists-row", way: "Onward" })),
+      model((model) => expect(model).toEqual(onSearch)),
+      Command.expectExact(TurnRow({ rowId: "search-artists-row", way: "Onward" })),
+      Command.resolve(TurnRow, Message.CompletedTurnRow()),
     ));
 
   test("what the field held is kept when the listener leaves Search, answered or not", () => {

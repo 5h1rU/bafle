@@ -38,6 +38,7 @@ import {
   SECTION_HEADING_CLASS,
   STATION_TILE_ATTRIBUTE,
 } from "./layout.ts";
+import { turningRowIdOf, turningView } from "./turning.ts";
 
 // MODEL
 
@@ -270,7 +271,8 @@ const tileView = (
 /**
  * A titled row of tiles that scrolls sideways. Every tile is a link, so the
  * row is scrolled by the focus going from one to the next and takes none
- * itself. The title names the row and nothing else.
+ * itself. The title names the row and nothing else. Where there is a
+ * pointer the row is turned by its two arrows (`turningView`).
  */
 const shelfView = (
   id: string,
@@ -286,17 +288,26 @@ const shelfView = (
     [
       artworkFlightRules(tiles.flatMap((tile) => tile.flightStyle.viewTransitionName ?? []), h),
       h.h2([h.Id(id), h.Class(SECTION_HEADING_CLASS)], [title]),
-      h.ul(
-        [
-          h.Role("list"),
-          h.AriaLabelledBy(id),
-          h.Class(
-            clsx(look.row, "rounded-lg focus-visible:outline-2 focus-visible:outline-accent"),
+      turningView(
+        id,
+        "Tiles",
+        h.ul(
+          [
+            h.Id(turningRowIdOf(id)),
+            h.Role("list"),
+            h.AriaLabelledBy(id),
+            h.Class(
+              clsx(
+                look.row,
+                "turning-row rounded-lg focus-visible:outline-2 focus-visible:outline-accent",
+              ),
+            ),
+          ],
+          Array.map(tiles, (tile, index) =>
+            tileView(tile, shape, look.tile, tileLoading(place, index), h),
           ),
-        ],
-        Array.map(tiles, (tile, index) =>
-          tileView(tile, shape, look.tile, tileLoading(place, index), h),
         ),
+        h,
       ),
     ],
   );

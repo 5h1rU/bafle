@@ -9,6 +9,7 @@ import { Message as PlayerMessage } from "./player/message.ts";
 import { QueuePlace } from "./player/model.ts";
 import { Screen } from "./screen.ts";
 import { Message as SheetMessage } from "./sheet/model.ts";
+import { TurnWay } from "./turn.ts";
 
 // MESSAGE
 
@@ -52,6 +53,9 @@ export const Message = defineMessageUnion({
   ScrolledDown: {},
   ScrolledToTop: {},
   ClickedShowNavigation: {},
+  /** One of the two arrows of a row that goes on sideways: it turns the row a screenful that way. */
+  ClickedTurnRow: { rowId: Schema.String, way: TurnWay },
+  CompletedTurnRow: {},
   GotPlayerMessage: { message: PlayerMessage },
   GotPlayerSheetMessage: { message: SheetMessage },
   GotCatalogMessage: { message: Catalog.Message },

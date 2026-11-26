@@ -363,6 +363,179 @@ button:focus-visible [data-glyph] {
   }
 }
 
+/* A ROW TURNED BY ITS ARROWS
+
+   A shelf and a list in columns go on sideways. A finger swipes them; a
+   pointer has a wheel that only goes up and down, so where there is one
+   the row has two arrows, at its two ends, and each turns it a screenful
+   (`TurnRow`). There the row has no scrollbar to drag, though a trackpad
+   still moves it. On a screen that is touched there are no arrows, and
+   nothing here changes the row.
+
+   The arrows come when the pointer is over the row. Each is there only
+   while there is more its way, and that is read off the row's own scroll,
+   not told by the app: the arrow back grows clear as the row leaves its
+   start, and the arrow onward goes as it reaches its end. A row that shows
+   all it holds has no scroll to read, and so no arrows. Where a browser
+   cannot read a scroll this way both arrows are there under the pointer,
+   and one pressed at the row's end does nothing.
+
+   Beside a shelf's tiles the arrows stand at the height of the pictures'
+   middle, whatever is written under them: each is placed in a box as high
+   as a tile is wide (`--turning-tile`). Beside a list in columns they
+   stand at the middle of its rows. They stand in the page's margin where
+   it is wide enough to hold them, and over the row's edge where it is not.
+
+   NOTE: not in a layer, so that the row's scrollbar, which a utility
+   draws thin, is taken away here. */
+.turning {
+  position: relative;
+  --turning-gutter: 1.25rem;
+  --turning-tile: 9rem;
+}
+
+@media (width >= 40rem) {
+  .turning {
+    --turning-tile: 10rem;
+  }
+}
+
+@media (width >= 48rem) {
+  .turning {
+    --turning-gutter: 2.5rem;
+  }
+}
+
+.turning-place {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .turning-row {
+    scrollbar-width: none;
+  }
+
+  .turning-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .turning-place {
+    position: absolute;
+    z-index: 2;
+    top: 0.25rem;
+    display: grid;
+    width: var(--turning-tile);
+    aspect-ratio: 1;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms;
+  }
+
+  .turning-place[data-way="back"] {
+    left: calc(0.25rem - var(--turning-gutter));
+    justify-items: start;
+  }
+
+  .turning-place[data-way="onward"] {
+    right: calc(0.25rem - var(--turning-gutter));
+    justify-items: end;
+  }
+
+  [data-turning="rows"] > .turning-place {
+    top: 0;
+    bottom: 0.75rem;
+    width: 2rem;
+    aspect-ratio: auto;
+  }
+
+  .turning:hover > .turning-place {
+    opacity: 1;
+  }
+
+  .turning-arrow {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: 50%;
+    background: color-mix(in oklab, var(--color-canvas) 88%, transparent);
+    color: var(--color-ink);
+    box-shadow:
+      0 0 0 1px var(--color-line),
+      var(--island-shadow);
+    backdrop-filter: blur(12px);
+    cursor: pointer;
+    pointer-events: auto;
+    transition:
+      background-color 150ms,
+      scale 150ms;
+  }
+
+  .turning-arrow:hover {
+    background: var(--color-canvas);
+  }
+
+  .turning-arrow:active {
+    scale: 0.92;
+  }
+
+  @supports (animation-timeline: scroll()) and (timeline-scope: --turning) {
+    .turning {
+      timeline-scope: --turning;
+    }
+
+    .turning-row {
+      scroll-timeline: --turning inline;
+    }
+
+    /* NOTE: gone unless the scroll says otherwise. A row with nothing to
+       scroll has no timeline, so nothing says otherwise. */
+    .turning-arrow {
+      visibility: hidden;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: --turning;
+    }
+
+    [data-way="back"] > .turning-arrow {
+      animation-name: turning-back-comes;
+    }
+
+    [data-way="onward"] > .turning-arrow {
+      animation-name: turning-onward-goes;
+    }
+  }
+}
+
+/* NOTE: the last of the way is all gone, not only its very end: a row at
+   rest at its end can be a fraction of a pixel short of it. */
+@keyframes turning-back-comes {
+  0%,
+  0.4% {
+    visibility: hidden;
+    opacity: 0;
+  }
+  2.5%,
+  100% {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+@keyframes turning-onward-goes {
+  0%,
+  97.5% {
+    visibility: visible;
+    opacity: 1;
+  }
+  99.6%,
+  100% {
+    visibility: hidden;
+    opacity: 0;
+  }
+}
+
 /* A CHANGE OF PAGE THE BROWSER HAS ALREADY SHOWN
 
    A swipe from the screen's edge goes back, or forward, and the browser
