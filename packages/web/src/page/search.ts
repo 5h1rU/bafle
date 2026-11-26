@@ -6,9 +6,9 @@ import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { AsyncData } from "foldkit";
 import { type Html, type HtmlBuilder, inertHtml as ih } from "foldkit/html";
-import { SEARCH_FIELD_ID } from "../command.ts";
+import { SEARCH_FIELD_BOX_CLASS, SEARCH_FIELD_ID } from "../command.ts";
 import { Message } from "../message.ts";
-import type { SearchAnswer, SearchData } from "../model.ts";
+import { hasSearchAnswer, type SearchAnswer, type SearchData } from "../model.ts";
 import { artistRouter } from "../route.ts";
 import {
   artistPictureTransitionStyle,
@@ -114,7 +114,7 @@ const fieldView = (fieldText: string, isListening: boolean, h: HtmlBuilder<Messa
           [
             h.label([...attributes.label, h.Class("sr-only")], ["Search the catalog"]),
             h.div(
-              [h.Class("search-field")],
+              [h.Class(SEARCH_FIELD_BOX_CLASS)],
               [
                 searchIcon(clsx("size-5 shrink-0", { "search-listens": isListening })),
                 h.input([
@@ -417,19 +417,6 @@ const resultsView = (
 };
 
 /**
- * Whether the catalog has answered what the field asks, or an earlier term:
- * with what it found, with nothing, or with a failure. Then the page has
- * something to say under the field, and the field stands at its head. Until
- * then, with nothing asked or the first answer on its way, the field is in
- * the middle of the page.
- */
-// NOTE: an answer that found nothing keeps the field at the head. It would
-// otherwise travel down for a term with a slip in it and back up when the
-// slip is put right, under the listener's fingers.
-const hasAnswer = (maybeSearchedTerm: Option.Option<string>, search: SearchData): boolean =>
-  Option.isSome(maybeSearchedTerm) && (AsyncData.hasData(search) || AsyncData.hasError(search));
-
-/**
  * `maybeFieldText` is what the listener typed, as the URL holds it;
  * `maybeSearchedTerm` is the same without the spaces around it, absent when
  * there is nothing to look for.
@@ -447,7 +434,7 @@ export const view = (
       ...pageAttributes(PAGE_ID, context.presence, h),
       // NOTE: read by the style sheet, which draws the field in the middle
       // of the page or at its head, and moves it from one to the other.
-      h.DataAttribute("field", hasAnswer(maybeSearchedTerm, search) ? "docked" : "centered"),
+      h.DataAttribute("field", hasSearchAnswer(maybeSearchedTerm, search) ? "docked" : "centered"),
     ],
     [
       h.div(
@@ -463,7 +450,7 @@ export const view = (
           // only there once the catalog has answered: it is there before it
           // has anything to say, so that what it says is heard as a change.
           h.p([h.Role("status"), h.Class("search-outcome sr-only")], [outcome(search)]),
-          Option.match(Option.filter(maybeSearchedTerm, () => hasAnswer(maybeSearchedTerm, search)), {
+          Option.match(Option.filter(maybeSearchedTerm, () => hasSearchAnswer(maybeSearchedTerm, search)), {
             onNone: () => emptyView(h),
             onSome: (searchedTerm) => resultsView(search, searchedTerm, context, opening, h),
           }),

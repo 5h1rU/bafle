@@ -21,6 +21,7 @@ import {
   ARTIST_TILE_ATTRIBUTE,
   GENRE_TILE_ATTRIBUTE,
   NAVIGATION_ID,
+  PAGE_IDS,
   pageTitleIdOf,
   PLAYLIST_TILE_ATTRIBUTE,
   STATION_TILE_ATTRIBUTE,
@@ -30,6 +31,9 @@ import {
 // COMMAND
 
 export const SEARCH_FIELD_ID = "search-field";
+
+/** The class of the box Search's field is drawn in: the field, its magnifier and the control that empties it. */
+export const SEARCH_FIELD_BOX_CLASS = "search-field";
 
 /** How long the listener must stop typing before Search asks the catalog. */
 export const TYPING_PAUSE = Duration.millis(300);
@@ -234,6 +238,36 @@ export const ScrollPageToTop = Command.define("ScrollPageToTop", {
       Effect.ignore,
       Effect.as(Message.CompletedScrollPageToTop()),
     ),
+});
+
+/**
+ * Bring the screen back to its top, and Search with it. A phone moves the
+ * whole page up to keep a field that is being typed in clear of its
+ * keyboard: with Search's field in the middle of the screen the page is
+ * moved, and when the field then goes up to the page's head it goes off the
+ * top of what is seen. The screen is brought back as the field travels, so
+ * the two are one movement, and at once for a listener who asked for less
+ * motion.
+ */
+export const ShowSearchFromTop = Command.define("ShowSearchFromTop", {
+  messages: [Message.CompletedShowSearchFromTop],
+  execute: Effect.sync(() => {
+    const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    window.scrollTo({ top: 0, left: 0, behavior });
+    document.getElementById(PAGE_IDS.Search)?.scrollTo({ top: 0, behavior });
+  }).pipe(Effect.ignore, Effect.as(Message.CompletedShowSearchFromTop())),
+});
+
+/**
+ * Take the focus from Search's field, so a phone puts its keyboard away and
+ * what was found is seen whole.
+ */
+export const LetGoOfSearchField = Command.define("LetGoOfSearchField", {
+  messages: [Message.CompletedLetGoOfSearchField],
+  execute: Effect.sync(() => document.getElementById(SEARCH_FIELD_ID)?.blur()).pipe(
+    Effect.ignore,
+    Effect.as(Message.CompletedLetGoOfSearchField()),
+  ),
 });
 
 /** A query to the catalog, still missing the id its reply will be recognised by. */

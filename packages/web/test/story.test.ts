@@ -13,7 +13,9 @@ import {
   NavigateBack,
   NavigateInternal,
   ReplaceSearchTerm,
+  LetGoOfSearchField,
   ScrollPageToTop,
+  ShowSearchFromTop,
   WaitForTypingPause,
 } from "../src/command.ts";
 import { init, update } from "../src/main.ts";
@@ -900,6 +902,7 @@ describe("A8: a section commits like any page, and states its failure on its own
       model((model) =>
         expect(model.search).toEqual(SearchData.Success({ data: { term: "daft", results: found } })),
       ),
+      Command.resolve(ShowSearchFromTop, Message.CompletedShowSearchFromTop()),
     );
   });
 
@@ -1442,7 +1445,47 @@ describe("rule 6: search keeps its results while it loads", () => {
         Catalog.CatalogSearch({ input: { term: "daft punk" }, requestId: nextId(typedMore) }),
       ),
       Command.resolve(Catalog.CatalogSearch, reply.search(nextId(typedMore), foundMore)),
+      Command.resolve(ShowSearchFromTop, Message.CompletedShowSearchFromTop()),
     ));
+
+  test("the first answer takes the field to the page's head, and the screen is brought back to its top", () => {
+    const typedFirst = after(opened("/search"), changedUrl("/search?q=d"));
+
+    story(
+      update,
+      given(typedFirst),
+      message(Message.CompletedWaitForTypingPause({ pauseId: nextId(opened("/search")) })),
+      Command.resolve(Catalog.CatalogSearch, reply.search(nextId(typedFirst))),
+      Command.expectExact(ShowSearchFromTop()),
+      Command.resolve(ShowSearchFromTop, Message.CompletedShowSearchFromTop()),
+    );
+  });
+
+  test("a drag of the page under the field takes the focus from the field", () =>
+    story(
+      update,
+      given(onSearch),
+      message(Message.DraggedSearchPage()),
+      Command.expectExact(LetGoOfSearchField()),
+      Command.resolve(LetGoOfSearchField, Message.CompletedLetGoOfSearchField()),
+    ));
+
+  test("what the field held is kept when the listener leaves Search, answered or not", () => {
+    const onHomeAfterSearch = answered(chose(onSearch, "/"), reply.home, "/");
+    expect(onHomeAfterSearch.maybeSearchText).toEqual(Option.some("daft"));
+
+    // Typed on, with no answer for it yet, and then left.
+    const onHomeAfterTyping = answered(chose(typedMore, "/"), reply.home, "/");
+    expect(onHomeAfterTyping.maybeSearchText).toEqual(Option.some("daft punk"));
+
+    // Emptied before leaving: there is nothing to come back to.
+    const onHomeAfterEmptying = answered(
+      chose(after(onSearch, changedUrl("/search")), "/"),
+      reply.home,
+      "/",
+    );
+    expect(onHomeAfterEmptying.maybeSearchText).toEqual(Option.none());
+  });
 
   test("clearing the field goes back to the prompt and abandons what was loading", () =>
     story(

@@ -21,6 +21,7 @@ import {
   FocusTrackRow,
   NavigateInternal,
   ReplaceSearchTerm,
+  ShowSearchFromTop,
   WaitForTypingPause,
 } from "../src/command.ts";
 import { update, viewTransition } from "../src/main.ts";
@@ -560,6 +561,8 @@ describe("rule 6: search keeps its results while it loads", () => {
         Catalog.CatalogSearch,
         reply.search(nextId(after(opened("/search"), changedUrl("/search?q=d")))),
       ),
+      // The field has gone up: the screen is brought back to its top with it.
+      Command.resolve(ShowSearchFromTop, Message.CompletedShowSearchFromTop()),
       see(searchWithField("docked")).toExist(),
       expectAll(listening).toHaveCount(0),
       inside(results, see(sectionTitle("Top result")).toExist()),
@@ -1247,6 +1250,46 @@ describe("rule f: the pages behind the one on screen are kept, and hidden", () =
       see(results).not.toHaveClass("opacity-60"),
       see(results).toHaveAttr("aria-busy", "false"),
     );
+  });
+
+  test("the navigation leads back to the search that was left, with what was typed in its field", () => {
+    const onHomeAfterSearch = answered(chose(onSearch, "/"), reply.home, "/");
+
+    scene(
+      app,
+      given(onHomeAfterSearch),
+      see(destination("Search")).toHaveAttr("href", "/search?q=daft"),
+      Subscription.emit(clickedLink("/search?q=daft")),
+      // It takes the screen at once, as it was left, and is asked again behind itself.
+      Command.resolveAll(
+        [NavigateInternal, Message.CompletedNavigateInternal()],
+        [FocusSearchField, Message.CompletedFocusSearchField()],
+        [Catalog.CatalogSearch, reply.search(nextId(onHomeAfterSearch))],
+      ),
+      inside(
+        onScreen,
+        see(searchField).toHaveValue("daft"),
+        see(searchWithField("docked")).toExist(),
+        inside(results, see(text("Discovery")).toExist()),
+      ),
+    );
+
+    // Typed on and left before the catalog answered: the field is kept as it was typed.
+    const onHomeAfterTyping = answered(
+      chose(after(onSearch, changedUrl("/search?q=daft+punk")), "/"),
+      reply.home,
+      "/",
+    );
+
+    scene(
+      app,
+      given(onHomeAfterTyping),
+      see(destination("Search")).toHaveAttr("href", "/search?q=daft+punk"),
+      see(searchField).toHaveValue("daft punk"),
+    );
+
+    // Never searched: the navigation leads to Search with nothing in it.
+    scene(app, given(onHome), see(destination("Search")).toHaveAttr("href", "/search"));
   });
 
   test("every id in the document is the id of one element, whatever pages are kept", () => {

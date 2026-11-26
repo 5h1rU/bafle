@@ -106,13 +106,22 @@ type Destination = Exclude<
 // to find its way into the circle (`dock-current` in styles.css).
 const DESTINATIONS: ReadonlyArray<Destination> = ["Home", "New", "Genres", "Radio", "Search"];
 
-const DESTINATION_HREFS: Readonly<Record<Destination, string>> = {
+const MENU_HREFS: Readonly<Record<Exclude<Destination, "Search">, string>> = {
   Home: homeRouter(),
   New: newRouter(),
   Genres: genresRouter(),
   Radio: radioRouter(),
-  Search: searchRouter({ maybeTerm: Option.none() }),
 };
+
+/**
+ * Where each item of the navigation leads. Search leads back to what the
+ * listener last had in its field, so it is found as it was left: the same
+ * text in the field and, under it, what the catalog found for it.
+ */
+const destinationHref = (model: Model, destination: Destination): string =>
+  destination === "Search"
+    ? searchRouter({ maybeTerm: model.maybeSearchText })
+    : MENU_HREFS[destination];
 
 const DESTINATION_ICONS: Readonly<Record<Destination, (className: string) => Html>> = {
   Home: homeIcon,
@@ -388,7 +397,7 @@ const navigationView = (model: Model, h: HtmlBuilder<Message>): Html => {
   return Nav.view<Destination>({
     items: DESTINATIONS,
     ariaLabel: "Main",
-    toHref: (destination) => DESTINATION_HREFS[destination],
+    toHref: (destination) => destinationHref(model, destination),
     isItemCurrent: (destination) => model.route._tag === destination,
     toView: ({ nav, items }) =>
       h.nav(
@@ -619,12 +628,13 @@ const newPlaceView = (
   );
 
 /**
- * On screen, Search shows what its route says. Kept, it has no route: its
- * field holds the term its results are for, which is how it was left unless
- * the listener was still typing.
+ * On screen, Search shows what its route says. Kept, it has no route, and
+ * shows what its field held when the listener left it (`maybeSearchText`),
+ * over what the catalog had found by then.
  */
 const searchPlaceView = (
   route: AppRoute,
+  maybeSearchText: Model["maybeSearchText"],
   presence: Presence,
   search: Model["search"],
   tracks: Model["tracks"],
@@ -656,13 +666,12 @@ const searchPlaceView = (
           Search.view(shown.maybeTerm, searchedTerm(shown), search, context, opening, h),
         ],
       },
-      () =>
-        Option.match(AsyncData.getData(search), {
-          onNone: () => [],
-          onSome: ({ term }) => [
-            Search.view(Option.some(term), Option.some(term), search, context, opening, h),
-          ],
-        }),
+      () => {
+        const left = AppRoute.Search({ maybeTerm: maybeSearchText });
+        return AsyncData.hasData(search)
+          ? [Search.view(left.maybeTerm, searchedTerm(left), search, context, opening, h)]
+          : [];
+      },
     ),
     h,
   );
@@ -974,6 +983,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
     ]),
     lazySearchPlace(searchPlaceView, [
       model.route,
+      model.maybeSearchText,
       presenceOf(model, "Search"),
       model.search,
       model.tracks,

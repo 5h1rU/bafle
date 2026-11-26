@@ -8,10 +8,11 @@
    the screen (design/motion/search). When the catalog has answered, the
    field goes up to the head of the page and what was found comes in under
    it; emptied, the field comes back down. The page says which in
-   `data-field`, and the times are the design's: the field travels for 280 ms,
-   the mark and the name are gone in the first 90 and come back once the
-   field is most of the way down, and what was found comes once the field is
-   half way up.
+   `data-field`. The field travels for 400 ms, a little longer than the
+   design's 280, which was too quick to follow on a phone; the other times
+   keep the design's shares of it: the mark and the name are gone in the
+   first third and come back once the field is most of the way down, and
+   what was found comes once the field is half way up.
 
    Wide, it is the design's desktop page (design/desktop.pen): its name at
    the head as every section has it, the field at the far end of that row,
@@ -19,6 +20,7 @@
 #search-page {
   container: search / inline-size;
   --search-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --search-travel: 400ms;
   /* The page's own padding at its top and sides (`pageAttributes`). */
   --search-top: 2rem;
   --search-gutter: 1.25rem;
@@ -360,7 +362,7 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .search-intro {
-    transition: opacity 90ms linear 150ms;
+    transition: opacity calc(var(--search-travel) * 0.32) linear calc(var(--search-travel) * 0.54);
   }
 
   [data-field="docked"] .search-intro {
@@ -368,11 +370,12 @@
   }
 
   .search-bar {
-    transition: transform 280ms var(--search-ease);
+    transition: transform var(--search-travel) var(--search-ease);
   }
 
   .search-results {
-    animation: search-results-come 170ms var(--search-ease) 140ms backwards;
+    animation: search-results-come calc(var(--search-travel) * 0.6) var(--search-ease)
+      calc(var(--search-travel) * 0.5) backwards;
   }
 
   /* The magnifier draws in and comes back for as long as the catalog is

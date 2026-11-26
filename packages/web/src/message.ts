@@ -60,6 +60,10 @@ export const Message = defineMessageUnion({
   CompletedReplaceTrackUrl: {},
   CompletedWaitForTypingPause: { pauseId: Schema.String },
   CompletedFocusSearchField: {},
+  CompletedShowSearchFromTop: {},
+  /** A finger dragged Search's page, off the field's own box, while the field had the focus. */
+  DraggedSearchPage: {},
+  CompletedLetGoOfSearchField: {},
   CompletedFocusPage: {},
   CompletedFocusTrackRow: {},
   CompletedFocusAlbumTile: {},

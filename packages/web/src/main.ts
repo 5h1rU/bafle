@@ -68,7 +68,9 @@ import {
   ReplaceSearchTerm,
   ReplaceTrackUrl,
   type Request,
+  LetGoOfSearchField,
   ScrollPageToTop,
+  ShowSearchFromTop,
   WaitForTypingPause,
   WaitToClearRowDone,
 } from "./command.ts";
@@ -89,6 +91,7 @@ import {
   maybeStationIdInDocument,
   isKnownMissing,
   isLoaded,
+  isSearchFieldAtHead,
   initialPlayerSheet,
   isPlayerExpanded,
   isPlayersPage,
@@ -579,7 +582,11 @@ const withPlayerSheetAnew = (model: Model): Model =>
 const showPage =
   (route: AppRoute, entrance: Entrance): Step =>
   (model) => {
-    const shown = modifyFields(model, { route: () => route });
+    const shown = modifyFields(model, {
+      route: () => route,
+      // What Search's field holds is kept for when the listener comes back to it.
+      ...(route._tag === "Search" && { maybeSearchText: () => route.maybeTerm }),
+    });
     return isSamePage(model.route, route)
       ? { model: shown }
       : {
@@ -1696,6 +1703,15 @@ const respond = (model: Model, message: Message) =>
     CompletedReplaceSearchTerm: () => ({ model }),
     CompletedReplaceTrackUrl: () => ({ model }),
     CompletedFocusSearchField: () => ({ model }),
+
+    CompletedShowSearchFromTop: () => ({ model }),
+
+    // NOTE: the listener has gone from typing to reading what was found, as
+    // a drag of the page says: the field gives up the focus, and with it a
+    // phone's keyboard.
+    DraggedSearchPage: () => ({ model, commands: [LetGoOfSearchField()] }),
+
+    CompletedLetGoOfSearchField: () => ({ model }),
     CompletedFocusPage: () => ({ model }),
     CompletedFocusTrackRow: () => ({ model }),
     CompletedFocusAlbumTile: () => ({ model }),
@@ -1756,12 +1772,27 @@ const showSongOnceCollapsed: Step = (model) =>
     ? { model }
     : foldPlayerCollapse(model);
 
+/**
+ * Search's field has just gone from the middle of the page to its head,
+ * with Search on screen: the catalog answered, or a term answered before was
+ * typed again. The screen is brought back to its top, where the field now
+ * is (`ShowSearchFromTop`). A Search that takes the screen with its field
+ * already at the head is found as it was left, and is not moved.
+ */
+const showSearchFromTopOnceAnswered =
+  (before: Model): Step =>
+  (model) =>
+    isSamePage(before.route, model.route) && !isSearchFieldAtHead(before) && isSearchFieldAtHead(model)
+      ? { model, commands: [ShowSearchFromTop()] }
+      : { model };
+
 export const update = (model: Model, message: Message) =>
   Update.combine(model, [
     (current) => respond(current, message),
     closePlayerMenuOnceCollapsed,
     showSongOnceCollapsed,
     launchOnceShown,
+    showSearchFromTopOnceAnswered(model),
   ]);
 
 // INIT
@@ -1790,6 +1821,7 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       stationList: AsyncData.Idle(),
       search: AsyncData.Idle(),
       searched: HashMap.empty(),
+      maybeSearchText: route._tag === "Search" ? route.maybeTerm : Option.none(),
       tracks: HashMap.empty(),
       albums: HashMap.empty(),
       albumRows: HashMap.empty(),

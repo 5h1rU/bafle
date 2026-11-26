@@ -208,6 +208,14 @@ export const Model = Schema.Struct({
    */
   searched: Schema.HashMap(Schema.String, SearchResults),
   /**
+   * What Search's field held when Search was last on screen, as the listener
+   * left it: what they typed, whether or not the catalog had answered it.
+   * While Search is on screen its field's text is in the URL, and this says
+   * the same; once the listener is elsewhere it is all that is left of it.
+   * The navigation leads back to it, so Search is found as it was left.
+   */
+  maybeSearchText: Schema.Option(Schema.String),
+  /**
    * What the catalog said about every track asked for since the app loaded.
    * Opening one again needs no wait, and a row reads here whether its track
    * is loading, failed to open, or is gone from the catalog.
@@ -456,6 +464,25 @@ export const maybeStationIdInDocument: (
 /** A page with data, or with a failure to state, has more to show than placeholders. */
 const hasSomethingToShow = <A>(data: AsyncData.AsyncData<A, LoadError>): boolean =>
   AsyncData.hasData(data) || AsyncData.hasError(data);
+
+/**
+ * Whether the catalog has answered what Search's field asks, or an earlier
+ * term: with what it found, with nothing, or with a failure. Then the page
+ * has something to say under the field, and the field stands at its head.
+ * Until then, with nothing asked or the first answer on its way, the field
+ * is in the middle of the page.
+ */
+// NOTE: an answer that found nothing keeps the field at the head. It would
+// otherwise travel down for a term with a slip in it and back up when the
+// slip is put right, under the listener's fingers.
+export const hasSearchAnswer = (
+  maybeSearchedTerm: Option.Option<string>,
+  search: SearchData,
+): boolean => Option.isSome(maybeSearchedTerm) && hasSomethingToShow(search);
+
+/** Whether Search is on screen with its field at the head of the page. */
+export const isSearchFieldAtHead = (model: Model): boolean =>
+  hasSearchAnswer(searchedTerm(model.route), model.search);
 
 /**
  * Whether a route's page has more than placeholders to show. Search with a

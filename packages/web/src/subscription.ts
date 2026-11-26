@@ -5,6 +5,7 @@ import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Dom, Subscription } from "foldkit";
+import { SEARCH_FIELD_BOX_CLASS, SEARCH_FIELD_ID } from "./command.ts";
 import { type InputMethod, Message } from "./message.ts";
 import type { Model } from "./model.ts";
 import * as Player from "./player/index.ts";
@@ -144,6 +145,33 @@ const reachedTop: Stream.Stream<Message> = pagePositions.pipe(
 );
 
 /**
+ * A finger dragging Search's page while its field has the focus, anywhere
+ * but on the field's own box: the listener has gone from typing to reading,
+ * and a phone's keyboard is in the way of what was found. A drag within the
+ * box is the listener moving through what they typed, and is not told.
+ */
+// NOTE: it is the finger's drag that is heard and not the page's scroll. The
+// app scrolls the page itself, to its top when the field goes up to the
+// page's head, and that must not take the focus from a listener still
+// typing. Once the field has let go of the focus there is nothing more to
+// tell, so a drag is told once, or a few times before the field lets go.
+const dragsUnderSearchField = Stream.suspend(() =>
+  Dom.streamFromEventFilterMap({
+    target: document,
+    type: "touchmove",
+    options: { capture: true, passive: true },
+    filterMapEvent: ({ target }) => {
+      const field = document.getElementById(SEARCH_FIELD_ID);
+      const isOnField =
+        target instanceof Element && target.closest(`.${SEARCH_FIELD_BOX_CLASS}`) !== null;
+      return field !== null && document.activeElement === field && !isOnField
+        ? Option.some(Message.DraggedSearchPage())
+        : Option.none();
+    },
+  }),
+);
+
+/**
  * Whether the screen is a desktop's: told as the app starts, and again each
  * time the window is made wide enough for three columns or too narrow for
  * them. It is the one width the Model holds, since it changes what the
@@ -200,6 +228,13 @@ const navigationSubscriptions = Subscription.make<Model, Message>()((entry) => (
       );
     },
   }),
+  searchDrag: entry(
+    { isOnSearch: Schema.Boolean },
+    {
+      modelToDependencies: (model) => ({ isOnSearch: model.route._tag === "Search" }),
+      dependenciesToStream: ({ isOnSearch }) => (isOnSearch ? dragsUnderSearchField : Stream.empty),
+    },
+  ),
   pageScroll: entry(
     { isMinimized: Schema.Boolean, pageId: Schema.String },
     {
