@@ -16,7 +16,8 @@
     "alchemy": "catalog:",
     "clsx": "catalog:",
     "effect": "catalog:",
-    "foldkit": "catalog:"
+    "foldkit": "catalog:",
+    "thumbhash": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

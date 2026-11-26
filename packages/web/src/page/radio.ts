@@ -15,6 +15,7 @@ import {
   pageTitleView,
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
+import { SHELVES_AT_HEAD } from "../view/firstPictures.ts";
 import { untitledShelfPlaceholderView } from "../view/placeholder.ts";
 import {
   type IsStationOpening,
@@ -71,9 +72,9 @@ const groupsView = (
 ): Html =>
   Array.match(
     Array.getSomes(
-      // The first genre's shelf is what the page opens with.
+      // The first genres' shelves are what the page opens with.
       Array.map(radio.groups, (group, index) =>
-        maybeGroupView(group, index === 0 ? "AtHead" : "Below", presence, isStationOpening, h),
+        maybeGroupView(group, index < SHELVES_AT_HEAD ? "AtHead" : "Below", presence, isStationOpening, h),
       ),
     ),
     {

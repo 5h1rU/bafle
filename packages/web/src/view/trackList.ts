@@ -13,8 +13,16 @@ import { Message, type PlayOrigin } from "../message.ts";
 import { type AlbumData, isKnownMissing, type TrackData } from "../model.ts";
 import { isPlayable, type QueuePlace, type TrackStatus } from "../player/model.ts";
 import { type RowAction, RowMenu, rowMenuId } from "../rowMenu.ts";
-import { artworkView, artworkFlightRules, coverTransitionName, coverTransitionStyle, flightAttributes } from "./artwork.ts";
+import {
+  artworkView,
+  artworkFlightRules,
+  coverTransitionName,
+  coverTransitionStyle,
+  flightAttributes,
+  type PictureLoading,
+} from "./artwork.ts";
 import { reason } from "./feedback.ts";
+import { ROWS_AT_ONCE } from "./firstPictures.ts";
 import {
   albumIcon,
   alertIcon,
@@ -178,6 +186,7 @@ const trackThumbnailView = (
   track: TrackSummary,
   status: TrackStatus,
   presence: Presence,
+  loading: PictureLoading,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
@@ -187,7 +196,7 @@ const trackThumbnailView = (
       ...flightAttributes(coverTransitionStyle(track.id, { presence, isInPlayer: isInPlayer(status) }), h),
     ],
     [
-      artworkView(Option.fromNullishOr(track.album.cover), "Square", "small", h),
+      artworkView(Option.fromNullishOr(track.album.cover), "Square", "small", h, loading),
       nowPlayingMarkView(status, h),
     ],
   );
@@ -200,6 +209,7 @@ const trackThumbnailView = (
 const rowContentView = (
   track: TrackSummary,
   maybePosition: Option.Option<number>,
+  loading: PictureLoading,
   status: TrackStatus,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
@@ -215,7 +225,7 @@ const rowContentView = (
           : [position.toString()],
       ),
   }),
-  context.from === "Album" ? h.empty : trackThumbnailView(track, status, context.presence, h),
+  context.from === "Album" ? h.empty : trackThumbnailView(track, status, context.presence, loading, h),
   h.div(
     [h.Class("min-w-0 flex-1 text-left")],
     [
@@ -269,6 +279,7 @@ const ROW_PART_CLASS = "flex min-w-0 flex-1 items-center gap-4 py-2.5 pl-2";
 const playRowView = (
   track: TrackSummary,
   maybePosition: Option.Option<number>,
+  loading: PictureLoading,
   status: TrackStatus,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
@@ -291,7 +302,7 @@ const playRowView = (
               ),
             ),
           ],
-          rowContentView(track, maybePosition, status, context, h),
+          rowContentView(track, maybePosition, loading, status, context, h),
         ),
     },
     h,
@@ -301,12 +312,13 @@ const playRowView = (
 const silentRowView = (
   track: TrackSummary,
   maybePosition: Option.Option<number>,
+  loading: PictureLoading,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
     [h.Class(ROW_PART_CLASS)],
-    rowContentView(track, maybePosition, "Elsewhere", context, h),
+    rowContentView(track, maybePosition, loading, "Elsewhere", context, h),
   );
 
 // NOTE: the control answers a press over the whole of its place, a finger
@@ -581,6 +593,7 @@ const noticeView = (
 const trackRowView = (
   track: TrackSummary,
   maybePosition: Option.Option<number>,
+  loading: PictureLoading,
   isColumnHead: boolean,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
@@ -606,8 +619,8 @@ const trackRowView = (
         ],
         [
           isPlayable(track)
-            ? playRowView(track, maybePosition, status, context, h)
-            : silentRowView(track, maybePosition, context, h),
+            ? playRowView(track, maybePosition, loading, status, context, h)
+            : silentRowView(track, maybePosition, loading, context, h),
           Array.match(actionsOf(track, pages, status, context), {
             onEmpty: () => h.empty,
             onNonEmpty: (actions) => rowMenuView(track, actions, pages, context, h),
@@ -639,6 +652,12 @@ export type TrackSpread = "Single" | "Columns";
 
 const COLUMNS = 2;
 
+/**
+ * The first rows of a list are what its page opens with: their thumbnails
+ * are drawn at once, and the reply for the page waits for them (`firstPicturesOf`).
+ */
+const rowLoading = (index: number): PictureLoading => (index < ROWS_AT_ONCE ? "AtOnce" : "WhenNear");
+
 export const trackListView = (
   labelledBy: string,
   order: TrackOrder,
@@ -668,13 +687,13 @@ export const trackListView = (
       ? h.ol(
           listAttributes,
           Array.map(tracks, (track, index) =>
-            trackRowView(track, Option.some(index + 1), isColumnHead(index), context, h),
+            trackRowView(track, Option.some(index + 1), rowLoading(index), isColumnHead(index), context, h),
           ),
         )
       : h.ul(
           listAttributes,
           Array.map(tracks, (track, index) =>
-            trackRowView(track, Option.none(), isColumnHead(index), context, h),
+            trackRowView(track, Option.none(), rowLoading(index), isColumnHead(index), context, h),
           ),
         ),
   ];

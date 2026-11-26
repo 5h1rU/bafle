@@ -279,7 +279,7 @@ describe("the pages", () => {
       inside(role("list", { name: "Top albums" }), see(text("Discovery")).toExist()),
     ));
 
-  test("pictures load lazily, and a missing picture leaves no broken image", () =>
+  test("the pictures a page opens with load at once, the rest lazily, and a missing picture leaves no broken image", () =>
     scene(
       app,
       given(onNew),
@@ -287,7 +287,10 @@ describe("the pages", () => {
         onScreen,
         // Two album covers, on the first track and the shelf; the second track's album has none.
         expectAll(all.selector("img")).toHaveCount(2),
-        expectAll(all.selector('img[loading="lazy"]')).toHaveCount(2),
+        // The first rows are what the page opens with: their reply waited for them, and they
+        // are drawn decoded. The shelf is below the songs, and waits until it is near.
+        expectAll(all.selector('img[loading="eager"][decoding="sync"]')).toHaveCount(1),
+        expectAll(all.selector('img[loading="lazy"][decoding="async"]')).toHaveCount(1),
         // Decorative: the title beside each picture already names it.
         expectAll(all.selector('img[alt=""]')).toHaveCount(2),
       ),

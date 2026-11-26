@@ -13,6 +13,7 @@ import { back, load, pushUrl, replaceUrl } from "foldkit/navigation";
 import { Catalog, type CatalogClient, REPLY_TIMEOUT } from "./catalog.ts";
 import { Message } from "./message.ts";
 import { searchRouter, trackRouter } from "./route.ts";
+import { firstPicturesOf } from "./view/firstPictures.ts";
 import {
   ALBUM_TILE_ATTRIBUTE,
   ARTIST_TILE_ATTRIBUTE,
@@ -244,9 +245,42 @@ const toMessage = (message: CatalogMessage): Message => Message.GotCatalogMessag
 const UNANSWERED: Readonly<{ _tag: "Unknown" }> = { _tag: "Unknown" };
 
 /**
+ * How long a reply is held back for the pictures its page opens with. A
+ * picture that takes longer is drawn when it comes, as any other picture.
+ */
+export const PICTURE_WAIT = Duration.millis(300);
+
+/** One picture, loaded and decoded, so that drawing it is only painting it. */
+const decodePicture = (url: string): Promise<void> => {
+  const image = new Image();
+  image.src = url;
+  // NOTE: a picture that fails to load is no reason to hold the page: it
+  // will be drawn as a failed picture is, wherever the page puts it.
+  return typeof image.decode === "function" ? image.decode().catch(() => undefined) : Promise.resolve();
+};
+
+/**
+ * The pictures are ready, or the wait is over. The page then takes the
+ * screen with them already painted: a picture newly put in the document is
+ * otherwise drawn as an empty box for a frame or more while it decodes, even
+ * when its bytes are already here.
+ */
+export const preparePictures = (urls: ReadonlyArray<string>): Effect.Effect<void> =>
+  urls.length === 0
+    ? Effect.void
+    : pipe(
+        Effect.promise(() => Promise.all(urls.map(decodePicture))),
+        Effect.timeoutOrElse({ duration: PICTURE_WAIT, orElse: () => Effect.void }),
+        Effect.asVoid,
+      );
+
+/**
  * A query gives up after `REPLY_TIMEOUT` and reports the failure it would
  * report for a lost reply, so nothing waits forever on a server that hangs.
- * The request itself is interrupted when the time runs out.
+ * The request itself is interrupted when the time runs out. A reply that
+ * comes in time is held back until the pictures its page opens with are
+ * ready, for `PICTURE_WAIT` at most (`firstPicturesOf`): until then the
+ * Model still says the page is on its way, and the screen is held as it is.
  */
 const asking = (
   query: Command.Command<CatalogMessage, never, CatalogClient>,
@@ -260,6 +294,7 @@ const asking = (
         orElse: () => Effect.succeed(unanswered),
       }),
     ),
+    Command.mapEffect(Effect.tap((message) => preparePictures(firstPicturesOf(message)))),
     Command.mapMessage(toMessage),
   );
 

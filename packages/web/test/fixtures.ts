@@ -44,6 +44,7 @@ const artwork = (name: string) => ({
   small: `https://img.test/${name}/small.jpg`,
   medium: `https://img.test/${name}/medium.jpg`,
   large: `https://img.test/${name}/large.jpg`,
+  placeholder: null,
 });
 
 export const artist: ArtistSummary = {

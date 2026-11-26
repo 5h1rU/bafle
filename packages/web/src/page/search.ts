@@ -95,6 +95,7 @@ const answerView = (
         "Square",
         Array.map(answer.results.albums, albumTile(isAlbumOpening, context.presence)),
         h,
+        "AtHead",
       ),
       maybeTrackSectionView(
         "search-songs",

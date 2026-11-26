@@ -15,7 +15,8 @@
     "@bafle/domain": "workspace:*",
     "@cloudflare/workers-types": "catalog:",
     "alchemy": "catalog:",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "thumbhash": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

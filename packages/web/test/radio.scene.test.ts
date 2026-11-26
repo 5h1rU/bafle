@@ -95,6 +95,7 @@ const picture = {
   small: "https://img.test/st-1/small.jpg",
   medium: "https://img.test/st-1/medium.jpg",
   large: "https://img.test/st-1/large.jpg",
+  placeholder: null,
 };
 
 /** The engine took the order, and the system's display was told. The threshold's timer is still running. */

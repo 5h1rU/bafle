@@ -33,7 +33,10 @@ import {
   listOf,
   pageOf,
 } from "./DeezerSchemas.ts";
+import { artworksIn, withPlaceholders } from "../Placeholder/artworks.ts";
+import { PicturePlaceholders } from "../Placeholder/PicturePlaceholders.ts";
 import {
+  likenessSourceOf,
   toAlbum,
   toArtist,
   toFullAlbum,
@@ -81,6 +84,22 @@ export const FEATURED_KEPT_FOR = Duration.minutes(10);
 export const DeezerMusicCatalog = MusicCatalog.toLayer(
   Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
+    const placeholders = yield* PicturePlaceholders;
+
+    /**
+     * A reply with the likeness of each of its pictures that is known
+     * (`placeholder` on `Artwork`), so that the app draws it where the picture
+     * goes until the picture comes. A reply never fails for want of one.
+     */
+    const pictured = <Reply>(reply: Reply) =>
+      placeholders
+        .likenesses(
+          artworksIn(reply).flatMap((artwork) => {
+            const source = likenessSourceOf(artwork);
+            return source === null ? [] : [{ key: artwork.small, source }];
+          }),
+        )
+        .pipe(Effect.map((likenesses) => withPlaceholders(reply, likenesses)));
 
     /** One of Deezer's answers, decoded. Anything that goes wrong is the catalog being unavailable. */
     const read = <Answer extends Schema.Top>(
@@ -161,7 +180,7 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
       Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? FEATURED_KEPT_FOR : Duration.zero)),
     );
 
-    return {
+    const catalog = {
       featured: () => featured,
       trending: () =>
         Effect.all(
@@ -175,7 +194,7 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
           },
           together,
         ),
-      search: ({ term, limit }) =>
+      search: ({ term, limit }: { readonly term: string; readonly limit: number }) =>
         Effect.all(
           {
             tracks: list("/search/track", DeezerTrack, { q: term, limit }).pipe(
@@ -325,6 +344,23 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
         const playing = yield* list(`/radio/${stationId}/tracks`, DeezerTrack, { limit: tracks });
         return toFullStation(answer, playing);
       }),
+    };
+
+    // NOTE: the likenesses are added to each reply as it leaves, and not to
+    // what is kept: Home is kept for ten minutes, and the likenesses worked
+    // out meanwhile reach it on the next visit.
+    return {
+      featured: () => catalog.featured().pipe(Effect.flatMap(pictured)),
+      trending: () => catalog.trending().pipe(Effect.flatMap(pictured)),
+      search: (args) => catalog.search(args).pipe(Effect.flatMap(pictured)),
+      track: (args) => catalog.track(args).pipe(Effect.flatMap(pictured)),
+      album: (args) => catalog.album(args).pipe(Effect.flatMap(pictured)),
+      artist: (args) => catalog.artist(args).pipe(Effect.flatMap(pictured)),
+      playlist: (args) => catalog.playlist(args).pipe(Effect.flatMap(pictured)),
+      genres: () => catalog.genres().pipe(Effect.flatMap(pictured)),
+      genre: (args) => catalog.genre(args).pipe(Effect.flatMap(pictured)),
+      stations: () => catalog.stations().pipe(Effect.flatMap(pictured)),
+      station: (args) => catalog.station(args).pipe(Effect.flatMap(pictured)),
     };
   }),
 );

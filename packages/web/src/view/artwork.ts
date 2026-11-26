@@ -12,6 +12,7 @@ import type { Message } from "../message.ts";
 import { AppRoute } from "../route.ts";
 import { noteIcon } from "./icon.ts";
 import type { Presence } from "./layout.ts";
+import { likenessStyle } from "./likeness.ts";
 
 // VIEW
 
@@ -26,14 +27,19 @@ export type ArtworkSize = keyof Pick<Artwork, "small" | "medium">;
  * opens with are asked for at once and ahead of the rest, since a picture
  * that waits to learn it is on screen is the last thing of the page to arrive.
  */
+// NOTE: the pictures a page opens with are ready before it is drawn: the
+// reply for the page was held until they were loaded and decoded
+// (`firstPicturesOf`). They are drawn in the same frame as the page, decoded
+// as they are drawn, which costs nothing for a picture already decoded; drawn
+// apart from it, they would come a frame or more after the page, as an empty
+// box that fills.
 export type PictureLoading = "AtOnce" | "WhenNear";
 
 const pictureView = <M>(url: string, loading: PictureLoading, h: HtmlBuilder<M>): Html =>
   h.img([
     ...(loading === "AtOnce"
-      ? [h.Loading("eager"), h.Fetchpriority("high")]
-      : [h.Loading("lazy")]),
-    h.Decoding("async"),
+      ? [h.Loading("eager"), h.Fetchpriority("high"), h.Decoding("sync")]
+      : [h.Loading("lazy"), h.Decoding("async")]),
     h.Src(url),
     // The title sits beside every picture, so the picture itself says nothing new.
     h.Alt(""),
@@ -66,6 +72,7 @@ export const artworkView = <M>(
           "rounded-lg": shape === "Square",
         }),
       ),
+      ...styleAttributes(likenessStyle(maybeArtwork), h),
     ],
     [
       Option.match(maybeArtwork, {
@@ -90,7 +97,7 @@ const headPictureView = (
   h.div(
     [
       h.Class(clsx("catalog-art relative aspect-square overflow-hidden bg-tile", shapeClass)),
-      ...flightAttributes(flightStyle, h),
+      ...pictureBoxAttributes(flightStyle, maybeArtwork, h),
     ],
     Option.match(maybeArtwork, {
       onNone: () => [missingPictureView(h)],
@@ -318,6 +325,25 @@ export const flightAttributes = <M>(style: Readonly<Record<string, string>>, h: 
     ? [h.DataAttribute("flight", style.viewTransitionName), h.Style(style)]
     : [];
 
+const styleAttributes = <M>(style: Readonly<Record<string, string>>, h: HtmlBuilder<M>) =>
+  Object.keys(style).length === 0 ? [] : [h.Style(style)];
+
+/**
+ * The box of a picture that travels: its name in a view transition, when it
+ * has one, and its likeness as its ground (`likenessStyle`), in one style.
+ */
+const pictureBoxAttributes = <M>(
+  flightStyle: Readonly<Record<string, string>>,
+  maybeArtwork: Option.Option<Artwork>,
+  h: HtmlBuilder<M>,
+) => {
+  const flight = flightStyle.viewTransitionName
+    ? [h.DataAttribute("flight", flightStyle.viewTransitionName)]
+    : [];
+  const travelling = flightStyle.viewTransitionName ? flightStyle : {};
+  return [...flight, ...styleAttributes({ ...travelling, ...likenessStyle(maybeArtwork) }, h)];
+};
+
 /** Where a track's cover is, for a page that draws it. */
 export type CoverPlace = Readonly<{ presence: Presence; isInPlayer: boolean }>;
 
@@ -355,7 +381,11 @@ export const coverView = (
   h.div(
     [
       h.Class("catalog-art relative aspect-square overflow-hidden rounded-2xl bg-tile"),
-      ...flightAttributes(coverTransitionStyle(trackId, { presence: "OnScreen", isInPlayer }), h),
+      ...pictureBoxAttributes(
+        coverTransitionStyle(trackId, { presence: "OnScreen", isInPlayer }),
+        maybeArtwork,
+        h,
+      ),
     ],
     Option.match(maybeArtwork, {
       onNone: () => [missingPictureView(h)],

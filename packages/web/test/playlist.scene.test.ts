@@ -87,6 +87,7 @@ const picture = {
   small: "https://img.test/pl-1/small.jpg",
   medium: "https://img.test/pl-1/medium.jpg",
   large: "https://img.test/pl-1/large.jpg",
+  placeholder: null,
 };
 
 /** A song of the playlist opened from the playlist's own row: the playlist is behind its page. */

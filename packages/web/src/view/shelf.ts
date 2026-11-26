@@ -9,6 +9,7 @@ import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
+import { GRID_TILES_AT_ONCE, TILES_AT_ONCE } from "./firstPictures.ts";
 import {
   albumRouter,
   artistRouter,
@@ -185,7 +186,7 @@ export type ShelfPlace = "AtHead" | "Below";
 // NOTE: a phone's row shows three tiles and a desktop's twice that. Four is
 // what every screen shows of the row at a page's head, or nearly: asking for
 // more at once would set pictures no one sees yet against the ones they do.
-const TILES_LOADED_AT_ONCE = 4;
+// The reply for the page is held until these are ready (`firstPicturesOf`).
 
 /**
  * When a tile's picture is asked for. The first of the row at a page's head
@@ -193,7 +194,7 @@ const TILES_LOADED_AT_ONCE = 4;
  * screen; every other waits until the listener is near it.
  */
 const tileLoading = (place: ShelfPlace, index: number): PictureLoading =>
-  place === "AtHead" && index < TILES_LOADED_AT_ONCE ? "AtOnce" : "WhenNear";
+  place === "AtHead" && index < TILES_AT_ONCE ? "AtOnce" : "WhenNear";
 
 /**
  * What a tile shows. A tile whose page is on its way says so with its own
@@ -342,7 +343,7 @@ export const maybeTileGridView = (
               [h.Role("list"), h.AriaLabelledBy(labelledBy), h.Class(TILE_GRID_CLASS)],
               // The grid is all its page shows, so it is always at the page's head.
               Array.map(shown, (tile, index) =>
-                tileView(tile, shape, TILE_GRID_TILE_CLASS, tileLoading("AtHead", index), h),
+                tileView(tile, shape, TILE_GRID_TILE_CLASS, index < GRID_TILES_AT_ONCE ? "AtOnce" : "WhenNear", h),
               ),
             ),
           ],

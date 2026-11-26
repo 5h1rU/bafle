@@ -8,12 +8,16 @@ import { HttpServerRequest } from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import * as Layer from "effect/Layer";
 import { DeezerMusicCatalog } from "./Deezer/DeezerMusicCatalog.ts";
+import { PicturePlaceholdersKV } from "./Placeholder/PicturePlaceholders.ts";
 
 /**
  * Which provider the catalog is read from. To change provider, write another
  * `MusicCatalog.toLayer(...)` and name it here: nothing else changes.
  */
-const Catalog = DeezerMusicCatalog.pipe(Layer.provide(FetchHttpClient.layer));
+const Catalog = DeezerMusicCatalog.pipe(
+  Layer.provide(PicturePlaceholdersKV),
+  Layer.provide(Layer.mergeAll(FetchHttpClient.layer, Cloudflare.KV.ReadWriteNamespaceBinding)),
+);
 
 /** Everything the Worker serves: Bafle hosted on Cloudflare, reading its catalog. */
 const BafleLive = Bafle.layer(BafleHandlers).pipe(

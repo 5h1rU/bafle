@@ -16,6 +16,7 @@ import {
   FEATURED_KEPT_FOR,
   SHELF_SIZE,
 } from "../src/Deezer/DeezerMusicCatalog.ts";
+import { NoPicturePlaceholders } from "../src/Placeholder/PicturePlaceholders.ts";
 import {
   type Answer,
   deezerTrack,
@@ -29,13 +30,17 @@ import {
 /** The catalog, read from a fake Deezer. */
 const catalogOver = (answers: Readonly<Record<string, Answer>>) => {
   const deezer = fakeDeezer(answers);
-  return { deezer, layer: DeezerMusicCatalog.pipe(Layer.provide(deezer.layer)) };
+  return {
+    deezer,
+    layer: DeezerMusicCatalog.pipe(Layer.provide(Layer.mergeAll(deezer.layer, NoPicturePlaceholders))),
+  };
 };
 
 const artwork = (id: number) => ({
   small: `https://cdn.test/${id}/250.jpg`,
   medium: `https://cdn.test/${id}/500.jpg`,
   large: `https://cdn.test/${id}/1000.jpg`,
+  placeholder: null,
 });
 
 const daftPunk = { id: "27", name: "Daft Punk" };

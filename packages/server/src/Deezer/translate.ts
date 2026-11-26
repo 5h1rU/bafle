@@ -54,7 +54,26 @@ const asWebp = (url: string): string => url.replace(DEEZER_JPEG, "$1.webp");
  */
 export const toArtwork = (medium: Image, big: Image, xl: Image): Artwork | null =>
   medium && big && xl
-    ? { small: asWebp(medium), medium: asWebp(big), large: asWebp(xl) }
+    ? { small: asWebp(medium), medium: asWebp(big), large: asWebp(xl), placeholder: null }
+    : null;
+
+const DEEZER_RENDITION = /\/\d+x\d+(-[0-9a-f]{6}-\d+-\d+-\d+)\.(?:jpg|webp)$/;
+
+/** The side, in pixels, of the rendition a picture's likeness is worked out from. */
+export const LIKENESS_SIDE = 32;
+
+/**
+ * Where a picture's likeness is worked out from: the same picture, 32
+ * pixels a side, as a PNG, which a Worker can read with nothing but the
+ * platform (`Placeholder/png.ts`). Deezer draws any size its address asks
+ * for, in any of its formats: 32 pixels is some 2 KB, and as much as a
+ * likeness keeps of a picture. An address of any other shape has none.
+ */
+// NOTE: like the WebP, this is what Deezer's image server does, not what it
+// publishes (seen 2026-11-25: 32x32 PNG, 8 bits, RGB, not interlaced).
+export const likenessSourceOf = (artwork: Artwork): string | null =>
+  DEEZER_RENDITION.test(artwork.small)
+    ? artwork.small.replace(DEEZER_RENDITION, `/${LIKENESS_SIDE}x${LIKENESS_SIDE}$1.png`)
     : null;
 
 const toCredit = (artist: { readonly id: number; readonly name: string }): ArtistCredit => ({
