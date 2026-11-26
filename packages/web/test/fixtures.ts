@@ -31,6 +31,7 @@ import { Mount, type SceneStep, scene as foldkitScene } from "foldkit/scene";
 import { fromString, type Url } from "foldkit/url";
 import { Catalog } from "../src/catalog.ts";
 import { init, update } from "../src/main.ts";
+import { PaintSystemBar } from "../src/command.ts";
 import { Message, type PlayOrigin } from "../src/message.ts";
 import { Awaiting, type ListedSection, type Model } from "../src/model.ts";
 import { HoldDockMotion } from "../src/mount.ts";
@@ -446,6 +447,12 @@ export const aheadUnanswered = (first: number, ...sections: ReadonlyArray<Listed
         return [Catalog.StationList, reply.radioLost(requestId)] as const;
     }
   });
+
+/**
+ * What a test that launches the app answers the Command of the launch with:
+ * the bar a phone draws over the app was given the ground of its pages.
+ */
+export const barPainted = [PaintSystemBar, Message.CompletedPaintSystemBar()] as const;
 
 /** The app as a fresh page load leaves it, before any reply. */
 export const opened = (path: string): Model => init(url(path)).model;

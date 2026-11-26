@@ -31,6 +31,7 @@ import { documentTitle, view } from "../src/view.ts";
 import {
   after,
   aheadUnanswered,
+  barPainted,
   album,
   albumPath,
   answered,
@@ -147,7 +148,7 @@ describe("rule 5: a direct link paints the artist page's shape", () => {
       app,
       given(opened(artistPath(artist.id))),
       Subscription.emit(arrived(reply.artist("page:0"))),
-      Command.resolveAll(...aheadUnanswered(1, "Home", "New", "Genres", "Radio")),
+      Command.resolveAll(barPainted, ...aheadUnanswered(1, "Home", "New", "Genres", "Radio")),
       see(pageTitle("Daft Punk")).toExist(),
       expectAll(placeholderBlocks).toHaveCount(0),
       inside(topSongs, expectAll(all.role("listitem")).toHaveCount(2)),

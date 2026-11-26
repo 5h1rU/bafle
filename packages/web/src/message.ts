@@ -81,6 +81,7 @@ export const Message = defineMessageUnion({
   CompletedFocusStationTile: {},
   CompletedFocusNavigation: {},
   CompletedScrollPageToTop: {},
+  CompletedPaintSystemBar: {},
   CompletedHoldDockMotion: {},
   CompletedWaitToClearRowDone: { turn: Schema.Int },
 });

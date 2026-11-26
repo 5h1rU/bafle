@@ -12,6 +12,7 @@ import {
   FocusTrackRow,
   NavigateBack,
   NavigateInternal,
+  PaintSystemBar,
   ReplaceSearchTerm,
   LetGoOfSearchField,
   ScrollPageToTop,
@@ -39,6 +40,7 @@ import { PAGE_IDS } from "../src/view/layout.ts";
 import {
   after,
   aheadUnanswered,
+  barPainted,
   answered,
   arrived,
   awaitedId,
@@ -132,11 +134,15 @@ describe("rule 4: the first paint is never blank", () => {
     expect(asked(openingSearch)).toEqual([
       ["FocusSearchField", undefined],
       ["HomeFeed", { input: {}, requestId: "page:0" }],
+      ["PaintSystemBar", undefined],
     ]);
 
     const openingNowhere = init(url("/nowhere"));
     expect(openingNowhere.model.route).toEqual(AppRoute.NotFound({ path: "/nowhere" }));
-    expect(asked(openingNowhere)).toEqual([["HomeFeed", { input: {}, requestId: "page:0" }]]);
+    expect(asked(openingNowhere)).toEqual([
+      ["HomeFeed", { input: {}, requestId: "page:0" }],
+      ["PaintSystemBar", undefined],
+    ]);
   });
 
   test("placeholders are not worth holding: a link's page takes their place, and the URL with it", () =>
@@ -157,6 +163,7 @@ describe("rule 4: the first paint is never blank", () => {
       Command.resolveAll(
         [NavigateInternal, Message.CompletedNavigateInternal()],
         [Catalog.NewMusic, reply.newMusic(nextId(opened("/")))],
+        barPainted,
         ...aheadUnanswered(2, "Home", "Genres", "Radio"),
       ),
       model((model) => expect(model.newMusic).toEqual(NewMusicData.Success({ data: trending }))),
@@ -174,6 +181,7 @@ describe("rule 4: the first paint is never blank", () => {
       }),
       Command.resolveAll(
         [Catalog.NewMusic, reply.newMusic(nextId(opened("/")))],
+        barPainted,
         ...aheadUnanswered(2, "Home", "Genres", "Radio"),
       ),
     ));
@@ -662,6 +670,9 @@ describe("A6: a request nobody answers is a failure", () => {
         expect(model.home).toEqual(HomeData.Failure({ error: "Unreachable" }));
         expect(model.awaiting).toEqual(Awaiting.Nothing());
       }),
+      // The page has something of its own to say, so the app is launched: nothing is asked ahead.
+      Command.expectExact(PaintSystemBar()),
+      Command.resolveAll(barPainted),
     ));
 });
 
@@ -844,6 +855,7 @@ describe("A8: a section commits like any page, and states its failure on its own
         expect(model.route).toEqual(AppRoute.Home());
         expect(model.home).toEqual(HomeData.Failure({ error: "CatalogUnavailable" }));
       }),
+      Command.resolveAll(barPainted),
     ));
 
   test("Try again loads the failed page in place", () =>
@@ -1051,9 +1063,10 @@ describe("B: the browser moved the URL first, so only the screen can be held", (
         );
       }),
       // Nothing took the screen from anything: no focus moves, nothing is pushed. All that is
-      // asked is the first of the sections, ahead of the listener.
-      Command.expectExact(Catalog.HomeFeed),
-      Command.resolveAll(...aheadUnanswered(1, "Home", "New", "Genres", "Radio")),
+      // asked is the first of the sections, ahead of the listener; and the bar over the app
+      // takes the ground of its pages.
+      Command.expectExact(Catalog.HomeFeed, PaintSystemBar),
+      Command.resolveAll(barPainted, ...aheadUnanswered(1, "Home", "New", "Genres", "Radio")),
     );
 
     const lost = answered(firstPaint, reply.trackLost);

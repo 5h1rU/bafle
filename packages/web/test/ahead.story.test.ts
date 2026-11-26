@@ -2,7 +2,7 @@ import * as Option from "effect/Option";
 import { Command, given, message, model, story } from "foldkit/story";
 import { describe, expect, test } from "vitest";
 import { Catalog } from "../src/catalog.ts";
-import { FocusPage, NavigateInternal } from "../src/command.ts";
+import { FocusPage, NavigateInternal, PaintSystemBar } from "../src/command.ts";
 import { update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import {
@@ -17,6 +17,7 @@ import { AppRoute } from "../src/route.ts";
 import {
   after,
   aheadUnanswered,
+  barPainted,
   allGenres,
   allStations,
   answered,
@@ -78,8 +79,12 @@ describe("the other sections are asked for once the first page has the screen", 
         expect(launched.newMusic).toEqual(NewMusicData.Idle());
       }),
       // One at a time: the others wait for this one's reply.
-      Command.expectExact(Catalog.NewMusic({ input: {}, requestId: nextId(opening) })),
-      Command.resolveAll(...aheadUnanswered(1, "New", "Genres", "Radio")),
+      // And the bar a phone draws over the app takes the ground of its pages.
+      Command.expectExact(
+        Catalog.NewMusic({ input: {}, requestId: nextId(opening) }),
+        PaintSystemBar(),
+      ),
+      Command.resolveAll(barPainted, ...aheadUnanswered(1, "New", "Genres", "Radio")),
     );
   });
 

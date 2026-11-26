@@ -34,6 +34,7 @@ import { documentTitle, view } from "../src/view.ts";
 import {
   after,
   aheadUnanswered,
+  barPainted,
   album,
   albumOpener,
   albumPath,
@@ -205,7 +206,7 @@ describe("rule 5: Genres opens in its shape", () => {
       app,
       given(opened("/genres")),
       Subscription.emit(arrived(reply.genres("page:0"))),
-      Command.resolveAll(...aheadUnanswered(1, "Home", "New", "Radio")),
+      Command.resolveAll(barPainted, ...aheadUnanswered(1, "Home", "New", "Radio")),
       expectAll(placeholderBlocks).toHaveCount(0),
       inside(
         grid,

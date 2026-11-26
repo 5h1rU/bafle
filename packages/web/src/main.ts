@@ -69,6 +69,7 @@ import {
   ReplaceTrackUrl,
   type Request,
   LetGoOfSearchField,
+  PaintSystemBar,
   ScrollPageToTop,
   ShowSearchFromTop,
   TurnRow,
@@ -1774,6 +1775,7 @@ const respond = (model: Model, message: Message) =>
     CompletedFocusStationTile: () => ({ model }),
     CompletedFocusNavigation: () => ({ model }),
     CompletedScrollPageToTop: () => ({ model }),
+    CompletedPaintSystemBar: () => ({ model }),
     CompletedHoldDockMotion: () => ({ model }),
   });
 
@@ -1787,11 +1789,13 @@ const respond = (model: Model, message: Message) =>
  *
  * Launching is also when the other sections start being asked for ahead of
  * the listener (`askNextAhead`): the first page has the screen, and what the
- * network does next no longer holds it back.
+ * network does next no longer holds it back. And it is when the bar a phone
+ * draws over the app takes the ground of the app's pages: until then it had
+ * the mark's, which stood under it.
  */
 const launchOnceShown: Step = (model) =>
   model.launch === "Launching" && canShow(model, model.route)
-    ? askNextAhead(
+    ? Update.combine(
         modifyFields(model, {
           launch: () => "Launched",
           // NOTE: a first page that could not be asked says so, and the
@@ -1801,6 +1805,7 @@ const launchOnceShown: Step = (model) =>
             toAsk: isLoaded(model, model.route) ? SECTIONS_AHEAD : [],
           }),
         }),
+        [askNextAhead, (launched) => ({ model: launched, commands: [PaintSystemBar()] })],
       )
     : { model };
 

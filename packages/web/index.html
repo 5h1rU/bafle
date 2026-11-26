@@ -6,15 +6,22 @@
     <!-- What a search result says under the app's name: the manifest's own words. -->
     <meta name="description" content="Discover albums, artists and playlists, and listen to music on Bafle." />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#46203F" />
+    <!-- The colour a phone draws its own bar in, over the installed app: the ground of what is
+         under it, so the two are one surface, light or dark. The page opens on the mark, so
+         that is its ground at first; once the app has a page of its own to show, each takes the
+         page's ground, which it carries here (`PaintSystemBar` in command.ts). -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#efdfec" data-canvas="#fbf7fa" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#160f15" data-canvas="#160f15" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" media="(prefers-color-scheme: light)" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
     <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" sizes="any" media="(prefers-color-scheme: dark)" />
     <!-- One picture for every home screen, larger than any draws it: a phone
-         only ever brings it down to size. The largest it was offered before
-         was 180 pixels, what an iPhone's home screen draws at its plainest,
-         and wherever the icon is drawn larger than that it was stretched. -->
+         only ever brings it down to size. It is the mark with its colours the
+         other way round, the pale speaker on the deep aubergine. An iPhone,
+         from iOS 26, keeps an icon's ground and fades what stands on it
+         towards that ground: the dark speaker on the pale ground came out
+         washed. Its source is design/apple-touch-icon.svg. -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="mask-icon" href="/icons/monochrome.svg" color="#46203F" />
     <!-- Added to a home screen, the app opens on its own, without the browser round it. -->
@@ -57,16 +64,21 @@
         position: fixed;
         inset: 0;
         z-index: 100;
-        display: grid;
+        display: none;
         place-items: center;
         background: #efdfec;
         color: #46203f;
         visibility: hidden;
         opacity: 0;
         pointer-events: none;
+        /* Once it has given way it is not in the page at all. A browser that takes the colour of
+           its own bars from what lies along the top of the page (Safari, from 26) reads it off
+           a piece that is only clear, and this one is another tone than the page under it. */
         transition:
           opacity 220ms ease-out,
-          visibility 0s 220ms;
+          visibility 0s 220ms,
+          display 0s 220ms;
+        transition-behavior: allow-discrete;
       }
       #splash svg {
         width: 34vw;
@@ -79,6 +91,7 @@
          word, and the mark gives way. */
       #root:empty + #splash,
       [data-launching] + #splash {
+        display: grid;
         visibility: visible;
         opacity: 1;
         pointer-events: auto;

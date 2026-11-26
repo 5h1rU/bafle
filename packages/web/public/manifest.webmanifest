@@ -7,7 +7,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "theme_color": "#46203F",
+  "theme_color": "#EFDFEC",
   "background_color": "#EFDFEC",
   "categories": ["music", "entertainment"],
   "icons": [

@@ -30,6 +30,7 @@ import { documentTitle, view } from "../src/view.ts";
 import {
   after,
   aheadUnanswered,
+  barPainted,
   album,
   albumOpener,
   albumPath,
@@ -146,7 +147,7 @@ describe("rule 5: a direct link paints the album page's shape", () => {
       app,
       given(opened(albumPath(album.id))),
       Subscription.emit(arrived(reply.album("page:0"))),
-      Command.resolveAll(...aheadUnanswered(1, "Home", "New", "Genres", "Radio")),
+      Command.resolveAll(barPainted, ...aheadUnanswered(1, "Home", "New", "Genres", "Radio")),
       see(pageTitle("Discovery")).toExist(),
       expectAll(placeholderBlocks).toHaveCount(0),
       inside(songs, expectAll(all.role("listitem")).toHaveCount(3)),

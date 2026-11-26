@@ -243,6 +243,26 @@ export const ScrollPageToTop = Command.define("ScrollPageToTop", {
     ),
 });
 
+/** Marks the colour a `theme-color` carries for the page's own ground. */
+const CANVAS_ATTRIBUTE = "data-canvas";
+
+/**
+ * Give the bar a phone draws over the installed app the ground of the app's
+ * pages. The document says the bar's colour (`theme-color` in index.html),
+ * one for each colour scheme, and opens with the ground of the mark it opens
+ * on, which is another tone than a page's. Each also carries the page's
+ * ground, and takes it here, once: when the mark gives way to the first
+ * page. The colours stay in the document, beside the mark's own.
+ */
+export const PaintSystemBar = Command.define("PaintSystemBar", {
+  messages: [Message.CompletedPaintSystemBar],
+  execute: Effect.sync(() => {
+    document.querySelectorAll(`meta[name="theme-color"][${CANVAS_ATTRIBUTE}]`).forEach((colour) => {
+      colour.setAttribute("content", colour.getAttribute(CANVAS_ATTRIBUTE) ?? "");
+    });
+  }).pipe(Effect.ignore, Effect.as(Message.CompletedPaintSystemBar())),
+});
+
 /**
  * Bring the screen back to its top, and Search with it. A phone moves the
  * whole page up to keep a field that is being typed in clear of its
