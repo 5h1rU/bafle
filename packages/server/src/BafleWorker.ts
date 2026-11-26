@@ -8,6 +8,7 @@ import { HttpServerRequest } from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import * as Layer from "effect/Layer";
 import { DeezerMusicCatalog } from "./Deezer/DeezerMusicCatalog.ts";
+import { KeptRepliesKV } from "./Kept/KeptReplies.ts";
 import { PicturePlaceholdersKV } from "./Placeholder/PicturePlaceholders.ts";
 
 /**
@@ -15,7 +16,7 @@ import { PicturePlaceholdersKV } from "./Placeholder/PicturePlaceholders.ts";
  * `MusicCatalog.toLayer(...)` and name it here: nothing else changes.
  */
 const Catalog = DeezerMusicCatalog.pipe(
-  Layer.provide(PicturePlaceholdersKV),
+  Layer.provide(Layer.mergeAll(PicturePlaceholdersKV, KeptRepliesKV)),
   Layer.provide(Layer.mergeAll(FetchHttpClient.layer, Cloudflare.KV.ReadWriteNamespaceBinding)),
 );
 

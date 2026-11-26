@@ -12,6 +12,7 @@ import { Command, Dom } from "foldkit";
 import { back, load, pushUrl, replaceUrl } from "foldkit/navigation";
 import { Catalog, type CatalogClient, REPLY_TIMEOUT } from "./catalog.ts";
 import { Message } from "./message.ts";
+import type { ListedSection } from "./model.ts";
 import { searchRouter, trackRouter } from "./route.ts";
 import { firstPicturesOf } from "./view/firstPictures.ts";
 import {
@@ -298,17 +299,71 @@ const asking = (
     Command.mapMessage(toMessage),
   );
 
-export const askHomeFeed: Request = (requestId) =>
-  asking(
+/** The query for a section's list, with the failure it settles as when nobody answers. */
+type Asked = readonly [Command.Command<CatalogMessage, never, CatalogClient>, CatalogMessage];
+
+const sectionQueries: Readonly<Record<ListedSection, (requestId: string) => Asked>> = {
+  Home: (requestId) => [
     Catalog.HomeFeed({ input: {}, requestId }),
     Catalog.Message.FailedHomeFeed({ requestId, failure: UNANSWERED }),
-  );
-
-export const askNewMusic: Request = (requestId) =>
-  asking(
+  ],
+  New: (requestId) => [
     Catalog.NewMusic({ input: {}, requestId }),
     Catalog.Message.FailedNewMusic({ requestId, failure: UNANSWERED }),
-  );
+  ],
+  Genres: (requestId) => [
+    Catalog.GenreList({ input: {}, requestId }),
+    Catalog.Message.FailedGenreList({ requestId, failure: UNANSWERED }),
+  ],
+  Radio: (requestId) => [
+    Catalog.StationList({ input: {}, requestId }),
+    Catalog.Message.FailedStationList({ requestId, failure: UNANSWERED }),
+  ],
+};
+
+const askSection =
+  (section: ListedSection): Request =>
+  (requestId) =>
+    asking(...sectionQueries[section](requestId));
+
+export const askHomeFeed: Request = askSection("Home");
+
+export const askNewMusic: Request = askSection("New");
+
+/**
+ * Whether the listener has asked their browser to use as little data as it
+ * can. Only some browsers say, and one that does not is taken to have no
+ * such wish.
+ */
+const isSavingData = (): boolean =>
+  typeof navigator !== "undefined" &&
+  (navigator as Navigator & { readonly connection?: { readonly saveData?: boolean } }).connection
+    ?.saveData === true;
+
+/**
+ * A section asked for ahead of the listener, so that it is held by the time
+ * they choose it. It is the section's own query, and its reply is held back
+ * for the pictures the section opens with as any reply is, which is what
+ * brings those pictures ahead of the listener too.
+ *
+ * It is not sent for a listener who has asked their browser to save data:
+ * nothing they did asked for it. It then settles as a query nobody answered,
+ * which, asked ahead, is said nowhere.
+ */
+export const askSectionAhead =
+  (section: ListedSection): Request =>
+  (requestId) => {
+    const [query, unanswered] = sectionQueries[section](requestId);
+    return asking(
+      pipe(
+        query,
+        Command.mapEffect((sent) =>
+          Effect.suspend(() => (isSavingData() ? Effect.succeed(unanswered) : sent)),
+        ),
+      ),
+      unanswered,
+    );
+  };
 
 export const askCatalogSearch =
   (term: string): Request =>
@@ -350,11 +405,7 @@ export const askPlaylistDetail =
       Catalog.Message.FailedPlaylistDetail({ requestId, failure: UNANSWERED }),
     );
 
-export const askGenreList: Request = (requestId) =>
-  asking(
-    Catalog.GenreList({ input: {}, requestId }),
-    Catalog.Message.FailedGenreList({ requestId, failure: UNANSWERED }),
-  );
+export const askGenreList: Request = askSection("Genres");
 
 export const askGenreDetail =
   (genreId: GenreId): Request =>
@@ -364,11 +415,7 @@ export const askGenreDetail =
       Catalog.Message.FailedGenreDetail({ requestId, failure: UNANSWERED }),
     );
 
-export const askStationList: Request = (requestId) =>
-  asking(
-    Catalog.StationList({ input: {}, requestId }),
-    Catalog.Message.FailedStationList({ requestId, failure: UNANSWERED }),
-  );
+export const askStationList: Request = askSection("Radio");
 
 export const askStationDetail =
   (stationId: StationId): Request =>

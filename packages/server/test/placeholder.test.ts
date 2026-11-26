@@ -4,6 +4,7 @@ import * as Layer from "effect/Layer";
 import { thumbHashToAverageRGBA } from "thumbhash";
 import { DeezerMusicCatalog } from "../src/Deezer/DeezerMusicCatalog.ts";
 import { likenessSourceOf, toArtwork } from "../src/Deezer/translate.ts";
+import { KeptRepliesInMemory } from "../src/Kept/KeptReplies.ts";
 import { artworksIn, withPlaceholders } from "../src/Placeholder/artworks.ts";
 import { likenessOf, type Picture, PicturePlaceholders } from "../src/Placeholder/PicturePlaceholders.ts";
 import { decodePng, PngUnreadable } from "../src/Placeholder/png.ts";
@@ -180,7 +181,9 @@ it.effect("every reply of the catalog carries the likenesses that are known, ask
       ),
     ),
   );
-  const layer = DeezerMusicCatalog.pipe(Layer.provide(Layer.mergeAll(deezer.layer, Likenesses)));
+  const layer = DeezerMusicCatalog.pipe(
+    Layer.provide(Layer.mergeAll(deezer.layer, Likenesses, KeptRepliesInMemory)),
+  );
 
   return Effect.gen(function* () {
     const catalog = yield* MusicCatalog;

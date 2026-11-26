@@ -13,9 +13,13 @@ import * as TestClock from "effect/testing/TestClock";
 import {
   ARTIST_ALBUMS,
   DeezerMusicCatalog,
-  FEATURED_KEPT_FOR,
+  AUDIO_ADDRESS_LASTS,
+  LISTS_FRESH_FOR,
   SHELF_SIZE,
+  TRENDING_FRESH_FOR,
+  TRENDING_KEPT_FOR,
 } from "../src/Deezer/DeezerMusicCatalog.ts";
+import { KeptRepliesInMemory } from "../src/Kept/KeptReplies.ts";
 import { NoPicturePlaceholders } from "../src/Placeholder/PicturePlaceholders.ts";
 import {
   type Answer,
@@ -32,7 +36,9 @@ const catalogOver = (answers: Readonly<Record<string, Answer>>) => {
   const deezer = fakeDeezer(answers);
   return {
     deezer,
-    layer: DeezerMusicCatalog.pipe(Layer.provide(Layer.mergeAll(deezer.layer, NoPicturePlaceholders))),
+    layer: DeezerMusicCatalog.pipe(
+      Layer.provide(Layer.mergeAll(deezer.layer, NoPicturePlaceholders, KeptRepliesInMemory)),
+    ),
   };
 };
 
@@ -106,7 +112,7 @@ it.effect("featured: what Deezer recommends is kept for a while, and asked for a
     expect(yield* catalog.featured()).toEqual(first);
     expect(askedPaths()).toEqual(featuredPaths);
 
-    yield* TestClock.adjust(Duration.subtract(FEATURED_KEPT_FOR, Duration.minutes(1)));
+    yield* TestClock.adjust(Duration.subtract(LISTS_FRESH_FOR, Duration.minutes(1)));
     yield* catalog.featured();
     expect(askedPaths()).toEqual(featuredPaths);
 
@@ -133,18 +139,25 @@ it.effect("featured: a failure is not kept, and the next visit asks Deezer again
   }).pipe(Effect.provide(layer));
 });
 
-it.effect("trending: is asked of Deezer each time, since its songs carry audio that expires", () => {
+/** The paths New is read from, once each. */
+const trendingPaths = ["/chart/0/albums", "/chart/0/tracks"];
+
+it.effect("trending: is kept for less long than its songs' audio lasts, and never shown older than that", () => {
   const { deezer, layer } = catalogOver(stocked);
+  const askedPaths = () => deezer.asked.map((url) => url.pathname).sort();
   return Effect.gen(function* () {
+    expect(Duration.isLessThan(TRENDING_KEPT_FOR, AUDIO_ADDRESS_LASTS)).toBe(true);
+
     const catalog = yield* MusicCatalog;
     yield* catalog.trending();
+    yield* TestClock.adjust(Duration.subtract(TRENDING_FRESH_FOR, Duration.minutes(1)));
     yield* catalog.trending();
-    expect(deezer.asked.map((url) => url.pathname).sort()).toEqual([
-      "/chart/0/albums",
-      "/chart/0/albums",
-      "/chart/0/tracks",
-      "/chart/0/tracks",
-    ]);
+    expect(askedPaths()).toEqual(trendingPaths);
+
+    // Too old to show: the visit waits for Deezer, and gets addresses signed now.
+    yield* TestClock.adjust(TRENDING_KEPT_FOR);
+    yield* catalog.trending();
+    expect(askedPaths()).toEqual([...trendingPaths, ...trendingPaths].sort());
   }).pipe(Effect.provide(layer));
 });
 

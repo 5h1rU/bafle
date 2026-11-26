@@ -8,8 +8,9 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#46203F" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" media="(prefers-color-scheme: light)" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
+    <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" sizes="any" media="(prefers-color-scheme: dark)" />
     <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152.png" />
     <link rel="apple-touch-icon" sizes="167x167" href="/icons/apple-touch-icon-167.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -60,13 +61,14 @@
         color: #46203f;
         visibility: hidden;
         opacity: 0;
+        pointer-events: none;
         transition:
           opacity 220ms ease-out,
           visibility 0s 220ms;
       }
       #splash svg {
-        width: 30vw;
-        max-width: 9rem;
+        width: 34vw;
+        max-width: 10rem;
         height: auto;
       }
       /* It shows for as long as the app's place stands empty beside it, and then for as long as
@@ -77,7 +79,24 @@
       [data-launching] + #splash {
         visibility: visible;
         opacity: 1;
+        pointer-events: auto;
+        --splash-play-state: running;
         transition: none;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        #splash .speaker {
+          transform-box: fill-box;
+          transform-origin: center bottom;
+          animation: speaker-rock 1200ms ease-in-out infinite;
+          animation-play-state: var(--splash-play-state, paused);
+        }
+        /* Each tilt lifts the opposite corner, then the cabinet lands on the beat. */
+        @keyframes speaker-rock {
+          0%, 42%, 50%, 92%, 100% { transform: none; }
+          16% { transform: translateY(-4.5%) rotate(-7deg); }
+          32%, 82% { transform: scale(1.025, 0.97); }
+          66% { transform: translateY(-3.2%) rotate(5deg); }
+        }
       }
       @media (prefers-color-scheme: dark) {
         #splash {
@@ -94,12 +113,14 @@
   <body ontouchstart="">
     <div id="root"></div>
     <div id="splash" aria-hidden="true">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 196 266">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="-32 -24 260 394" fill="currentColor">
         <path
-          fill="currentColor"
+          class="speaker"
           fill-rule="evenodd"
           d="M15 0h166a15 15 0 0 1 15 15v236a15 15 0 0 1-15 15H15a15 15 0 0 1-15-15V15A15 15 0 0 1 15 0ZM69 53a29 29 0 1 0 58 0a29 29 0 1 0-58 0ZM85 53a13 13 0 1 0 26 0a13 13 0 1 0-26 0ZM19 174a79 79 0 1 0 158 0a79 79 0 1 0-158 0ZM64 174a34 34 0 1 0 68 0a34 34 0 1 0-68 0Z"
         />
+        <text x="98" y="346" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+              font-size="76" font-weight="700" letter-spacing="-3.5">bafle</text>
       </svg>
     </div>
     <script type="module" src="/src/entry.ts"></script>

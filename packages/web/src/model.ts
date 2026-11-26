@@ -138,6 +138,27 @@ export type Navigation = typeof Navigation.Type;
 export const Launch = Schema.Literals(["Launching", "Launched"]);
 export type Launch = typeof Launch.Type;
 
+/** A section whose page is one list from the catalog, the same for every listener. */
+export const ListedSection = Schema.Literals(["Home", "New", "Genres", "Radio"]);
+export type ListedSection = typeof ListedSection.Type;
+
+/**
+ * The sections asked for ahead of the listener, so that the one they choose
+ * is already held and takes the screen at once. They are asked for one at a
+ * time, once the first page has taken the screen: `maybeAsked` is the one
+ * the catalog is being asked for now, and `toAsk` those that follow it.
+ *
+ * Asking ahead is no intention. Nothing on screen says it is happening, a
+ * failure is said nowhere, and whatever the listener does goes before it.
+ */
+export const Ahead = Schema.Struct({
+  maybeAsked: Schema.Option(
+    Schema.Struct({ requestId: Schema.String, section: ListedSection }),
+  ),
+  toAsk: Schema.Array(ListedSection),
+});
+export type Ahead = typeof Ahead.Type;
+
 /**
  * The row whose control shows, for a moment, that what was chosen from its
  * menu is done: its track was put in the queue, and where. Each one takes
@@ -172,6 +193,8 @@ export const Model = Schema.Struct({
   awaiting: Awaiting,
   /** Names each request and pause, so the one awaited can be told from the abandoned. */
   requestIds: DomainFoldkit.CommandIds,
+  /** The sections being asked for before the listener chooses them. */
+  ahead: Ahead,
   home: HomeData.schema,
   newMusic: NewMusicData.schema,
   genreList: GenreListData.schema,

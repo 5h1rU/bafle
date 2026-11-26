@@ -17,7 +17,7 @@ const CACHE = "bafle-shell-v1";
 const SHELL = "/";
 
 /** What the shell names besides its script and its style sheet: asked for by a home screen, or by the page. */
-const SHELL_FILES = ["/manifest.webmanifest", "/favicon.svg", "/icons/monochrome.svg"];
+const SHELL_FILES = ["/manifest.webmanifest", "/favicon.svg", "/favicon-dark.svg", "/icons/monochrome.svg"];
 
 /** How long the network is given to answer for the page before the kept one is shown. */
 const PAGE_WAITS_MS = 4000;

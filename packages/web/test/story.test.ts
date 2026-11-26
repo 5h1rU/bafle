@@ -34,6 +34,7 @@ import { AppRoute } from "../src/route.ts";
 import { PAGE_IDS } from "../src/view/layout.ts";
 import {
   after,
+  aheadUnanswered,
   answered,
   arrived,
   awaitedId,
@@ -123,11 +124,15 @@ describe("rule 4: the first paint is never blank", () => {
   test("pages that need nothing from the catalog are complete on the first paint", () => {
     const openingSearch = init(url("/search"));
     expect(openingSearch.model.awaiting).toEqual(Awaiting.Nothing());
-    expect(asked(openingSearch)).toEqual([["FocusSearchField", undefined]]);
+    // Launched as it opens, so the sections start being asked for ahead of the listener.
+    expect(asked(openingSearch)).toEqual([
+      ["FocusSearchField", undefined],
+      ["HomeFeed", { input: {}, requestId: "page:0" }],
+    ]);
 
     const openingNowhere = init(url("/nowhere"));
     expect(openingNowhere.model.route).toEqual(AppRoute.NotFound({ path: "/nowhere" }));
-    expect(asked(openingNowhere)).toEqual([]);
+    expect(asked(openingNowhere)).toEqual([["HomeFeed", { input: {}, requestId: "page:0" }]]);
   });
 
   test("placeholders are not worth holding: a link's page takes their place, and the URL with it", () =>
@@ -148,6 +153,7 @@ describe("rule 4: the first paint is never blank", () => {
       Command.resolveAll(
         [NavigateInternal, Message.CompletedNavigateInternal()],
         [Catalog.NewMusic, reply.newMusic(nextId(opened("/")))],
+        ...aheadUnanswered(2, "Home", "Genres", "Radio"),
       ),
       model((model) => expect(model.newMusic).toEqual(NewMusicData.Success({ data: trending }))),
     ));
@@ -162,7 +168,10 @@ describe("rule 4: the first paint is never blank", () => {
         expect(model.newMusic).toEqual(NewMusicData.Loading());
         expect(model.home).toEqual(HomeData.Idle());
       }),
-      Command.resolve(Catalog.NewMusic, reply.newMusic(nextId(opened("/")))),
+      Command.resolveAll(
+        [Catalog.NewMusic, reply.newMusic(nextId(opened("/")))],
+        ...aheadUnanswered(2, "Home", "Genres", "Radio"),
+      ),
     ));
 });
 
@@ -1036,8 +1045,10 @@ describe("B: the browser moved the URL first, so only the screen can be held", (
           TrackData.Success({ data: Option.some(fullTrack) }),
         );
       }),
-      // Nothing took the screen from anything: no focus moves, nothing is pushed.
-      Command.expectNone(),
+      // Nothing took the screen from anything: no focus moves, nothing is pushed. All that is
+      // asked is the first of the sections, ahead of the listener.
+      Command.expectExact(Catalog.HomeFeed),
+      Command.resolveAll(...aheadUnanswered(1, "Home", "New", "Genres", "Radio")),
     );
 
     const lost = answered(firstPaint, reply.trackLost);

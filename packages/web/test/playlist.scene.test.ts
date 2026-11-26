@@ -29,6 +29,7 @@ import * as Player from "../src/player/index.ts";
 import { documentTitle, view } from "../src/view.ts";
 import {
   after,
+  aheadUnanswered,
   album,
   albumPath,
   answered,
@@ -146,6 +147,7 @@ describe("rule 5: a direct link paints the playlist page's shape", () => {
       app,
       given(opened(playlistPath(playlist.id))),
       Subscription.emit(arrived(reply.playlist("page:0"))),
+      Command.resolveAll(...aheadUnanswered(1, "Home", "New", "Genres", "Radio")),
       see(pageTitle("French Touch")).toExist(),
       expectAll(placeholderBlocks).toHaveCount(0),
       inside(songs, expectAll(all.role("listitem")).toHaveCount(3)),
@@ -368,7 +370,7 @@ describe("playlist tiles lead to the playlist's page", () => {
       click(tryAgain),
       Command.expectExact(Catalog.PlaylistDetail, FocusPage),
       Command.resolve(FocusPage, Message.CompletedFocusPage()),
-      Command.resolve(Catalog.PlaylistDetail, reply.playlist("page:2")),
+      Command.resolve(Catalog.PlaylistDetail, reply.playlist("page:3")),
       inside(onScreen, see(pageTitle("French Touch")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 

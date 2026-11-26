@@ -2,14 +2,19 @@ import { AlbumNotFound } from "@bafle/domain/Catalog/AlbumNotFound.rejection";
 import { ArtistNotFound } from "@bafle/domain/Catalog/ArtistNotFound.rejection";
 import { CatalogUnavailable } from "@bafle/domain/Catalog/CatalogUnavailable.rejection";
 import { GenreNotFound } from "@bafle/domain/Catalog/GenreNotFound.rejection";
-import { MusicCatalog } from "@bafle/domain/Catalog/MusicCatalog.external";
+import {
+  FeaturedMusic,
+  MusicCatalog,
+  MusicGenres,
+  RadioStations,
+  TrendingMusic,
+} from "@bafle/domain/Catalog/MusicCatalog.external";
 import { PlaylistNotFound } from "@bafle/domain/Catalog/PlaylistNotFound.rejection";
 import { StationNotFound } from "@bafle/domain/Catalog/StationNotFound.rejection";
 import { TrackNotFound } from "@bafle/domain/Catalog/TrackNotFound.rejection";
 import * as Array from "effect/Array";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Schema from "effect/Schema";
@@ -33,6 +38,7 @@ import {
   listOf,
   pageOf,
 } from "./DeezerSchemas.ts";
+import { KeptReplies } from "../Kept/KeptReplies.ts";
 import { artworksIn, withPlaceholders } from "../Placeholder/artworks.ts";
 import { PicturePlaceholders } from "../Placeholder/PicturePlaceholders.ts";
 import {
@@ -64,13 +70,40 @@ export const PAGE_SIZE = 100;
 export const ARTIST_ALBUMS = 50;
 
 /**
- * How long what Deezer recommends is kept, once it has answered. Its editors
- * and its charts change a few times a day at most, and every visit to Home
- * asks for them: kept, the visits after the first are answered without
- * waiting for Deezer. Only Home is kept. Its shelves carry no audio, whose
- * addresses Deezer signs to expire, and they are the same for everybody.
+ * How long a list that is the same for every listener is handed over as it
+ * was last told, without asking Deezer: what it recommends for Home, its
+ * genres and its stations. Its editors and its charts change a few times a
+ * day at most, and every visit asks for them.
  */
-export const FEATURED_KEPT_FOR = Duration.minutes(10);
+export const LISTS_FRESH_FOR = Duration.minutes(30);
+
+/**
+ * How long such a list is still shown once it is no longer fresh, while
+ * Deezer is asked behind it. These lists carry no audio, so an old one is
+ * only old: it is what a listener is shown when Deezer cannot be asked.
+ */
+export const LISTS_KEPT_FOR = Duration.days(1);
+
+/**
+ * How long the address of a song's audio works for, once Deezer has handed
+ * it over: it signs each to expire a quarter of an hour later.
+ */
+export const AUDIO_ADDRESS_LASTS = Duration.minutes(15);
+
+/**
+ * How long what is played most is handed over without asking Deezer. Its
+ * songs carry their audio, so this list is kept far less long than the
+ * others, and never as long as an address lasts.
+ */
+export const TRENDING_FRESH_FOR = Duration.minutes(5);
+
+/**
+ * How long what is played most is still shown while Deezer is asked behind
+ * it. An address handed over this late has five minutes left: a song whose
+ * address has run out is asked for again by the player, as one played from
+ * a page left open is.
+ */
+export const TRENDING_KEPT_FOR = Duration.minutes(10);
 
 /**
  * The music catalog, read from Deezer. The only code that knows Deezer: its
@@ -85,6 +118,7 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
   Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
     const placeholders = yield* PicturePlaceholders;
+    const replies = yield* KeptReplies;
 
     /**
      * A reply with the likeness of each of its pictures that is known
@@ -156,44 +190,79 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
     const isOneOfDeezers = (id: string): boolean => /^\d+$/.test(id) && Number(id) !== 0;
 
     /**
-     * What Deezer recommends, kept for `FEATURED_KEPT_FOR` once it has
-     * answered. A failure is not kept: the next visit asks again. Visits that
-     * arrive while Deezer is being asked wait for that one answer.
+     * The lists that are the same for every listener, each kept once Deezer
+     * has answered (`KeptReplies`): a visit is answered from what is kept, and
+     * Deezer is asked behind it when that is no longer fresh. A failure is
+     * not kept: the next visit asks again.
      *
-     * NOTE: it is kept in the isolate's memory, which Cloudflare starts and
-     * stops as it sees fit, so a visit to a fresh isolate asks Deezer again.
-     * The Cache API, shared by every isolate in a data centre, does nothing on
-     * a workers.dev address, which is where Bafle is served.
+     * NOTE: they are kept in Workers KV and not in the Cache API, which does
+     * nothing on a workers.dev address, where the Api is served.
      */
-    const featured = yield* Effect.all(
+    const featured = yield* replies.keep(
       {
-        albums: list("/editorial/0/selection", DeezerAlbum).pipe(Effect.map(Array.map(toAlbum))),
-        playlists: list("/chart/0/playlists", DeezerPlaylist, { limit: SHELF_SIZE }).pipe(
-          Effect.map(Array.map(toPlaylist)),
-        ),
-        artists: list("/chart/0/artists", DeezerArtist, { limit: SHELF_SIZE }).pipe(
-          Effect.map(Array.map(toArtist)),
-        ),
+        name: "featured",
+        reply: FeaturedMusic,
+        freshFor: LISTS_FRESH_FOR,
+        keptFor: LISTS_KEPT_FOR,
       },
-      together,
-    ).pipe(
-      Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? FEATURED_KEPT_FOR : Duration.zero)),
+      Effect.all(
+        {
+          albums: list("/editorial/0/selection", DeezerAlbum).pipe(Effect.map(Array.map(toAlbum))),
+          playlists: list("/chart/0/playlists", DeezerPlaylist, { limit: SHELF_SIZE }).pipe(
+            Effect.map(Array.map(toPlaylist)),
+          ),
+          artists: list("/chart/0/artists", DeezerArtist, { limit: SHELF_SIZE }).pipe(
+            Effect.map(Array.map(toArtist)),
+          ),
+        },
+        together,
+      ),
+    );
+
+    const trending = yield* replies.keep(
+      {
+        name: "trending",
+        reply: TrendingMusic,
+        freshFor: TRENDING_FRESH_FOR,
+        keptFor: TRENDING_KEPT_FOR,
+      },
+      Effect.all(
+        {
+          tracks: list("/chart/0/tracks", DeezerTrack, { limit: SHELF_SIZE }).pipe(
+            Effect.map(Array.map(toTrack)),
+          ),
+          albums: list("/chart/0/albums", DeezerAlbum, { limit: SHELF_SIZE }).pipe(
+            Effect.map(Array.map(toAlbum)),
+          ),
+        },
+        together,
+      ),
+    );
+
+    const genres = yield* replies.keep(
+      { name: "genres", reply: MusicGenres, freshFor: LISTS_FRESH_FOR, keptFor: LISTS_KEPT_FOR },
+      list("/genre", DeezerGenre).pipe(
+        Effect.map((all) => ({
+          genres: all.filter((genre) => genre.id !== DEEZER_ALL_GENRES).map(toGenre),
+        })),
+      ),
+    );
+
+    const stations = yield* replies.keep(
+      {
+        name: "stations",
+        reply: RadioStations,
+        freshFor: LISTS_FRESH_FOR,
+        keptFor: LISTS_KEPT_FOR,
+      },
+      list("/radio/genres", DeezerRadioGenre).pipe(
+        Effect.map((groups) => ({ groups: toStationGroups(groups) })),
+      ),
     );
 
     const catalog = {
       featured: () => featured,
-      trending: () =>
-        Effect.all(
-          {
-            tracks: list("/chart/0/tracks", DeezerTrack, { limit: SHELF_SIZE }).pipe(
-              Effect.map(Array.map(toTrack)),
-            ),
-            albums: list("/chart/0/albums", DeezerAlbum, { limit: SHELF_SIZE }).pipe(
-              Effect.map(Array.map(toAlbum)),
-            ),
-          },
-          together,
-        ),
+      trending: () => trending,
       search: ({ term, limit }: { readonly term: string; readonly limit: number }) =>
         Effect.all(
           {
@@ -294,12 +363,7 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
         const tracks = isWhole ? first : yield* whole(`/playlist/${playlistId}/tracks`, DeezerTrack);
         return toFullPlaylist(answer, tracks);
       }),
-      genres: () =>
-        list("/genre", DeezerGenre).pipe(
-          Effect.map((genres) => ({
-            genres: genres.filter((genre) => genre.id !== DEEZER_ALL_GENRES).map(toGenre),
-          })),
-        ),
+      genres: () => genres,
       genre: Effect.fn(function* ({ genreId, topTracks }) {
         // As with a track: an id that is no number was never one of Deezer's.
         if (!isOneOfDeezers(genreId)) return yield* new GenreNotFound({ genreId });
@@ -321,10 +385,7 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
         });
         return toFullGenre(answer, chart, topTracks, SHELF_SIZE);
       }),
-      stations: () =>
-        list("/radio/genres", DeezerRadioGenre).pipe(
-          Effect.map((genres) => ({ groups: toStationGroups(genres) })),
-        ),
+      stations: () => stations,
       station: Effect.fn(function* ({ stationId, tracks }) {
         // As with a track: an id that is no number was never one of Deezer's.
         if (!isOneOfDeezers(stationId)) return yield* new StationNotFound({ stationId });
@@ -347,7 +408,7 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
     };
 
     // NOTE: the likenesses are added to each reply as it leaves, and not to
-    // what is kept: Home is kept for ten minutes, and the likenesses worked
+    // what is kept: a list is kept for a while, and the likenesses worked
     // out meanwhile reach it on the next visit.
     return {
       featured: () => catalog.featured().pipe(Effect.flatMap(pictured)),

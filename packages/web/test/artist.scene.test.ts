@@ -30,6 +30,7 @@ import * as Player from "../src/player/index.ts";
 import { documentTitle, view } from "../src/view.ts";
 import {
   after,
+  aheadUnanswered,
   album,
   albumPath,
   answered,
@@ -143,6 +144,7 @@ describe("rule 5: a direct link paints the artist page's shape", () => {
       app,
       given(opened(artistPath(artist.id))),
       Subscription.emit(arrived(reply.artist("page:0"))),
+      Command.resolveAll(...aheadUnanswered(1, "Home", "New", "Genres", "Radio")),
       see(pageTitle("Daft Punk")).toExist(),
       expectAll(placeholderBlocks).toHaveCount(0),
       inside(topSongs, expectAll(all.role("listitem")).toHaveCount(2)),
@@ -352,7 +354,7 @@ describe("artist tiles lead to the artist's page", () => {
       click(tryAgain),
       Command.expectExact(Catalog.ArtistDetail, FocusPage),
       Command.resolve(FocusPage, Message.CompletedFocusPage()),
-      Command.resolve(Catalog.ArtistDetail, reply.artist("page:2")),
+      Command.resolve(Catalog.ArtistDetail, reply.artist("page:3")),
       inside(onScreen, see(pageTitle("Daft Punk")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 

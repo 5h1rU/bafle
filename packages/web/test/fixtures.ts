@@ -32,7 +32,7 @@ import { fromString, type Url } from "foldkit/url";
 import { Catalog } from "../src/catalog.ts";
 import { init, update } from "../src/main.ts";
 import { Message, type PlayOrigin } from "../src/message.ts";
-import { Awaiting, type Model } from "../src/model.ts";
+import { Awaiting, type ListedSection, type Model } from "../src/model.ts";
 import { HoldDockMotion } from "../src/mount.ts";
 import * as Player from "../src/player/index.ts";
 import type { PlayerAction } from "../src/player/moreMenu.ts";
@@ -425,6 +425,27 @@ export const awaitedId = (model: Model): string =>
 /** The Model after these Messages, Commands unrun: for setting a test's starting point. */
 export const after = (model: Model, ...messages: ReadonlyArray<Message>): Model =>
   messages.reduce((current, message) => update(current, message).model, model);
+
+/**
+ * What a test that launches the app answers the sections asked for ahead
+ * with, when it is not about them: nobody answers any, which is said nowhere
+ * and leaves every section as the test set it. `first` is the number of the
+ * first of those requests; `sections` are the ones asked for, in order.
+ */
+export const aheadUnanswered = (first: number, ...sections: ReadonlyArray<ListedSection>) =>
+  sections.map((section, index) => {
+    const requestId = `page:${first + index}`;
+    switch (section) {
+      case "Home":
+        return [Catalog.HomeFeed, reply.homeLost(requestId)] as const;
+      case "New":
+        return [Catalog.NewMusic, reply.newMusicLost(requestId)] as const;
+      case "Genres":
+        return [Catalog.GenreList, reply.genresLost(requestId)] as const;
+      case "Radio":
+        return [Catalog.StationList, reply.radioLost(requestId)] as const;
+    }
+  });
 
 /** The app as a fresh page load leaves it, before any reply. */
 export const opened = (path: string): Model => init(url(path)).model;

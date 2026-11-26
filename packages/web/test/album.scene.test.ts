@@ -29,6 +29,7 @@ import type { Model } from "../src/model.ts";
 import { documentTitle, view } from "../src/view.ts";
 import {
   after,
+  aheadUnanswered,
   album,
   albumOpener,
   albumPath,
@@ -38,6 +39,7 @@ import {
   chose,
   choseFromRow,
   clickedLink,
+  explicitTrack,
   leavingHomeForNew,
   nextId,
   onAlbum,
@@ -50,7 +52,6 @@ import {
   pressedMore,
   reply,
   scene,
-  explicitTrack,
   silentTrack,
   track,
   trackPath,
@@ -146,6 +147,7 @@ describe("rule 5: a direct link paints the album page's shape", () => {
       app,
       given(opened(albumPath(album.id))),
       Subscription.emit(arrived(reply.album("page:0"))),
+      Command.resolveAll(...aheadUnanswered(1, "Home", "New", "Genres", "Radio")),
       see(pageTitle("Discovery")).toExist(),
       expectAll(placeholderBlocks).toHaveCount(0),
       inside(songs, expectAll(all.role("listitem")).toHaveCount(3)),
@@ -549,7 +551,7 @@ describe("album tiles lead to the album's page", () => {
       click(tryAgain),
       Command.expectExact(Catalog.AlbumDetail, FocusPage),
       Command.resolve(FocusPage, Message.CompletedFocusPage()),
-      Command.resolve(Catalog.AlbumDetail, reply.album("page:2")),
+      Command.resolve(Catalog.AlbumDetail, reply.album("page:3")),
       inside(onScreen, see(pageTitle("Discovery")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 

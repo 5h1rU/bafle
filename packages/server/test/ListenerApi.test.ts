@@ -14,6 +14,7 @@ import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { DeezerMusicCatalog, SHELF_SIZE } from "../src/Deezer/DeezerMusicCatalog.ts";
+import { KeptRepliesInMemory } from "../src/Kept/KeptReplies.ts";
 import { NoPicturePlaceholders } from "../src/Placeholder/PicturePlaceholders.ts";
 import { type Answer, fakeDeezer, stocked } from "./deezer.ts";
 
@@ -21,7 +22,7 @@ import { type Answer, fakeDeezer, stocked } from "./deezer.ts";
 const worldOver = (answers: Readonly<Record<string, Answer>>) => {
   const deezer = fakeDeezer(answers);
   const Catalog = DeezerMusicCatalog.pipe(
-    Layer.provide(Layer.mergeAll(deezer.layer, NoPicturePlaceholders)),
+    Layer.provide(Layer.mergeAll(deezer.layer, NoPicturePlaceholders, KeptRepliesInMemory)),
   );
   return {
     deezer,

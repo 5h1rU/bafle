@@ -99,7 +99,9 @@ import {
 // must never lead out of, and what must never gain an entry for a page that was not shown.
 
 const WALKS = 3000;
-const STEPS_PER_WALK = 24;
+// NOTE: a launched app asks for the other sections ahead of the listener, and each of those
+// replies is a step of the walk: the walks are that much longer, so that they still get as far.
+const STEPS_PER_WALK = 28;
 
 const MISSING_TRACK_ID = TrackId.make("tr-404");
 
@@ -780,6 +782,11 @@ const broken = (model: Model): ReadonlyArray<string> => {
   const awaited = awaitedRoute(model);
   const maybeDestination = maybeHeadedFor(model);
   const rules: ReadonlyArray<readonly [rule: string, holds: boolean]> = [
+    [
+      "nothing is asked for ahead of the listener before the first page has the screen",
+      model.launch === "Launched" ||
+        (Option.isNone(model.ahead.maybeAsked) && Array.isReadonlyArrayEmpty(model.ahead.toAsk)),
+    ],
     [
       "a page is pending exactly when something is awaited",
       Array.isReadonlyArrayNonEmpty(pending) === (model.awaiting._tag !== "Nothing"),

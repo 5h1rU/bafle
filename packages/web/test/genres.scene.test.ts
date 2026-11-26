@@ -31,6 +31,7 @@ import * as Player from "../src/player/index.ts";
 import { documentTitle, view } from "../src/view.ts";
 import {
   after,
+  aheadUnanswered,
   album,
   albumOpener,
   albumPath,
@@ -198,6 +199,7 @@ describe("rule 5: Genres opens in its shape", () => {
       app,
       given(opened("/genres")),
       Subscription.emit(arrived(reply.genres("page:0"))),
+      Command.resolveAll(...aheadUnanswered(1, "Home", "New", "Radio")),
       expectAll(placeholderBlocks).toHaveCount(0),
       inside(
         grid,
@@ -408,7 +410,7 @@ describe("a genre's tile leads to the genre's page", () => {
       click(tryAgain),
       Command.expectExact(Catalog.GenreDetail, FocusPage),
       Command.resolve(FocusPage, Message.CompletedFocusPage()),
-      Command.resolve(Catalog.GenreDetail, reply.genre("page:2")),
+      Command.resolve(Catalog.GenreDetail, reply.genre("page:3")),
       inside(onScreen, see(pageTitle("Electro")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 

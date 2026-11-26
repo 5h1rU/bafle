@@ -168,7 +168,7 @@ describe("Go to album, from a row's menu", () => {
     expect(retried.model.awaiting).toMatchObject({ _tag: "Intention", route: albumRoute });
     expect(albumData(retried.model, album.id)).toEqual(AlbumData.Loading());
     expect(asked(retried)).toEqual([
-      ["AlbumDetail", { input: { albumId: album.id }, requestId: "page:3" }],
+      ["AlbumDetail", { input: { albumId: album.id }, requestId: "page:4" }],
     ]);
   });
 

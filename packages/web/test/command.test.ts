@@ -15,6 +15,7 @@ import {
   askGenreList,
   askHomeFeed,
   askPlaylistDetail,
+  askSectionAhead,
   askStationDetail,
   askStationList,
   askTrackDetail,
@@ -248,6 +249,49 @@ it.effect("a query nobody answers fails after ten seconds, as a reply lost on th
     expect(server.signals.length).toBeGreaterThan(0);
     expect(server.signals.every((signal) => signal.aborted)).toBe(true);
   }).pipe(Effect.provide(server.layer));
+});
+
+/** The browser says the listener wants to save data, or stops saying anything of it. */
+const saysSavingData = (saveData: boolean | undefined) =>
+  Object.defineProperty(navigator, "connection", {
+    configurable: true,
+    value: saveData === undefined ? undefined : { saveData },
+  });
+
+it.effect("a section asked for ahead is the section's own query, with the same limit", () => {
+  const server = hungServer();
+
+  return Effect.gen(function* () {
+    const asking = yield* Effect.forkChild(askSectionAhead("New")("page:3").effect);
+    yield* TestClock.adjust(REPLY_TIMEOUT);
+    expect(yield* Fiber.join(asking)).toEqual(
+      Message.GotCatalogMessage({
+        message: Catalog.Message.FailedNewMusic({ requestId: "page:3", failure: { _tag: "Unknown" } }),
+      }),
+    );
+    expect(server.signals.length).toBeGreaterThan(0);
+  }).pipe(Effect.provide(server.layer));
+});
+
+it.effect("nothing is asked ahead for a listener who is saving data: it settles as a query nobody answered", () => {
+  const server = hungServer();
+
+  return Effect.gen(function* () {
+    saysSavingData(true);
+    expect(yield* askSectionAhead("Radio")("page:4").effect).toEqual(
+      Message.GotCatalogMessage({
+        message: Catalog.Message.FailedStationList({
+          requestId: "page:4",
+          failure: { _tag: "Unknown" },
+        }),
+      }),
+    );
+    // No request left the app.
+    expect(server.signals).toEqual([]);
+  }).pipe(
+    Effect.ensuring(Effect.sync(() => saysSavingData(undefined))),
+    Effect.provide(server.layer),
+  );
 });
 
 it.effect("every query has the same limit, and reports it as its own failure", () => {

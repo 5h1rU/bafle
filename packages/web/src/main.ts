@@ -49,6 +49,7 @@ import {
   askHomeFeed,
   askNewMusic,
   askPlaylistDetail,
+  askSectionAhead,
   askStationDetail,
   askStationList,
   askTrackDetail,
@@ -92,6 +93,7 @@ import {
   isPlayerExpanded,
   isPlayersPage,
   isPlayersTrack,
+  type ListedSection,
   Model,
   type Navigation,
   playlistData,
@@ -946,16 +948,122 @@ const receiveAlbum = (
     () => ({ model }),
   );
 
+// AHEAD
+
+/** The sections asked for ahead of the listener, in the order the navigation lists them. */
+const SECTIONS_AHEAD: ReadonlyArray<ListedSection> = ["Home", "New", "Genres", "Radio"];
+
+const sectionRoute = (section: ListedSection): AppRoute =>
+  Match.value(section).pipe(
+    Match.withReturnType<AppRoute>(),
+    Match.when("Home", () => AppRoute.Home()),
+    Match.when("New", () => AppRoute.New()),
+    Match.when("Genres", () => AppRoute.Genres()),
+    Match.when("Radio", () => AppRoute.Radio()),
+    Match.exhaustive,
+  );
+
+/**
+ * Whether nothing is known of a section and nothing is being asked of it:
+ * the only state in which it is worth asking for ahead. One that holds data
+ * needs none, one the listener is waiting for is already asked for, and one
+ * that failed says so on its page, where the listener tries again.
+ */
+const isUnasked = (model: Model, section: ListedSection): boolean =>
+  Match.value(section).pipe(
+    Match.when("Home", () => AsyncData.isIdle(model.home)),
+    Match.when("New", () => AsyncData.isIdle(model.newMusic)),
+    Match.when("Genres", () => AsyncData.isIdle(model.genreList)),
+    Match.when("Radio", () => AsyncData.isIdle(model.stationList)),
+    Match.exhaustive,
+  );
+
+/**
+ * Ask for the next section the listener may choose, when none is being asked
+ * for: one at a time, so that asking ahead never takes from the page on
+ * screen more than one request's worth of the network.
+ */
+const askNextAhead: Step = (model) => {
+  if (Option.isSome(model.ahead.maybeAsked)) {
+    return { model };
+  }
+  return Array.match(
+    Array.filter(model.ahead.toAsk, (section) => isUnasked(model, section)),
+    {
+      onEmpty: () =>
+        Array.isReadonlyArrayEmpty(model.ahead.toAsk)
+          ? { model }
+          : { model: modifyFields(model, { ahead: () => ({ maybeAsked: Option.none(), toAsk: [] }) }) },
+      onNonEmpty: ([section, ...toAsk]): UpdateReturn => {
+        const allocation = DomainFoldkit.next(model.requestIds);
+        return {
+          model: modifyFields(model, {
+            requestIds: () => allocation.commandIds,
+            ahead: () => ({
+              maybeAsked: Option.some({ requestId: allocation.commandId, section }),
+              toAsk,
+            }),
+          }),
+          commands: [askSectionAhead(section)(allocation.commandId)],
+        };
+      },
+    },
+  );
+};
+
+/**
+ * The reply to a section asked for ahead. What the catalog said is held, and
+ * the section is then one the Model holds: chosen, it takes the screen at
+ * once. A failure is said nowhere and leaves the section as it was, to be
+ * asked for when it is chosen, as it always was.
+ *
+ * The listener may have chosen that very section while it was on its way.
+ * This is then the reply they are waiting for, and it is received as theirs:
+ * the page takes the screen now, and the reply to their own request, which
+ * follows, answers a request no longer awaited.
+ */
+const receiveAhead =
+  <A>(section: ListedSection, page: Page<A>, outcome: Result.Result<A, LoadError>): Step =>
+  (model) => {
+    const answered = modifyFields(model, {
+      ahead: (ahead) => ({ ...ahead, maybeAsked: Option.none() }),
+    });
+    if (Result.isFailure(outcome) || AsyncData.hasData(page.read(answered))) {
+      return { model: answered };
+    }
+    const maybeAwaitedHere = isSameRoute(awaitedRoute(answered), sectionRoute(section))
+      ? maybeAwaitedRequestId(answered.awaiting)
+      : Option.none();
+    return Option.match(maybeAwaitedHere, {
+      onNone: () => ({
+        model: page.write(answered, AsyncData.settle(page.read(answered), outcome)),
+      }),
+      onSome: (awaitedId) => receive(answered, page, awaitedId, outcome),
+    });
+  };
+
+/** A reply about a section: the one asked for ahead, or else the one awaited. */
+const receiveSection = <A>(
+  model: Model,
+  section: ListedSection,
+  page: Page<A>,
+  requestId: string,
+  outcome: Result.Result<A, LoadError>,
+): UpdateReturn =>
+  Option.exists(model.ahead.maybeAsked, (asked) => asked.requestId === requestId)
+    ? Update.combine(model, [receiveAhead(section, page, outcome), askNextAhead])
+    : receive(model, page, requestId, outcome);
+
 const receiveCatalogMessage = (model: Model, message: typeof Catalog.Message.Type): UpdateReturn =>
   Catalog.Message.match<UpdateReturn>(message, {
     SucceededHomeFeed: ({ requestId, result }) =>
-      receive(model, homePage, requestId, Result.succeed(result)),
+      receiveSection(model, "Home", homePage, requestId, Result.succeed(result)),
     FailedHomeFeed: ({ requestId, failure }) =>
-      receive(model, homePage, requestId, Result.fail(toLoadError(failure))),
+      receiveSection(model, "Home", homePage, requestId, Result.fail(toLoadError(failure))),
     SucceededNewMusic: ({ requestId, result }) =>
-      receive(model, newMusicPage, requestId, Result.succeed(result)),
+      receiveSection(model, "New", newMusicPage, requestId, Result.succeed(result)),
     FailedNewMusic: ({ requestId, failure }) =>
-      receive(model, newMusicPage, requestId, Result.fail(toLoadError(failure))),
+      receiveSection(model, "New", newMusicPage, requestId, Result.fail(toLoadError(failure))),
     SucceededCatalogSearch: ({ requestId, result }) =>
       Option.match(searchedTerm(awaitedRoute(model)), {
         onNone: () => ({ model }),
@@ -988,17 +1096,17 @@ const receiveCatalogMessage = (model: Model, message: typeof Catalog.Message.Typ
     FailedPlaylistDetail: ({ requestId, failure }) =>
       receivePlaylist(model, requestId, toPlaylistOutcome(failure)),
     SucceededGenreList: ({ requestId, result }) =>
-      receive(model, genreListPage, requestId, Result.succeed(result)),
+      receiveSection(model, "Genres", genreListPage, requestId, Result.succeed(result)),
     FailedGenreList: ({ requestId, failure }) =>
-      receive(model, genreListPage, requestId, Result.fail(toLoadError(failure))),
+      receiveSection(model, "Genres", genreListPage, requestId, Result.fail(toLoadError(failure))),
     SucceededGenreDetail: ({ requestId, result }) =>
       receiveGenre(model, requestId, Result.succeed(Option.some(result))),
     FailedGenreDetail: ({ requestId, failure }) =>
       receiveGenre(model, requestId, toGenreOutcome(failure)),
     SucceededStationList: ({ requestId, result }) =>
-      receive(model, stationListPage, requestId, Result.succeed(result)),
+      receiveSection(model, "Radio", stationListPage, requestId, Result.succeed(result)),
     FailedStationList: ({ requestId, failure }) =>
-      receive(model, stationListPage, requestId, Result.fail(toLoadError(failure))),
+      receiveSection(model, "Radio", stationListPage, requestId, Result.fail(toLoadError(failure))),
     SucceededStationDetail: ({ requestId, result }) =>
       receiveStation(model, requestId, Result.succeed(Option.some(result))),
     FailedStationDetail: ({ requestId, failure }) =>
@@ -1592,13 +1700,25 @@ const respond = (model: Model, message: Message) =>
  * looked at after every Message and not only after the catalog's, since some
  * pages need nothing from the catalog. Launched is for good: a later page
  * that waits, a first search among them, does so in the app.
+ *
+ * Launching is also when the other sections start being asked for ahead of
+ * the listener (`askNextAhead`): the first page has the screen, and what the
+ * network does next no longer holds it back.
  */
-const launchOnceShown: Step = (model) => ({
-  model:
-    model.launch === "Launching" && canShow(model, model.route)
-      ? modifyFields(model, { launch: () => "Launched" })
-      : model,
-});
+const launchOnceShown: Step = (model) =>
+  model.launch === "Launching" && canShow(model, model.route)
+    ? askNextAhead(
+        modifyFields(model, {
+          launch: () => "Launched",
+          // NOTE: a first page that could not be asked says so, and the
+          // catalog that did not answer it is not asked for three more.
+          ahead: (ahead) => ({
+            ...ahead,
+            toAsk: isLoaded(model, model.route) ? SECTIONS_AHEAD : [],
+          }),
+        }),
+      )
+    : { model };
 
 /**
  * On a compact screen the player's menu belongs to the expanded player. Once
@@ -1648,6 +1768,7 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       awaiting: Awaiting.Nothing(),
       // Replies are matched in memory, so the ids only have to differ within this page load.
       requestIds: { session: "page", sent: 0 },
+      ahead: { maybeAsked: Option.none(), toAsk: [] },
       home: AsyncData.Idle(),
       newMusic: AsyncData.Idle(),
       genreList: AsyncData.Idle(),

@@ -29,6 +29,7 @@ import * as Player from "../src/player/index.ts";
 import { documentTitle, view } from "../src/view.ts";
 import {
   after,
+  aheadUnanswered,
   album,
   albumPath,
   answered,
@@ -158,6 +159,7 @@ describe("rule 5: Radio opens in its shape", () => {
       app,
       given(opened("/radio")),
       Subscription.emit(arrived(reply.radio("page:0"))),
+      Command.resolveAll(...aheadUnanswered(1, "Home", "New", "Genres")),
       expectAll(placeholderBlocks).toHaveCount(0),
       see(sectionTitle("Electro")).toExist(),
       see(sectionTitle("Dance")).toExist(),
@@ -367,7 +369,7 @@ describe("a station's tile leads to the station's page", () => {
       click(tryAgain),
       Command.expectExact(Catalog.StationDetail, FocusPage),
       Command.resolve(FocusPage, Message.CompletedFocusPage()),
-      Command.resolve(Catalog.StationDetail, reply.station("page:2")),
+      Command.resolve(Catalog.StationDetail, reply.station("page:3")),
       inside(
         onScreen,
         see(pageTitle("French House")).toExist(),
@@ -424,6 +426,7 @@ describe("rule 5: a direct link paints the station page's shape", () => {
       app,
       given(opened(stationPath(station.id))),
       Subscription.emit(arrived(reply.station("page:0"))),
+      Command.resolveAll(...aheadUnanswered(1, "Home", "New", "Genres", "Radio")),
       see(pageTitle("French House")).toExist(),
       expectAll(placeholderBlocks).toHaveCount(0),
       inside(songs, expectAll(all.role("listitem")).toHaveCount(3)),
