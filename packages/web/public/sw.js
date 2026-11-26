@@ -11,7 +11,11 @@
 // Nothing of the catalog is kept, and nothing of the sound: a request for
 // either goes to the network as if this were not here.
 
-const CACHE = "bafle-shell-v1";
+// NOTE: the name changes when what was kept under the old one cannot be
+// trusted, and everything kept under another name is let go of as this one
+// takes over. `v1` could hold the app's page under the name of its script
+// (`isTheFile`), and an app that had kept that never started again.
+const CACHE = "bafle-shell-v2";
 
 /** The page every address of the app is: the app draws the rest itself. */
 const SHELL = "/";
@@ -31,25 +35,47 @@ const isApi = (url) => url.pathname.startsWith("/api/");
 const builtFilesIn = (html) => [...new Set(html.match(/\/assets\/[^"'\s)]+/g) ?? [])];
 
 /**
+ * Whether an answer for a built file is that file. The server answers any
+ * address it has no file for with the app's page, and says it went well: in
+ * the moments after a release its page already names files it does not yet
+ * serve, and what comes back for them is that page. Kept under the file's
+ * name, it was handed to the page as its script from then on, and the app
+ * stayed on its mark for good.
+ */
+const isTheFile = (response) =>
+  response.ok && !(response.headers.get("content-type") ?? "").includes("text/html");
+
+/** Keep one file of the shell, unless it is kept already. Says whether it is kept now. */
+const keepFile = async (cache, path) => {
+  if ((await cache.match(path)) !== undefined) {
+    return true;
+  }
+  const file = await fetch(path, { cache: "no-cache" }).catch(() => undefined);
+  if (file === undefined || !isTheFile(file)) {
+    return false;
+  }
+  await cache.put(path, file);
+  return true;
+};
+
+/**
  * Keep the page and the files it names, and let go of the built files it no
  * longer names: each release names its files anew, and the ones before would
  * be kept for good.
  */
+// NOTE: the page is kept only once every built file it names is. A page
+// kept without its script would start nothing with no network, and the one
+// kept before it, whole, still does.
 const keepShell = async (response) => {
   const cache = await caches.open(CACHE);
   const html = await response.clone().text();
   const named = builtFilesIn(html);
+  const builtKept = await Promise.all(named.map((path) => keepFile(cache, path)));
+  await Promise.all(SHELL_FILES.map((path) => keepFile(cache, path)));
+  if (builtKept.includes(false)) {
+    return;
+  }
   await cache.put(SHELL, response.clone());
-  await Promise.all(
-    [...named, ...SHELL_FILES].map(async (path) => {
-      if ((await cache.match(path)) === undefined) {
-        const file = await fetch(path, { cache: "no-cache" });
-        if (file.ok) {
-          await cache.put(path, file);
-        }
-      }
-    }),
-  );
   const kept = await cache.keys();
   await Promise.all(
     kept
@@ -104,7 +130,7 @@ const built = async (request) => {
     return kept;
   }
   const response = await fetch(request);
-  if (response.ok) {
+  if (isTheFile(response)) {
     const cache = await caches.open(CACHE);
     await cache.put(request, response.clone());
   }
