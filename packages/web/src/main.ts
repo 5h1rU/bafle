@@ -23,7 +23,7 @@ import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as String from "effect/String";
-import { Menu } from "@foldkit/ui";
+import { Menu, Popover } from "@foldkit/ui";
 import { AsyncData, type Runtime, Update } from "foldkit";
 import { UrlRequest } from "foldkit/navigation";
 import { modifyFields } from "foldkit/struct";
@@ -120,6 +120,7 @@ import {
   searchedTerm,
   urlToAppRoute,
 } from "./route.ts";
+import { initialAbout } from "./about.ts";
 import { type RowAction, RowMenu, type RowRef, rowMenuId, rowMenuIn } from "./rowMenu.ts";
 import type { Screen } from "./screen.ts";
 import { CHOOSE_TRACK, coverTransitionName, routeArtwork } from "./view/artwork.ts";
@@ -570,6 +571,13 @@ const withRowMenusClosed = (model: Model): Model =>
   HashMap.isEmpty(model.rowMenus) ? model : modifyFields(model, { rowMenus: () => HashMap.empty() });
 
 /**
+ * What Home's control opened is closed. It is Home's, and goes with it when
+ * another page takes the screen, as a row's menu goes with its list.
+ */
+const withAboutClosed = (model: Model): Model =>
+  model.about === initialAbout ? model : modifyFields(model, { about: () => initialAbout });
+
+/**
  * The player that takes the screen finds its sheet as a sheet is before the
  * document has said anything of it: what was said of the last one, that it
  * was swiped away, is not true of this one.
@@ -594,7 +602,9 @@ const showPage =
     return isSamePage(model.route, route)
       ? { model: shown }
       : {
-          model: navigationOnEntering(route, entrance)(withPlayerSheetAnew(withRowMenusClosed(shown))),
+          model: navigationOnEntering(route, entrance)(
+            withPlayerSheetAnew(withAboutClosed(withRowMenusClosed(shown))),
+          ),
           commands: focusOn(model, route, entrance),
         };
   };
@@ -1254,6 +1264,16 @@ const foldPlayerSheet = Update.foldChild({
     }),
 });
 
+/** What Home's control opens, who made the app, tells the app nothing by opening or closing. */
+const foldAbout = Update.foldChild({
+  update: Popover.update,
+  read: (model: Model) => Option.some(model.about),
+  write: (model: Model, nextAbout: Popover.Model): Model =>
+    modifyFields(model, { about: () => nextAbout }),
+  toParentMessage: (message: Popover.Message): Message => Message.GotAboutMessage({ message }),
+  foldOutMessage: (): Step => (model) => ({ model }),
+});
+
 /** The tracks of the album whose page is in the document: the list its rows are drawn from. */
 const albumTracksInDocument = (model: Model): ReadonlyArray<TrackSummary> =>
   pipe(
@@ -1716,6 +1736,8 @@ const respond = (model: Model, message: Message) =>
         onSome: (action) => chooseFromRow({ from, trackId }, action)(model),
       }),
 
+    GotAboutMessage: ({ message }) => foldAbout(model, message),
+
     CompletedWaitToClearRowDone: ({ turn }) => ({
       model:
         model.rowDone.turn === turn && Option.isSome(model.rowDone.maybeRow)
@@ -1874,6 +1896,7 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       rowMenus: HashMap.empty(),
       rowDone: { turn: 0, maybeRow: Option.none() },
       player: Player.init(),
+      about: initialAbout,
       playerSheet: initialPlayerSheet,
     }),
     [load(route, forTheScreen), focusSearchFieldOnSearch, launchOnceShown],

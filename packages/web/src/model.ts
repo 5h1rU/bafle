@@ -17,7 +17,7 @@ import {
 import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import { StationId } from "@bafle/domain/Catalog/Station";
 import { Track, TrackId } from "@bafle/domain/Catalog/Track";
-import { Menu } from "@foldkit/ui";
+import { Menu, Popover } from "@foldkit/ui";
 import * as Array from "effect/Array";
 import { pipe } from "effect/Function";
 import * as HashMap from "effect/HashMap";
@@ -304,6 +304,12 @@ export const Model = Schema.Struct({
    */
   rowMenus: Schema.HashMap(Schema.String, Menu.Model),
   rowDone: RowDone,
+  /**
+   * What Home's control opens on a narrow screen: who made the app
+   * (`about.ts`). It is Home's, and is closed when another page takes the
+   * screen.
+   */
+  about: Popover.Model,
   /**
    * The player: what was asked to be heard, and what the engine says is
    * sounding. It belongs to no page, so no change of page touches it.

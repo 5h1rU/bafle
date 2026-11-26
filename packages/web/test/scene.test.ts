@@ -1,3 +1,4 @@
+import { Popover } from "@foldkit/ui";
 import * as Option from "effect/Option";
 import {
   Command,
@@ -7,6 +8,7 @@ import {
   given,
   all,
   inside,
+  Mount,
   role,
   selector,
   Subscription,
@@ -72,6 +74,18 @@ const searchOutcome = selector(".search-outcome");
 const listening = all.selector("svg.search-listens");
 const clearSearch = role("button", { name: "Clear search" });
 const tryAgain = role("button", { name: "Try again" });
+/** The two ways to who made the app, by what each is called to someone who cannot see its mark. */
+const onX = role("link", { name: "X: @5h1rU" });
+const onLinkedIn = role("link", { name: "LinkedIn: felipejaner" });
+/** Home's control that says who made the app, and what it opens. */
+const about = role("button", { name: "About Bafle" });
+const aboutPanel = selector("#about-panel");
+const pressedAbout = Message.GotAboutMessage({ message: Popover.Message.ClickedButton() });
+/** What the control opened entered the document: its backdrop was put behind it and it was placed by its control. */
+const aboutEnters = Mount.resolveAll(
+  [Popover.PortalPopoverBackdrop, Popover.Message.CompletedPortalPopoverBackdrop()],
+  [Popover.AnchorPopover, Popover.Message.CompletedAnchorPopover()],
+);
 /**
  * The page on screen. The sections stay in the document once loaded, so a
  * page that left the screen is not gone: what has to be true of it is that
@@ -112,6 +126,54 @@ describe("the shell", () => {
         see(destination("Search")).not.toHaveAttr("aria-current"),
       ),
     ));
+
+  // NOTE: where each of the two is drawn is the style sheet's: the column's
+  // foot beside the page, Home's control on a narrow screen. A scene has no
+  // style sheet, so it sees both.
+  test("says who made it beside the navigation, with the ways to them, which open beside the app", () =>
+    scene(
+      app,
+      given(onHome),
+      inside(
+        selector("header"),
+        see(text("Made by")).toExist(),
+        see(text("Felipe Janer")).toExist(),
+        see(onX).toHaveAttr("href", "https://x.com/5h1rU"),
+        see(onX).toHaveAttr("target", "_blank"),
+        see(onX).toHaveAttr("rel", "noopener noreferrer"),
+        see(onLinkedIn).toHaveAttr("href", "https://www.linkedin.com/in/felipejaner"),
+        see(onLinkedIn).toHaveAttr("target", "_blank"),
+      ),
+      // None of it is a way through the app.
+      inside(navigation, expectAll(all.role("link")).toHaveCount(5)),
+    ));
+
+  test("Home has a control at its head that opens the same words", () =>
+    scene(
+      app,
+      given(onHome),
+      inside(onScreen, see(about).toHaveAttr("aria-expanded", "false")),
+      see(aboutPanel).toBeAbsent(),
+      given(after(onHome, pressedAbout)),
+      aboutEnters,
+      inside(onScreen, see(about).toHaveAttr("aria-expanded", "true")),
+      inside(
+        aboutPanel,
+        see(text("Made by")).toExist(),
+        see(text("Felipe Janer")).toExist(),
+        see(onX).toHaveAttr("href", "https://x.com/5h1rU"),
+        see(onLinkedIn).toHaveAttr("href", "https://www.linkedin.com/in/felipejaner"),
+      ),
+    ));
+
+  test("what the control opened goes with Home when another page takes the screen", () => {
+    const opened_ = after(onHome, pressedAbout);
+    expect(opened_.about.isOpen).toBe(true);
+    expect(answered(chose(opened_, "/new"), reply.newMusic, "/new").about.isOpen).toBe(false);
+  });
+
+  test("no other section has that control", () =>
+    scene(app, given(onNew), inside(onScreen, see(about).toBeAbsent())));
 
   // NOTE: the mark itself is in index.html, outside the app: it stands over
   // the app for as long as the shell says this.

@@ -1,9 +1,11 @@
 import type { FeaturedMusic } from "@bafle/domain/Catalog/MusicCatalog.external";
+import type { Popover } from "@foldkit/ui";
 import * as Array from "effect/Array";
 import { AsyncData } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
 import type { HomeData } from "../model.ts";
+import { aboutView } from "../view/about.ts";
 import {
   PAGE_SECTIONS_CLASS,
   type Presence,
@@ -84,10 +86,16 @@ export const view = (
   home: HomeData,
   presence: Presence,
   opening: TilesOpening,
+  about: Popover.Model,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(pageAttributes(PAGE_ID, presence, h), [
-    pageTitleView(PAGE_ID, TITLE, h),
+    // NOTE: Home is where the app says who made it, on a narrow screen: a
+    // control at the far end of its title's row (`view/about.ts`).
+    h.div(
+      [h.Class("flex items-center justify-between gap-4")],
+      [pageTitleView(PAGE_ID, TITLE, h), aboutView(about, h)],
+    ),
     h.div(
       [h.AriaBusy(AsyncData.isPending(home))],
       [

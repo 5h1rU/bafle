@@ -1,5 +1,5 @@
 import { TrackId } from "@bafle/domain/Catalog/Track";
-import { Menu } from "@foldkit/ui";
+import { Menu, Popover } from "@foldkit/ui";
 import * as Schema from "effect/Schema";
 import { defineMessageUnion } from "foldkit/message";
 import { UrlRequest } from "foldkit/navigation";
@@ -50,6 +50,8 @@ export const Message = defineMessageUnion({
   PressedEscapeInSearch: {},
   ClickedPlayTrack: { trackId: TrackId, from: PlayOrigin },
   GotRowMenuMessage: { from: PlayOrigin, trackId: TrackId, message: Menu.Message },
+  /** Home's control that says who made the app, and what it opens. */
+  GotAboutMessage: { message: Popover.Message },
   ScrolledDown: {},
   ScrolledToTop: {},
   ClickedShowNavigation: {},

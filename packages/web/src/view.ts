@@ -74,6 +74,7 @@ import {
   searchRouter,
   trackRouter,
 } from "./route.ts";
+import { creditView } from "./view/about.ts";
 import { artworkFlightRules, routeArtwork } from "./view/artwork.ts";
 import { staleBannerView } from "./view/feedback.ts";
 import {
@@ -569,12 +570,13 @@ const homePlaceView = (
   albumRows: Model["albumRows"],
   artists: Model["artists"],
   playlists: Model["playlists"],
+  about: Model["about"],
   h: HtmlBuilder<Message>,
 ): Html =>
   pagePlaceView(
     presence,
     isInDocument(presence, home)
-      ? [Home.view(home, presence, tilesOpeningIn(albums, albumRows, artists, playlists), h)]
+      ? [Home.view(home, presence, tilesOpeningIn(albums, albumRows, artists, playlists), about, h)]
       : [],
     h,
   );
@@ -952,6 +954,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.albumRows,
       model.artists,
       model.playlists,
+      model.about,
       h,
     ]),
     lazyNewPlace(newPlaceView, [
@@ -1269,7 +1272,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
               // NOTE: on a desktop's screen the navigation is narrower, as
               // the design draws it: the page keeps its room when the queue
               // opens beside it.
-              "pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-canvas/90 to-transparent px-5 pt-8 pb-3.5 md:pointer-events-auto md:static md:w-60 md:shrink-0 md:border-r md:border-line md:bg-panel md:bg-none md:px-3 md:py-6 lg:w-44",
+              "pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-canvas/90 to-transparent px-5 pt-8 pb-3.5 md:pointer-events-auto md:static md:flex md:w-60 md:shrink-0 md:flex-col md:border-r md:border-line md:bg-panel md:bg-none md:px-3 md:py-6 lg:w-44",
               {
                 // Under the player there is no navigation. It is drawn again,
                 // out of reach, as the player's sheet uncovers it.
@@ -1285,6 +1288,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
             [APP_NAME],
           ),
           navigationView(model, h),
+          creditView(h),
         ],
       ),
       h.div(
