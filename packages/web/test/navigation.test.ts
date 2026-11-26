@@ -77,6 +77,10 @@ const islandEnters = () =>
       Player.MeasureTitle,
       Player.Message.MeasuredTitle({ placePixels: 0, maybeTravelPixels: Option.none() }),
     ],
+    [
+      Player.MeasureArtist,
+      Player.Message.MeasuredArtist({ placePixels: 0, maybeTravelPixels: Option.none() }),
+    ],
   );
 
 describe("the navigation draws back as a page goes down, and comes out again", () => {

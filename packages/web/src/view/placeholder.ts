@@ -10,7 +10,13 @@ import {
   TILE_GRID_CLASS,
   TILE_GRID_TILE_CLASS,
 } from "./shelf.ts";
-import { TRACK_ROW_CLASS, TRACK_ROW_LINE_CLASS, TRACK_THUMBNAIL_CLASS } from "./trackList.ts";
+import {
+  ROWS_IN_COLUMN,
+  TRACK_ROW_CLASS,
+  TRACK_ROW_LINE_CLASS,
+  TRACK_THUMBNAIL_CLASS,
+  trackColumnsAttributes,
+} from "./trackList.ts";
 
 // VIEW
 
@@ -118,6 +124,22 @@ export const trackListPlaceholderView = (h: HtmlBuilder<Message>): Html =>
   h.div(
     [h.AriaHidden(true), h.Class("mt-2")],
     Array.makeBy(TRACK_PLACEHOLDER_ROWS, () => trackRowPlaceholderView(h)),
+  );
+
+/** The two columns a wide page shows of a list in columns; a narrow one shows the first, and the edge of the second. */
+const TRACK_PLACEHOLDER_COLUMNS = 2;
+
+/**
+ * Rows the size of track rows, for a list in columns whose tracks are on
+ * their way: laid out as the list will be, and not to be scrolled.
+ */
+export const trackColumnsPlaceholderView = (h: HtmlBuilder<Message>): Html =>
+  h.div(
+    [
+      h.AriaHidden(true),
+      ...trackColumnsAttributes(ROWS_IN_COLUMN * TRACK_PLACEHOLDER_COLUMNS, h, "overflow-x-hidden"),
+    ],
+    Array.makeBy(ROWS_IN_COLUMN * TRACK_PLACEHOLDER_COLUMNS, () => trackRowPlaceholderView(h)),
   );
 
 /** A block where a heading will be, when even the heading depends on the reply. */

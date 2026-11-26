@@ -47,6 +47,10 @@ export const Message = defineMessageUnion({
   MeasuredTitle: { placePixels: Schema.Number, maybeTravelPixels: Schema.Option(Schema.Number) },
   CompletedWaitToTravelTitle: { run: Schema.Int },
   CompletedTravelTitle: { run: Schema.Int },
+  /** The line under the title, who the track is by, as it lies in the document: measured as the title is. */
+  MeasuredArtist: { placePixels: Schema.Number, maybeTravelPixels: Schema.Option(Schema.Number) },
+  CompletedWaitToTravelArtist: { run: Schema.Int },
+  CompletedTravelArtist: { run: Schema.Int },
   CompletedDrawIslandFigure: {},
   CompletedFollowIslandPress: {},
   CompletedChangeIslandLightPace: {},

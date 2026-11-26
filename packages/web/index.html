@@ -11,9 +11,11 @@
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" media="(prefers-color-scheme: light)" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
     <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" sizes="any" media="(prefers-color-scheme: dark)" />
-    <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152.png" />
-    <link rel="apple-touch-icon" sizes="167x167" href="/icons/apple-touch-icon-167.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <!-- One picture for every home screen, larger than any draws it: a phone
+         only ever brings it down to size. The largest it was offered before
+         was 180 pixels, what an iPhone's home screen draws at its plainest,
+         and wherever the icon is drawn larger than that it was stretched. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="mask-icon" href="/icons/monochrome.svg" color="#46203F" />
     <!-- Added to a home screen, the app opens on its own, without the browser round it. -->
     <meta name="mobile-web-app-capable" content="yes" />

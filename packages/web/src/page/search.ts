@@ -225,10 +225,9 @@ const songsView = (
 
 /**
  * The songs found. Beside an artist's card there is room for a few, so the
- * first few are listed there and the rest further down, across the page; on
- * a narrow page the two lists stand one right under the other and read as
- * one. With no artist to stand beside, the songs are one list across the
- * page.
+ * first few are listed there and the rest further down, under a heading of
+ * their own, in columns that go on sideways as top songs do. With no artist
+ * to stand beside, the songs are one list in columns.
  */
 const songSectionsView = (
   tracks: ReadonlyArray<TrackSummary>,

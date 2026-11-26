@@ -266,3 +266,60 @@ describe("the island's title", () => {
     expect(names(ended)).toEqual([]);
   });
 });
+
+describe("who the track is by, under the island's title", () => {
+  const tooLong = Message.MeasuredArtist({ placePixels: 180, maybeTravelPixels: Option.some(270) });
+
+  test("a name too long for its place waits, travels once and waits again, as a title does", () => {
+    const measured = Player.update(sounding, tooLong);
+    const { run } = measured.model.artist;
+    expect(run).toBe(sounding.artist.run + 1);
+    expect(asked(measured)).toEqual([
+      { name: "WaitToTravelArtist", args: { run, milliseconds: 3500 } },
+    ]);
+
+    const travelling = Player.update(measured.model, Message.CompletedWaitToTravelArtist({ run }));
+    expect(travelling.model.artist.phase).toBe("Travelling");
+    expect(asked(travelling)).toEqual([{ name: "TravelArtist", args: { run, milliseconds: 6000 } }]);
+
+    const resting = Player.update(travelling.model, Message.CompletedTravelArtist({ run }));
+    expect(resting.model.artist.phase).toBe("Standing");
+    expect(asked(resting)).toEqual([
+      { name: "WaitToTravelArtist", args: { run, milliseconds: 5000 } },
+    ]);
+  });
+
+  test("it is a line of its own: the title stands while it travels, and a title's wait is not taken for its own", () => {
+    const measured = Player.update(sounding, tooLong).model;
+    const { run } = measured.artist;
+    expect(measured.title).toEqual(sounding.title);
+
+    // The same number, for the other line: nothing of this one moves.
+    const titles = Player.update(measured, Message.CompletedWaitToTravelTitle({ run }));
+    expect(titles.model.artist.phase).toBe("Standing");
+    expect(names(titles)).toEqual([]);
+
+    const travelling = after(measured, Message.CompletedWaitToTravelArtist({ run }));
+    expect(travelling.artist.phase).toBe("Travelling");
+    expect(travelling.title.phase).toBe("Standing");
+  });
+
+  test("another track is other words: the line stands, unmeasured, on a new run", () => {
+    const measured = Player.update(sounding, tooLong).model;
+    const travelling = after(
+      measured,
+      Message.CompletedWaitToTravelArtist({ run: measured.artist.run }),
+    );
+    const next = after(travelling, Message.ClickedNext());
+    expect(next.artist).toEqual({
+      run: travelling.artist.run + 1,
+      placePixels: 0,
+      maybeTravelPixels: Option.none(),
+      phase: "Standing",
+    });
+    // The pass that was under way for the name before ends for no one.
+    const ended = Player.update(next, Message.CompletedTravelArtist({ run: travelling.artist.run }));
+    expect(ended.model).toBe(next);
+    expect(names(ended)).toEqual([]);
+  });
+});

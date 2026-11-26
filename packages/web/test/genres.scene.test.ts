@@ -1,4 +1,6 @@
+import { TrackId } from "@bafle/domain/Catalog/Track";
 import { Menu } from "@foldkit/ui";
+import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import {
   all,
@@ -118,6 +120,10 @@ const islandEnters = Mount.resolveAll(
   [
     Player.MeasureTitle,
     Player.Message.MeasuredTitle({ placePixels: 0, maybeTravelPixels: Option.none() }),
+  ],
+  [
+    Player.MeasureArtist,
+    Player.Message.MeasuredArtist({ placePixels: 0, maybeTravelPixels: Option.none() }),
   ],
 );
 
@@ -498,8 +504,31 @@ describe("the genre page", () => {
       ),
     ));
 
-  test("its songs take the page's width: the list says how many a column holds, and which row heads the second", () => {
-    // Three songs: two down the first column, one down the second.
+  test("its songs stand in columns of five at most, as even as they can be: the list says how many a column holds, how many there are, and which rows head one", () => {
+    // Twelve songs: three columns of four, and not five, five and two.
+    const twelve = Array.makeBy(12, (index) => ({ ...track, id: TrackId.make(`tr-top-${index}`) }));
+    const withTwelve = answered(
+      openingGenreFromTile,
+      (requestId) => reply.genre(requestId, { ...fullGenre, topTracks: twelve }),
+      genrePath(genre.id),
+    );
+
+    scene(
+      app,
+      given(withTwelve),
+      inside(
+        onScreen,
+        see(selector("#genre-page ol.track-columns")).toHaveStyle("--rows", "4"),
+        see(selector("#genre-page ol.track-columns")).toHaveAttr("data-columns", "3"),
+        expectAll(all.selector("#genre-page ol.track-columns li")).toHaveCount(12),
+        expectAll(all.selector("#genre-page ol.track-columns [data-column-head]")).toHaveCount(2),
+        see(selector('#genre-page [data-column-head] [data-track="tr-top-4"]')).toExist(),
+        see(selector('#genre-page [data-column-head] [data-track="tr-top-8"]')).toExist(),
+      ),
+    );
+  });
+
+  test("a few songs are one column, with none to head", () => {
     const three = [track, explicitTrack, albumOpener];
     const withThree = answered(
       openingGenreFromTile,
@@ -512,10 +541,9 @@ describe("the genre page", () => {
       given(withThree),
       inside(
         onScreen,
-        see(selector("#genre-page ol.track-columns")).toHaveStyle("--rows", "2"),
-        expectAll(all.selector("#genre-page ol.track-columns li")).toHaveCount(3),
-        expectAll(all.selector("#genre-page ol.track-columns [data-column-head]")).toHaveCount(1),
-        see(selector(`#genre-page [data-column-head] [data-track="${albumOpener.id}"]`)).toExist(),
+        see(selector("#genre-page ol.track-columns")).toHaveStyle("--rows", "3"),
+        see(selector("#genre-page ol.track-columns")).toHaveAttr("data-columns", "1"),
+        expectAll(all.selector("#genre-page ol.track-columns [data-column-head]")).toHaveCount(0),
       ),
     );
   });

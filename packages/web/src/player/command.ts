@@ -119,6 +119,31 @@ export const TravelTitle = Command.define("TravelTitle", {
     ),
 });
 
+// NOTE: who the track is by is a line of its own under the title, with its
+// own waits and passes at the title's times and speed. They are Commands of
+// their own, and not the title's given a second purpose: the two lines wait
+// and travel at once, and what ends for one must not be taken for the other.
+
+/** The artist's line stands for a while before it travels, as the title does. */
+export const WaitToTravelArtist = Command.define("WaitToTravelArtist", {
+  args: { run: Schema.Int, milliseconds: Schema.Number },
+  messages: [Message.CompletedWaitToTravelArtist],
+  execute: ({ run, milliseconds }) =>
+    Effect.sleep(Duration.millis(milliseconds)).pipe(
+      Effect.as(Message.CompletedWaitToTravelArtist({ run })),
+    ),
+});
+
+/** One pass of the artist's line: the clock that says when it is over. */
+export const TravelArtist = Command.define("TravelArtist", {
+  args: { run: Schema.Int, milliseconds: Schema.Number },
+  messages: [Message.CompletedTravelArtist],
+  execute: ({ run, milliseconds }) =>
+    Effect.sleep(Duration.millis(milliseconds)).pipe(
+      Effect.as(Message.CompletedTravelArtist({ run })),
+    ),
+});
+
 /**
  * The light gathers speed, or loses it and comes to rest: the document's
  * side of a change in what the Model says the light is doing. The light's

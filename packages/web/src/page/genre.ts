@@ -22,7 +22,7 @@ import { pageDataView } from "../view/pageData.ts";
 import {
   BLOCK_CLASS,
   shelfPlaceholderView,
-  trackListPlaceholderView,
+  trackColumnsPlaceholderView,
 } from "../view/placeholder.ts";
 import {
   albumTile,
@@ -78,8 +78,8 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
         [h.Class(PAGE_SECTIONS_CLASS)],
         [
           h.section(
-            [h.Class("max-w-3xl")],
-            [h.h2([h.Class(SECTION_HEADING_CLASS)], [TOP_SONGS]), trackListPlaceholderView(h)],
+            [h.Class("track-columns-place")],
+            [h.h2([h.Class(SECTION_HEADING_CLASS)], [TOP_SONGS]), trackColumnsPlaceholderView(h)],
           ),
           shelfPlaceholderView(TOP_ALBUMS, "Square", h),
           shelfPlaceholderView(TOP_ARTISTS, "Round", h),

@@ -103,6 +103,8 @@ const islandLayout = selector('[data-layout="island"]');
 /** The island's title, the line of it that travels, and the layer its light is drawn in. */
 const title = selector("[data-title]");
 const titleLine = selector("[data-title-line]");
+const artistLineOf = selector("[data-artist]");
+const artistLine = selector("[data-artist-line]");
 const lights = selector("[data-island-lights]");
 const expandedLayout = selector('[data-layout="expanded"]');
 
@@ -206,14 +208,32 @@ const islandEnters = Mount.resolveAll(
     Player.MeasureTitle,
     Player.Message.MeasuredTitle({ placePixels: 0, maybeTravelPixels: Option.none() }),
   ],
+  [
+    Player.MeasureArtist,
+    Player.Message.MeasuredArtist({ placePixels: 0, maybeTravelPixels: Option.none() }),
+  ],
 );
+
+/** The line under the title was measured again, and found to fit. */
+// NOTE: a function, for the reason `islandLeaves` is one.
+const artistMeasured = () =>
+  Mount.resolve(
+    Player.MeasureArtist,
+    Player.Message.MeasuredArtist({ placePixels: 0, maybeTravelPixels: Option.none() }),
+  );
+
+/**
+ * What happened to the sound took the place of who the track is by, and
+ * what measured that line ended with it.
+ */
+const artistGivesWay = () => Mount.expectEnded(Player.MeasureArtist);
 
 /** The island left the document, and what was bound to its pieces ended with them. */
 // NOTE: a function, not a step kept and used again. The step takes the
 // Mounts it is given out of its own list as it finds them, so a step used
 // in a second scene would have none left to look for.
 const islandLeaves = () =>
-  Mount.expectEnded(Player.DrawIslandFigure, Player.FollowIslandPress, Player.StartIslandLight, Player.MeasureTitle);
+  Mount.expectEnded(Player.DrawIslandFigure, Player.FollowIslandPress, Player.StartIslandLight, Player.MeasureTitle, Player.MeasureArtist);
 
 /** The island's light was told its new pace, and has taken it. */
 const lightChangesPace = () =>
@@ -414,6 +434,7 @@ describe("a row plays its track", () => {
         [Player.StartPlayback, Player.Message.CompletedStartPlayback({ order: 1, outcome: "Refused" })],
         [Player.PublishNowPlaying, Player.Message.CompletedPublishNowPlaying()],
       ),
+      artistGivesWay(),
       thresholdPasses(1),
       inside(
         island,
@@ -431,6 +452,8 @@ describe("a row plays its track", () => {
         [Player.ResumePlayback, Player.Message.CompletedResumePlayback({ order: 2, outcome: "Sounding" })],
         [Player.WaitBeforeShowingActivity, Player.Message.CompletedWaitBeforeShowingActivity({ order: 2 })],
       ),
+      // Who the track is by is back where the notice stood.
+      artistMeasured(),
       see(text(/Press play/)).toBeAbsent(),
     ));
 
@@ -448,6 +471,7 @@ describe("a row plays its track", () => {
       lightChangesPace(),
       see(text("This song could not be played.")).toBeAbsent(),
       Command.resolve(Player.RefreshSource, Player.Message.FailedRefreshSource({ order: 1 })),
+      artistGivesWay(),
       inside(
         island,
         see(text("Could not be played")).toExist(),
@@ -463,6 +487,7 @@ describe("a row plays its track", () => {
         see(playRow("Technologic")).not.toHaveAttr("aria-current"),
       ),
       inside(island, click(control("Try again"))),
+      artistMeasured(),
       Command.expectHas(
         Player.StartPlayback({ order: 2, source: "https://audio.test/tr-1.mp3", positionSeconds: 0 }),
       ),
@@ -1179,7 +1204,16 @@ describe("a row never grows a line", () => {
     scene(
       app,
       given(failed),
-      islandEnters,
+      // The island says what happened where the artist would stand: there is no such line to measure.
+      Mount.resolveAll(
+        [Player.DrawIslandFigure, Player.Message.CompletedDrawIslandFigure()],
+        [Player.FollowIslandPress, Player.Message.CompletedFollowIslandPress()],
+        [Player.StartIslandLight, Player.Message.CompletedStartIslandLight()],
+        [
+          Player.MeasureTitle,
+          Player.Message.MeasuredTitle({ placePixels: 0, maybeTravelPixels: Option.none() }),
+        ],
+      ),
       inside(
         rowOf(track.id),
         see(rowMark("Failed")).toExist(),
@@ -1341,6 +1375,10 @@ describe("the island", () => {
           Player.MeasureTitle,
           Player.Message.MeasuredTitle({ placePixels: 180, maybeTravelPixels: Option.some(270) }),
         ],
+        [
+          Player.MeasureArtist,
+          Player.Message.MeasuredArtist({ placePixels: 0, maybeTravelPixels: Option.none() }),
+        ],
       ),
       // Measured and found too long: it stands, with its copy ready, for the first wait.
       Command.expectExact(Player.WaitToTravelTitle({ run, milliseconds: 3500 })),
@@ -1364,6 +1402,51 @@ describe("the island", () => {
         Player.Message.CompletedWaitToTravelTitle({ run: run - 1 }),
       ),
       inside(island, see(title).toHaveAttr("data-title", "Standing")),
+    );
+  });
+
+  test("who the track is by, too long for its place, travels as a title does, and the title stands", () => {
+    const run = sounding.player.artist.run + 1;
+    const { name } = track.artist;
+
+    return scene(
+      app,
+      given(sounding),
+      Mount.resolveAll(
+        [Player.DrawIslandFigure, Player.Message.CompletedDrawIslandFigure()],
+        [Player.FollowIslandPress, Player.Message.CompletedFollowIslandPress()],
+        [Player.StartIslandLight, Player.Message.CompletedStartIslandLight()],
+        [
+          Player.MeasureTitle,
+          Player.Message.MeasuredTitle({ placePixels: 180, maybeTravelPixels: Option.none() }),
+        ],
+        [
+          Player.MeasureArtist,
+          Player.Message.MeasuredArtist({ placePixels: 180, maybeTravelPixels: Option.some(270) }),
+        ],
+      ),
+      Command.expectExact(Player.WaitToTravelArtist({ run, milliseconds: 3500 })),
+      inside(island, see(artistLineOf).toHaveAttr("data-overflowing", "")),
+      inside(island, see(artistLineOf).toHaveText(`${name}${name}`)),
+      inside(island, see(artistLine).toHaveStyle("transform", "translateX(0)")),
+      Command.resolve(Player.WaitToTravelArtist, Player.Message.CompletedWaitToTravelArtist({ run })),
+      Command.expectExact(Player.TravelArtist({ run, milliseconds: 6000 })),
+      inside(island, see(artistLineOf).toHaveAttr("data-artist", "Travelling")),
+      inside(island, see(artistLine).toHaveStyle("transform", "translateX(-270px)")),
+      inside(island, see(artistLine).toHaveStyle("transition", "transform 6000ms linear")),
+      // The title is another line, and has not moved.
+      inside(island, see(title).toHaveAttr("data-title", "Standing")),
+      inside(island, see(title).not.toHaveAttr("data-overflowing")),
+      Command.resolve(Player.TravelArtist, Player.Message.CompletedTravelArtist({ run })),
+      Command.expectExact(Player.WaitToTravelArtist({ run, milliseconds: 5000 })),
+      inside(island, see(artistLine).toHaveStyle("transform", "translateX(0)")),
+      inside(island, see(artistLine).toHaveStyle("transition", "none")),
+      // A wait that ends for a run that is no longer the line's is dropped: nothing follows it.
+      Command.resolve(
+        Player.WaitToTravelArtist,
+        Player.Message.CompletedWaitToTravelArtist({ run: run - 1 }),
+      ),
+      inside(island, see(artistLineOf).toHaveAttr("data-artist", "Standing")),
     );
   });
 

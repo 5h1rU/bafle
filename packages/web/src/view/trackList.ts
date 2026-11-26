@@ -6,7 +6,7 @@ import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { AsyncData } from "foldkit";
-import { childAttributes, type Html, type HtmlBuilder } from "foldkit/html";
+import { type Attribute, childAttributes, type Html, type HtmlBuilder } from "foldkit/html";
 import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "../catalog.ts";
 import { Message, type PlayOrigin } from "../message.ts";
@@ -22,7 +22,7 @@ import {
   type PictureLoading,
 } from "./artwork.ts";
 import { reason } from "./feedback.ts";
-import { ROWS_AT_ONCE } from "./firstPictures.ts";
+import { COLUMN_ROWS_AT_ONCE, ROWS_AT_ONCE } from "./firstPictures.ts";
 import {
   albumIcon,
   alertIcon,
@@ -605,8 +605,8 @@ const trackRowView = (
     track.id,
     [
       // NOTE: read by the style sheet, for the line under the row before
-      // this one: in two columns that row is the foot of the other column,
-      // and no neighbour of this one (`track-columns` in styles.css).
+      // this one: that row is the foot of the column before, and no
+      // neighbour of this one (`track-columns` in styles.css).
       ...(isColumnHead ? [h.DataAttribute("column-head", "")] : []),
       h.Class(TRACK_ROW_LINE_CLASS),
     ],
@@ -637,26 +637,59 @@ export type TrackOrder = "Ranked" | "Unranked";
 
 /**
  * How a list uses the room it is given. `Single` is one column of a width
- * that reads well, however wide the page. `Columns` takes the page's whole
- * width and, where that is wide enough for two columns of rows, lays the
- * list out in two: the first half down the first, the second half down the
- * second, so a chart still reads from its top. On a narrow page it is the
- * one column either way.
+ * that reads well, however wide the page, and as long as the list is.
+ * `Columns` takes the page's width and is never taller than a few rows: the
+ * list is laid out in columns of `ROWS_IN_COLUMN` at most, as many as it
+ * takes, the first rows down the first and the next down the one after, so
+ * a chart still reads from its top. The columns stand in a row that goes on
+ * sideways and snaps, as a shelf does: a wide page shows two of them and a
+ * narrow one shows one, with the next showing at the edge.
  *
  * Top songs are `Columns` wherever they are listed, on New, on an artist's
- * page and on a genre's: a chart is one thing, and looks one way. The songs
- * of an album, a playlist or a station, and those a search found, are
- * `Single`.
+ * page and on a genre's: a chart is one thing, and looks one way. So are
+ * the songs a search found, past the few that stand beside the artist. The
+ * songs of an album, a playlist or a station are `Single`: they are what
+ * the page is, and nothing stands under them to be reached.
  */
 export type TrackSpread = "Single" | "Columns";
 
-const COLUMNS = 2;
+/** The most rows a column holds: what an artist's ten top songs come to in two. */
+export const ROWS_IN_COLUMN = 5;
+
+const columnsOf = (count: number): number => Math.ceil(count / ROWS_IN_COLUMN);
+
+/**
+ * How many rows each column of a list holds. The columns are as even as
+ * they can be: eight songs are four and four, not five and three.
+ */
+const rowsInColumnOf = (count: number): number => Math.ceil(count / columnsOf(count));
+
+// NOTE: the row of columns reaches the page's edges and is padded back in
+// by as much, as a shelf's row is, so what is scrolled is cut off at the
+// edge of the page and not at the edge of its text. Where each column
+// stands, and how wide it is, is the style sheet's (`track-columns`).
+export const TRACK_COLUMNS_CLASS =
+  "track-columns -mx-5 mt-2 snap-x snap-mandatory scroll-px-5 overflow-x-auto overscroll-x-contain px-5 pb-3 [scrollbar-color:var(--color-line)_transparent] [scrollbar-width:thin] md:-mx-10 md:scroll-px-10 md:px-10";
+
+/** What a list in columns says of itself to the style sheet: how many rows a column holds, and how many columns there are. */
+export const trackColumnsAttributes = (
+  count: number,
+  h: HtmlBuilder<Message>,
+  className?: string,
+): ReadonlyArray<Attribute<Message>> => [
+  h.Style({ "--rows": String(rowsInColumnOf(count)) }),
+  h.DataAttribute("columns", String(columnsOf(count))),
+  h.Class(clsx(TRACK_COLUMNS_CLASS, className)),
+];
 
 /**
  * The first rows of a list are what its page opens with: their thumbnails
- * are drawn at once, and the reply for the page waits for them (`firstPicturesOf`).
+ * are drawn at once, and the reply for the page waits for them
+ * (`firstPicturesOf`). A list in columns opens with the two columns a wide
+ * page shows.
  */
-const rowLoading = (index: number): PictureLoading => (index < ROWS_AT_ONCE ? "AtOnce" : "WhenNear");
+const rowLoading = (spread: TrackSpread, index: number): PictureLoading =>
+  index < (spread === "Columns" ? COLUMN_ROWS_AT_ONCE : ROWS_AT_ONCE) ? "AtOnce" : "WhenNear";
 
 export const trackListView = (
   labelledBy: string,
@@ -666,16 +699,12 @@ export const trackListView = (
   context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => {
-  // NOTE: how many rows a column holds is said to the style sheet, which
-  // decides by the list's own width whether there are columns at all.
-  const rowsInColumn = Math.ceil(tracks.length / COLUMNS);
   const listAttributes = [
     h.Role("list"),
     h.AriaLabelledBy(labelledBy),
-    ...(spread === "Columns"
-      ? [h.Style({ "--rows": String(rowsInColumn) }), h.Class("track-columns mt-2")]
-      : [h.Class("mt-2")]),
+    ...(spread === "Columns" ? trackColumnsAttributes(tracks.length, h) : [h.Class("mt-2")]),
   ];
+  const rowsInColumn = rowsInColumnOf(tracks.length);
   const isColumnHead = (index: number): boolean =>
     spread === "Columns" && index > 0 && index % rowsInColumn === 0;
 
@@ -687,13 +716,13 @@ export const trackListView = (
       ? h.ol(
           listAttributes,
           Array.map(tracks, (track, index) =>
-            trackRowView(track, Option.some(index + 1), rowLoading(index), isColumnHead(index), context, h),
+            trackRowView(track, Option.some(index + 1), rowLoading(spread, index), isColumnHead(index), context, h),
           ),
         )
       : h.ul(
           listAttributes,
           Array.map(tracks, (track, index) =>
-            trackRowView(track, Option.none(), rowLoading(index), isColumnHead(index), context, h),
+            trackRowView(track, Option.none(), rowLoading(spread, index), isColumnHead(index), context, h),
           ),
         ),
   ];

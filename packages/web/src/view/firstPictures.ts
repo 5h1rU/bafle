@@ -28,6 +28,9 @@ export const GRID_TILES_AT_ONCE = 8;
 /** The rows of a list drawn at once: about as many as a phone's screen holds. */
 export const ROWS_AT_ONCE = 8;
 
+/** The rows of a list in columns drawn at once: the two columns of five that a wide page shows. */
+export const COLUMN_ROWS_AT_ONCE = 10;
+
 type CatalogMessage = typeof Catalog.Message.Type;
 
 type Rendition = keyof Pick<Artwork, "small" | "medium" | "large">;
@@ -46,8 +49,11 @@ const tilesOf = <A>(
   count: number = TILES_AT_ONCE,
 ): ReadonlyArray<string> => Array.flatMap(Array.take(items, count), (item) => rendition("medium")(artworkOf(item)));
 
-const rowsOf = (tracks: ReadonlyArray<TrackSummary>): ReadonlyArray<string> =>
-  Array.flatMap(Array.take(tracks, ROWS_AT_ONCE), (track) => rendition("small")(track.album.cover));
+const rowsOf = (
+  tracks: ReadonlyArray<TrackSummary>,
+  count: number = ROWS_AT_ONCE,
+): ReadonlyArray<string> =>
+  Array.flatMap(Array.take(tracks, count), (track) => rendition("small")(track.album.cover));
 
 const coverOf = (album: { readonly cover: Artwork | null }): Artwork | null => album.cover;
 
@@ -65,7 +71,7 @@ export const firstPicturesOf = (message: CatalogMessage): ReadonlyArray<string> 
           ...tilesOf(result.albums, coverOf),
           ...tilesOf(result.playlists, pictureOf),
         ],
-        SucceededNewMusic: ({ result }) => rowsOf(result.tracks),
+        SucceededNewMusic: ({ result }) => rowsOf(result.tracks, COLUMN_ROWS_AT_ONCE),
         // NOTE: Search opens with the artist it found first, on a card of
         // their own, then the first albums and the first songs.
         SucceededCatalogSearch: ({ result }) => [
@@ -77,7 +83,7 @@ export const firstPicturesOf = (message: CatalogMessage): ReadonlyArray<string> 
         SucceededAlbumDetail: ({ result }) => headOf(result.cover),
         SucceededArtistDetail: ({ result }) => [
           ...headOf(result.picture),
-          ...rowsOf(result.topTracks),
+          ...rowsOf(result.topTracks, COLUMN_ROWS_AT_ONCE),
         ],
         SucceededPlaylistDetail: ({ result }) => [
           ...headOf(result.picture),
@@ -87,7 +93,7 @@ export const firstPicturesOf = (message: CatalogMessage): ReadonlyArray<string> 
           tilesOf(result.genres, pictureOf, GRID_TILES_AT_ONCE),
         SucceededGenreDetail: ({ result }) => [
           ...headOf(result.picture),
-          ...rowsOf(result.topTracks),
+          ...rowsOf(result.topTracks, COLUMN_ROWS_AT_ONCE),
         ],
         SucceededStationList: ({ result }) =>
           Array.flatMap(Array.take(result.groups, SHELVES_AT_HEAD), (group) =>

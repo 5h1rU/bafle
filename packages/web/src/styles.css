@@ -297,39 +297,68 @@ button:focus-visible [data-glyph] {
   }
 }
 
-/* A LIST IN TWO COLUMNS
+/* A LIST IN COLUMNS
 
    Top songs, wherever they are listed (New, an artist's page, a genre's),
-   take the page's width:
-   where the list is wide enough for two columns of rows it is laid out in
-   two, the first half down the first and the second half down the second,
-   so it still reads from its top. How many rows a column holds the view
-   says (`--rows`); whether there are columns at all goes by the list's own
-   width, not the screen's, since the queue opens beside the page on a
-   desktop's screen and takes room from it. A row has its place whatever its
-   neighbours say under themselves, so nothing changes column.
+   and the songs a search found, take the page's width and are never taller
+   than a few rows. The list is laid out in columns of as many rows as the
+   view says (`--rows`), the first rows down the first column and the next
+   down the one after, so it still reads from its top; and the columns stand
+   in a row that goes on sideways and snaps, a column at its leading edge,
+   as a shelf does. A long list is then as tall as a short one, and what
+   stands under it is in reach.
 
-   The row at the head of the second column comes after the foot of the
-   first in the list, and is no neighbour of it on the page: lit, it leaves
-   that row's line alone. */
+   How many columns are seen at once goes by the list's own width, not the
+   screen's, since the queue opens beside the page on a desktop's screen and
+   takes room from it: one where the list is narrow, two where it is wide
+   enough for two columns of rows. When there are more than are seen, each
+   is a little narrower, so that the next one shows at the edge and says
+   there is more that way (`--peek`); a list that is all in view (the view
+   says how many columns it has, `data-columns`) has nothing to show there,
+   and its columns take all the width.
+
+   The row at the head of a column comes after the foot of the column before
+   in the list, and is no neighbour of it on the page: lit, it leaves that
+   row's line alone. */
 @layer components {
   .track-columns-place {
     container-type: inline-size;
   }
 
+  .track-columns {
+    --seen: 1;
+    --gap: 1.25rem;
+    --peek: 1.75rem;
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(var(--rows), auto);
+    grid-auto-columns: calc((100% - (var(--seen) - 1) * var(--gap) - var(--peek)) / var(--seen));
+    column-gap: var(--gap);
+  }
+
+  .track-columns > * {
+    scroll-snap-align: start;
+  }
+
+  .track-columns[data-columns="1"] {
+    --peek: 0rem;
+  }
+
+  .track-row:has(+ .track-row[data-column-head]):not(:has(> [data-in-player])):not(
+      :has(.track-row-play:is(:hover, :active))
+    ) {
+    border-bottom-color: var(--color-line);
+  }
+
   @container (width >= 42rem) {
     .track-columns {
-      display: grid;
-      grid-auto-flow: column;
-      grid-template-rows: repeat(var(--rows), auto);
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      column-gap: 2.5rem;
+      --seen: 2;
+      --gap: 2.5rem;
+      --peek: 3rem;
     }
 
-    .track-row:has(+ .track-row[data-column-head]):not(:has(> [data-in-player])):not(
-        :has(.track-row-play:is(:hover, :active))
-      ) {
-      border-bottom-color: var(--color-line);
+    .track-columns:is([data-columns="1"], [data-columns="2"]) {
+      --peek: 0rem;
     }
   }
 }
@@ -1381,15 +1410,16 @@ body {
   stroke-opacity: 0.3;
 }
 
-/* THE ISLAND'S TITLE
+/* THE ISLAND'S WORDS
 
-   A line of words that may be longer than its place. The place reaches a
-   little further back than where the words begin, and fades over that reach:
+   The island has two lines of words, the track's title and who it is by,
+   and either may be longer than its place. The place reaches a little
+   further back than where the words begin, and fades over that reach:
    standing, the words are clear of it; travelling, they fade into it. So the
    fade can always be there, and nothing changes look as a pass starts. A
-   title that does not fit fades at the far end too. Where the line is, and
-   how it gets there, the view says (titleLineStyle in player/view.ts). */
-.island-title {
+   line that does not fit fades at the far end too. Where the line is, and
+   how it gets there, the view says (marqueeLineStyle in player/view.ts). */
+.island-marquee {
   --lead: 0.5rem;
   --tail: 1rem;
   overflow: hidden;
@@ -1399,7 +1429,7 @@ body {
   mask-image: linear-gradient(to right, transparent, black var(--lead));
 }
 
-.island-title[data-overflowing] {
+.island-marquee[data-overflowing] {
   mask-image: linear-gradient(
     to right,
     transparent,
@@ -1409,14 +1439,14 @@ body {
   );
 }
 
-.island-title-line {
+.island-marquee-line {
   display: inline-flex;
   gap: 2.5rem;
   will-change: transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .island-title-line {
+  .island-marquee-line {
     transform: none !important;
     transition: none !important;
   }

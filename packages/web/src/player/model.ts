@@ -130,26 +130,29 @@ export const IslandLight = Schema.Literals(["Dark", "Travelling", "Resting"]);
 export type IslandLight = typeof IslandLight.Type;
 
 /**
- * The island's title, when it is too long for its place: it stands, travels
- * across once, and stands again. `maybeTravelPixels` is how far one pass
- * takes it, as measured in the document, and nothing when the title fits.
- * Each time the title changes length, or starts or stops fitting while it
- * stands, the run takes the next number, and a wait or a pass that ends for
- * an earlier run is dropped.
+ * A line of the island's words, when it is too long for its place: it
+ * stands, travels across once, and stands again. The island has two such
+ * lines, the track's title and, under it, who it is by, and each is a
+ * marquee of its own: either may fit while the other does not, and one
+ * longer than the other takes longer to pass. `maybeTravelPixels` is how far
+ * one pass takes the line, as measured in the document, and nothing when it
+ * fits. Each time the line changes length, or starts or stops fitting while
+ * it stands, the run takes the next number, and a wait or a pass that ends
+ * for an earlier run is dropped.
  *
  * The island changes width as the navigation comes and goes, and that alone
- * is no reason to start over: a pass goes as far as the title is long,
+ * is no reason to start over: a pass goes as far as the line is long,
  * whatever the width of its place, so the wait or the pass under way goes
- * on. A title that comes to fit in the middle of a pass is `Finishing`: it
+ * on. A line that comes to fit in the middle of a pass is `Finishing`: it
  * ends the pass it is on, and then stands for good.
  */
-export const TitleMarquee = Schema.Struct({
+export const Marquee = Schema.Struct({
   run: Schema.Int,
   placePixels: Schema.Number,
   maybeTravelPixels: Schema.Option(Schema.Number),
   phase: Schema.Literals(["Standing", "Travelling", "Finishing"]),
 });
-export type TitleMarquee = typeof TitleMarquee.Type;
+export type Marquee = typeof Marquee.Type;
 
 /**
  * Whether the queue stands open beside the page, on a screen with room for a
@@ -169,12 +172,13 @@ export const Model = Schema.Struct({
   /** Nothing until the first track is played; from then on, for the life of the page. */
   maybeSession: Schema.Option(Session),
   light: IslandLight,
-  title: TitleMarquee,
+  title: Marquee,
+  artist: Marquee,
   queueColumn: QueueColumn,
 });
 export type Model = typeof Model.Type;
 
-export const initialTitle: TitleMarquee = {
+export const initialMarquee: Marquee = {
   run: 0,
   placePixels: 0,
   maybeTravelPixels: Option.none(),

@@ -110,6 +110,10 @@ const islandEnters = Mount.resolveAll(
     Player.MeasureTitle,
     Player.Message.MeasuredTitle({ placePixels: 0, maybeTravelPixels: Option.none() }),
   ],
+  [
+    Player.MeasureArtist,
+    Player.Message.MeasuredArtist({ placePixels: 0, maybeTravelPixels: Option.none() }),
+  ],
 );
 
 /** The threshold passes with nothing heard from the engine. */

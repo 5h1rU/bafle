@@ -29,11 +29,16 @@ export const ISLAND_CHIN_ATTRIBUTE = "island-chin";
 /** Marks every path that is drawn along the island's outline. */
 export const ISLAND_OUTLINE_ATTRIBUTE = "island-outline";
 
-/** Marks the title's own words within its place, and the line that travels. */
-export const TITLE_WORDS_ATTRIBUTE = "title-words";
-export const TITLE_LINE_ATTRIBUTE = "title-line";
+/**
+ * What marks the pieces of a line of words that may travel, within its
+ * place: the words themselves, and the line that is moved.
+ */
+export type MarqueeMarks = Readonly<{ words: string; line: string }>;
 
-/** The title fits when it is no wider than its place, give or take the rounding of a layout. */
+export const TITLE_MARKS: MarqueeMarks = { words: "title-words", line: "title-line" };
+export const ARTIST_MARKS: MarqueeMarks = { words: "artist-words", line: "artist-line" };
+
+/** A line fits when it is no wider than its place, give or take the rounding of a layout. */
 const FITS_WITHIN_PIXELS = 0.5;
 
 /** A quick tap can begin and end between two paints in iOS Safari. Hold
@@ -98,64 +103,77 @@ const pixels = (length: string): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-type Measure = typeof Message.MeasuredTitle.Type;
+type Measure = Readonly<{ placePixels: number; maybeTravelPixels: Option.Option<number> }>;
 
 /**
- * The title as it lies in its place: the place's width, and how far one
- * pass takes the title when it does not fit. A pass ends with the title's
- * copy standing where the title began, so it goes the title's own width and
+ * A line of words as it lies in its place: the place's width, and how far
+ * one pass takes the line when it does not fit. A pass ends with the line's
+ * copy standing where the line began, so it goes the words' own width and
  * the gap between the two.
  */
-const measureTitle = (place: Element): Option.Option<Measure> =>
+const measureLine = (place: Element, marks: MarqueeMarks): Option.Option<Measure> =>
   Option.gen(function* () {
-    const words = yield* Option.fromNullishOr(place.querySelector(`[data-${TITLE_WORDS_ATTRIBUTE}]`));
-    const line = yield* Option.fromNullishOr(place.querySelector(`[data-${TITLE_LINE_ATTRIBUTE}]`));
+    const words = yield* Option.fromNullishOr(place.querySelector(`[data-${marks.words}]`));
+    const line = yield* Option.fromNullishOr(place.querySelector(`[data-${marks.line}]`));
     const placeStyle = getComputedStyle(place);
     const placePixels =
       place.clientWidth - pixels(placeStyle.paddingLeft) - pixels(placeStyle.paddingRight);
     const wordsPixels = pixels(getComputedStyle(words).width);
     const gapPixels = pixels(getComputedStyle(line).columnGap);
 
-    return Message.MeasuredTitle({
+    return {
       placePixels: Math.round(placePixels),
       maybeTravelPixels:
         wordsPixels > placePixels + FITS_WITHIN_PIXELS
           ? Option.some(Math.round(wordsPixels + gapPixels))
           : Option.none(),
-    });
+    };
   });
 
 /**
- * Tells the Model how the title lies in its place, and again whenever
- * either changes width: the place with the island, the title with the
- * track. While the island is on its way between its two places the width
- * changes on every frame, and nothing is said until it has settled.
+ * How a line lies in its place, said again whenever either changes width:
+ * the place with the island, the words with the track. While the island is
+ * on its way between its two places the width changes on every frame, and
+ * nothing is said until it has settled.
  */
+const measuresOf = <Measured>(
+  element: Element,
+  marks: MarqueeMarks,
+  toMessage: (measure: Measure) => Measured,
+): Stream.Stream<Measured> =>
+  Stream.callback<void>((queue) =>
+    Effect.gen(function* () {
+      yield* Effect.acquireRelease(
+        Effect.sync(() => {
+          const sizes = new ResizeObserver(() => Queue.offerUnsafe(queue, undefined));
+          sizes.observe(element);
+          Option.match(Option.fromNullishOr(element.querySelector(`[data-${marks.words}]`)), {
+            onNone: () => undefined,
+            onSome: (words) => sizes.observe(words),
+          });
+          return sizes;
+        }),
+        (sizes) => Effect.sync(() => sizes.disconnect()),
+      );
+      return yield* Effect.never;
+    }),
+  ).pipe(
+    Stream.debounce(MEASURES_AFTER),
+    Stream.map(() => Option.toArray(Option.map(measureLine(element, marks), toMessage))),
+    Stream.flattenIterable,
+    Stream.changesWith<Measured>(Equal.equals),
+  );
+
+/** Tells the Model how the title lies in its place. */
 export const MeasureTitle = Mount.defineStream("MeasureTitle", {
   messages: [Message.MeasuredTitle],
-  execute: ({ element }) =>
-    Stream.callback<void>((queue) =>
-      Effect.gen(function* () {
-        yield* Effect.acquireRelease(
-          Effect.sync(() => {
-            const sizes = new ResizeObserver(() => Queue.offerUnsafe(queue, undefined));
-            sizes.observe(element);
-            Option.match(
-              Option.fromNullishOr(element.querySelector(`[data-${TITLE_WORDS_ATTRIBUTE}]`)),
-              { onNone: () => undefined, onSome: (words) => sizes.observe(words) },
-            );
-            return sizes;
-          }),
-          (sizes) => Effect.sync(() => sizes.disconnect()),
-        );
-        return yield* Effect.never;
-      }),
-    ).pipe(
-      Stream.debounce(MEASURES_AFTER),
-      Stream.map(() => Option.toArray(measureTitle(element))),
-      Stream.flattenIterable,
-      Stream.changesWith<Measure>(Equal.equals),
-    ),
+  execute: ({ element }) => measuresOf(element, TITLE_MARKS, Message.MeasuredTitle),
+});
+
+/** Tells the Model how the line under the title, who the track is by, lies in its place. */
+export const MeasureArtist = Mount.defineStream("MeasureArtist", {
+  messages: [Message.MeasuredArtist],
+  execute: ({ element }) => measuresOf(element, ARTIST_MARKS, Message.MeasuredArtist),
 });
 
 /** The light on an island, and one of the paths that have its outline to measure it by. */

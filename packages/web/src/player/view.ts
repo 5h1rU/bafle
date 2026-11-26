@@ -29,12 +29,12 @@ import {
   isAwaitingFirstSound,
   isShowingActivity,
   isUnderWay,
+  type Marquee,
   type Model,
   Playback,
   Seek,
   type Session,
   shownPositionSeconds,
-  type TitleMarquee,
   wantsToSound,
 } from "./model.ts";
 import {
@@ -42,9 +42,11 @@ import {
   FollowIslandPress,
   ISLAND_CHIN_ATTRIBUTE,
   ISLAND_TAIL_ATTRIBUTE,
+  ARTIST_MARKS,
+  type MarqueeMarks,
+  MeasureArtist,
   MeasureTitle,
-  TITLE_LINE_ATTRIBUTE,
-  TITLE_WORDS_ATTRIBUTE,
+  TITLE_MARKS,
 } from "./mount.ts";
 import { TITLE_PIXELS_PER_SECOND } from "./command.ts";
 import { MoreMenu, type PlayerAction } from "./moreMenu.ts";
@@ -353,12 +355,12 @@ const maybeShortNotice = (playback: Playback): Option.Option<string> =>
   );
 
 /**
- * Where the title's line is, and how it gets there. Standing, it is where it
+ * Where a line of words is, and how it gets there. Standing, it is where it
  * begins, at once. Travelling, it goes one pass's way at the title's speed:
  * the transition is as long as the Command that says when the pass is over.
  */
-const titleLineStyle = (title: TitleMarquee): Record<string, string> =>
-  Option.match(title.phase === "Standing" ? Option.none() : title.maybeTravelPixels, {
+const marqueeLineStyle = (marquee: Marquee): Record<string, string> =>
+  Option.match(marquee.phase === "Standing" ? Option.none() : marquee.maybeTravelPixels, {
     onNone: () => ({ transform: "translateX(0)", transition: "none" }),
     onSome: (travelPixels) => ({
       transform: `translateX(${-travelPixels}px)`,
@@ -367,35 +369,67 @@ const titleLineStyle = (title: TitleMarquee): Record<string, string> =>
   });
 
 /**
- * The island's title. One that fits is just its words. One that does not
- * waits, then travels across its place once, its copy following it in, until
- * the copy stands where the words began; then it waits again. The words that
- * reach an end of the place fade there.
+ * One of the island's two lines of words as the view draws it: what marks
+ * it in the document, the attribute its phase is said in, how it looks, and
+ * the Mount that measures it.
+ */
+type LineLook = Readonly<{
+  marks: MarqueeMarks;
+  phase: string;
+  className: string;
+  measure: typeof MeasureTitle | typeof MeasureArtist;
+}>;
+
+const TITLE_LOOK: LineLook = {
+  marks: TITLE_MARKS,
+  phase: "title",
+  className: "text-[0.9375rem] leading-tight font-bold",
+  measure: MeasureTitle,
+};
+
+const ARTIST_LOOK: LineLook = {
+  marks: ARTIST_MARKS,
+  phase: "artist",
+  className: "mt-0.5 text-xs leading-tight tracking-wide text-island-muted",
+  measure: MeasureArtist,
+};
+
+/**
+ * A line of the island's words: the track's title, or who it is by. One
+ * that fits is just its words. One that does not waits, then travels across
+ * its place once, its copy following it in, until the copy stands where the
+ * words began; then it waits again. The words that reach an end of the
+ * place fade there.
  *
  * Whether it fits is a matter of pixels, known only in the document: the
- * Mount `MeasureTitle` tells the Model, and from there the waits and the
- * passes are the Model's (`title`), kept in time by Commands.
+ * line's Mount tells the Model, and from there the waits and the passes are
+ * the Model's (`title`, `artist`), kept in time by Commands.
  */
-const titleView = (trackTitle: string, title: TitleMarquee, h: HtmlBuilder<Message>): Html => {
-  const isOverflowing = Option.isSome(title.maybeTravelPixels);
+const marqueeView = (
+  words: string,
+  marquee: Marquee,
+  look: LineLook,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const isOverflowing = Option.isSome(marquee.maybeTravelPixels);
 
   return h.div(
     [
-      h.DataAttribute("title", title.phase),
+      h.DataAttribute(look.phase, marquee.phase),
       ...(isOverflowing ? [h.DataAttribute("overflowing", "")] : []),
-      h.Class("island-title text-[0.9375rem] leading-tight font-bold"),
-      h.OnMount(MeasureTitle()),
+      h.Class(clsx("island-marquee", look.className)),
+      h.OnMount(look.measure()),
     ],
     [
       h.div(
         [
-          h.DataAttribute(TITLE_LINE_ATTRIBUTE, ""),
-          h.Class("island-title-line"),
-          h.Style(titleLineStyle(title)),
+          h.DataAttribute(look.marks.line, ""),
+          h.Class("island-marquee-line"),
+          h.Style(marqueeLineStyle(marquee)),
         ],
         [
-          h.span([h.DataAttribute(TITLE_WORDS_ATTRIBUTE, "")], [trackTitle]),
-          ...(isOverflowing ? [h.span([h.AriaHidden(true)], [trackTitle])] : []),
+          h.span([h.DataAttribute(look.marks.words, "")], [words]),
+          ...(isOverflowing ? [h.span([h.AriaHidden(true)], [words])] : []),
         ],
       ),
     ],
@@ -409,7 +443,8 @@ const titleView = (trackTitle: string, title: TitleMarquee, h: HtmlBuilder<Messa
  */
 const trackWordsView = (
   session: Session,
-  title: TitleMarquee,
+  title: Marquee,
+  artist: Marquee,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => {
   const track = session.current;
@@ -426,13 +461,9 @@ const trackWordsView = (
         ),
       ],
       [
-        titleView(track.title, title, h),
+        marqueeView(track.title, title, TITLE_LOOK, h),
         Option.match(maybeShortNotice(session.playback), {
-          onNone: () =>
-            h.span(
-              [h.Class("mt-0.5 block truncate text-xs leading-tight tracking-wide text-island-muted")],
-              [track.artist.name],
-            ),
+          onNone: () => marqueeView(track.artist.name, artist, ARTIST_LOOK, h),
           onSome: (notice) =>
             h.span(
               [
@@ -992,7 +1023,7 @@ const islandView = (
   const isDesktop = viewInputs.screen === "Desktop";
   const words = [
     coverView(current, "-my-[3px] size-[3.125rem] rounded-full", "small", h, !isUnderSheet),
-    ...trackWordsView(session, model.title, h),
+    ...trackWordsView(session, model.title, model.artist, h),
   ];
 
   // NOTE: under the sheet the island gives up its id and its names: the

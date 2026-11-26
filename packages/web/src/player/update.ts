@@ -24,18 +24,21 @@ import {
   TITLE_RESTS_FOR,
   TITLE_STARTS_AFTER,
   titlePassDuration,
+  TravelArtist,
   TravelTitle,
   WaitBeforeShowingActivity,
+  WaitToTravelArtist,
   WaitToTravelTitle,
 } from "./command.ts";
 import { type MediaKey, Message } from "./message.ts";
 import {
   type Cue,
   initialSeekSlider,
-  initialTitle,
+  initialMarquee,
   isAwaitingFirstSound,
   isUnderWay,
   lightAfter,
+  type Marquee,
   maybeCurrentTrackId,
   isPlayable,
   type Model,
@@ -63,7 +66,8 @@ export const init = (): Model => ({
   lastOrder: 0,
   maybeSession: Option.none(),
   light: "Dark",
-  title: initialTitle,
+  title: initialMarquee,
+  artist: initialMarquee,
   queueColumn: "Closed",
 });
 
@@ -711,119 +715,138 @@ const gotSeekSliderMessage = (model: Model, message: Slider.Message): UpdateRetu
   ]);
 };
 
-// TITLE
-
-/** The title as it is held, or the very same Model when nothing of it changes. */
-const withTitle = (model: Model, next: Model["title"]): Model =>
-  Equal.equals(model.title, next) ? model : modifyFields(model, { title: () => next });
+// THE ISLAND'S WORDS
 
 /**
- * The title was measured again. What follows depends on what changed.
+ * One of the island's two lines of words, each a marquee of its own: where
+ * the Model keeps it, and the Commands that keep its time.
+ */
+type Line = Readonly<{
+  of: (model: Model) => Marquee;
+  put: (model: Model, next: Marquee) => Model;
+  wait: typeof WaitToTravelTitle | typeof WaitToTravelArtist;
+  travel: typeof TravelTitle | typeof TravelArtist;
+}>;
+
+const TITLE_LINE: Line = {
+  of: (model) => model.title,
+  put: (model, next) => modifyFields(model, { title: () => next }),
+  wait: WaitToTravelTitle,
+  travel: TravelTitle,
+};
+
+const ARTIST_LINE: Line = {
+  of: (model) => model.artist,
+  put: (model, next) => modifyFields(model, { artist: () => next }),
+  wait: WaitToTravelArtist,
+  travel: TravelArtist,
+};
+
+/** The line as it is held, or the very same Model when nothing of it changes. */
+const withLine = (line: Line, model: Model, next: Marquee): Model =>
+  Equal.equals(line.of(model), next) ? model : line.put(model, next);
+
+/**
+ * A line was measured again. What follows depends on what changed.
  *
  * Only its place: the island grew or narrowed under it. A pass goes as far
- * as the title is long, whatever the width of its place, so whatever is
+ * as the line is long, whatever the width of its place, so whatever is
  * under way, a wait or a pass, goes on undisturbed.
  *
  * It fits now, in the middle of a pass: it ends that pass, and stands for
  * good when it is over. Stopping it where it is would be a jump.
  *
- * Anything else, a title of another length or one that has started or
+ * Anything else, a line of another length or one that has started or
  * stopped fitting while it stood: it stands, and if it does not fit, the
  * wait before its first pass starts over.
  */
-const measuredTitle =
-  (placePixels: number, maybeTravelPixels: Option.Option<number>): Step =>
+const measuredLine =
+  (line: Line, placePixels: number, maybeTravelPixels: Option.Option<number>): Step =>
   (model) => {
-    const { title } = model;
-    const isMidPass = title.phase !== "Standing";
+    const marquee = line.of(model);
+    const isMidPass = marquee.phase !== "Standing";
 
     if (Option.isNone(maybeTravelPixels) && isMidPass) {
-      return { model: withTitle(model, { ...title, placePixels, phase: "Finishing" }) };
+      return { model: withLine(line, model, { ...marquee, placePixels, phase: "Finishing" }) };
     }
-    if (Equal.equals(title.maybeTravelPixels, maybeTravelPixels)) {
+    if (Equal.equals(marquee.maybeTravelPixels, maybeTravelPixels)) {
       return {
-        model: withTitle(model, {
-          ...title,
+        model: withLine(line, model, {
+          ...marquee,
           placePixels,
-          phase: title.phase === "Finishing" ? "Travelling" : title.phase,
+          phase: marquee.phase === "Finishing" ? "Travelling" : marquee.phase,
         }),
       };
     }
-    const run = title.run + 1;
+    const run = marquee.run + 1;
     return {
-      model: modifyFields(model, {
-        title: () => ({ run, placePixels, maybeTravelPixels, phase: "Standing" }),
-      }),
+      model: line.put(model, { run, placePixels, maybeTravelPixels, phase: "Standing" }),
       commands: Option.match(maybeTravelPixels, {
         onNone: () => [],
         onSome: () => [
-          WaitToTravelTitle({ run, milliseconds: Duration.toMillis(TITLE_STARTS_AFTER) }),
+          line.wait({ run, milliseconds: Duration.toMillis(TITLE_STARTS_AFTER) }),
         ],
       }),
     };
   };
 
-/** A wait or a pass of the title counts only for the run it was started for. */
-const forTitleRun =
-  (run: number, act: (travelPixels: number) => Step): Step =>
+/** A wait or a pass of a line counts only for the run it was started for. */
+const forLineRun =
+  (line: Line, run: number, act: (line: Line, travelPixels: number) => Step): Step =>
   (model) =>
-    run === model.title.run
-      ? Option.match(model.title.maybeTravelPixels, {
+    run === line.of(model).run
+      ? Option.match(line.of(model).maybeTravelPixels, {
           onNone: () => ({ model }),
-          onSome: (travelPixels) => act(travelPixels)(model),
+          onSome: (travelPixels) => act(line, travelPixels)(model),
         })
       : { model };
 
-const startTitlePass =
-  (travelPixels: number): Step =>
+const startLinePass =
+  (line: Line, travelPixels: number): Step =>
   (model) => ({
-    model: modifyFields(model, {
-      title: (title) => modifyFields(title, { phase: () => "Travelling" as const }),
-    }),
+    model: line.put(model, { ...line.of(model), phase: "Travelling" }),
     commands: [
-      TravelTitle({
-        run: model.title.run,
+      line.travel({
+        run: line.of(model).run,
         milliseconds: Duration.toMillis(titlePassDuration(travelPixels)),
       }),
     ],
   });
 
 /**
- * A pass is over. The title stands and waits for the next; one that came to
+ * A pass is over. The line stands and waits for the next; one that came to
  * fit while it travelled has made its last, and stands unmeasured against
  * no wait: the run is closed.
  */
-const restTitle = (): Step => (model) =>
-  model.title.phase === "Finishing"
-    ? {
-        model: modifyFields(model, {
-          title: (title) => ({
-            run: title.run + 1,
-            placePixels: title.placePixels,
+const restLine =
+  (line: Line): Step =>
+  (model) => {
+    const marquee = line.of(model);
+
+    return marquee.phase === "Finishing"
+      ? {
+          model: line.put(model, {
+            run: marquee.run + 1,
+            placePixels: marquee.placePixels,
             maybeTravelPixels: Option.none(),
-            phase: "Standing" as const,
+            phase: "Standing",
           }),
-        }),
-      }
-    : {
-        model: modifyFields(model, {
-          title: (title) => modifyFields(title, { phase: () => "Standing" as const }),
-        }),
-        commands: [
-          WaitToTravelTitle({
-            run: model.title.run,
-            milliseconds: Duration.toMillis(TITLE_RESTS_FOR),
-          }),
-        ],
-      };
+        }
+      : {
+          model: line.put(model, { ...marquee, phase: "Standing" }),
+          commands: [
+            line.wait({ run: marquee.run, milliseconds: Duration.toMillis(TITLE_RESTS_FOR) }),
+          ],
+        };
+  };
 
 // WHAT FOLLOWS FROM THE REST
 
 /**
  * Two things follow from whatever a Message did, and are settled in one
  * place instead of in every handler: what the island's light does, which
- * follows the playback; and the title's standing still again, when another
- * track has become the current one and its title is another title.
+ * follows the playback; and its words' standing still again, when another
+ * track has become the current one and its words are other words.
  */
 const withWhatFollows =
   (previous: Model) =>
@@ -845,7 +868,9 @@ const withWhatFollows =
       model: modifyFields(model, {
         light: () => light,
         title: (title) =>
-          isAnotherTrack ? { ...initialTitle, run: title.run + 1 } : title,
+          isAnotherTrack ? { ...initialMarquee, run: title.run + 1 } : title,
+        artist: (artist) =>
+          isAnotherTrack ? { ...initialMarquee, run: artist.run + 1 } : artist,
       }),
       // NOTE: the light's change of pace is the document's side of the
       // Model's change of mind, so it is a Command given here, where the
@@ -907,9 +932,13 @@ const handle = (model: Model, message: Message) =>
     FailedRefreshSource: ({ order }) => giveUpOnSource(order)(model),
 
     MeasuredTitle: ({ placePixels, maybeTravelPixels }) =>
-      measuredTitle(placePixels, maybeTravelPixels)(model),
-    CompletedWaitToTravelTitle: ({ run }) => forTitleRun(run, startTitlePass)(model),
-    CompletedTravelTitle: ({ run }) => forTitleRun(run, restTitle)(model),
+      measuredLine(TITLE_LINE, placePixels, maybeTravelPixels)(model),
+    CompletedWaitToTravelTitle: ({ run }) => forLineRun(TITLE_LINE, run, startLinePass)(model),
+    CompletedTravelTitle: ({ run }) => forLineRun(TITLE_LINE, run, restLine)(model),
+    MeasuredArtist: ({ placePixels, maybeTravelPixels }) =>
+      measuredLine(ARTIST_LINE, placePixels, maybeTravelPixels)(model),
+    CompletedWaitToTravelArtist: ({ run }) => forLineRun(ARTIST_LINE, run, startLinePass)(model),
+    CompletedTravelArtist: ({ run }) => forLineRun(ARTIST_LINE, run, restLine)(model),
 
     CompletedPausePlayback: () => ({ model }),
     CompletedSeekPlayback: () => ({ model }),
