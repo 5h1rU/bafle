@@ -6,7 +6,7 @@ import * as TestClock from "effect/testing/TestClock";
 import { afterEach, vi } from "vitest";
 import { PICTURE_WAIT, preparePictures } from "../src/command.ts";
 import { firstPicturesOf, ROWS_AT_ONCE } from "../src/view/firstPictures.ts";
-import { album, featured, fullAlbum, fullGenre, otherGenre, playlist, reply, track, trending } from "./fixtures.ts";
+import { album, artist, featured, fullAlbum, fullGenre, otherGenre, playlist, reply, track, trending } from "./fixtures.ts";
 
 // A page takes the screen with the pictures it opens with already painted: the reply for it is
 // held until they are loaded and decoded, and never longer than a moment.
@@ -16,6 +16,14 @@ it("a list of shelves waits for the first tiles of its first two shelves", () =>
   expect(firstPicturesOf(reply.home("page:0", { ...featured, playlists: [pictured] }))).toEqual([
     album.cover?.medium,
     otherGenre.picture?.medium,
+  ]);
+});
+
+it("Search prepares the large artist portrait with the album tiles and song thumbnails", () => {
+  expect(firstPicturesOf(reply.search("page:0"))).toEqual([
+    artist.picture?.large,
+    album.cover?.medium,
+    track.album.cover?.small,
   ]);
 });
 

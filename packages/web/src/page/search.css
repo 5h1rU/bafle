@@ -239,26 +239,7 @@
   margin-top: 0;
 }
 
-/* THE ARTIST FOUND FIRST
-
-   A card of their own: their picture at its far end, whole, and their name
-   over its foot. The card is the picture's whatever the page's colours, and
-   the words on it are white.
-
-   The card is far wider than the picture, and the rest of it is the picture
-   too: it is laid again beside itself, turned round, and once more beside
-   that, so each meets the next along an edge the two share and no edge
-   shows. Over all of it but the picture's far half lies a piece that puts
-   what is under it out of focus, and that piece ends by degrees, so the
-   picture comes into focus where it stands and not out of another picture.
-
-   NOTE: the ground was once the picture enlarged and blurred across the
-   card, with the picture in focus fading in over it. The two did not lie
-   over each other, so the fade was from one picture into another: a figure
-   in it came in as a ghost over a blot of its own colours, and the dark
-   ground met a bright picture along a band that no length of fade hid.
-   Before that it was one flat colour, which is right only for the picture
-   whose colour it is. */
+/* THE ARTIST FOUND FIRST */
 .search-top {
   display: flex;
   flex-direction: column;
@@ -287,124 +268,29 @@
   align-content: end;
   min-width: 0;
   min-height: 10.375rem;
+  aspect-ratio: 11 / 4;
   padding: 1.375rem;
   overflow: hidden;
   border-radius: inherit;
-  background: rgb(44 32 41);
+  background: rgb(22 15 21);
   color: white;
 }
 
-/* Until the picture has come: its likeness, when that is known. */
-.search-top-ground {
-  position: absolute;
-  z-index: -3;
-  inset: 0;
-  opacity: 0.7;
-}
-
-/* The picture's own box: as wide as the card is high, at the card's far
-   end, so the picture is drawn whole. The copies beside it and the piece
-   that softens them are placed by it. */
-.search-top-picture {
+.search-top-art {
   position: absolute;
   z-index: -2;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  aspect-ratio: 1;
+  inset: 0;
 }
 
-.search-top-picture img {
+.search-top-art img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 30%;
 }
 
-.search-top-art,
-.search-top-copy {
-  position: absolute;
-  top: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.search-top-art {
-  right: 0;
-}
-
-.search-top-copy {
-  right: 200%;
-}
-
-/* The copy next to the picture is turned round, so the two share the edge
-   they meet along; the one past it is turned back, and shares its edge too. */
-.search-top-copy[data-turned] {
-  right: 100%;
-  transform: scaleX(-1);
-}
-
-/* What puts the copies out of focus, and the picture's near side with them.
-   It is three pictures wide and whole over the two copies, to the very
-   edge the picture shares with the nearer one (two thirds of the way
-   along), and ends a third of the way into the picture, by degrees along an
-   eased curve: a straight end is seen to start and to stop.
-
-   NOTE: it must not begin to end before that edge. Where it did, the copy
-   came into focus beside the picture, and whoever stood at the picture's
-   near side was seen twice, face to face with themselves. */
-.search-top-soften {
-  --search-top-focus: linear-gradient(
-    90deg,
-    rgb(0 0 0 / 100%) 0%,
-    rgb(0 0 0 / 100%) 66.7%,
-    rgb(0 0 0 / 94%) 68.1%,
-    rgb(0 0 0 / 78%) 69.7%,
-    rgb(0 0 0 / 54%) 71.4%,
-    rgb(0 0 0 / 30%) 73.1%,
-    rgb(0 0 0 / 12%) 74.8%,
-    rgb(0 0 0 / 3%) 76.4%,
-    rgb(0 0 0 / 0%) 78%
-  );
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 300%;
-  /* NOTE: far enough out of focus that a copy is its colours and no longer
-     a figure: a face seen twice beside itself, however soft, is still seen. */
-  -webkit-backdrop-filter: blur(2.75rem);
-  backdrop-filter: blur(2.75rem);
-  -webkit-mask-image: var(--search-top-focus);
-  mask-image: var(--search-top-focus);
-}
-
-/* What the words are read against: darker towards the near end and the
-   foot, and lifting little by little, so the dark has no edge either. */
-.search-top-card::before {
-  content: "";
-  position: absolute;
+.search-top-card::after {
   z-index: -1;
-  inset: 0;
-  background:
-    linear-gradient(
-      90deg,
-      rgb(22 15 21 / 64%) 0%,
-      rgb(22 15 21 / 59%) 14%,
-      rgb(22 15 21 / 49%) 28%,
-      rgb(22 15 21 / 36%) 42%,
-      rgb(22 15 21 / 22%) 56%,
-      rgb(22 15 21 / 10%) 70%,
-      rgb(22 15 21 / 3%) 84%,
-      rgb(22 15 21 / 0%) 96%
-    ),
-    linear-gradient(
-      to bottom,
-      rgb(22 15 21 / 0%) 30%,
-      rgb(22 15 21 / 8%) 48%,
-      rgb(22 15 21 / 24%) 66%,
-      rgb(22 15 21 / 40%) 84%,
-      rgb(22 15 21 / 48%) 100%
-    );
 }
 
 .search-top-kind {
@@ -683,7 +569,6 @@
   .search-top-card {
     min-height: 12.1875rem;
   }
-
 
   .search-top-name {
     max-width: 68%;

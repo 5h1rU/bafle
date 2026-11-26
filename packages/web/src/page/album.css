@@ -31,17 +31,11 @@
   color: white;
 }
 
-.album-hero .album-cover,
-.album-hero::after {
+.album-hero .album-cover {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-}
-
-.album-hero::after {
-  content: "";
-  background: linear-gradient(to bottom, rgb(22 15 21 / 12%) 0%, transparent 28%, rgb(22 15 21 / 35%) 56%, rgb(22 15 21 / 88%) 100%);
 }
 
 .album-caption {

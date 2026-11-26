@@ -38,6 +38,7 @@ const rendition =
     artwork === null ? [] : [artwork[size]];
 
 const headOf = rendition("small");
+const heroOf = rendition("large");
 
 const tilesOf = <A>(
   items: ReadonlyArray<A>,
@@ -68,7 +69,7 @@ export const firstPicturesOf = (message: CatalogMessage): ReadonlyArray<string> 
         // NOTE: Search opens with the artist it found first, on a card of
         // their own, then the first albums and the first songs.
         SucceededCatalogSearch: ({ result }) => [
-          ...tilesOf(result.artists, pictureOf, 1),
+          ...heroOf(result.artists[0]?.picture ?? null),
           ...tilesOf(result.albums, coverOf),
           ...rowsOf(result.tracks),
         ],

@@ -25,7 +25,6 @@ import {
   pageAttributes,
   pageTitleIdOf,
 } from "../view/layout.ts";
-import { likenessStyle } from "../view/likeness.ts";
 import {
   albumTile,
   artistTile,
@@ -148,11 +147,6 @@ const fieldView = (fieldText: string, isListening: boolean, h: HtmlBuilder<Messa
  * tile does: it is a sleeve, which moves a little aside, and its record
  * comes part of the way out from behind it and turns (`search.css`).
  */
-// NOTE: the picture is drawn three times: whole at the card's far end,
-// and twice more beside it, the nearer one turned round, so the card is the
-// picture from end to end with no edge between one and the next. The copies
-// are the same address, which the browser has by then, and say nothing to
-// assistive technology.
 const topResultView = (
   artist: ArtistSummary,
   isOpening: boolean,
@@ -161,7 +155,6 @@ const topResultView = (
 ): Html => {
   const maybePicture = Option.fromNullishOr(artist.picture);
   const flightStyle = artistPictureTransitionStyle(artist.id, presence);
-  const likeness = likenessStyle(maybePicture);
 
   return h.section(
     [h.Class("search-top")],
@@ -179,48 +172,27 @@ const topResultView = (
         [
           h.span([h.AriaHidden(true), h.Class("tile-record search-top-record")]),
           h.span(
-            [h.Class("tile-sleeve search-top-card")],
+            [h.Class("tile-sleeve search-top-card artwork-with-caption")],
             [
-              h.span([
-                h.AriaHidden(true),
-                h.Class("search-top-ground"),
-                ...(Object.keys(likeness).length === 0 ? [] : [h.Style(likeness)]),
-              ]),
               Option.match(maybePicture, {
                 onNone: () => h.empty,
-                onSome: (picture) => {
-                  const copyView = (turned: boolean): Html =>
-                    h.img([
-                      h.Loading("eager"),
-                      h.Decoding("async"),
-                      h.Src(picture.medium),
-                      h.Alt(""),
-                      ...(turned ? [h.DataAttribute("turned", "")] : []),
-                      h.Class("search-top-copy"),
-                    ]);
-
-                  return h.span(
-                    [h.AriaHidden(true), h.Class("search-top-picture")],
+                onSome: (picture) =>
+                  h.span(
                     [
-                      copyView(false),
-                      copyView(true),
-                      h.span(
-                        [h.Class("search-top-art catalog-art"), ...flightAttributes(flightStyle, h)],
-                        [
-                          h.img([
-                            h.Loading("eager"),
-                            h.Fetchpriority("high"),
-                            h.Decoding("sync"),
-                            h.Src(picture.medium),
-                            // The name stands on the card, so the picture itself says nothing new.
-                            h.Alt(""),
-                          ]),
-                        ],
-                      ),
-                      h.span([h.Class("search-top-soften")]),
+                      h.AriaHidden(true),
+                      h.Class("search-top-art catalog-art"),
+                      ...flightAttributes(flightStyle, h),
                     ],
-                  );
-                },
+                    [
+                      h.img([
+                        h.Loading("eager"),
+                        h.Fetchpriority("high"),
+                        h.Decoding("sync"),
+                        h.Src(picture.large),
+                        h.Alt(""),
+                      ]),
+                    ],
+                  ),
               }),
               h.span([h.Class("search-top-kind")], ["Artist"]),
               h.span([h.Class("search-top-name")], [artist.name]),

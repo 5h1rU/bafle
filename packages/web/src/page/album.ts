@@ -71,7 +71,7 @@ const factsView = (album: Album, h: HtmlBuilder<Message>): Html =>
   );
 
 const headView = (album: Album, presence: Presence, h: HtmlBuilder<Message>): Html =>
-  h.header([h.Class("album-hero catalog-art"), ...albumHeadFlightAttributes(album.id, presence, h)], [
+  h.header([h.Class("album-hero artwork-with-caption catalog-art"), ...albumHeadFlightAttributes(album.id, presence, h)], [
     albumCoverView(Option.fromNullishOr(album.cover), h),
     h.div([h.Class("album-caption")], [
       h.h1([h.Id(pageTitleIdOf(PAGE_ID))], [

@@ -538,6 +538,20 @@ body {
   margin-block: clamp(2rem, 13.5dvh, 7.25rem) 3rem;
 }
 
+.artwork-with-caption::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgb(22 15 21 / 12%) 0%,
+    transparent 28%,
+    rgb(22 15 21 / 35%) 56%,
+    rgb(22 15 21 / 88%) 100%
+  );
+}
+
 /* The page fades as a whole. Only the artwork named by this swap opts
    into its own snapshot, on whichever side of the swap it is visible. */
 ::view-transition-group(*),
