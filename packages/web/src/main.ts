@@ -111,8 +111,10 @@ import * as Player from "./player/index.ts";
 import * as Sheet from "./sheet/index.ts";
 import {
   AppRoute,
+  circleSectionOf,
   isSamePage,
   isSameRoute,
+  menuSectionRoute,
   routeToUrl,
   searchedTerm,
   urlToAppRoute,
@@ -1657,10 +1659,19 @@ const respond = (model: Model, message: Message) =>
       model: isPlayerExpanded(model) ? model : withNavigation("Open")(model),
     }),
 
-    ClickedShowNavigation: () => ({
-      model: withNavigation("Open")(model),
-      commands: [FocusNavigation()],
-    }),
+    // NOTE: on Search the circle shows a section the listener is not on,
+    // the one they came from, and a press of it is taken as its item in the
+    // menu would be: the menu comes out and that section is headed for, in
+    // the one press. Anywhere else the circle shows where the listener
+    // already is, and a press only brings the menu out, with the focus.
+    ClickedShowNavigation: () => {
+      const shown = withNavigation("Open")(model);
+      if (model.route._tag !== "Search") {
+        return { model: shown, commands: [FocusNavigation()] };
+      }
+      const section = menuSectionRoute(circleSectionOf(model.route, model.trail));
+      return Update.combine(shown, [forgetAlbumRow(section), follow(section)]);
+    },
 
     // NOTE: playing is no navigation, with one exception. No navigation
     // Message reaches the player, and the player moves the route only while

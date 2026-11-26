@@ -48,6 +48,8 @@ const app = { update, view };
 const shell = selector("[data-navigation]");
 const navigation = role("navigation", { name: "Main" });
 const circle = role("button", { name: "Show navigation" });
+/** The circle on Search, where a press of it leads to the section it shows. */
+const circleTo = (section: string) => role("button", { name: `Go to ${section}` });
 
 /** New on screen with its first track playing: there is an island. */
 const withIsland: Model = after(onNew, Message.ClickedPlayTrack({ trackId: track.id, from: "New" }));
@@ -224,15 +226,32 @@ describe("the navigation on screen", () => {
       app,
       given(after(onSearch, Message.ScrolledDown())),
       // Search was opened by its address: nothing is behind it, so the circle shows Home.
-      see(circle).toHaveAttr("data-section", "Home"),
+      see(circleTo("Home")).toHaveAttr("data-section", "Home"),
+      // It leads there, and says so: it is no control that only brings the menu out.
+      see(circle).toBeAbsent(),
     ));
 
   test("Search reached from New shows New in the circle once its page goes down", () =>
     scene(
       app,
       given(after(onNew, clickedLink("/search"), Message.ScrolledDown())),
-      see(circle).toHaveAttr("data-section", "New"),
+      see(circleTo("New")).toHaveAttr("data-section", "New"),
     ));
+
+  test("on Search a press of the circle brings the menu out and goes to the section it shows, in the one press", () => {
+    // With something played there is an island, so the menu draws back as the page goes down.
+    const onSearchFromNew = after(withIsland, clickedLink("/search"), Message.ScrolledDown());
+    expect(onSearchFromNew.route._tag).toBe("Search");
+    expect(onSearchFromNew.navigation).toBe("Minimized");
+
+    const pressed = update(onSearchFromNew, Message.ClickedShowNavigation());
+    expect(pressed.model.navigation).toBe("Open");
+    // New is held, so it takes the screen at once, as it does from its item in the menu.
+    expect(pressed.model.route._tag).toBe("New");
+    const issued = (pressed.commands ?? []).map((command) => command.name);
+    expect(issued).toContain("NavigateInternal");
+    expect(issued).not.toContain("FocusNavigation");
+  });
 
   test("under the expanded player there is no navigation on a narrow screen", () =>
     scene(

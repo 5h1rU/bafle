@@ -4,6 +4,7 @@ import { GenreId } from "@bafle/domain/Catalog/Genre";
 import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import { StationId } from "@bafle/domain/Catalog/Station";
 import { TrackId } from "@bafle/domain/Catalog/Track";
+import * as Array from "effect/Array";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -118,6 +119,38 @@ export const routeToUrl = (route: AppRoute): string =>
   });
 
 export const isSameRoute = Schema.toEquivalence(AppRoute);
+
+/**
+ * The sections of the navigation's menu. Search is a section too, and stands
+ * apart from them on a narrow screen: a control of its own at the far end,
+ * there whether the menu is whole or drawn back.
+ */
+export type MenuSection = "Home" | "New" | "Genres" | "Radio";
+
+export const maybeMenuSection = (route: AppRoute): Option.Option<MenuSection> =>
+  route._tag === "Home" ||
+  route._tag === "New" ||
+  route._tag === "Genres" ||
+  route._tag === "Radio"
+    ? Option.some(route._tag)
+    : Option.none();
+
+/** The page of one of the menu's sections. */
+export const menuSectionRoute = (section: MenuSection): AppRoute => AppRoute[section]();
+
+/**
+ * What the navigation's circle shows when the menu has drawn back to it: the
+ * section on screen. On a page that is none of the menu's, Search, a track,
+ * an album, an artist, a playlist, a genre or a station, it shows the nearest
+ * one among the pages behind, and Home when there is none.
+ */
+export const circleSectionOf = (
+  route: AppRoute,
+  behind: ReadonlyArray<AppRoute>,
+): MenuSection =>
+  Option.getOrElse(maybeMenuSection(route), () =>
+    Option.getOrElse(Array.findLast(behind, maybeMenuSection), () => "Home" as const),
+  );
 
 /**
  * Whether two routes are places within one page. Search is one page whatever

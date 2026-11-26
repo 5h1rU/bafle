@@ -64,8 +64,10 @@ import * as Station from "./page/station.ts";
 import * as Track from "./page/track.ts";
 import {
   AppRoute,
+  circleSectionOf,
   genresRouter,
   homeRouter,
+  type MenuSection,
   newRouter,
   radioRouter,
   searchedTerm,
@@ -188,31 +190,8 @@ const maybeMarkedDestination = (model: Model): Option.Option<Destination> =>
     maybeDestinationOf(model.route),
   );
 
-/**
- * The sections of the menu. Search is a section too, and stands apart from
- * them on a narrow screen: a control of its own at the far end, there
- * whether the menu is whole or drawn back.
- */
-type MenuSection = Exclude<Destination, "Search">;
-
-const maybeMenuSection = (route: AppRoute): Option.Option<MenuSection> =>
-  route._tag === "Home" ||
-  route._tag === "New" ||
-  route._tag === "Genres" ||
-  route._tag === "Radio"
-    ? Option.some(route._tag)
-    : Option.none();
-
-/**
- * What the circle shows when the menu has drawn back to it: the section on
- * screen. On a page that is none of the menu's, Search, a track, an album,
- * an artist, a playlist, a genre or a station, it shows the nearest one
- * behind the page, and Home when there is none.
- */
 const circleSection = (model: Model): MenuSection =>
-  Option.getOrElse(maybeMenuSection(model.route), () =>
-    Option.getOrElse(Array.findLast(model.trail, maybeMenuSection), () => "Home" as const),
-  );
+  circleSectionOf(model.route, model.trail);
 
 /** A surface that floats over the page: the page is seen through it, blurred. */
 const FLOATING_CLASS = "border border-line bg-panel/85 shadow-lg backdrop-blur-xl";
@@ -363,6 +342,11 @@ const menuSurfaceView = (model: Model, h: HtmlBuilder<Message>): Html =>
  * listener is and leads nowhere: a press brings the menu out again, where
  * the page stands. This control lies over the circle, and is only there
  * while the menu is drawn back, on a narrow screen.
+ *
+ * On Search the circle shows a section the listener is not on: the one they
+ * came from. There a press brings the menu out and goes to that section
+ * too, as its item in the menu would, so it is not a press to open the menu
+ * and another to leave Search. The control says where it leads.
  */
 const showNavigationView = (model: Model, h: HtmlBuilder<Message>): Html =>
   Button.view(
@@ -372,8 +356,9 @@ const showNavigationView = (model: Model, h: HtmlBuilder<Message>): Html =>
         h.button(
           [
             ...attributes.button,
-            h.AriaLabel("Show navigation"),
-            h.AriaExpanded(false),
+            ...(model.route._tag === "Search"
+              ? [h.AriaLabel(`Go to ${DESTINATION_NAMES[circleSection(model)]}`)]
+              : [h.AriaLabel("Show navigation"), h.AriaExpanded(false)]),
             h.DataAttribute("section", circleSection(model)),
             h.Class(
               "pointer-events-auto absolute top-1.5 left-1.5 hidden size-11 cursor-pointer touch-manipulation rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent minimized:block",
