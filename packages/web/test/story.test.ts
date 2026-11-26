@@ -24,6 +24,7 @@ import {
   addressOf,
   Awaiting,
   maybeHeadedFor,
+  maybeStaleError,
   HomeData,
   type Model,
   NewMusicData,
@@ -1499,6 +1500,58 @@ describe("rule 6: search keeps its results while it loads", () => {
       message(arrived(reply.search(awaitedId(askedForMore), foundMore))),
       model((model) => expect(model.search).toEqual(SearchData.Idle())),
     ));
+});
+
+describe("the connection coming back", () => {
+  const typedMore = after(onSearch, changedUrl("/search?q=daft+punk"));
+  const askedForMore = after(
+    typedMore,
+    Message.CompletedWaitForTypingPause({ pauseId: awaitedId(typedMore) }),
+  );
+  /** Search showing what it found earlier, since the catalog could not be reached for the new term. */
+  const offline = answered(askedForMore, reply.searchLost);
+
+  test("a page that could not be reached is asked again by itself, and what it says of it goes with the answer", () => {
+    expect(maybeStaleError(offline)).toEqual(Option.some("Unreachable"));
+
+    story(
+      update,
+      given(offline),
+      message(Message.RegainedConnection()),
+      Command.expectExact(
+        Catalog.CatalogSearch({ input: { term: "daft punk" }, requestId: nextId(offline) }),
+      ),
+      Command.resolve(Catalog.CatalogSearch, reply.search(nextId(offline), foundMore)),
+      model((model) => {
+        expect(maybeStaleError(model)).toEqual(Option.none());
+        expect(model.search).toEqual(
+          SearchData.Success({ data: { term: "daft punk", results: foundMore } }),
+        );
+      }),
+    );
+  });
+
+  test("a page that is up to date is not asked again, nor one the catalog refused", () => {
+    story(update, given(onSearch), message(Message.RegainedConnection()), Command.expectNone());
+    story(
+      update,
+      given(answered(askedForMore, reply.searchRefused)),
+      message(Message.RegainedConnection()),
+      Command.expectNone(),
+    );
+  });
+
+  test("a page the listener chose and is waiting for is still waited for", () => {
+    const leavingForHome = chose(offline, "/");
+
+    story(
+      update,
+      given(leavingForHome),
+      message(Message.RegainedConnection()),
+      Command.expectNone(),
+      model((model) => expect(model.awaiting).toEqual(leavingForHome.awaiting)),
+    );
+  });
 });
 
 describe("the page behind", () => {

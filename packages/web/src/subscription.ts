@@ -171,6 +171,16 @@ const dragsUnderSearchField = Stream.suspend(() =>
   }),
 );
 
+/** The device has a connection again, as the browser tells it. */
+const connectionsRegained = Stream.suspend(() =>
+  Dom.streamFromEventFilterMap({
+    target: window,
+    type: "online",
+    options: { passive: true },
+    filterMapEvent: () => Option.some(Message.RegainedConnection()),
+  }),
+);
+
 /**
  * Whether the screen is a desktop's: told as the app starts, and again each
  * time the window is made wide enough for three columns or too narrow for
@@ -227,6 +237,10 @@ const navigationSubscriptions = Subscription.make<Model, Message>()((entry) => (
         Stream.map((method) => Message.ChangedInputMethod({ method })),
       );
     },
+  }),
+  connection: entry({}, {
+    modelToDependencies: () => ({}),
+    dependenciesToStream: () => connectionsRegained,
   }),
   searchDrag: entry(
     { isOnSearch: Schema.Boolean },

@@ -92,6 +92,7 @@ import {
   isKnownMissing,
   isLoaded,
   isSearchFieldAtHead,
+  maybeLoadError,
   initialPlayerSheet,
   isPlayerExpanded,
   isPlayersPage,
@@ -1598,6 +1599,19 @@ const respond = (model: Model, message: Message) =>
     ClickedBack: () => ({ model, commands: [NavigateBack()] }),
 
     ClickedTryAgain: () => Update.combine(model, [reload, focusPage]),
+
+    // NOTE: a page that could not be reached is asked again as soon as there
+    // is a way to reach it, with nothing for the listener to press: what it
+    // says of being offline goes by itself when the catalog answers, and the
+    // page is then up to date, which is what the notice going is to mean.
+    // Nothing is taken from the listener for it. The focus stays where it
+    // is, and a page they have chosen and are waiting for is still waited
+    // for: that one is asked of the same connection, and comes first.
+    RegainedConnection: () =>
+      Awaiting.guards.Nothing(model.awaiting) &&
+      Option.contains(maybeLoadError(model), "Unreachable")
+        ? reload(model)
+        : { model },
 
     ClickedDismissStaleNotice: () => ({
       model: modifyFields(model, { staleNotice: () => "Dismissed" }),

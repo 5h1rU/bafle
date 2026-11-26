@@ -36,6 +36,8 @@ export const Message = defineMessageUnion({
   ChangedUrl: { url: Url },
   ClickedBack: {},
   ClickedTryAgain: {},
+  /** The browser says the device has a connection again. */
+  RegainedConnection: {},
   /** The control that puts away the notice over a page that could not be refreshed. */
   ClickedDismissStaleNotice: {},
   /** A track's own page asks for its track to be put in the queue. */

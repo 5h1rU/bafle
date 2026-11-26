@@ -510,25 +510,38 @@ export const canShow = (model: Model, route: AppRoute): boolean =>
 const staleErrorOf = <A>(data: AsyncData.AsyncData<A, LoadError>): Option.Option<LoadError> =>
   AsyncData.hasData(data) ? AsyncData.getError(data) : Option.none();
 
+/** What is read of whatever the page on screen holds, of whichever kind it is. */
+type ReadError = <A>(data: AsyncData.AsyncData<A, LoadError>) => Option.Option<LoadError>;
+
+const errorOnScreen = (model: Model, read: ReadError): Option.Option<LoadError> =>
+  AppRoute.match(model.route, {
+    Home: () => read(model.home),
+    New: () => read(model.newMusic),
+    Genres: () => read(model.genreList),
+    Radio: () => read(model.stationList),
+    Search: () => read(model.search),
+    Track: ({ trackId }) => read(trackData(model, trackId)),
+    Album: ({ albumId }) => read(albumData(model, albumId)),
+    Artist: ({ artistId }) => read(artistData(model, artistId)),
+    Playlist: ({ playlistId }) => read(playlistData(model, playlistId)),
+    Genre: ({ genreId }) => read(genreData(model, genreId)),
+    Station: ({ stationId }) => read(stationData(model, stationId)),
+    NotFound: () => Option.none(),
+  });
+
 /**
  * Why the page on screen shows what it loaded earlier instead of what the
  * catalog has now, when that is the case: a refresh behind it failed.
  */
 export const maybeStaleError = (model: Model): Option.Option<LoadError> =>
-  AppRoute.match(model.route, {
-    Home: () => staleErrorOf(model.home),
-    New: () => staleErrorOf(model.newMusic),
-    Genres: () => staleErrorOf(model.genreList),
-    Radio: () => staleErrorOf(model.stationList),
-    Search: () => staleErrorOf(model.search),
-    Track: ({ trackId }) => staleErrorOf(trackData(model, trackId)),
-    Album: ({ albumId }) => staleErrorOf(albumData(model, albumId)),
-    Artist: ({ artistId }) => staleErrorOf(artistData(model, artistId)),
-    Playlist: ({ playlistId }) => staleErrorOf(playlistData(model, playlistId)),
-    Genre: ({ genreId }) => staleErrorOf(genreData(model, genreId)),
-    Station: ({ stationId }) => staleErrorOf(stationData(model, stationId)),
-    NotFound: () => Option.none(),
-  });
+  errorOnScreen(model, staleErrorOf);
+
+/**
+ * Why the page on screen could not be asked, when it could not: whether it
+ * shows what it loaded earlier, or has nothing to show but that.
+ */
+export const maybeLoadError = (model: Model): Option.Option<LoadError> =>
+  errorOnScreen(model, AsyncData.getError);
 
 /**
  * Whether the Model already holds what a route's page shows, so the page can
