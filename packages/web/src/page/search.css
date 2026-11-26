@@ -245,14 +245,35 @@
 /* THE ARTIST FOUND FIRST
 
    A card of their own: their picture at its far end, drawn into the card's
-   ground, and their name over its foot. The ground is dark in both themes,
-   a little lighter than the night so the card is told from the dark page,
-   with the picture's own colours over it (its likeness) once they are
-   known: the card is the picture's whatever the page's colours, and the
-   words on it are white. */
+   ground, and their name over its foot. The card is the picture's whatever
+   the page's colours, and the words on it are white.
+
+   The ground is the picture itself, out of focus and dimmed, across the
+   whole card, and the picture in focus comes out of it by degrees over most
+   of its own width. So there is no edge where the picture begins, whatever
+   it is a picture of: a bright one and a dark one alike rise out of their
+   own colours. A ground of one flat colour showed where the picture began
+   as a step, and no fade was long enough to hide it under a white picture.
+   Until the picture has come the ground is its likeness, when that is
+   known, over a dark that is a little lighter than the night. */
 .search-top {
   display: flex;
   flex-direction: column;
+}
+
+/* The way to the artist's page: the card, with its record behind it. */
+.search-top-link {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 1;
+  border-radius: 1.0625rem;
+  touch-action: manipulation;
+}
+
+.search-top-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .search-top-card {
@@ -261,18 +282,13 @@
   display: grid;
   flex: 1;
   align-content: end;
+  min-width: 0;
   min-height: 10.375rem;
   padding: 1.375rem;
   overflow: hidden;
-  border-radius: 1.0625rem;
+  border-radius: inherit;
   background: rgb(44 32 41);
   color: white;
-  touch-action: manipulation;
-}
-
-.search-top-card:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
 }
 
 .search-top-ground,
@@ -284,15 +300,40 @@
 
 .search-top-ground {
   z-index: -3;
-  opacity: 0.7;
+  overflow: hidden;
 }
 
+/* NOTE: drawn larger than the card, so that the soft edge a blur leaves
+   round a picture falls outside it. */
+.search-top-ground img {
+  position: absolute;
+  inset: -25%;
+  width: 150%;
+  height: 150%;
+  object-fit: cover;
+  filter: blur(2.25rem) saturate(1.2) brightness(0.6);
+}
+
+/* The picture in focus comes in along an eased curve and not a straight
+   one: a straight fade is seen to start and to stop. */
 .search-top-art {
+  --search-top-fade: linear-gradient(
+    90deg,
+    rgb(0 0 0 / 0%) 0%,
+    rgb(0 0 0 / 3%) 10%,
+    rgb(0 0 0 / 11%) 21%,
+    rgb(0 0 0 / 26%) 32%,
+    rgb(0 0 0 / 46%) 43%,
+    rgb(0 0 0 / 67%) 54%,
+    rgb(0 0 0 / 84%) 65%,
+    rgb(0 0 0 / 95%) 76%,
+    rgb(0 0 0 / 100%) 88%
+  );
   z-index: -2;
   left: auto;
-  width: 64%;
-  -webkit-mask-image: linear-gradient(90deg, transparent, black 42%);
-  mask-image: linear-gradient(90deg, transparent, black 42%);
+  width: 78%;
+  -webkit-mask-image: var(--search-top-fade);
+  mask-image: var(--search-top-fade);
 }
 
 .search-top-art img {
@@ -307,8 +348,8 @@
   content: "";
   z-index: -1;
   background:
-    linear-gradient(90deg, rgb(22 15 21 / 45%) 0%, rgb(22 15 21 / 28%) 46%, transparent 78%),
-    linear-gradient(to bottom, transparent 42%, rgb(22 15 21 / 60%) 100%);
+    linear-gradient(90deg, rgb(22 15 21 / 42%) 0%, rgb(22 15 21 / 24%) 45%, transparent 80%),
+    linear-gradient(to bottom, transparent 40%, rgb(22 15 21 / 55%) 100%);
 }
 
 .search-top-kind {
@@ -327,8 +368,8 @@
   text-wrap: balance;
 }
 
-/* The way in. Narrow, the whole card is plainly that, and the disc is there
-   only to say that the artist's page is on its way. */
+/* The way in, drawn on a wide page as the design draws it. Narrow, the
+   whole card is plainly that. */
 .search-top-go {
   position: absolute;
   right: 1rem;
@@ -342,8 +383,33 @@
   background: rgb(22 15 21 / 65%);
 }
 
-.search-top-card[aria-busy="true"] .search-top-go {
-  display: grid;
+/* THE ARTIST'S PAGE ON ITS WAY
+
+   The card is a sleeve, as a tile's picture is, and behind it is its
+   record (`tile-record` in styles.css, which draws it and turns it): chosen,
+   the card moves a little aside and the record comes part of the way out
+   past its far end and turns, for as long as the artist's page takes.
+
+   A tile's record is as large as its tile and comes a third of the way out.
+   A card is far wider than it is high and stands hard against the page's
+   edge, or the songs beside it, so its record is no larger than a tile's
+   and comes out only into the room the card makes by moving aside, and a
+   little past it. */
+.search-top-record {
+  inset: auto 0 auto auto;
+  top: 50%;
+  width: auto;
+  height: min(84%, 9rem);
+  aspect-ratio: 1;
+  translate: 0 -50%;
+}
+
+[data-opening] > .search-top-record {
+  transform: translateX(1rem);
+}
+
+[data-opening] > .search-top-card {
+  transform: translateX(-0.875rem);
 }
 
 /* THE ALBUMS
@@ -514,14 +580,17 @@
     margin-top: 0.5rem;
   }
 
-  .search-top-card {
-    min-height: 12.1875rem;
+  .search-top-link {
     margin-top: 0.75rem;
     border-radius: 0.75rem;
   }
 
+  .search-top-card {
+    min-height: 12.1875rem;
+  }
+
   .search-top-art {
-    width: 46%;
+    width: 62%;
   }
 
   .search-top-name {

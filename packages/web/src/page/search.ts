@@ -16,7 +16,7 @@ import {
   flightAttributes,
 } from "../view/artwork.ts";
 import { failureView } from "../view/feedback.ts";
-import { closeIcon, openIcon, searchIcon, spinnerIcon } from "../view/icon.ts";
+import { closeIcon, openIcon, searchIcon } from "../view/icon.ts";
 import {
   ARTIST_TILE_ATTRIBUTE,
   PAGE_IDS,
@@ -158,9 +158,14 @@ const emptyView = (h: HtmlBuilder<Message>): Html =>
  * The artist found first, on a card of their own: their picture, their
  * name, and the way to their page. The picture is the one that goes there,
  * as a tile's does, and the card is marked as their tile is, so the focus is
- * given back to it. While their page is on its way the disc at the card's
- * foot turns.
+ * given back to it. While their page is on its way the card says so as a
+ * tile does: it is a sleeve, which moves a little aside, and its record
+ * comes part of the way out from behind it and turns (`search.css`).
  */
+// NOTE: the picture is drawn twice. Once out of focus across the whole
+// card, as its ground, and once in focus at its far end, coming out of that
+// ground by degrees: so the card has no edge where the picture begins. The
+// ground's is the same address, which the browser has by then.
 const topResultView = (
   artist: ArtistSummary,
   isOpening: boolean,
@@ -181,39 +186,47 @@ const topResultView = (
           h.Href(artistRouter({ artistId: artist.id })),
           h.AriaBusy(isOpening),
           h.DataAttribute(ARTIST_TILE_ATTRIBUTE, artist.id),
-          h.Class("search-top-card"),
+          ...(isOpening ? [h.DataAttribute("opening", "")] : []),
+          h.Class("search-top-link"),
         ],
         [
-          h.span([
-            h.AriaHidden(true),
-            h.Class("search-top-ground"),
-            ...(Object.keys(likeness).length === 0 ? [] : [h.Style(likeness)]),
-          ]),
-          Option.match(maybePicture, {
-            onNone: () => h.empty,
-            onSome: (picture) =>
-              h.span(
-                [h.Class("search-top-art catalog-art"), ...flightAttributes(flightStyle, h)],
-                [
-                  h.img([
-                    h.Loading("eager"),
-                    h.Fetchpriority("high"),
-                    h.Decoding("sync"),
-                    h.Src(picture.medium),
-                    // The name stands on the card, so the picture itself says nothing new.
-                    h.Alt(""),
-                  ]),
-                ],
-              ),
-          }),
-          h.span([h.Class("search-top-kind")], ["Artist"]),
-          h.span([h.Class("search-top-name")], [artist.name]),
+          h.span([h.AriaHidden(true), h.Class("tile-record search-top-record")]),
           h.span(
-            [h.AriaHidden(true), h.Class("search-top-go")],
+            [h.Class("tile-sleeve search-top-card")],
             [
-              isOpening
-                ? spinnerIcon("size-4 animate-spin motion-reduce:animate-pulse")
-                : openIcon("size-4"),
+              h.span(
+                [
+                  h.AriaHidden(true),
+                  h.Class("search-top-ground"),
+                  ...(Object.keys(likeness).length === 0 ? [] : [h.Style(likeness)]),
+                ],
+                Option.match(maybePicture, {
+                  onNone: () => [],
+                  onSome: (picture) => [
+                    h.img([h.Loading("eager"), h.Decoding("async"), h.Src(picture.medium), h.Alt("")]),
+                  ],
+                }),
+              ),
+              Option.match(maybePicture, {
+                onNone: () => h.empty,
+                onSome: (picture) =>
+                  h.span(
+                    [h.Class("search-top-art catalog-art"), ...flightAttributes(flightStyle, h)],
+                    [
+                      h.img([
+                        h.Loading("eager"),
+                        h.Fetchpriority("high"),
+                        h.Decoding("sync"),
+                        h.Src(picture.medium),
+                        // The name stands on the card, so the picture itself says nothing new.
+                        h.Alt(""),
+                      ]),
+                    ],
+                  ),
+              }),
+              h.span([h.Class("search-top-kind")], ["Artist"]),
+              h.span([h.Class("search-top-name")], [artist.name]),
+              h.span([h.AriaHidden(true), h.Class("search-top-go")], [openIcon("size-4")]),
             ],
           ),
         ],
