@@ -16,6 +16,7 @@ import { Message } from "./message.ts";
 import { addressOf, Model } from "./model.ts";
 import * as HtmlAudioEngine from "./player/htmlAudioEngine.ts";
 import { subscriptions } from "./subscription.ts";
+import * as Timing from "./timing.ts";
 import { view } from "./view.ts";
 import { isSameRoute } from "./route.ts";
 import { CHOOSE_TRACK } from "./view/artwork.ts";
@@ -34,9 +35,11 @@ const CatalogConnection = ListenerApi.layerClientHttp(`${location.origin}/api`).
 /**
  * What the app's Commands and Subscriptions are given for the life of the
  * page. The engine is named here and nowhere else: another one, a provider's
- * own player, takes its place by being named instead.
+ * own player, takes its place by being named instead. So is the Tracer that
+ * writes what the listener waits through to the browser's User Timing
+ * (`timing.ts`).
  */
-const resources = Layer.mergeAll(CatalogConnection, HtmlAudioEngine.layer);
+const resources = Layer.mergeAll(CatalogConnection, HtmlAudioEngine.layer, Timing.layer);
 
 // Older browsers can snapshot a page without supporting transition types.
 // Shared artwork needs types so both snapshots can opt in the same picture.

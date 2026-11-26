@@ -6,7 +6,7 @@ import { StationId } from "@bafle/domain/Catalog/Station";
 import { TrackId } from "@bafle/domain/Catalog/Track";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
-import { pipe } from "effect/Function";
+import { flow, pipe } from "effect/Function";
 import * as Schema from "effect/Schema";
 import { Command, Dom } from "foldkit";
 import { back, load, pushUrl, replaceUrl } from "foldkit/navigation";
@@ -14,6 +14,7 @@ import { Catalog, type CatalogClient, REPLY_TIMEOUT } from "./catalog.ts";
 import { Message } from "./message.ts";
 import type { ListedSection } from "./model.ts";
 import { searchRouter, trackRouter } from "./route.ts";
+import { asWait } from "./timing.ts";
 import { firstPicturesOf } from "./view/firstPictures.ts";
 import {
   ALBUM_TILE_ATTRIBUTE,
@@ -251,6 +252,9 @@ const UNANSWERED: Readonly<{ _tag: "Unknown" }> = { _tag: "Unknown" };
  */
 export const PICTURE_WAIT = Duration.millis(300);
 
+/** How the wait for a page's first pictures ended: with all of them ready, or with its time up. */
+type PicturesWait = "Ready" | "RanOut";
+
 /** One picture, loaded and decoded, so that drawing it is only painting it. */
 const decodePicture = (url: string): Promise<void> => {
   const image = new Image();
@@ -266,13 +270,21 @@ const decodePicture = (url: string): Promise<void> => {
  * otherwise drawn as an empty box for a frame or more while it decodes, even
  * when its bytes are already here.
  */
+// NOTE: the wait is measured (`asWait`), with how it ended: `PICTURE_WAIT`
+// is a guess at what a phone needs, and how often it runs out is what says
+// whether the guess is a good one.
 export const preparePictures = (urls: ReadonlyArray<string>): Effect.Effect<void> =>
   urls.length === 0
     ? Effect.void
     : pipe(
         Effect.promise(() => Promise.all(urls.map(decodePicture))),
-        Effect.timeoutOrElse({ duration: PICTURE_WAIT, orElse: () => Effect.void }),
-        Effect.asVoid,
+        Effect.as<PicturesWait>("Ready"),
+        Effect.timeoutOrElse({
+          duration: PICTURE_WAIT,
+          orElse: () => Effect.succeed<PicturesWait>("RanOut"),
+        }),
+        Effect.flatMap((ended) => Effect.annotateCurrentSpan({ pictures: urls.length, ended })),
+        asWait("pictures"),
       );
 
 /**
@@ -294,6 +306,14 @@ const asking = (
         duration: REPLY_TIMEOUT,
         orElse: () => Effect.succeed(unanswered),
       }),
+    ),
+    // The two waits a page is held for are measured apart, so that a page
+    // slow to open says which it was: the catalog, or the pictures.
+    Command.mapEffect(
+      flow(
+        Effect.tap((message) => Effect.annotateCurrentSpan("reply", message._tag)),
+        asWait("catalog"),
+      ),
     ),
     Command.mapEffect(Effect.tap((message) => preparePictures(firstPicturesOf(message)))),
     Command.mapMessage(toMessage),

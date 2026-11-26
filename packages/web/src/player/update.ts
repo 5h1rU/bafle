@@ -5,6 +5,7 @@ import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
 import { pipe } from "effect/Function";
 import * as Match from "effect/Match";
+import * as Number from "effect/Number";
 import * as Option from "effect/Option";
 import { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
@@ -516,6 +517,20 @@ const pressedMediaKey = (session: Session, key: MediaKey): Step =>
     Match.exhaustive,
   );
 
+/**
+ * The system's own bar for the sound was moved: the engine is asked for that
+ * place at once, as a key on the player's own bar asks. The place is kept
+ * within the audio's length, which the system may know less exactly than the
+ * engine does. Before the engine has read a length there is nothing to move
+ * within.
+ */
+const movedMediaPosition = (session: Session, positionSeconds: number): Step =>
+  Option.match(session.maybeDurationSeconds, {
+    onNone: () => unchanged,
+    onSome: (durationSeconds) =>
+      seekTo(session, Number.clamp(positionSeconds, { minimum: 0, maximum: durationSeconds })),
+  });
+
 const isDragging = (slider: Slider.Model): boolean => slider.dragState._tag === "Dragging";
 
 /**
@@ -874,6 +889,8 @@ const handle = (model: Model, message: Message) =>
       onSession((session) => playFromQueue(session, index, trackId))(model),
     ClickedTryAgain: () => onSession(play)(model),
     PressedMediaKey: ({ key }) => onSession((session) => pressedMediaKey(session, key))(model),
+    MovedMediaPosition: ({ positionSeconds }) =>
+      onSession((session) => movedMediaPosition(session, positionSeconds))(model),
 
     GotSeekSliderMessage: ({ message }) => gotSeekSliderMessage(model, message),
     GotMoreMenuMessage: ({ message }) => foldMoreMenu(model, message),

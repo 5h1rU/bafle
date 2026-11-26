@@ -439,6 +439,26 @@ describe("seeking", () => {
     expect(asked(stepped)).toEqual([["SeekPlayback", { order: 2, positionSeconds: 13 }]]);
   });
 
+  test("the system's own bar moved asks the engine at once, as a key on the player's does", () => {
+    const moved = Player.update(sounding, Message.MovedMediaPosition({ positionSeconds: 21.5 }));
+    expect(session(moved.model).seek).toEqual(Seek.Seeking({ targetSeconds: 21.5 }));
+    expect(asked(moved)).toEqual([["SeekPlayback", { order: 2, positionSeconds: 21.5 }]]);
+  });
+
+  test("the system's bar moved past either end of the audio asks for that end", () => {
+    const past = Player.update(sounding, Message.MovedMediaPosition({ positionSeconds: 45 }));
+    expect(asked(past)).toEqual([["SeekPlayback", { order: 2, positionSeconds: 30 }]]);
+
+    const before = Player.update(sounding, Message.MovedMediaPosition({ positionSeconds: -3 }));
+    expect(asked(before)).toEqual([["SeekPlayback", { order: 2, positionSeconds: 0 }]]);
+  });
+
+  test("the system's bar moved before the engine has read a length asks nothing", () => {
+    const moved = Player.update(acknowledged, Message.MovedMediaPosition({ positionSeconds: 5 }));
+    expect(moved.model).toBe(acknowledged);
+    expect(asked(moved)).toEqual([]);
+  });
+
   test("a seek acknowledged within one frame jumps, then the next playback tick glides", () => {
     const key = Message.GotSeekSliderMessage({
       message: Slider.Message.PressedKeyboardNavigation({ direction: "StepIncrement", value: 12 }),

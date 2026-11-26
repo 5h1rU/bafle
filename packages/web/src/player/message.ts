@@ -25,6 +25,8 @@ export const Message = defineMessageUnion({
   ClickedQueueItem: { index: Schema.Int, trackId: TrackId },
   ClickedTryAgain: {},
   PressedMediaKey: { key: MediaKey },
+  /** The system's own bar for the sound, on a lock screen or a headset's display, was moved to another place. */
+  MovedMediaPosition: { positionSeconds: Schema.Number },
   GotSeekSliderMessage: { message: Slider.Message },
   GotMoreMenuMessage: { message: Menu.Message },
   GotQueueDragMessage: { message: DragAndDrop.Message },

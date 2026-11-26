@@ -11,38 +11,76 @@ import type { Model } from "./model.ts";
 
 // SUBSCRIPTION
 
-/** The system's own controls for a player, and the key each stands for. */
-const MEDIA_ACTIONS: ReadonlyArray<readonly [MediaSessionAction, MediaKey]> = [
-  ["play", "Play"],
-  ["pause", "Pause"],
-  ["nexttrack", "Next"],
-  ["previoustrack", "Previous"],
+/** What one of the system's controls says when it is used, if it says anything the player can act on. */
+type MediaAction = readonly [
+  action: MediaSessionAction,
+  said: (details: MediaSessionActionDetails) => Option.Option<Message>,
 ];
+
+const pressed =
+  (key: MediaKey) =>
+  (): Option.Option<Message> =>
+    Option.some(Message.PressedMediaKey({ key }));
+
+/**
+ * The system's own controls for a player, and what each says. Its bar for
+ * the sound says where it was moved to; a browser that hands over no place
+ * has said nothing.
+ */
+export const MEDIA_ACTIONS: ReadonlyArray<MediaAction> = [
+  ["play", pressed("Play")],
+  ["pause", pressed("Pause")],
+  ["nexttrack", pressed("Next")],
+  ["previoustrack", pressed("Previous")],
+  [
+    "seekto",
+    ({ seekTime }) =>
+      Option.map(Option.fromNullishOr(seekTime), (positionSeconds) =>
+        Message.MovedMediaPosition({ positionSeconds }),
+      ),
+  ],
+];
+
+// NOTE: each control is handed over by itself. A browser that does not know
+// one of them refuses it by throwing, and the others are still to be heard.
+const hear = (
+  action: MediaSessionAction,
+  handler: MediaSessionActionHandler | null,
+): Effect.Effect<void> =>
+  Effect.ignore(Effect.try(() => navigator.mediaSession.setActionHandler(action, handler)));
+
+const hasMediaSession = (): boolean => "mediaSession" in navigator;
 
 /**
  * The play, pause, next and previous of a lock screen, a headset or a
- * keyboard, as the browser hands them over. A browser without the Media
- * Session API hands over nothing.
+ * keyboard, and the place its bar for the sound is moved to, as the browser
+ * hands them over. A browser without the Media Session API hands over
+ * nothing.
  */
-const mediaKeys = Stream.callback<Message>((queue) =>
+// NOTE: where the sound is, how long it is and whether it sounds are not
+// told to the system: with nothing said, a browser reads them off the audio
+// element itself, which is the engine's and the only thing that knows.
+export const mediaKeys = Stream.callback<Message>((queue) =>
   Effect.acquireRelease(
-    Effect.sync(() => {
-      if (!("mediaSession" in navigator)) {
-        return;
-      }
-      MEDIA_ACTIONS.forEach(([action, key]) =>
-        navigator.mediaSession.setActionHandler(action, () => {
-          Queue.offerUnsafe(queue, Message.PressedMediaKey({ key }));
-        }),
-      );
-    }),
+    Effect.when(
+      Effect.forEach(
+        MEDIA_ACTIONS,
+        ([action, said]) =>
+          hear(action, (details) => {
+            const maybeMessage = said(details);
+            if (Option.isSome(maybeMessage)) {
+              Queue.offerUnsafe(queue, maybeMessage.value);
+            }
+          }),
+        { discard: true },
+      ),
+      Effect.sync(hasMediaSession),
+    ),
     () =>
-      Effect.sync(() => {
-        if (!("mediaSession" in navigator)) {
-          return;
-        }
-        MEDIA_ACTIONS.forEach(([action]) => navigator.mediaSession.setActionHandler(action, null));
-      }),
+      Effect.when(
+        Effect.forEach(MEDIA_ACTIONS, ([action]) => hear(action, null), { discard: true }),
+        Effect.sync(hasMediaSession),
+      ),
   ).pipe(Effect.flatMap(() => Effect.never)),
 );
 
