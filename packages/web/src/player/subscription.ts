@@ -1,11 +1,12 @@
 import { DragAndDrop, Slider } from "@foldkit/ui";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Subscription } from "foldkit";
-import { AudioEngine } from "./audioEngine.ts";
+import { AudioEngine, isSameReport } from "./audioEngine.ts";
 import { type MediaKey, Message } from "./message.ts";
 import type { Model } from "./model.ts";
 
@@ -82,6 +83,41 @@ export const mediaKeys = Stream.callback<Message>((queue) =>
         Effect.sync(hasMediaSession),
       ),
   ).pipe(Effect.flatMap(() => Effect.never)),
+);
+
+/**
+ * How often the engine is asked where the sound is while the bar of its
+ * progress follows it. The bar takes a little longer than this to get to
+ * each place said (`glide` in view.ts), so it is still on its way when the
+ * next is said.
+ */
+export const SOUND_PLACE_EVERY = Duration.millis(250);
+
+/**
+ * Where the sound is, asked of the engine at once and then four times a
+ * second: what the bar of the sound's progress is drawn from while the
+ * sound goes on. The engine's own reports come when the second changes, as
+ * late as its clock happens to run, so a bar drawn from those alone was a
+ * second behind and halted whenever one came later than the one before.
+ * Asked at an even pace, and to the fraction, the places are evenly apart,
+ * and the bar's own transition takes it from each to the next: the movement
+ * is the style sheet's, drawn without the app, and the app is drawn again
+ * four times a second and not for every frame. A place is said as any
+ * report is, and heeded as one; asked while the engine has nothing new to
+ * say, it says nothing.
+ */
+// NOTE: this is the app's to listen to and not the player's own, since only
+// the app knows whether a bar is on screen (`drawsSoundProgress` in the
+// app's model.ts): every word of it is a Message, and draws the app again.
+export const soundPlaces: Stream.Stream<Message, never, AudioEngine> = Stream.unwrap(
+  Effect.gen(function* () {
+    const engine = yield* AudioEngine;
+    return Stream.tick(SOUND_PLACE_EVERY).pipe(
+      Stream.mapEffect(() => engine.now),
+      Stream.changesWith(isSameReport),
+      Stream.map((report) => Message.UpdatedEngineStatus({ report })),
+    );
+  }),
 );
 
 /**

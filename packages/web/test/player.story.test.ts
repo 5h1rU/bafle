@@ -395,7 +395,7 @@ describe("seeking", () => {
       message(said(2, "Sounding", { positionSeconds: 22, maybeDurationSeconds: Option.some(30) })),
       lightChangesPace(),
       model((player) => {
-        expect(session(player).seek).toEqual(Seek.Settled({ justJumped: true }));
+        expect(session(player).seek).toEqual(Seek.Settled({}));
         expect(session(player).positionSeconds).toBe(22);
         expect(playback(player)).toEqual(Playback.Sounding());
       }),
@@ -459,13 +459,46 @@ describe("seeking", () => {
     expect(asked(moved)).toEqual([]);
   });
 
-  test("a seek acknowledged within one frame jumps, then the next playback tick glides", () => {
+  // The bar is sent to where the engine says the sound is, and while it follows the sound the
+  // engine is asked for that place several times a second.
+  const at = (positionSeconds: number) => ({
+    positionSeconds,
+    maybeDurationSeconds: Option.some(30),
+    bufferedSeconds: 20,
+  });
+
+  test("each place the engine says is taken to the fraction, whenever it is said", () => {
+    const first = after(sounding, said(1, "Sounding", at(12.31)));
+    expect(session(first).positionSeconds).toBe(12.31);
+    expect(session(after(first, said(1, "Sounding", at(12.56)))).positionSeconds).toBe(12.56);
+    // Said again with nothing changed, it changes nothing.
+    expect(after(first, said(1, "Sounding", at(12.31)))).toBe(first);
+  });
+
+  test("the bar follows the sound while there is sound and it stands where the engine is", () => {
+    expect(Player.followsSound(sounding)).toBe(true);
+    expect(Player.followsSound(after(sounding, said(1, "Sounding", at(13.1))))).toBe(true);
+    // A wish for sound is not sound.
+    expect(Player.followsSound(acknowledged)).toBe(false);
+    // Sound that ran out of data, or was paused, is not followed until it sounds again.
+    const stalled = after(sounding, said(1, "Waiting", at(13.6)));
+    expect(Player.followsSound(stalled)).toBe(false);
+    expect(Player.followsSound(after(stalled, said(1, "Sounding", at(13.6))))).toBe(true);
+    expect(Player.followsSound(after(sounding, Message.ClickedPause()))).toBe(false);
+  });
+
+  test("a bar that stands where the listener wants to be does not follow the sound", () => {
+    expect(Player.followsSound(after(dragging, draggedTo(25)))).toBe(false);
     const key = Message.GotSeekSliderMessage({
-      message: Slider.Message.PressedKeyboardNavigation({ direction: "StepIncrement", value: 12 }),
+      message: Slider.Message.PressedKeyboardNavigation({ direction: "StepIncrement", value: 13 }),
     });
-    const jumped = after(sounding, key, said(2, "Sounding", { positionSeconds: 13 }));
-    expect(session(jumped).seek).toEqual(Seek.Settled({ justJumped: true }));
-    expect(session(after(jumped, said(2, "Sounding", { positionSeconds: 14 }))).seek).toEqual(Seek.Settled({}));
+    const asked = after(sounding, key);
+    expect(Player.followsSound(asked)).toBe(false);
+    // The engine says it is there: the bar is the sound's again, from that place.
+    const jumped = after(asked, said(2, "Sounding", at(13.02)));
+    expect(session(jumped).seek).toEqual(Seek.Settled({}));
+    expect(session(jumped).positionSeconds).toBe(13.02);
+    expect(Player.followsSound(jumped)).toBe(true);
   });
 
   test("a drag given up with Escape asks nothing and leaves the position where the engine has it", () => {

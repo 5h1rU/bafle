@@ -27,7 +27,12 @@ import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "./catalog.ts";
 import { InputMethod, PlayOrigin } from "./message.ts";
-import { maybeCurrentTrackId, Model as PlayerModel, QueuePlace } from "./player/model.ts";
+import {
+  followsSound,
+  maybeCurrentTrackId,
+  Model as PlayerModel,
+  QueuePlace,
+} from "./player/model.ts";
 import { AppRoute, searchedTerm } from "./route.ts";
 import { Screen } from "./screen.ts";
 import * as Sheet from "./sheet/index.ts";
@@ -591,6 +596,16 @@ export const isPlayersPage = (model: Model, route: AppRoute): boolean =>
  * is its island. On a desktop's screen it is always its island.
  */
 export const isPlayerExpanded = (model: Model): boolean => isPlayersPage(model, model.route);
+
+/**
+ * Whether the progress of the sound is being drawn as it goes on: a bar for
+ * it is on screen, in the expanded player or in the island of a desktop's
+ * screen, and it follows the sound (`followsSound`). Only then is the engine
+ * asked where the sound is several times a second: an island with no bar,
+ * on a compact screen, has nothing to draw it on.
+ */
+export const drawsSoundProgress = (model: Model): boolean =>
+  (model.screen === "Desktop" || isPlayerExpanded(model)) && followsSound(model.player);
 
 /**
  * The page the app is waiting to put on screen in place of the one that is

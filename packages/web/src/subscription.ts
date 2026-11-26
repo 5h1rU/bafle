@@ -7,7 +7,7 @@ import * as Stream from "effect/Stream";
 import { Dom, Subscription } from "foldkit";
 import { SEARCH_FIELD_BOX_CLASS, SEARCH_FIELD_ID } from "./command.ts";
 import { type InputMethod, Message } from "./message.ts";
-import type { Model } from "./model.ts";
+import { drawsSoundProgress, type Model } from "./model.ts";
 import * as Player from "./player/index.ts";
 import { DESKTOP_QUERY } from "./screen.ts";
 import { isPageId, pageIdOf } from "./view/layout.ts";
@@ -268,4 +268,27 @@ const playerSubscriptions = Subscription.lift(Player.subscriptions)<Model, Messa
   toParentMessage: (message) => Message.GotPlayerMessage({ message }),
 });
 
-export const subscriptions = Subscription.aggregate(navigationSubscriptions, playerSubscriptions);
+/**
+ * Where the sound is, several times a second, while its progress is drawn
+ * as it goes on (`drawsSoundProgress`): the bar is drawn from the Model, and
+ * this is how the Model knows the places it travels between. With no bar on
+ * screen, or no sound, nothing is asked.
+ */
+const soundSubscriptions = Subscription.make<Model, Message, Player.AudioEngine>()((entry) => ({
+  soundPlace: entry(
+    { isDrawn: Schema.Boolean },
+    {
+      modelToDependencies: (model) => ({ isDrawn: drawsSoundProgress(model) }),
+      dependenciesToStream: ({ isDrawn }) =>
+        isDrawn
+          ? Stream.map(Player.soundPlaces, (message) => Message.GotPlayerMessage({ message }))
+          : Stream.empty,
+    },
+  ),
+}));
+
+export const subscriptions = Subscription.aggregate(
+  navigationSubscriptions,
+  playerSubscriptions,
+  soundSubscriptions,
+);

@@ -15,7 +15,7 @@ import {
   tap,
   text,
 } from "foldkit/scene";
-import { DragAndDrop, Animation, Menu } from "@foldkit/ui";
+import { DragAndDrop, Animation, Menu, Slider } from "@foldkit/ui";
 import { Lazy } from "foldkit/test";
 import { describe, expect, test } from "vitest";
 import { Catalog } from "../src/catalog.ts";
@@ -39,6 +39,7 @@ import {
 } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import {
+  drawsSoundProgress,
   initialPlayerSheet,
   isPlayerExpanded,
   maybeHeadedFor,
@@ -1236,6 +1237,83 @@ describe("the island", () => {
         see(selector("[data-buffered]")).toHaveStyle("transform", `scaleX(${20 / 30})`),
       ),
     ));
+
+  /** The engine saying the sound has gone on to a later place: where it is, of thirty seconds. */
+  const goesOnTo = (positionSeconds: number): Message =>
+    said(1, "Sounding", { positionSeconds, maybeDurationSeconds: Option.some(30), bufferedSeconds: 30 });
+
+  test("the bar is drawn where the engine says the sound is, to the fraction, and what is told of it counts whole seconds", () =>
+    scene(
+      app,
+      given(after(expandedOnFirst, goesOnTo(13.5))),
+      sheetEnters(),
+      see(selector("[data-played]")).toHaveStyle("transform", `scaleX(${13.5 / 30})`),
+      see(seekBar).toHaveStyle("transform", "translateX(calc(45cqw - 50%))"),
+      see(seekBar).toHaveAttr("aria-valuenow", "13"),
+      see(selector('[data-elapsed="fact"]')).toHaveText("0:13"),
+      // The time left changes when the time played does: both are counted from the same second.
+      see(selector("[data-remaining]")).toHaveText("−0:17"),
+    ));
+
+  test("the bar travels to each place the engine says, in a little longer than the places are apart", () =>
+    scene(
+      app,
+      given(after(expandedOnFirst, goesOnTo(13.5))),
+      sheetEnters(),
+      see(selector("[data-played]")).toHaveClass("motion-safe:duration-[350ms]"),
+      see(seekBar).toHaveClass("motion-safe:duration-[350ms]"),
+    ));
+
+  test("to a place the listener wants the bar does not travel: it stands there at once", () =>
+    scene(
+      app,
+      given(
+        after(
+          expandedOnFirst,
+          player(
+            Player.Message.GotSeekSliderMessage({
+              message: Slider.Message.PressedKeyboardNavigation({ direction: "StepIncrement", value: 20 }),
+            }),
+          ),
+        ),
+      ),
+      sheetEnters(),
+      see(selector("[data-seek]")).toHaveAttr("data-seek", "Seeking"),
+      // The key moves it a second on from where the slider says it is.
+      see(selector("[data-played]")).toHaveStyle("transform", `scaleX(${21 / 30})`),
+      see(selector("[data-played]")).toHaveClass("transition-none"),
+      see(seekBar).toHaveClass("transition-none"),
+    ));
+
+  test("at the audio's end the bar is full and the slider at its whole length", () =>
+    scene(
+      app,
+      given(after(expandedOnFirst, goesOnTo(30))),
+      sheetEnters(),
+      see(selector("[data-played]")).toHaveStyle("transform", "scaleX(1)"),
+      see(seekBar).toHaveAttr("aria-valuenow", "30"),
+    ));
+
+  test("the engine is asked where the sound is only while a bar for it is on screen and follows the sound", () => {
+    expect(drawsSoundProgress(expandedOnFirst)).toBe(true);
+    // On a compact screen the island has no bar, and on a desktop's it has.
+    expect(drawsSoundProgress(sounding)).toBe(false);
+    expect(drawsSoundProgress(after(sounding, Message.ChangedScreen({ screen: "Desktop" })))).toBe(true);
+    // With no sound there is nothing to follow.
+    expect(drawsSoundProgress(after(expandedOnFirst, player(Player.Message.ClickedPause())))).toBe(false);
+    expect(
+      drawsSoundProgress(
+        after(
+          expandedOnFirst,
+          said(1, "Waiting", {
+            positionSeconds: 13.6,
+            maybeDurationSeconds: Option.some(30),
+            bufferedSeconds: 13,
+          }),
+        ),
+      ),
+    ).toBe(false);
+  });
 
   test("a title that fits stands as plain words, once", () =>
     scene(

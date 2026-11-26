@@ -1,10 +1,15 @@
 import * as Effect from "effect/Effect";
-import * as Equal from "effect/Equal";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
-import { AudioEngine, type EnginePhase, type EngineReport, type StartOutcome } from "./audioEngine.ts";
+import {
+  AudioEngine,
+  type EnginePhase,
+  type EngineReport,
+  isSameReport,
+  type StartOutcome,
+} from "./audioEngine.ts";
 
 // HTML AUDIO ENGINE
 
@@ -78,16 +83,10 @@ const heldSeconds = (element: HTMLMediaElement): number => {
     : Math.floor(until);
 };
 
-/** Where the sound is, in whole seconds, and at the audio's whole length once it has ended, as above. */
+/** Where the sound is, to the fraction, and at the audio's whole length once it has ended, as above. */
 const positionOf = (element: HTMLMediaElement): number =>
-  element.ended && Number.isFinite(element.duration)
-    ? element.duration
-    : Math.floor(element.currentTime);
+  element.ended && Number.isFinite(element.duration) ? element.duration : element.currentTime;
 
-/**
- * Whole seconds: the engine's clock runs several times a second, and the
- * interface has nothing new to say until the second changes.
- */
 const read = (element: HTMLMediaElement, order: number): EngineReport => ({
   order,
   phase: phaseOf(element),
@@ -99,13 +98,17 @@ const read = (element: HTMLMediaElement, order: number): EngineReport => ({
   isSeeking: element.seeking,
 });
 
-const isSameReport = (one: EngineReport, other: EngineReport): boolean =>
-  one.order === other.order &&
-  one.phase === other.phase &&
-  one.positionSeconds === other.positionSeconds &&
-  one.bufferedSeconds === other.bufferedSeconds &&
-  one.isSeeking === other.isSeeking &&
-  Equal.equals(one.maybeDurationSeconds, other.maybeDurationSeconds);
+/**
+ * Whether there is nothing new to say. The engine's clock runs several times
+ * a second, and the interface has nothing new to say of it until the second
+ * changes: a report is made then, or when anything else changes. Whenever it
+ * is made it says where the sound is to the fraction, since the clock runs
+ * when it will and not on the second. Whoever draws the sound's progress
+ * asks for it (`now`) at a pace of its own and does not wait for these.
+ */
+const hasNothingNewToSay = (last: EngineReport, report: EngineReport): boolean =>
+  isSameReport(last, { ...report, positionSeconds: last.positionSeconds }) &&
+  Math.floor(last.positionSeconds) === Math.floor(report.positionSeconds);
 
 const outcomeOf = (error: unknown): StartOutcome => {
   const name = error instanceof Error ? error.name : "";
@@ -138,7 +141,7 @@ export const makeWithRelease = (
 
   const say = (): void => {
     const report = read(element, state.order);
-    if (Option.exists(state.maybeLastSaid, (last) => isSameReport(last, report))) {
+    if (Option.exists(state.maybeLastSaid, (last) => hasNothingNewToSay(last, report))) {
       return;
     }
     state.maybeLastSaid = Option.some(report);
@@ -193,6 +196,7 @@ export const makeWithRelease = (
     // NOTE: whoever starts listening is told where things stand before
     // anything changes. The player starts listening after its first order
     // is given, and a failure that fast would otherwise never be heard.
+    now: Effect.sync(() => read(element, state.order)),
     reports: Stream.callback<EngineReport>((queue) =>
       Effect.acquireRelease(
         Effect.sync(() => {

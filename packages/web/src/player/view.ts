@@ -26,6 +26,7 @@ import { Message } from "./message.ts";
 import {
   hasEarlier,
   hasLater,
+  isAwaitingFirstSound,
   isShowingActivity,
   isUnderWay,
   type Model,
@@ -463,6 +464,15 @@ const fractionOfDuration = (seconds: number, duration: number): number =>
   Math.max(0, Math.min(1, seconds / duration));
 
 /**
+ * What the listener is told of where the sound is: whole seconds, as the
+ * slider's keys move it, and the audio's whole length at its end. The engine
+ * says the fraction too, which is the bar's to draw. The time played and
+ * the time left are both counted from this, so the two change together.
+ */
+const countedSeconds = (seconds: number, duration: number): number =>
+  seconds >= duration ? duration : Math.floor(seconds);
+
+/**
  * How the progress bar is drawn in each of the two places it has: the rail
  * it runs on, the dot that is moved along it, and how much around the dot
  * answers a press.
@@ -491,6 +501,27 @@ const SEEK_ON_ISLAND: SeekLook = {
  * answers a press well above and below it, and the thumb is a finger wide
  * around a small dot. Behind the part played lies the part the engine holds.
  */
+// NOTE: the bar is sent to the place the Model says the sound is, and takes
+// 350 ms to get there. While the sound goes on the Model is told that place
+// every 250 ms (`soundPlaces` in subscription.ts), to the fraction, so the
+// bar is always on its way to a place just said: it moves at the pace of the
+// sound, a third of a second behind it, and the movement is the browser's
+// own, with nothing of the app's running for it. The time is longer than the
+// places are apart on purpose. A bar given just the time until the next
+// place had arrived whenever that one came late, and stood still until it
+// did; this one makes up what it is out by at each place said, and a place
+// said late finds it still moving. Paused, or out of data, it comes to rest
+// on the last place said the same way.
+//
+// Two things it does not travel to. A place the listener wants (`seek`): the
+// bar stands there at once, under the finger. And the start of another
+// track: a bar that travelled back from the end of the last would be seen to
+// rewind.
+//
+// The part played and the thumb are each placed by a transform, said here
+// in a Style after the Slider's own attributes: it takes the place of the
+// Style the Slider gives them, which would place them by width and by left,
+// and those are laid out again for every frame they move in.
 const seekBarView = (
   attributes: Slider.SliderAttributes,
   session: Session,
@@ -500,11 +531,10 @@ const seekBarView = (
 ): Html => {
   const isWish = !Seek.guards.Settled(session.seek);
   const played = fractionOfDuration(shownPositionSeconds(session), durationSeconds);
-  const glides = Playback.guards.Sounding(session.playback) &&
-    Seek.guards.Settled(session.seek) && !session.seek.justJumped;
-  const glide = glides
-    ? "motion-safe:transition-transform motion-safe:duration-1000 motion-safe:ease-linear"
-    : "transition-none";
+  const glide =
+    Seek.guards.Settled(session.seek) && !isAwaitingFirstSound(session.playback)
+      ? "motion-safe:transition-transform motion-safe:duration-[350ms] motion-safe:ease-linear"
+      : "transition-none";
 
   return h.div(
     [
@@ -533,6 +563,7 @@ const seekBarView = (
           ]),
           h.div([
             ...attributes.filledTrack,
+            h.DataAttribute("played", ""),
             h.Style({ transform: `scaleX(${played})` }),
             h.Class(
               clsx(
@@ -586,7 +617,7 @@ const TIMES_CLASS = "-mt-[10px] flex justify-between";
  * to be and are drawn as a wish until the engine says the sound is there.
  */
 const progressView = (session: Session, durationSeconds: number, h: HtmlBuilder<Message>): Html => {
-  const shownSeconds = shownPositionSeconds(session);
+  const shownSeconds = countedSeconds(shownPositionSeconds(session), durationSeconds);
   const isWish = !Seek.guards.Settled(session.seek);
 
   return h.div(
@@ -597,7 +628,7 @@ const progressView = (session: Session, durationSeconds: number, h: HtmlBuilder<
         model: session.seekSlider,
         view: Slider.view,
         viewInputs: {
-          value: Math.min(shownSeconds, durationSeconds),
+          value: shownSeconds,
           ariaLabel: `Seek: ${session.current.title}`,
           formatValue: (value) => `${formatDuration(value)} of ${formatDuration(durationSeconds)}`,
           toView: (attributes) =>
@@ -842,7 +873,6 @@ const ISLAND_TIME_CLASS = clsx(TIME_CLASS, "island-time");
  * length there is no bar to move along, and an empty one stands for it.
  */
 const islandProgressView = (session: Session, h: HtmlBuilder<Message>): Html => {
-  const shownSeconds = shownPositionSeconds(session);
   const isWish = !Seek.guards.Settled(session.seek);
 
   return h.div(
@@ -872,48 +902,51 @@ const islandProgressView = (session: Session, h: HtmlBuilder<Message>): Html => 
           ["–:––"],
         ),
       ],
-      onSome: (durationSeconds) => [
-        h.span(
-          [
-            h.DataAttribute("elapsed", isWish ? "wish" : "fact"),
-            h.Class(
-              clsx(ISLAND_TIME_CLASS, "text-right", {
-                "text-accent": isWish,
-                "text-island-muted": !isWish,
-                "animate-pulse motion-reduce:animate-none":
-                  Seek.guards.Seeking(session.seek) || Playback.guards.Waiting(session.playback),
+      onSome: (durationSeconds) => {
+        const shownSeconds = countedSeconds(shownPositionSeconds(session), durationSeconds);
+        return [
+          h.span(
+            [
+              h.DataAttribute("elapsed", isWish ? "wish" : "fact"),
+              h.Class(
+                clsx(ISLAND_TIME_CLASS, "text-right", {
+                  "text-accent": isWish,
+                  "text-island-muted": !isWish,
+                  "animate-pulse motion-reduce:animate-none":
+                    Seek.guards.Seeking(session.seek) || Playback.guards.Waiting(session.playback),
+                }),
+              ),
+            ],
+            [formatDuration(shownSeconds)],
+          ),
+          h.div(
+            [h.Class("min-w-0 flex-1")],
+            [
+              h.submodel({
+                slotId: "seek",
+                model: session.seekSlider,
+                view: Slider.view,
+                viewInputs: {
+                  value: shownSeconds,
+                  ariaLabel: `Seek: ${session.current.title}`,
+                  formatValue: (value) =>
+                    `${formatDuration(value)} of ${formatDuration(durationSeconds)}`,
+                  toView: (attributes) =>
+                    seekBarView(attributes, session, durationSeconds, SEEK_ON_ISLAND, h),
+                },
+                toParentMessage: (message) => Message.GotSeekSliderMessage({ message }),
               }),
-            ),
-          ],
-          [formatDuration(shownSeconds)],
-        ),
-        h.div(
-          [h.Class("min-w-0 flex-1")],
-          [
-            h.submodel({
-              slotId: "seek",
-              model: session.seekSlider,
-              view: Slider.view,
-              viewInputs: {
-                value: Math.min(shownSeconds, durationSeconds),
-                ariaLabel: `Seek: ${session.current.title}`,
-                formatValue: (value) =>
-                  `${formatDuration(value)} of ${formatDuration(durationSeconds)}`,
-                toView: (attributes) =>
-                  seekBarView(attributes, session, durationSeconds, SEEK_ON_ISLAND, h),
-              },
-              toParentMessage: (message) => Message.GotSeekSliderMessage({ message }),
-            }),
-          ],
-        ),
-        h.span(
-          [
-            h.DataAttribute("remaining", ""),
-            h.Class(clsx(ISLAND_TIME_CLASS, "text-left text-island-muted")),
-          ],
-          [formatRemaining(durationSeconds - shownSeconds)],
-        ),
-      ],
+            ],
+          ),
+          h.span(
+            [
+              h.DataAttribute("remaining", ""),
+              h.Class(clsx(ISLAND_TIME_CLASS, "text-left text-island-muted")),
+            ],
+            [formatRemaining(durationSeconds - shownSeconds)],
+          ),
+        ];
+      },
     }),
   );
 };

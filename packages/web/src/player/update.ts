@@ -383,13 +383,7 @@ const withTiming = (session: Session, report: EngineReport): Session =>
         positionSeconds: () => report.positionSeconds,
         maybeDurationSeconds: () => report.maybeDurationSeconds,
         bufferedSeconds: () => report.bufferedSeconds,
-        seek: (seek) => {
-          if (hasArrived(session, report)) return Seek.Settled({ justJumped: true });
-          if (Seek.guards.Settled(seek) && seek.justJumped && session.positionSeconds !== report.positionSeconds) {
-            return Seek.Settled({});
-          }
-          return seek;
-        },
+        seek: (seek) => (hasArrived(session, report) ? Seek.Settled({}) : seek),
         seekSlider: Option.match(report.maybeDurationSeconds, {
           onNone: () => (slider: Slider.Model) => slider,
           onSome: (durationSeconds) => Slider.reflectRange({ min: 0, max: durationSeconds }),

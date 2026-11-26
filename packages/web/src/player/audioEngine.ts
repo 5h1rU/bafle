@@ -1,5 +1,6 @@
 import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";
+import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
 import type * as Stream from "effect/Stream";
 
@@ -34,6 +35,7 @@ export const EngineReport = Schema.Struct({
    */
   order: Schema.Int,
   phase: EnginePhase,
+  /** Where the sound was when this was said, to the fraction of a second. */
   positionSeconds: Schema.Number,
   /** The length of the audio itself, once the engine has read it. */
   maybeDurationSeconds: Schema.Option(Schema.Number),
@@ -74,5 +76,21 @@ export class AudioEngine extends Context.Service<
     readonly seek: (order: number, positionSeconds: number) => Effect.Effect<void>;
     /** What the engine knows now, and again each time it changes. */
     readonly reports: Stream.Stream<EngineReport>;
+    /**
+     * What the engine knows at this moment, asked for and not waited for. Its
+     * reports come when the second changes, as late as its clock happens to
+     * run; the bar of the sound's progress asks where the sound is at an even
+     * pace of its own.
+     */
+    readonly now: Effect.Effect<EngineReport>;
   }
 >()("bafle/AudioEngine") {}
+
+/** Whether two reports say the same, to the fraction of a second. */
+export const isSameReport = (one: EngineReport, other: EngineReport): boolean =>
+  one.order === other.order &&
+  one.phase === other.phase &&
+  one.positionSeconds === other.positionSeconds &&
+  one.bufferedSeconds === other.bufferedSeconds &&
+  one.isSeeking === other.isSeeking &&
+  Equal.equals(one.maybeDurationSeconds, other.maybeDurationSeconds);

@@ -69,8 +69,7 @@ export type Playback = typeof Playback.Type;
  * and the wish stands until the engine says it has arrived.
  */
 export const Seek = defineTaggedUnion({
-  /** An acknowledged jump stays instant until the next playback tick. */
-  Settled: { justJumped: Schema.optional(Schema.Literal(true)) },
+  Settled: {},
   Scrubbing: { targetSeconds: Schema.Number },
   Seeking: { targetSeconds: Schema.Number },
 });
@@ -393,6 +392,18 @@ export const shownPositionSeconds = (session: Session): number =>
     Scrubbing: ({ targetSeconds }) => targetSeconds,
     Seeking: ({ targetSeconds }) => targetSeconds,
   });
+
+/**
+ * Whether the bar of the sound's progress follows the sound: there is sound,
+ * and the bar stands where the engine is and not where the listener wants to
+ * be. Only then is the engine asked where the sound is, several times a
+ * second (`soundPlaces` in subscription.ts).
+ */
+export const followsSound = (model: Model): boolean =>
+  Option.exists(
+    model.maybeSession,
+    (session) => Playback.guards.Sounding(session.playback) && Seek.guards.Settled(session.seek),
+  );
 
 export const hasLater = (session: Session): boolean => Array.isReadonlyArrayNonEmpty(session.later);
 

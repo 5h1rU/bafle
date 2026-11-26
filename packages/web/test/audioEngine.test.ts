@@ -12,6 +12,7 @@ import { REPLY_TIMEOUT } from "../src/catalog.ts";
 import { AudioEngine, type EngineReport } from "../src/player/audioEngine.ts";
 import * as HtmlAudioEngine from "../src/player/htmlAudioEngine.ts";
 import * as Player from "../src/player/index.ts";
+import { SOUND_PLACE_EVERY } from "../src/player/subscription.ts";
 import { track } from "./fixtures.ts";
 
 const { Message } = Player;
@@ -191,7 +192,7 @@ it.effect("an event is a prompt to look, not a fact: a late `pause` after play i
   }),
 );
 
-it.effect("progress is reported when the second changes, not each time the clock runs", () =>
+it.effect("progress is reported when the second changes, not each time the clock runs, and says the fraction it was at", () =>
   Effect.gen(function* () {
     const { element, stub, fire } = stubElement();
     const engine = HtmlAudioEngine.make(element);
@@ -200,14 +201,75 @@ it.effect("progress is reported when the second changes, not each time the clock
     fire("playing");
     const heard = yield* listening(engine);
 
-    [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].forEach((time) => {
+    // The clock runs when it will, never on the second.
+    [0.3, 0.6, 0.9, 1.2, 1.5, 1.8, 2.1].forEach((time) => {
       stub.currentTime = time;
       stub.seeking = false;
       fire("timeupdate");
     });
     yield* Effect.yieldNow;
 
-    expect(heard.map((report) => report.positionSeconds)).toEqual([0, 1, 2]);
+    expect(heard.map((report) => report.positionSeconds)).toEqual([0, 1.2, 2.1]);
+  }),
+);
+
+it.effect("asked, the engine says where the sound is at that moment, and being asked is no report", () =>
+  Effect.gen(function* () {
+    const { element, stub, fire } = stubElement();
+    const engine = HtmlAudioEngine.make(element);
+    yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
+    stub.readyState = 4;
+    fire("playing");
+    const heard = yield* listening(engine);
+
+    stub.currentTime = 0.4;
+    expect((yield* engine.now).positionSeconds).toBe(0.4);
+    stub.currentTime = 0.65;
+    const now = yield* engine.now;
+    expect(now.positionSeconds).toBe(0.65);
+    expect(`${now.order}:${now.phase}`).toBe("1:Sounding");
+    yield* Effect.yieldNow;
+
+    expect(heard.map((report) => report.positionSeconds)).toEqual([0]);
+  }),
+);
+
+// THE SOUND'S PLACE, ASKED AT AN EVEN PACE
+
+it.effect("while it is listened to the engine is asked where the sound is at once and four times a second, and says nothing when nothing is new", () =>
+  Effect.gen(function* () {
+    const { element, stub, fire } = stubElement();
+    const engine = HtmlAudioEngine.make(element);
+    yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
+    stub.readyState = 4;
+    fire("playing");
+    stub.currentTime = 12.31;
+
+    const heard: Array<Player.Message> = [];
+    const following = yield* Effect.forkChild(
+      Stream.runForEach(Player.soundPlaces, (message) => Effect.sync(() => heard.push(message))).pipe(
+        Effect.provideService(AudioEngine, engine),
+      ),
+    );
+    yield* Effect.yieldNow;
+
+    // The clock is read each time it is asked: it stood still for the third.
+    for (const time of [12.56, 12.56, 12.81]) {
+      stub.currentTime = time;
+      yield* TestClock.adjust(SOUND_PLACE_EVERY);
+    }
+
+    expect(
+      heard.map((message) =>
+        message._tag === "UpdatedEngineStatus" ? message.report.positionSeconds : message._tag,
+      ),
+    ).toEqual([12.31, 12.56, 12.81]);
+
+    // No longer listened to, it asks no more.
+    yield* Fiber.interrupt(following);
+    stub.currentTime = 13.06;
+    yield* TestClock.adjust(SOUND_PLACE_EVERY);
+    expect(heard).toHaveLength(3);
   }),
 );
 
@@ -306,6 +368,7 @@ const recordingEngine = (outcome: "Sounding" | "Refused" = "Sounding") => {
     pause: (order) => Effect.sync(() => void orders.push(["pause", order])),
     seek: (order, positionSeconds) => Effect.sync(() => void orders.push(["seek", order, positionSeconds])),
     reports: Stream.never,
+    now: Effect.never,
   });
   return { orders, layer };
 };
