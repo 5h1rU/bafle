@@ -98,7 +98,11 @@ export const pageAttributes = (
     // NOTE: a page scrolls up and down only. A tile's record comes out past
     // the page's edge at the end of a row, and must not make the page one
     // that can be pushed sideways.
-    "relative h-full overflow-x-hidden overflow-y-auto px-5 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] scroll-pb-24 group-data-player/shell:scroll-pb-40 group-data-player/shell:pb-[calc(10rem+env(safe-area-inset-bottom))] md:scroll-pb-0 md:pb-12 md:group-data-player/shell:scroll-pb-28 md:group-data-player/shell:pb-28 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:px-10 md:pt-10",
+    //
+    // The room at the page's foot, for the navigation and the island over
+    // it, has a name (`--page-foot`): a page that has to know how much of
+    // its box is left for what it shows reads it (an album's, page/album.css).
+    "relative h-full overflow-x-hidden overflow-y-auto px-5 pt-8 [--page-foot:calc(6rem+env(safe-area-inset-bottom))] pb-[var(--page-foot)] scroll-pb-24 group-data-player/shell:scroll-pb-40 group-data-player/shell:[--page-foot:calc(10rem+env(safe-area-inset-bottom))] md:scroll-pb-0 md:[--page-foot:3rem] md:group-data-player/shell:scroll-pb-28 md:group-data-player/shell:[--page-foot:7rem] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:px-10 md:pt-10",
   ),
 ];
 

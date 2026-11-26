@@ -242,12 +242,27 @@
   max-width: 64rem;
   margin-inline: auto;
 }
-/* NOTE: every album's songs are at least as tall as the screen under the
-   bar, however few they are. The head draws back to the bar by the scroll,
-   and a page too short to be scrolled that far would be left with its head
-   part of the way there for good: its cover on its way to the bar, and the
-   bar's title half come. */
-.album-songs { min-height: calc(100dvh - var(--album-bar-height)); }
+/* NOTE: every album's songs are at least as tall as what the screen has
+   left under the bar and over the room at the page's foot, however few
+   they are. The head draws back to the bar by the scroll, and a page too
+   short to be scrolled that far would be left with its head part of the way
+   there for good: its cover on its way to the bar, and the bar's title half
+   come.
+
+   That is as far as a short album scrolls, and no further: its first song
+   comes to rest right under the bar. The room at the page's foot
+   (`--page-foot`, view/layout.ts) is the page's own and comes after the
+   songs, so it is taken off here. Left in, an album was scrolled that much
+   past its head's end: a short one had a screen's worth of nothing under
+   its last song, and one of a single song went up under the bar and out of
+   sight.
+
+   One pixel more than that: the head's height is a share of the screen's
+   width and seldom a whole number of pixels, a page scrolls by whole ones,
+   and the bar takes over only at the very end of the way
+   (`album-bar-takes-over`). A page that fell a part of a pixel short of it
+   never showed its bar. */
+.album-songs { min-height: calc(100dvh - var(--album-bar-height) - var(--page-foot, 0px) + 1px); }
 .album-songs > h2 { display: flex; align-items: center; min-height: 3rem; }
 /* NOTE: a little room between the heading and the first row: a row that is
    lit has a surface with a top of its own. */
