@@ -70,9 +70,9 @@ const markView = (className: string): Html =>
   );
 
 /**
- * What the page opens on: the mark over the page's name. On a narrow page
- * the two stand over the field in the middle of the screen, and give way
- * when the field goes up; on a wide one the name alone heads the page, as
+ * What the page opens on: the mark over the page's name, over the field in
+ * the middle of the screen. When the field goes to the page's head they give
+ * way on a narrow page; on a wide one the name alone then heads the page, as
  * every section's does (`search.css`).
  */
 const introView = (h: HtmlBuilder<Message>): Html =>
@@ -141,20 +141,6 @@ const fieldView = (fieldText: string, isListening: boolean, h: HtmlBuilder<Messa
   );
 
 /**
- * A wide page with nothing found yet: the mark, and what can be looked for.
- * A narrow one says it with the mark and the name over the field, and does
- * not draw this (`search.css`).
- */
-const emptyView = (h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [h.Class("search-empty")],
-    [
-      markView("search-empty-mark"),
-      h.p([], ["Find artists, songs, albums and playlists."]),
-    ],
-  );
-
-/**
  * The artist found first, on a card of their own: their picture, their
  * name, and the way to their page. The picture is the one that goes there,
  * as a tile's does, and the card is marked as their tile is, so the focus is
@@ -162,10 +148,11 @@ const emptyView = (h: HtmlBuilder<Message>): Html =>
  * tile does: it is a sleeve, which moves a little aside, and its record
  * comes part of the way out from behind it and turns (`search.css`).
  */
-// NOTE: the picture is drawn twice. Once out of focus across the whole
-// card, as its ground, and once in focus at its far end, coming out of that
-// ground by degrees: so the card has no edge where the picture begins. The
-// ground's is the same address, which the browser has by then.
+// NOTE: the picture is drawn three times: whole at the card's far end,
+// and twice more beside it, the nearer one turned round, so the card is the
+// picture from end to end with no edge between one and the next. The copies
+// are the same address, which the browser has by then, and say nothing to
+// assistive technology.
 const topResultView = (
   artist: ArtistSummary,
   isOpening: boolean,
@@ -194,35 +181,46 @@ const topResultView = (
           h.span(
             [h.Class("tile-sleeve search-top-card")],
             [
-              h.span(
-                [
-                  h.AriaHidden(true),
-                  h.Class("search-top-ground"),
-                  ...(Object.keys(likeness).length === 0 ? [] : [h.Style(likeness)]),
-                ],
-                Option.match(maybePicture, {
-                  onNone: () => [],
-                  onSome: (picture) => [
-                    h.img([h.Loading("eager"), h.Decoding("async"), h.Src(picture.medium), h.Alt("")]),
-                  ],
-                }),
-              ),
+              h.span([
+                h.AriaHidden(true),
+                h.Class("search-top-ground"),
+                ...(Object.keys(likeness).length === 0 ? [] : [h.Style(likeness)]),
+              ]),
               Option.match(maybePicture, {
                 onNone: () => h.empty,
-                onSome: (picture) =>
-                  h.span(
-                    [h.Class("search-top-art catalog-art"), ...flightAttributes(flightStyle, h)],
+                onSome: (picture) => {
+                  const copyView = (turned: boolean): Html =>
+                    h.img([
+                      h.Loading("eager"),
+                      h.Decoding("async"),
+                      h.Src(picture.medium),
+                      h.Alt(""),
+                      ...(turned ? [h.DataAttribute("turned", "")] : []),
+                      h.Class("search-top-copy"),
+                    ]);
+
+                  return h.span(
+                    [h.AriaHidden(true), h.Class("search-top-picture")],
                     [
-                      h.img([
-                        h.Loading("eager"),
-                        h.Fetchpriority("high"),
-                        h.Decoding("sync"),
-                        h.Src(picture.medium),
-                        // The name stands on the card, so the picture itself says nothing new.
-                        h.Alt(""),
-                      ]),
+                      copyView(false),
+                      copyView(true),
+                      h.span(
+                        [h.Class("search-top-art catalog-art"), ...flightAttributes(flightStyle, h)],
+                        [
+                          h.img([
+                            h.Loading("eager"),
+                            h.Fetchpriority("high"),
+                            h.Decoding("sync"),
+                            h.Src(picture.medium),
+                            // The name stands on the card, so the picture itself says nothing new.
+                            h.Alt(""),
+                          ]),
+                        ],
+                      ),
+                      h.span([h.Class("search-top-soften")]),
                     ],
-                  ),
+                  );
+                },
               }),
               h.span([h.Class("search-top-kind")], ["Artist"]),
               h.span([h.Class("search-top-name")], [artist.name]),
@@ -464,7 +462,7 @@ export const view = (
           // has anything to say, so that what it says is heard as a change.
           h.p([h.Role("status"), h.Class("search-outcome sr-only")], [outcome(search)]),
           Option.match(Option.filter(maybeSearchedTerm, () => hasSearchAnswer(maybeSearchedTerm, search)), {
-            onNone: () => emptyView(h),
+            onNone: () => h.empty,
             onSome: (searchedTerm) => resultsView(search, searchedTerm, context, opening, h),
           }),
         ],

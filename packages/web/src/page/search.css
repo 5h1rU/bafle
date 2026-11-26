@@ -14,9 +14,12 @@
    first third and come back once the field is most of the way down, and
    what was found comes once the field is half way up.
 
-   Wide, it is the design's desktop page (design/desktop.pen): its name at
-   the head as every section has it, the field at the far end of that row,
-   and nothing travels. */
+   Wide, it opens the same way, on the mark and its name over the field in
+   the middle. With an answer it is the design's desktop page
+   (design/desktop.pen): its name at the head as every section has it, and
+   the field at the far end of that row, smaller and squarer. The field goes
+   from the one place and size to the other in the same time, and the name
+   goes at once and comes at the head as the field arrives. */
 #search-page {
   container: search / inline-size;
   --search-ease: cubic-bezier(0.4, 0, 0.2, 1);
@@ -184,12 +187,6 @@
   background: color-mix(in srgb, var(--color-muted) 30%, var(--color-tile));
 }
 
-/* The page with nothing found yet, wide: the mark, and what can be looked
-   for. Narrow, the mark and the name over the field say it. */
-.search-empty {
-  display: none;
-}
-
 /* WHAT WAS FOUND */
 .search-results {
   margin-top: var(--search-gap);
@@ -244,18 +241,24 @@
 
 /* THE ARTIST FOUND FIRST
 
-   A card of their own: their picture at its far end, drawn into the card's
-   ground, and their name over its foot. The card is the picture's whatever
-   the page's colours, and the words on it are white.
+   A card of their own: their picture at its far end, whole, and their name
+   over its foot. The card is the picture's whatever the page's colours, and
+   the words on it are white.
 
-   The ground is the picture itself, out of focus and dimmed, across the
-   whole card, and the picture in focus comes out of it by degrees over most
-   of its own width. So there is no edge where the picture begins, whatever
-   it is a picture of: a bright one and a dark one alike rise out of their
-   own colours. A ground of one flat colour showed where the picture began
-   as a step, and no fade was long enough to hide it under a white picture.
-   Until the picture has come the ground is its likeness, when that is
-   known, over a dark that is a little lighter than the night. */
+   The card is far wider than the picture, and the rest of it is the picture
+   too: it is laid again beside itself, turned round, and once more beside
+   that, so each meets the next along an edge the two share and no edge
+   shows. Over all of it but the picture's far half lies a piece that puts
+   what is under it out of focus, and that piece ends by degrees, so the
+   picture comes into focus where it stands and not out of another picture.
+
+   NOTE: the ground was once the picture enlarged and blurred across the
+   card, with the picture in focus fading in over it. The two did not lie
+   over each other, so the fade was from one picture into another: a figure
+   in it came in as a ghost over a blot of its own colours, and the dark
+   ground met a bright picture along a band that no length of fade hid.
+   Before that it was one flat colour, which is right only for the picture
+   whose colour it is. */
 .search-top {
   display: flex;
   flex-direction: column;
@@ -291,65 +294,117 @@
   color: white;
 }
 
-.search-top-ground,
-.search-top-art,
-.search-top-card::before {
-  position: absolute;
-  inset: 0;
-}
-
+/* Until the picture has come: its likeness, when that is known. */
 .search-top-ground {
-  z-index: -3;
-  overflow: hidden;
-}
-
-/* NOTE: drawn larger than the card, so that the soft edge a blur leaves
-   round a picture falls outside it. */
-.search-top-ground img {
   position: absolute;
-  inset: -25%;
-  width: 150%;
-  height: 150%;
-  object-fit: cover;
-  filter: blur(2.25rem) saturate(1.2) brightness(0.6);
+  z-index: -3;
+  inset: 0;
+  opacity: 0.7;
 }
 
-/* The picture in focus comes in along an eased curve and not a straight
-   one: a straight fade is seen to start and to stop. */
-.search-top-art {
-  --search-top-fade: linear-gradient(
-    90deg,
-    rgb(0 0 0 / 0%) 0%,
-    rgb(0 0 0 / 3%) 10%,
-    rgb(0 0 0 / 11%) 21%,
-    rgb(0 0 0 / 26%) 32%,
-    rgb(0 0 0 / 46%) 43%,
-    rgb(0 0 0 / 67%) 54%,
-    rgb(0 0 0 / 84%) 65%,
-    rgb(0 0 0 / 95%) 76%,
-    rgb(0 0 0 / 100%) 88%
-  );
+/* The picture's own box: as wide as the card is high, at the card's far
+   end, so the picture is drawn whole. The copies beside it and the piece
+   that softens them are placed by it. */
+.search-top-picture {
+  position: absolute;
   z-index: -2;
-  left: auto;
-  width: 78%;
-  -webkit-mask-image: var(--search-top-fade);
-  mask-image: var(--search-top-fade);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  aspect-ratio: 1;
 }
 
-.search-top-art img {
+.search-top-picture img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 22%;
 }
 
-/* What the words are read against: darker at the near end and at the foot. */
+.search-top-art,
+.search-top-copy {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.search-top-art {
+  right: 0;
+}
+
+.search-top-copy {
+  right: 200%;
+}
+
+/* The copy next to the picture is turned round, so the two share the edge
+   they meet along; the one past it is turned back, and shares its edge too. */
+.search-top-copy[data-turned] {
+  right: 100%;
+  transform: scaleX(-1);
+}
+
+/* What puts the copies out of focus, and the picture's near side with them.
+   It is three pictures wide and whole over the two copies, to the very
+   edge the picture shares with the nearer one (two thirds of the way
+   along), and ends a third of the way into the picture, by degrees along an
+   eased curve: a straight end is seen to start and to stop.
+
+   NOTE: it must not begin to end before that edge. Where it did, the copy
+   came into focus beside the picture, and whoever stood at the picture's
+   near side was seen twice, face to face with themselves. */
+.search-top-soften {
+  --search-top-focus: linear-gradient(
+    90deg,
+    rgb(0 0 0 / 100%) 0%,
+    rgb(0 0 0 / 100%) 66.7%,
+    rgb(0 0 0 / 94%) 68.1%,
+    rgb(0 0 0 / 78%) 69.7%,
+    rgb(0 0 0 / 54%) 71.4%,
+    rgb(0 0 0 / 30%) 73.1%,
+    rgb(0 0 0 / 12%) 74.8%,
+    rgb(0 0 0 / 3%) 76.4%,
+    rgb(0 0 0 / 0%) 78%
+  );
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 300%;
+  /* NOTE: far enough out of focus that a copy is its colours and no longer
+     a figure: a face seen twice beside itself, however soft, is still seen. */
+  -webkit-backdrop-filter: blur(2.75rem);
+  backdrop-filter: blur(2.75rem);
+  -webkit-mask-image: var(--search-top-focus);
+  mask-image: var(--search-top-focus);
+}
+
+/* What the words are read against: darker towards the near end and the
+   foot, and lifting little by little, so the dark has no edge either. */
 .search-top-card::before {
   content: "";
+  position: absolute;
   z-index: -1;
+  inset: 0;
   background:
-    linear-gradient(90deg, rgb(22 15 21 / 42%) 0%, rgb(22 15 21 / 24%) 45%, transparent 80%),
-    linear-gradient(to bottom, transparent 40%, rgb(22 15 21 / 55%) 100%);
+    linear-gradient(
+      90deg,
+      rgb(22 15 21 / 64%) 0%,
+      rgb(22 15 21 / 59%) 14%,
+      rgb(22 15 21 / 49%) 28%,
+      rgb(22 15 21 / 36%) 42%,
+      rgb(22 15 21 / 22%) 56%,
+      rgb(22 15 21 / 10%) 70%,
+      rgb(22 15 21 / 3%) 84%,
+      rgb(22 15 21 / 0%) 96%
+    ),
+    linear-gradient(
+      to bottom,
+      rgb(22 15 21 / 0%) 30%,
+      rgb(22 15 21 / 8%) 48%,
+      rgb(22 15 21 / 24%) 66%,
+      rgb(22 15 21 / 40%) 84%,
+      rgb(22 15 21 / 48%) 100%
+    );
 }
 
 .search-top-kind {
@@ -458,43 +513,64 @@
   }
 }
 
+@keyframes search-intro-comes {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes search-name-comes {
+  from {
+    opacity: 0;
+  }
+}
+
 /* THE WIDE PAGE */
 @container search (width >= 40rem) {
-  .search-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 25rem);
-    align-items: center;
-    column-gap: 1.125rem;
-  }
-
-  .search-intro {
+  /* With nothing found yet the wide page is the narrow one: the mark and
+     the name over the field, in the middle. Once the catalog has answered,
+     the name heads the page as every section's does, and the field stands
+     at the far end of that row. */
+  [data-field="docked"] .search-intro {
     position: static;
-    display: block;
-    justify-items: normal;
+    display: flex;
+    align-items: center;
+    min-height: 2.75rem;
     opacity: 1;
     pointer-events: auto;
-    transition: none;
   }
 
-  [data-field="docked"] .search-intro {
-    opacity: 1;
-  }
-
-  .search-mark {
+  [data-field="docked"] .search-mark {
     display: none;
   }
 
-  .search-title {
+  [data-field="docked"] .search-title {
     font-size: 1.875rem;
     line-height: 2.25rem;
     letter-spacing: -0.025em;
   }
 
+  /* The field is placed by the page and not laid out in it, so that it can
+     go from the middle to the head's far end, and from one size to the
+     other, without anything else being laid out again on the way. Both
+     places are counted from the page's edges, its padding included. */
   .search-bar,
   [data-field="docked"] .search-bar {
-    position: static;
+    position: absolute;
     transform: none;
-    transition: none;
+  }
+
+  .search-bar {
+    top: calc(50vh - 1.75rem);
+    top: calc(50dvh - 1.75rem);
+    right: calc(50% - 18rem);
+    width: 36rem;
+  }
+
+  [data-field="docked"] .search-bar {
+    top: var(--search-top);
+    right: var(--search-gutter);
+    width: 25rem;
   }
 
   [data-field="docked"] .search-bar::before {
@@ -502,33 +578,52 @@
   }
 
   .search-field {
-    --search-field-height: 2.75rem;
+    max-width: none;
+  }
+
+  [data-field="docked"] .search-field {
+    height: 2.75rem;
     padding-inline: 0.875rem;
     border-radius: 0.75rem;
     font-size: 0.9375rem;
   }
 
-  .search-empty {
-    display: grid;
-    grid-column: 1 / -1;
-    place-content: center;
-    justify-items: center;
-    gap: 1rem;
-    min-height: 60vh;
-    color: var(--color-muted);
-    text-align: center;
-  }
-
-  .search-empty-mark {
-    width: 3rem;
-    height: 4.0625rem;
-    opacity: 0.5;
-  }
-
   .search-results {
-    grid-column: 1 / -1;
     margin-top: 1.5rem;
-    animation-delay: 0ms;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .search-bar {
+      transition:
+        top var(--search-travel) var(--search-ease),
+        right var(--search-travel) var(--search-ease),
+        width var(--search-travel) var(--search-ease);
+    }
+
+    .search-field {
+      transition:
+        border-color 150ms,
+        height var(--search-travel) var(--search-ease),
+        padding var(--search-travel) var(--search-ease),
+        border-radius var(--search-travel) var(--search-ease),
+        font-size var(--search-travel) var(--search-ease);
+    }
+
+    /* NOTE: the name is one piece in two places, and a piece cannot travel
+       between a place it is laid out in and one it is not. So it goes at
+       once and comes where it now stands, late, when the field has all but
+       got there: in the middle as the narrow page's does, and at the head
+       the same way. Each place has keyframes of its own name, so that
+       going from one to the other starts them again. */
+    .search-intro {
+      transition: none;
+      animation: search-intro-comes calc(var(--search-travel) * 0.32) linear
+        calc(var(--search-travel) * 0.54) backwards;
+    }
+
+    [data-field="docked"] .search-intro {
+      animation-name: search-name-comes;
+    }
   }
 
   .search-none {
@@ -589,9 +684,6 @@
     min-height: 12.1875rem;
   }
 
-  .search-top-art {
-    width: 62%;
-  }
 
   .search-top-name {
     max-width: 68%;
