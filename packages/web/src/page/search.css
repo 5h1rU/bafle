@@ -1,0 +1,554 @@
+/* SEARCH
+
+   The page has two layouts, told apart by its own width and not the
+   screen's, since the queue opens beside the page on a desktop's screen and
+   takes room from it.
+
+   Narrow, it opens on the mark and its name over the field, in the middle of
+   the screen (design/motion/search). When the catalog has answered, the
+   field goes up to the head of the page and what was found comes in under
+   it; emptied, the field comes back down. The page says which in
+   `data-field`, and the times are the design's: the field travels for 280 ms,
+   the mark and the name are gone in the first 90 and come back once the
+   field is most of the way down, and what was found comes once the field is
+   half way up.
+
+   Wide, it is the design's desktop page (design/desktop.pen): its name at
+   the head as every section has it, the field at the far end of that row,
+   and nothing travels. */
+#search-page {
+  container: search / inline-size;
+  --search-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  /* The page's own padding at its top and sides (`pageAttributes`). */
+  --search-top: 2rem;
+  --search-gutter: 1.25rem;
+  --search-field-height: 3.5rem;
+  --search-gap: 1.75rem;
+}
+
+@media (width >= 48rem) {
+  #search-page {
+    --search-top: 2.5rem;
+    --search-gutter: 2.5rem;
+  }
+}
+
+/* THE MARK AND THE NAME
+
+   They stand over the middle of the page, where the field is while nothing
+   has been found. The page is as high as the screen, so half of it is half
+   the screen. */
+.search-intro {
+  position: absolute;
+  inset-inline: var(--search-gutter);
+  bottom: calc(50% + 2.625rem);
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+
+.search-mark {
+  width: 3.5rem;
+  height: 4.75rem;
+}
+
+.search-title {
+  font-size: 3.25rem;
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.054em;
+}
+
+[data-field="docked"] .search-intro {
+  opacity: 0;
+}
+
+/* THE FIELD
+
+   It is laid out at the head of the page, where it stands once something was
+   found, and is drawn down in the middle until then: only what is drawn
+   moves, so nothing under it is laid out again on the way.
+
+   At the head it stays as the page scrolls under it, so another search is
+   always in reach. Where it holds is counted from inside the page's padding
+   (as the way back's is, `view/wayBack.ts`): three quarters of a rem from the
+   top. */
+.search-bar {
+  position: sticky;
+  z-index: 5;
+  top: calc(0.75rem - var(--search-top));
+  transform: translateY(calc(50vh - var(--search-top) - var(--search-field-height) / 2));
+}
+
+@supports (height: 1dvh) {
+  .search-bar {
+    transform: translateY(calc(50dvh - var(--search-top) - var(--search-field-height) / 2));
+  }
+}
+
+[data-field="docked"] .search-bar {
+  transform: none;
+}
+
+/* What scrolls under the field is not seen round it: the page's colour is
+   behind it, to the edges of the screen, and ends softly under it. */
+[data-field="docked"] .search-bar::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -0.75rem calc(-1 * var(--search-gutter)) -1rem;
+  background: linear-gradient(to bottom, var(--color-canvas) 78%, transparent);
+  pointer-events: none;
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 41rem;
+  height: var(--search-field-height);
+  margin-inline: auto;
+  padding-inline: 1.0625rem;
+  border: 1px solid color-mix(in srgb, var(--color-muted) 35%, var(--color-line));
+  border-radius: calc(var(--search-field-height) / 2);
+  background: color-mix(in srgb, var(--color-panel), var(--color-tile));
+  color: var(--color-muted);
+  transition: border-color 150ms;
+}
+
+.search-field:focus-within {
+  border-color: var(--color-muted);
+}
+
+/* NOTE: the field takes the focus as its page arrives, so a ring round it
+   would be there on every visit. It is drawn for the keys alone, which is
+   what the shell's `data-input` tells. */
+[data-input="Keyboard"] .search-field:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  appearance: none;
+}
+
+.search-field input::placeholder {
+  color: var(--color-muted);
+  opacity: 1;
+}
+
+/* The field has a control of its own to empty it. */
+.search-field input::-webkit-search-cancel-button,
+.search-field input::-webkit-search-decoration {
+  display: none;
+  -webkit-appearance: none;
+}
+
+/* The control answers a press over a finger's width, and shows a smaller disc. */
+.search-clear {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-right: -0.75rem;
+  border-radius: 50%;
+  color: var(--color-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.search-clear:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -4px;
+}
+
+.search-clear-disc {
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-muted) 30%, var(--color-tile));
+}
+
+/* The page with nothing found yet, wide: the mark, and what can be looked
+   for. Narrow, the mark and the name over the field say it. */
+.search-empty {
+  display: none;
+}
+
+/* WHAT WAS FOUND */
+.search-results {
+  margin-top: var(--search-gap);
+}
+
+.search-none {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+/* Narrow, one thing under another: the artist, the albums, the songs, then
+   the rest. The songs come before the albums in the document, where they are
+   read beside the artist on a wide page, so their order here is said. */
+.search-found {
+  display: flex;
+  flex-direction: column;
+  gap: var(--search-gap);
+}
+
+.search-found > * {
+  min-width: 0;
+}
+
+.search-top { order: 1; }
+.search-albums-place { order: 2; }
+.search-songs,
+.search-all-songs { order: 3; }
+.search-more-songs { order: 4; }
+.search-artists-place { order: 5; }
+.search-playlists-place { order: 6; }
+
+/* The songs past the first few are one list with them: nothing is between. */
+.search-more-songs {
+  margin-top: calc(-1 * var(--search-gap));
+}
+
+.search-more-songs > h2,
+.search-top-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.search-more-songs > :is(ul, ol) {
+  margin-top: 0;
+}
+
+/* THE ARTIST FOUND FIRST
+
+   A card of their own: their picture at its far end, drawn into the card's
+   ground, and their name over its foot. The ground is dark in both themes,
+   a little lighter than the night so the card is told from the dark page,
+   with the picture's own colours over it (its likeness) once they are
+   known: the card is the picture's whatever the page's colours, and the
+   words on it are white. */
+.search-top {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-top-card {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  flex: 1;
+  align-content: end;
+  min-height: 10.375rem;
+  padding: 1.375rem;
+  overflow: hidden;
+  border-radius: 1.0625rem;
+  background: rgb(44 32 41);
+  color: white;
+  touch-action: manipulation;
+}
+
+.search-top-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.search-top-ground,
+.search-top-art,
+.search-top-card::before {
+  position: absolute;
+  inset: 0;
+}
+
+.search-top-ground {
+  z-index: -3;
+  opacity: 0.7;
+}
+
+.search-top-art {
+  z-index: -2;
+  left: auto;
+  width: 64%;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 42%);
+  mask-image: linear-gradient(90deg, transparent, black 42%);
+}
+
+.search-top-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+}
+
+/* What the words are read against: darker at the near end and at the foot. */
+.search-top-card::before {
+  content: "";
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgb(22 15 21 / 45%) 0%, rgb(22 15 21 / 28%) 46%, transparent 78%),
+    linear-gradient(to bottom, transparent 42%, rgb(22 15 21 / 60%) 100%);
+}
+
+.search-top-kind {
+  font-size: 0.8125rem;
+  font-weight: 550;
+  color: rgb(255 255 255 / 80%);
+}
+
+.search-top-name {
+  max-width: 78%;
+  overflow-wrap: anywhere;
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+/* The way in. Narrow, the whole card is plainly that, and the disc is there
+   only to say that the artist's page is on its way. */
+.search-top-go {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  display: none;
+  place-items: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  border: 1px solid rgb(255 255 255 / 32%);
+  border-radius: 50%;
+  background: rgb(22 15 21 / 65%);
+}
+
+.search-top-card[aria-busy="true"] .search-top-go {
+  display: grid;
+}
+
+/* THE ALBUMS
+
+   Narrow, a row of three across that goes on sideways and snaps, as a shelf
+   does. */
+.search-albums {
+  gap: 0.75rem;
+}
+
+.search-album {
+  flex: 0 0 calc((100% - 1.5rem) / 3);
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .search-intro {
+    transition: opacity 90ms linear 150ms;
+  }
+
+  [data-field="docked"] .search-intro {
+    transition-delay: 0ms;
+  }
+
+  .search-bar {
+    transition: transform 280ms var(--search-ease);
+  }
+
+  .search-results {
+    animation: search-results-come 170ms var(--search-ease) 140ms backwards;
+  }
+
+  /* The magnifier draws in and comes back for as long as the catalog is
+     being asked, as a destination's icon does while its page is on its way. */
+  .search-listens {
+    animation: nav-breathes 1100ms ease-in-out infinite;
+  }
+}
+
+@keyframes search-results-come {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+/* THE WIDE PAGE */
+@container search (width >= 40rem) {
+  .search-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 25rem);
+    align-items: center;
+    column-gap: 1.125rem;
+  }
+
+  .search-intro {
+    position: static;
+    display: block;
+    justify-items: normal;
+    opacity: 1;
+    pointer-events: auto;
+    transition: none;
+  }
+
+  [data-field="docked"] .search-intro {
+    opacity: 1;
+  }
+
+  .search-mark {
+    display: none;
+  }
+
+  .search-title {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+    letter-spacing: -0.025em;
+  }
+
+  .search-bar,
+  [data-field="docked"] .search-bar {
+    position: static;
+    transform: none;
+    transition: none;
+  }
+
+  [data-field="docked"] .search-bar::before {
+    content: none;
+  }
+
+  .search-field {
+    --search-field-height: 2.75rem;
+    padding-inline: 0.875rem;
+    border-radius: 0.75rem;
+    font-size: 0.9375rem;
+  }
+
+  .search-empty {
+    display: grid;
+    grid-column: 1 / -1;
+    place-content: center;
+    justify-items: center;
+    gap: 1rem;
+    min-height: 60vh;
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  .search-empty-mark {
+    width: 3rem;
+    height: 4.0625rem;
+    opacity: 0.5;
+  }
+
+  .search-results {
+    grid-column: 1 / -1;
+    margin-top: 1.5rem;
+    animation-delay: 0ms;
+  }
+
+  .search-none {
+    margin-top: 2rem;
+    font-size: 1rem;
+    text-align: start;
+  }
+
+  /* The artist beside the first songs, then everything else across the page. */
+  .search-found {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 2rem 1.75rem;
+  }
+
+  .search-found > * {
+    grid-column: 1 / -1;
+    order: 0;
+  }
+
+  .search-found > .search-top {
+    grid-column: 1;
+  }
+
+  .search-found > .search-songs {
+    grid-column: 2;
+  }
+
+  /* An artist with no songs found beside them does not take the page's width. */
+  .search-found:not(:has(> .search-songs)) > .search-top {
+    max-width: 40rem;
+  }
+
+  .search-more-songs {
+    margin-top: 0;
+  }
+
+  .search-more-songs > h2,
+  .search-top-heading {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  .search-more-songs > :is(ul, ol) {
+    margin-top: 0.5rem;
+  }
+
+  .search-top-card {
+    min-height: 12.1875rem;
+    margin-top: 0.75rem;
+    border-radius: 0.75rem;
+  }
+
+  .search-top-art {
+    width: 46%;
+  }
+
+  .search-top-name {
+    max-width: 68%;
+    font-size: 3.0625rem;
+    letter-spacing: -0.047em;
+  }
+
+  .search-top-go {
+    display: grid;
+  }
+
+  /* The albums fill the page's width, as many across as there is room for:
+     three found are three large covers, and a dozen are two rows. */
+  .search-albums {
+    display: grid;
+    /* NOTE: how many columns there are goes by the least a tile can be, so
+       a dozen albums are small tiles in two rows; columns left empty are
+       not kept, so three albums share the whole width between them. A tile
+       is never larger than the design's, however few there are. */
+    grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+    gap: 1.125rem;
+    margin-inline: 0;
+    padding-inline: 0;
+    overflow: visible;
+    scroll-snap-type: none;
+  }
+
+  .search-album {
+    flex: none;
+    max-width: 23.25rem;
+  }
+}

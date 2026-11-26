@@ -41,6 +41,10 @@ export const Message = defineMessageUnion({
   /** A track's own page asks for its track to be put in the queue. */
   ClickedQueueTrack: { trackId: TrackId, place: QueuePlace },
   UpdatedSearchField: { value: Schema.String },
+  /** The control at the end of Search's field, which empties it. */
+  ClickedClearSearch: {},
+  /** Escape in Search's field, with something typed in it: it empties the field too. */
+  PressedEscapeInSearch: {},
   ClickedPlayTrack: { trackId: TrackId, from: PlayOrigin },
   GotRowMenuMessage: { from: PlayOrigin, trackId: TrackId, message: Menu.Message },
   ScrolledDown: {},

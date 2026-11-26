@@ -1,0 +1,2392 @@
+{
+  "version": "2.25",
+  "children": [
+    {
+      "type": "frame",
+      "id": "NFj79",
+      "x": 0,
+      "y": 0,
+      "name": "Search · Vacío",
+      "clip": true,
+      "width": 402,
+      "height": 874,
+      "fill": "#160F15",
+      "layout": "none",
+      "children": [
+        {
+          "type": "text",
+          "id": "U2is0",
+          "x": 27,
+          "y": 15,
+          "name": "Hora",
+          "fill": "#F5EDF3",
+          "content": "9:41",
+          "fontFamily": "Inter",
+          "fontSize": 15,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "Yfojd",
+          "x": 311,
+          "y": 18,
+          "name": "Indicadores del sistema",
+          "width": 67,
+          "height": 16,
+          "gap": 5,
+          "justifyContent": "end",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "nf5Ar",
+              "name": "signal",
+              "width": 18,
+              "height": 18,
+              "icon": "signal",
+              "library": "lucide",
+              "fill": "#F5EDF3"
+            },
+            {
+              "type": "icon",
+              "id": "Jh1OL",
+              "name": "wifi",
+              "width": 15,
+              "height": 15,
+              "icon": "wifi",
+              "library": "lucide",
+              "fill": "#F5EDF3"
+            },
+            {
+              "type": "icon",
+              "id": "FZ9Po",
+              "name": "battery-full",
+              "width": 22,
+              "height": 22,
+              "icon": "battery-full",
+              "library": "lucide",
+              "fill": "#F5EDF3"
+            }
+          ]
+        },
+        {
+          "type": "path",
+          "id": "fw9gx",
+          "x": 173,
+          "y": 243,
+          "name": "Logo de Bafle",
+          "geometry": "M15 0h166a15 15 0 0 1 15 15v236a15 15 0 0 1-15 15h-166a15 15 0 0 1-15-15v-236a15 15 0 0 1 15-15z m54 53a29 29 0 1 0 58 0 29 29 0 1 0-58 0z m16 0a13 13 0 1 0 26 0 13 13 0 1 0-26 0z m-66 121a79 79 0 1 0 158 0 79 79 0 1 0-158 0z m45 0a34 34 0 1 0 68 0 34 34 0 1 0-68 0z",
+          "fillRule": "evenodd",
+          "viewBox": [
+            0,
+            0,
+            196,
+            266
+          ],
+          "fill": "#EFDFEC",
+          "width": 56,
+          "height": 76
+        },
+        {
+          "type": "text",
+          "id": "n4n9P",
+          "x": 51,
+          "y": 331,
+          "name": "Título de búsqueda",
+          "fill": "#F5EDF3",
+          "textGrowth": "fixed-width",
+          "width": 300,
+          "content": "Search",
+          "textAlign": "center",
+          "fontFamily": "Inter",
+          "fontSize": 52,
+          "fontWeight": "700",
+          "letterSpacing": -2.8
+        },
+        {
+          "type": "frame",
+          "id": "B1Gh3R",
+          "x": 22,
+          "y": 409,
+          "name": "Campo de búsqueda",
+          "width": 358,
+          "height": 56,
+          "fill": "#251B23",
+          "cornerRadius": 28,
+          "stroke": "#574250",
+          "strokeWidth": 1,
+          "gap": 12,
+          "padding": [
+            0,
+            17
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "YCgnA",
+              "name": "Lupa",
+              "width": 20,
+              "height": 20,
+              "icon": "search",
+              "library": "lucide",
+              "fill": "#B9ABB6"
+            },
+            {
+              "type": "text",
+              "id": "c4KeZ",
+              "name": "Consulta",
+              "fill": "#B9ABB6",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Artists, songs, albums, playlists",
+              "fontFamily": "Inter",
+              "fontSize": 16
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "c1jbuK",
+          "x": 0,
+          "y": 784,
+          "name": "Navegación inferior",
+          "width": 402,
+          "height": 90,
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "U2OBWD",
+              "x": 16,
+              "y": 8,
+              "name": "Secciones",
+              "width": 302,
+              "height": 56,
+              "fill": "#251B23",
+              "cornerRadius": 28,
+              "stroke": "#40313C",
+              "strokeWidth": 1,
+              "padding": [
+                0,
+                6
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "F6dYxw",
+                  "name": "Home",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "WsOae",
+                      "name": "Home",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "house",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "usT6p",
+                      "name": "Etiqueta",
+                      "fill": "#B9ABB6",
+                      "content": "Home",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "WC7Ae",
+                  "name": "New",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Qmpbq",
+                      "name": "New",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "sparkles",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "N3vJAM",
+                      "name": "Etiqueta",
+                      "fill": "#B9ABB6",
+                      "content": "New",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "st542",
+                  "name": "Genres",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Acybd",
+                      "name": "Genres",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "layout-grid",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "DfgWT",
+                      "name": "Etiqueta",
+                      "fill": "#B9ABB6",
+                      "content": "Genres",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "NWR7g",
+                  "name": "Radio",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "sPRbm",
+                      "name": "Radio",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "radio",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "E8uUD",
+                      "name": "Etiqueta",
+                      "fill": "#B9ABB6",
+                      "content": "Radio",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "WCHf6",
+              "x": 330,
+              "y": 8,
+              "name": "Search seleccionado",
+              "width": 56,
+              "height": 56,
+              "fill": "#382332",
+              "cornerRadius": 28,
+              "stroke": "#53364C",
+              "strokeWidth": 1,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "Q404A",
+                  "name": "Search",
+                  "width": 23,
+                  "height": 23,
+                  "icon": "search",
+                  "library": "lucide",
+                  "fill": "#ECC2E3"
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "cornerRadius": 2,
+              "id": "yds1T",
+              "x": 139,
+              "y": 80,
+              "name": "Indicador de inicio",
+              "fill": "#EBE4E9",
+              "width": 124,
+              "height": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Qra82",
+      "x": 466,
+      "y": 0,
+      "name": "Search · Con resultados",
+      "clip": true,
+      "width": 402,
+      "height": 874,
+      "fill": "#160F15",
+      "layout": "none",
+      "children": [
+        {
+          "type": "text",
+          "id": "x2d0Q",
+          "x": 27,
+          "y": 15,
+          "name": "Hora",
+          "fill": "#F5EDF3",
+          "content": "9:41",
+          "fontFamily": "Inter",
+          "fontSize": 15,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "p4NYt",
+          "x": 311,
+          "y": 18,
+          "name": "Indicadores del sistema",
+          "width": 67,
+          "height": 16,
+          "gap": 5,
+          "justifyContent": "end",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "H7HHx",
+              "name": "signal",
+              "width": 18,
+              "height": 18,
+              "icon": "signal",
+              "library": "lucide",
+              "fill": "#F5EDF3"
+            },
+            {
+              "type": "icon",
+              "id": "Dw5MN",
+              "name": "wifi",
+              "width": 15,
+              "height": 15,
+              "icon": "wifi",
+              "library": "lucide",
+              "fill": "#F5EDF3"
+            },
+            {
+              "type": "icon",
+              "id": "WhGI7",
+              "name": "battery-full",
+              "width": 22,
+              "height": 22,
+              "icon": "battery-full",
+              "library": "lucide",
+              "fill": "#F5EDF3"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "f5MOuq",
+          "x": 22,
+          "y": 62,
+          "name": "Campo de búsqueda",
+          "width": 358,
+          "height": 56,
+          "fill": "#251B23",
+          "cornerRadius": 28,
+          "stroke": "#84637D",
+          "strokeWidth": 1,
+          "gap": 12,
+          "padding": [
+            0,
+            17
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "fZI5D",
+              "name": "Lupa",
+              "width": 20,
+              "height": 20,
+              "icon": "search",
+              "library": "lucide",
+              "fill": "#ECC2E3"
+            },
+            {
+              "type": "text",
+              "id": "CoUCx",
+              "name": "Consulta",
+              "fill": "#F5EDF3",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Bonobo",
+              "fontFamily": "Inter",
+              "fontSize": 16
+            },
+            {
+              "type": "frame",
+              "id": "CJQ7L",
+              "name": "Borrar búsqueda",
+              "width": 20,
+              "height": 20,
+              "fill": "#4B3A46",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "zaOVJ",
+                  "name": "Borrar",
+                  "width": 13,
+                  "height": 13,
+                  "icon": "x",
+                  "library": "lucide",
+                  "fill": "#F5EDF3"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ouojY",
+          "x": 22,
+          "y": 146,
+          "name": "Coincidencia de artista",
+          "clip": true,
+          "width": 358,
+          "height": 166,
+          "fill": "#352622",
+          "cornerRadius": 17,
+          "layout": "none",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "RKFdc",
+              "x": 128.88,
+              "y": 0,
+              "name": "Retrato de Bonobo",
+              "fill": {
+                "type": "image",
+                "enabled": true,
+                "url": "artwork/bonobo.jpg",
+                "mode": "cover"
+              },
+              "width": 229.12,
+              "height": 166
+            },
+            {
+              "type": "rectangle",
+              "id": "B3sCp",
+              "x": 0,
+              "y": 0,
+              "name": "Transición al retrato",
+              "fill": {
+                "type": "gradient",
+                "gradientType": "linear",
+                "enabled": true,
+                "rotation": 270,
+                "size": {
+                  "height": 1
+                },
+                "colors": [
+                  {
+                    "color": "#352622",
+                    "position": 0
+                  },
+                  {
+                    "color": "#352622",
+                    "position": 0.39
+                  },
+                  {
+                    "color": "#352622DB",
+                    "position": 0.48
+                  },
+                  {
+                    "color": "#35262255",
+                    "position": 0.65
+                  },
+                  {
+                    "color": "#35262200",
+                    "position": 0.85
+                  },
+                  {
+                    "color": "#35262200",
+                    "position": 1
+                  }
+                ]
+              },
+              "width": 358,
+              "height": 166
+            },
+            {
+              "type": "frame",
+              "id": "xORfZ",
+              "x": 20,
+              "y": 78,
+              "name": "Artista destacado",
+              "width": 316,
+              "height": 76,
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "m8M4j6",
+                  "name": "Tipo de resultado",
+                  "fill": "#E2CAC2",
+                  "content": "Artist",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "QXSob",
+                  "name": "Nombre del artista",
+                  "fill": "#FFF6F1",
+                  "content": "Bonobo",
+                  "fontFamily": "Inter",
+                  "fontSize": 36,
+                  "fontWeight": "700",
+                  "letterSpacing": -1.6
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "JAkgj",
+          "x": 22,
+          "y": 340,
+          "name": "Álbumes",
+          "width": 358,
+          "layout": "vertical",
+          "gap": 13,
+          "children": [
+            {
+              "type": "text",
+              "id": "lcUIZ",
+              "name": "Encabezado de álbumes",
+              "fill": "#F5EDF3",
+              "content": "Albums",
+              "fontFamily": "Inter",
+              "fontSize": 25,
+              "fontWeight": "650",
+              "letterSpacing": -0.8
+            },
+            {
+              "type": "frame",
+              "id": "BTaQA",
+              "name": "Carátulas",
+              "width": "fill_container",
+              "gap": 11,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "AjIfc",
+                  "name": "Migration",
+                  "width": 112,
+                  "layout": "vertical",
+                  "gap": 7,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 6,
+                      "id": "bA7V9",
+                      "name": "Carátula de Migration",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "artwork/migration.jpg",
+                        "mode": "cover"
+                      },
+                      "width": 112,
+                      "height": 112,
+                      "stroke": "#FFFFFF15",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "b2nxb",
+                      "name": "Datos del álbum",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "E0qdp",
+                          "name": "Álbum",
+                          "fill": "#F5EDF3",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Migration",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "mT8Md",
+                          "name": "Año",
+                          "fill": "#B9ABB6",
+                          "content": "2017",
+                          "fontFamily": "Inter",
+                          "fontSize": 12
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "bibS1",
+                  "name": "Fragments",
+                  "width": 112,
+                  "layout": "vertical",
+                  "gap": 7,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 6,
+                      "id": "YTbOJ",
+                      "name": "Carátula de Fragments",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "artwork/fragments.jpg",
+                        "mode": "cover"
+                      },
+                      "width": 112,
+                      "height": 112,
+                      "stroke": "#FFFFFF15",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Xni0y",
+                      "name": "Datos del álbum",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "VACWs",
+                          "name": "Álbum",
+                          "fill": "#F5EDF3",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Fragments",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "JNPsY",
+                          "name": "Año",
+                          "fill": "#B9ABB6",
+                          "content": "2022",
+                          "fontFamily": "Inter",
+                          "fontSize": 12
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "JWKzS",
+                  "name": "Black Sands",
+                  "width": 112,
+                  "layout": "vertical",
+                  "gap": 7,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 6,
+                      "id": "g0vO4p",
+                      "name": "Carátula de Black Sands",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "artwork/black-sands.jpg",
+                        "mode": "cover"
+                      },
+                      "width": 112,
+                      "height": 112,
+                      "stroke": "#FFFFFF15",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "sFDWV",
+                      "name": "Datos del álbum",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "CLUJq",
+                          "name": "Álbum",
+                          "fill": "#F5EDF3",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Black Sands",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Yo0Bn",
+                          "name": "Año",
+                          "fill": "#B9ABB6",
+                          "content": "2010",
+                          "fontFamily": "Inter",
+                          "fontSize": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "lXov6",
+          "x": 22,
+          "y": 568,
+          "name": "Canciones",
+          "width": 358,
+          "layout": "vertical",
+          "gap": 6,
+          "children": [
+            {
+              "type": "text",
+              "id": "jSNPB",
+              "name": "Encabezado de canciones",
+              "fill": "#F5EDF3",
+              "content": "Songs",
+              "fontFamily": "Inter",
+              "fontSize": 25,
+              "fontWeight": "650",
+              "letterSpacing": -0.8
+            },
+            {
+              "type": "frame",
+              "id": "GfGdb",
+              "name": "Kiara",
+              "width": "fill_container",
+              "height": 50,
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "klJma",
+                  "name": "Miniatura",
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "artwork/black-sands.jpg",
+                    "mode": "cover"
+                  },
+                  "width": 43,
+                  "height": 43
+                },
+                {
+                  "type": "frame",
+                  "id": "geEuM",
+                  "name": "Canción y artista",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "y7PyAp",
+                      "name": "Título",
+                      "fill": "#F5EDF3",
+                      "content": "Kiara",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "cnmPd",
+                      "name": "Artista",
+                      "fill": "#B9ABB6",
+                      "content": "Bonobo",
+                      "fontFamily": "Inter",
+                      "fontSize": 12
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "i9GyE",
+                  "name": "Duración",
+                  "fill": "#B9ABB6",
+                  "content": "3:50",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "h7rms",
+              "name": "Second Sun",
+              "width": "fill_container",
+              "height": 50,
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "x1yzrv",
+                  "name": "Miniatura",
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "artwork/migration.jpg",
+                    "mode": "cover"
+                  },
+                  "width": 43,
+                  "height": 43
+                },
+                {
+                  "type": "frame",
+                  "id": "m2KtuY",
+                  "name": "Canción y artista",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "SXgZn",
+                      "name": "Título",
+                      "fill": "#F5EDF3",
+                      "content": "Second Sun",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "m0rFc",
+                      "name": "Artista",
+                      "fill": "#B9ABB6",
+                      "content": "Bonobo",
+                      "fontFamily": "Inter",
+                      "fontSize": 12
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "k76E8Q",
+                  "name": "Duración",
+                  "fill": "#B9ABB6",
+                  "content": "3:43",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "V00QGn",
+              "name": "Kong",
+              "width": "fill_container",
+              "height": 50,
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "xq6G3",
+                  "name": "Miniatura",
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "artwork/black-sands.jpg",
+                    "mode": "cover"
+                  },
+                  "width": 43,
+                  "height": 43
+                },
+                {
+                  "type": "frame",
+                  "id": "u7xQl",
+                  "name": "Canción y artista",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "x17QHX",
+                      "name": "Título",
+                      "fill": "#F5EDF3",
+                      "content": "Kong",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Q5ssq",
+                      "name": "Artista",
+                      "fill": "#B9ABB6",
+                      "content": "Bonobo",
+                      "fontFamily": "Inter",
+                      "fontSize": 12
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "TxWcK",
+                  "name": "Duración",
+                  "fill": "#B9ABB6",
+                  "content": "3:57",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "EnM5d",
+          "x": 0,
+          "y": 784,
+          "name": "Navegación inferior",
+          "width": 402,
+          "height": 90,
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "rM1vx",
+              "x": 16,
+              "y": 8,
+              "name": "Secciones",
+              "width": 302,
+              "height": 56,
+              "fill": "#251B23",
+              "cornerRadius": 28,
+              "stroke": "#40313C",
+              "strokeWidth": 1,
+              "padding": [
+                0,
+                6
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ZbZjp",
+                  "name": "Home",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Vyqgt",
+                      "name": "Home",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "house",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "rH2Kc",
+                      "name": "Etiqueta",
+                      "fill": "#B9ABB6",
+                      "content": "Home",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "OEUmC",
+                  "name": "New",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "WpO7e",
+                      "name": "New",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "sparkles",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "fDvdM",
+                      "name": "Etiqueta",
+                      "fill": "#B9ABB6",
+                      "content": "New",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "zzWK6",
+                  "name": "Genres",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "pLcGu",
+                      "name": "Genres",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "layout-grid",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "jtlhY",
+                      "name": "Etiqueta",
+                      "fill": "#B9ABB6",
+                      "content": "Genres",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "C4KI9",
+                  "name": "Radio",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "PD6i8",
+                      "name": "Radio",
+                      "width": 17,
+                      "height": 17,
+                      "icon": "radio",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "yjNyN",
+                      "name": "Etiqueta",
+                      "fill": "#B9ABB6",
+                      "content": "Radio",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "oJSu0",
+              "x": 330,
+              "y": 8,
+              "name": "Search seleccionado",
+              "width": 56,
+              "height": 56,
+              "fill": "#382332",
+              "cornerRadius": 28,
+              "stroke": "#53364C",
+              "strokeWidth": 1,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "Y6txsz",
+                  "name": "Search",
+                  "width": 23,
+                  "height": 23,
+                  "icon": "search",
+                  "library": "lucide",
+                  "fill": "#ECC2E3"
+                }
+              ]
+            },
+            {
+              "type": "rectangle",
+              "cornerRadius": 2,
+              "id": "Pb7sx",
+              "x": 139,
+              "y": 80,
+              "name": "Indicador de inicio",
+              "fill": "#EBE4E9",
+              "width": 124,
+              "height": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "EZzLi",
+      "x": 0,
+      "y": 980,
+      "name": "Search · Escritorio vacío",
+      "clip": true,
+      "width": 1280,
+      "height": 800,
+      "fill": "#160F15",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "MTKiO",
+          "x": 0,
+          "y": 0,
+          "name": "Barra lateral",
+          "width": 224,
+          "height": 800,
+          "fill": "#201620",
+          "stroke": "#34262F",
+          "strokeWidth": {
+            "right": 1
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "w7OPo",
+              "x": 28,
+              "y": 32,
+              "name": "Marca",
+              "fill": "#F5EDF3",
+              "content": "Bafle",
+              "fontFamily": "Inter",
+              "fontSize": 25,
+              "fontWeight": "700",
+              "letterSpacing": -1.15
+            },
+            {
+              "type": "frame",
+              "id": "t0NrL",
+              "x": 16,
+              "y": 93,
+              "name": "Navegación",
+              "width": 192,
+              "layout": "vertical",
+              "gap": 5,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "iLHWF",
+                  "name": "Home",
+                  "width": "fill_container",
+                  "height": 42,
+                  "cornerRadius": 9,
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    13
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "AfrZ6",
+                      "name": "Home",
+                      "width": 19,
+                      "height": 19,
+                      "icon": "house",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "jr6KZ",
+                      "name": "Etiqueta de Home",
+                      "fill": "#B9ABB6",
+                      "content": "Home",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "G8QGtO",
+                  "name": "New",
+                  "width": "fill_container",
+                  "height": 42,
+                  "cornerRadius": 9,
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    13
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "ml5gv",
+                      "name": "New",
+                      "width": 19,
+                      "height": 19,
+                      "icon": "sparkles",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ZjSO1",
+                      "name": "Etiqueta de New",
+                      "fill": "#B9ABB6",
+                      "content": "New",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "YJiIe",
+                  "name": "Genres",
+                  "width": "fill_container",
+                  "height": 42,
+                  "cornerRadius": 9,
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    13
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "CXnq4",
+                      "name": "Genres",
+                      "width": 19,
+                      "height": 19,
+                      "icon": "layout-grid",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "EVoND",
+                      "name": "Etiqueta de Genres",
+                      "fill": "#B9ABB6",
+                      "content": "Genres",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "nVyd3",
+                  "name": "Radio",
+                  "width": "fill_container",
+                  "height": 42,
+                  "cornerRadius": 9,
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    13
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "d53YR",
+                      "name": "Radio",
+                      "width": 19,
+                      "height": 19,
+                      "icon": "radio",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "KfRjr",
+                      "name": "Etiqueta de Radio",
+                      "fill": "#B9ABB6",
+                      "content": "Radio",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "QCZuC",
+                  "name": "Search",
+                  "width": "fill_container",
+                  "height": 42,
+                  "fill": "#3B2036",
+                  "cornerRadius": 9,
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    13
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "EGELl",
+                      "name": "Search",
+                      "width": 19,
+                      "height": 19,
+                      "icon": "search",
+                      "library": "lucide",
+                      "fill": "#ECC2E3"
+                    },
+                    {
+                      "type": "text",
+                      "id": "oNFsG",
+                      "name": "Etiqueta de Search",
+                      "fill": "#ECC2E3",
+                      "content": "Search",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "650"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "path",
+          "id": "B9B5E",
+          "x": 724,
+          "y": 206,
+          "name": "Logo de Bafle",
+          "geometry": "M15 0h166a15 15 0 0 1 15 15v236a15 15 0 0 1-15 15h-166a15 15 0 0 1-15-15v-236a15 15 0 0 1 15-15z m54 53a29 29 0 1 0 58 0 29 29 0 1 0-58 0z m16 0a13 13 0 1 0 26 0 13 13 0 1 0-26 0z m-66 121a79 79 0 1 0 158 0 79 79 0 1 0-158 0z m45 0a34 34 0 1 0 68 0 34 34 0 1 0-68 0z",
+          "fillRule": "evenodd",
+          "viewBox": [
+            0,
+            0,
+            196,
+            266
+          ],
+          "fill": "#EFDFEC",
+          "width": 56,
+          "height": 76
+        },
+        {
+          "type": "text",
+          "id": "AjCpe",
+          "x": 602,
+          "y": 294,
+          "name": "Título de búsqueda",
+          "fill": "#F5EDF3",
+          "textGrowth": "fixed-width",
+          "width": 300,
+          "content": "Search",
+          "textAlign": "center",
+          "fontFamily": "Inter",
+          "fontSize": 52,
+          "fontWeight": "700",
+          "letterSpacing": -2.8
+        },
+        {
+          "type": "frame",
+          "id": "g5MEtS",
+          "x": 424,
+          "y": 372,
+          "name": "Campo de búsqueda",
+          "width": 656,
+          "height": 56,
+          "fill": "#251B23",
+          "cornerRadius": 28,
+          "stroke": "#574250",
+          "strokeWidth": 1,
+          "gap": 12,
+          "padding": [
+            0,
+            17
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "YoOhM",
+              "name": "Lupa",
+              "width": 20,
+              "height": 20,
+              "icon": "search",
+              "library": "lucide",
+              "fill": "#B9ABB6"
+            },
+            {
+              "type": "text",
+              "id": "U63z0",
+              "name": "Consulta",
+              "fill": "#B9ABB6",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Artists, songs, albums, playlists",
+              "fontFamily": "Inter",
+              "fontSize": 16
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "T6eXC",
+      "x": 1352,
+      "y": 980,
+      "name": "Search · Escritorio con resultados",
+      "clip": true,
+      "width": 1280,
+      "height": 800,
+      "fill": "#160F15",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "Tv9ME",
+          "x": 0,
+          "y": 0,
+          "name": "Barra lateral",
+          "width": 224,
+          "height": 800,
+          "fill": "#201620",
+          "stroke": "#34262F",
+          "strokeWidth": {
+            "right": 1
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "Ov4jy",
+              "x": 28,
+              "y": 32,
+              "name": "Marca",
+              "fill": "#F5EDF3",
+              "content": "Bafle",
+              "fontFamily": "Inter",
+              "fontSize": 25,
+              "fontWeight": "700",
+              "letterSpacing": -1.15
+            },
+            {
+              "type": "frame",
+              "id": "T1Oz0",
+              "x": 16,
+              "y": 93,
+              "name": "Navegación",
+              "width": 192,
+              "layout": "vertical",
+              "gap": 5,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "OcOnm",
+                  "name": "Home",
+                  "width": "fill_container",
+                  "height": 42,
+                  "cornerRadius": 9,
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    13
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "W8hlWq",
+                      "name": "Home",
+                      "width": 19,
+                      "height": 19,
+                      "icon": "house",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "mgpoY",
+                      "name": "Etiqueta de Home",
+                      "fill": "#B9ABB6",
+                      "content": "Home",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "OlK8B",
+                  "name": "New",
+                  "width": "fill_container",
+                  "height": 42,
+                  "cornerRadius": 9,
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    13
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "JnO4v",
+                      "name": "New",
+                      "width": 19,
+                      "height": 19,
+                      "icon": "sparkles",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "SNfBG",
+                      "name": "Etiqueta de New",
+                      "fill": "#B9ABB6",
+                      "content": "New",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "DZ4Mv",
+                  "name": "Genres",
+                  "width": "fill_container",
+                  "height": 42,
+                  "cornerRadius": 9,
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    13
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "b7xOil",
+                      "name": "Genres",
+                      "width": 19,
+                      "height": 19,
+                      "icon": "layout-grid",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "a1TLYb",
+                      "name": "Etiqueta de Genres",
+                      "fill": "#B9ABB6",
+                      "content": "Genres",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "OcX55",
+                  "name": "Radio",
+                  "width": "fill_container",
+                  "height": 42,
+                  "cornerRadius": 9,
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    13
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "XcxX6",
+                      "name": "Radio",
+                      "width": 19,
+                      "height": 19,
+                      "icon": "radio",
+                      "library": "lucide",
+                      "fill": "#B9ABB6"
+                    },
+                    {
+                      "type": "text",
+                      "id": "kJp0y",
+                      "name": "Etiqueta de Radio",
+                      "fill": "#B9ABB6",
+                      "content": "Radio",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "iLvNE",
+                  "name": "Search",
+                  "width": "fill_container",
+                  "height": 42,
+                  "fill": "#3B2036",
+                  "cornerRadius": 9,
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    13
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "V7di6",
+                      "name": "Search",
+                      "width": 19,
+                      "height": 19,
+                      "icon": "search",
+                      "library": "lucide",
+                      "fill": "#ECC2E3"
+                    },
+                    {
+                      "type": "text",
+                      "id": "MAaTc",
+                      "name": "Etiqueta de Search",
+                      "fill": "#ECC2E3",
+                      "content": "Search",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "650"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Yuyte",
+          "x": 424,
+          "y": 44,
+          "name": "Campo de búsqueda",
+          "width": 656,
+          "height": 56,
+          "fill": "#251B23",
+          "cornerRadius": 28,
+          "stroke": "#84637D",
+          "strokeWidth": 1,
+          "gap": 12,
+          "padding": [
+            0,
+            17
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "Az6Pi",
+              "name": "Lupa",
+              "width": 20,
+              "height": 20,
+              "icon": "search",
+              "library": "lucide",
+              "fill": "#ECC2E3"
+            },
+            {
+              "type": "text",
+              "id": "pTAwR",
+              "name": "Consulta",
+              "fill": "#F5EDF3",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Bonobo",
+              "fontFamily": "Inter",
+              "fontSize": 16
+            },
+            {
+              "type": "frame",
+              "id": "mLyh7",
+              "name": "Borrar búsqueda",
+              "width": 20,
+              "height": 20,
+              "fill": "#4B3A46",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "PCKYl",
+                  "name": "Borrar",
+                  "width": 13,
+                  "height": 13,
+                  "icon": "x",
+                  "library": "lucide",
+                  "fill": "#F5EDF3"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Qgwtd",
+          "x": 340,
+          "y": 146,
+          "name": "Coincidencia de artista",
+          "clip": true,
+          "width": 414,
+          "height": 207,
+          "fill": "#352622",
+          "cornerRadius": 17,
+          "layout": "none",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "M4WYR",
+              "x": 149.04000000000002,
+              "y": 0,
+              "name": "Retrato de Bonobo",
+              "fill": {
+                "type": "image",
+                "enabled": true,
+                "url": "artwork/bonobo.jpg",
+                "mode": "cover"
+              },
+              "width": 264.96,
+              "height": 207
+            },
+            {
+              "type": "rectangle",
+              "id": "Ij1WD",
+              "x": 0,
+              "y": 0,
+              "name": "Transición al retrato",
+              "fill": {
+                "type": "gradient",
+                "gradientType": "linear",
+                "enabled": true,
+                "rotation": 270,
+                "size": {
+                  "height": 1
+                },
+                "colors": [
+                  {
+                    "color": "#352622",
+                    "position": 0
+                  },
+                  {
+                    "color": "#352622",
+                    "position": 0.39
+                  },
+                  {
+                    "color": "#352622DB",
+                    "position": 0.48
+                  },
+                  {
+                    "color": "#35262255",
+                    "position": 0.65
+                  },
+                  {
+                    "color": "#35262200",
+                    "position": 0.85
+                  },
+                  {
+                    "color": "#35262200",
+                    "position": 1
+                  }
+                ]
+              },
+              "width": 414,
+              "height": 207
+            },
+            {
+              "type": "frame",
+              "id": "RueZu",
+              "x": 20,
+              "y": 119,
+              "name": "Artista destacado",
+              "width": 372,
+              "height": 76,
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "suCx8",
+                  "name": "Tipo de resultado",
+                  "fill": "#E2CAC2",
+                  "content": "Artist",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "wx4j4",
+                  "name": "Nombre del artista",
+                  "fill": "#FFF6F1",
+                  "content": "Bonobo",
+                  "fontFamily": "Inter",
+                  "fontSize": 36,
+                  "fontWeight": "700",
+                  "letterSpacing": -1.6
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "aFrb7",
+          "x": 784,
+          "y": 146,
+          "name": "Canciones",
+          "width": 380,
+          "layout": "vertical",
+          "gap": 6,
+          "children": [
+            {
+              "type": "text",
+              "id": "VjCs5",
+              "name": "Encabezado de canciones",
+              "fill": "#F5EDF3",
+              "content": "Songs",
+              "fontFamily": "Inter",
+              "fontSize": 25,
+              "fontWeight": "650",
+              "letterSpacing": -0.8
+            },
+            {
+              "type": "frame",
+              "id": "mT39d",
+              "name": "Kiara",
+              "width": "fill_container",
+              "height": 50,
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "AOiiF",
+                  "name": "Miniatura",
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "artwork/black-sands.jpg",
+                    "mode": "cover"
+                  },
+                  "width": 43,
+                  "height": 43
+                },
+                {
+                  "type": "frame",
+                  "id": "H5sTm",
+                  "name": "Canción y artista",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "G3g8B6",
+                      "name": "Título",
+                      "fill": "#F5EDF3",
+                      "content": "Kiara",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "O11Y2i",
+                      "name": "Artista",
+                      "fill": "#B9ABB6",
+                      "content": "Bonobo",
+                      "fontFamily": "Inter",
+                      "fontSize": 12
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "N1L1o",
+                  "name": "Duración",
+                  "fill": "#B9ABB6",
+                  "content": "3:50",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "A15AVI",
+              "name": "Second Sun",
+              "width": "fill_container",
+              "height": 50,
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "vlOFe",
+                  "name": "Miniatura",
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "artwork/migration.jpg",
+                    "mode": "cover"
+                  },
+                  "width": 43,
+                  "height": 43
+                },
+                {
+                  "type": "frame",
+                  "id": "lyrGe",
+                  "name": "Canción y artista",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "PJglt",
+                      "name": "Título",
+                      "fill": "#F5EDF3",
+                      "content": "Second Sun",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "M4iFI",
+                      "name": "Artista",
+                      "fill": "#B9ABB6",
+                      "content": "Bonobo",
+                      "fontFamily": "Inter",
+                      "fontSize": 12
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "p1Drxw",
+                  "name": "Duración",
+                  "fill": "#B9ABB6",
+                  "content": "3:43",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "kkT5v",
+              "name": "Kong",
+              "width": "fill_container",
+              "height": 50,
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "jr6J8",
+                  "name": "Miniatura",
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "artwork/black-sands.jpg",
+                    "mode": "cover"
+                  },
+                  "width": 43,
+                  "height": 43
+                },
+                {
+                  "type": "frame",
+                  "id": "vfi2X",
+                  "name": "Canción y artista",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "f1ch16",
+                      "name": "Título",
+                      "fill": "#F5EDF3",
+                      "content": "Kong",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "PK2Eg",
+                      "name": "Artista",
+                      "fill": "#B9ABB6",
+                      "content": "Bonobo",
+                      "fontFamily": "Inter",
+                      "fontSize": 12
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "V8W8I",
+                  "name": "Duración",
+                  "fill": "#B9ABB6",
+                  "content": "3:57",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Zt7HQ",
+          "x": 340,
+          "y": 391,
+          "name": "Álbumes",
+          "width": 824,
+          "layout": "vertical",
+          "gap": 13,
+          "children": [
+            {
+              "type": "text",
+              "id": "LWmOt",
+              "name": "Encabezado de álbumes",
+              "fill": "#F5EDF3",
+              "content": "Albums",
+              "fontFamily": "Inter",
+              "fontSize": 25,
+              "fontWeight": "650",
+              "letterSpacing": -0.8
+            },
+            {
+              "type": "frame",
+              "id": "JLEsh",
+              "name": "Carátulas",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "uMQCP",
+                  "name": "Migration",
+                  "width": 264,
+                  "layout": "vertical",
+                  "gap": 7,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 6,
+                      "id": "iOaaU",
+                      "name": "Carátula de Migration",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "artwork/migration.jpg",
+                        "mode": "cover"
+                      },
+                      "width": 264,
+                      "height": 264,
+                      "stroke": "#FFFFFF15",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "HdahR",
+                      "name": "Datos del álbum",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "u6RjPD",
+                          "name": "Álbum",
+                          "fill": "#F5EDF3",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Migration",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "bWP7I",
+                          "name": "Año",
+                          "fill": "#B9ABB6",
+                          "content": "2017",
+                          "fontFamily": "Inter",
+                          "fontSize": 12
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Ps6yw",
+                  "name": "Fragments",
+                  "width": 264,
+                  "layout": "vertical",
+                  "gap": 7,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 6,
+                      "id": "XLnoQ",
+                      "name": "Carátula de Fragments",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "artwork/fragments.jpg",
+                        "mode": "cover"
+                      },
+                      "width": 264,
+                      "height": 264,
+                      "stroke": "#FFFFFF15",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "TZwcl",
+                      "name": "Datos del álbum",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "O5PEvL",
+                          "name": "Álbum",
+                          "fill": "#F5EDF3",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Fragments",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "SCB8c",
+                          "name": "Año",
+                          "fill": "#B9ABB6",
+                          "content": "2022",
+                          "fontFamily": "Inter",
+                          "fontSize": 12
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "F8jH3H",
+                  "name": "Black Sands",
+                  "width": 264,
+                  "layout": "vertical",
+                  "gap": 7,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 6,
+                      "id": "N4nJ0u",
+                      "name": "Carátula de Black Sands",
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "artwork/black-sands.jpg",
+                        "mode": "cover"
+                      },
+                      "width": 264,
+                      "height": 264,
+                      "stroke": "#FFFFFF15",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "O178Hv",
+                      "name": "Datos del álbum",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "awmBn",
+                          "name": "Álbum",
+                          "fill": "#F5EDF3",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Black Sands",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "UJdNx",
+                          "name": "Año",
+                          "fill": "#B9ABB6",
+                          "content": "2010",
+                          "fontFamily": "Inter",
+                          "fontSize": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "gqsqz",
+      "x": 932,
+      "y": 0,
+      "name": "Search · Animación",
+      "context": "La consulta permanece en el centro hasta recibir coincidencias. El campo sube en 280 ms y conserva el foco. Al borrar vuelve al centro.",
+      "clip": true,
+      "width": 402,
+      "height": 874,
+      "fill": "#160F15",
+      "layout": "none",
+      "children": [
+        {
+          "type": "rectangle",
+          "id": "DELlp",
+          "x": 0,
+          "y": 0,
+          "name": "Escribir, recibir resultados y borrar · 6 s",
+          "fill": [
+            {
+              "type": "image",
+              "enabled": true,
+              "url": "motion/search/states-bafle.jpg",
+              "mode": "stretch",
+              "transform": [
+                2,
+                0,
+                0,
+                1,
+                0,
+                0
+              ]
+            },
+            {
+              "type": "shader",
+              "enabled": true,
+              "url": "motion/search/transition.glsl",
+              "uniforms": {
+                "u_states": "motion/search/states-bafle.jpg",
+                "u_reduce": 0,
+                "u_playhead": 0
+              }
+            }
+          ],
+          "width": 402,
+          "height": 874
+        }
+      ]
+    }
+  ],
+  "fileToken": "9a2441f3-0881-4fbe-9d78-c14dd57815e3"
+}

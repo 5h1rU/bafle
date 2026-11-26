@@ -63,6 +63,14 @@ const pageTitle = (name: string | RegExp) => role("heading", { name, level: 1 })
 const sectionTitle = (name: string) => role("heading", { name, level: 2 });
 const searchField = role("searchbox", { name: "Search the catalog" });
 const results = role("region", { name: "Results" });
+/** Where Search draws its field: in the middle of the page, or at its head. */
+const searchWithField = (place: "centered" | "docked") =>
+  selector(`#search-page[data-field="${place}"]`);
+/** What Search says to assistive technology of the answer it holds. */
+const searchOutcome = selector(".search-outcome");
+/** The field's magnifier, breathing while the catalog is asked. */
+const listening = all.selector("svg.search-listens");
+const clearSearch = role("button", { name: "Clear search" });
 const tryAgain = role("button", { name: "Try again" });
 /**
  * The page on screen. The sections stay in the document once loaded, so a
@@ -159,15 +167,16 @@ describe("rule 4: the first paint is never blank", () => {
       expectAll(placeholderBlocks).not.toBeEmpty(),
     ));
 
-  test("a shared search link opens with its term in the field while the results load", () =>
+  test("a shared search link opens on its field, with the term in it, while the first answer is on its way", () =>
     scene(
       app,
       given(opened("/search?q=daft")),
+      see(pageTitle("Search")).toExist(),
       see(searchField).toHaveValue("daft"),
-      see(results).toHaveAttr("aria-busy", "true"),
-      expectAll(placeholders).toHaveCount(2),
-      expectAll(placeholderBlocks).not.toBeEmpty(),
-      see(text("Type to search for artists, albums, songs and playlists.")).toBeAbsent(),
+      // The page keeps the shape it opens with: the field in its middle, which says it is asking.
+      see(searchWithField("centered")).toExist(),
+      expectAll(listening).toHaveCount(1),
+      see(results).toBeAbsent(),
     ));
 });
 
@@ -397,28 +406,50 @@ describe("rule 5: failures are stated in place", () => {
 });
 
 describe("rule 6: search keeps its results while it loads", () => {
-  test("before anything is typed, Search prompts for a term", () =>
+  test("before anything is typed, Search is its field in the middle of the page, with nothing to empty", () =>
     scene(
       app,
       given(opened("/search")),
       see(pageTitle("Search")).toExist(),
       see(searchField).toHaveValue(""),
-      see(text("Type to search for artists, albums, songs and playlists.")).toExist(),
+      see(searchWithField("centered")).toExist(),
+      expectAll(listening).toHaveCount(0),
+      see(clearSearch).toBeAbsent(),
       see(results).toBeAbsent(),
     ));
 
-  test("results are grouped by kind, and a kind that found nothing has no group", () =>
+  test("what was found stands under the field at the page's head: the artist found first, then each kind that found something", () =>
     scene(
       app,
       given(onSearch),
       see(searchField).toHaveValue("daft"),
+      see(searchWithField("docked")).toExist(),
       inside(
         results,
-        see(sectionTitle("Artists")).toExist(),
+        see(sectionTitle("Top result")).toExist(),
+        see(role("link", { name: /Artist.*Daft Punk/ })).toHaveAttr("href", "/artist/ar-1"),
+        // The one artist found has the card: there is no shelf for the others.
+        see(sectionTitle("Artists")).toBeAbsent(),
         see(sectionTitle("Albums")).toExist(),
         see(sectionTitle("Songs")).toExist(),
         see(sectionTitle("Playlists")).toBeAbsent(),
       ),
+    ));
+
+  test("the control at the field's end empties it, and the field keeps the focus", () =>
+    scene(
+      app,
+      given(onSearch),
+      click(clearSearch),
+      Command.resolveAll(
+        [ReplaceSearchTerm, Message.CompletedReplaceSearchTerm()],
+        [FocusSearchField, Message.CompletedFocusSearchField()],
+      ),
+      Subscription.emit(changedUrl("/search")),
+      see(searchField).toHaveValue(""),
+      see(searchWithField("centered")).toExist(),
+      see(clearSearch).toBeAbsent(),
+      see(results).toBeAbsent(),
     ));
 
   test("typing keeps the previous results on screen, marked busy, until the new ones arrive", () =>
@@ -459,8 +490,10 @@ describe("rule 6: search keeps its results while it loads", () => {
     scene(
       app,
       given(after(firstPaint, arrived(reply.search(awaitedId(firstPaint), nothingFound)))),
-      see(text("No results for “zzzz”")).toExist(),
-      inside(results, see(role("status")).toHaveText("Nothing found for “zzzz”")),
+      // The catalog has answered: the field stands at the head, over what it said.
+      see(searchWithField("docked")).toExist(),
+      inside(results, see(text("No results for “zzzz”")).toExist()),
+      see(searchOutcome).toHaveText("No results for “zzzz”"),
     );
   });
 
@@ -468,10 +501,10 @@ describe("rule 6: search keeps its results while it loads", () => {
     scene(
       app,
       given(onSearch),
-      inside(results, see(role("status")).toHaveText("Results for “daft”")),
+      see(searchOutcome).toHaveText("Results for “daft”"),
       Subscription.emit(changedUrl("/search?q=daft+punk")),
       // Still the answer on screen, not the term being typed.
-      inside(results, see(role("status")).toHaveText("Results for “daft”")),
+      see(searchOutcome).toHaveText("Results for “daft”"),
       Command.resolveAll(
         [
           WaitForTypingPause,
@@ -482,7 +515,7 @@ describe("rule 6: search keeps its results while it loads", () => {
           reply.search(nextId(after(onSearch, changedUrl("/search?q=daft+punk"))), foundMore),
         ],
       ),
-      inside(results, see(role("status")).toHaveText("Results for “daft punk”")),
+      see(searchOutcome).toHaveText("Results for “daft punk”"),
     ));
 
   test("results for another term are dimmed even when nothing is loading for Search", () => {
@@ -511,14 +544,15 @@ describe("rule 6: search keeps its results while it loads", () => {
     );
   });
 
-  test("the first term typed shows placeholders, not the prompt and not an empty area", () =>
+  test("the first term typed leaves the field in the middle, asking, until the catalog answers; then it stands at the head", () =>
     scene(
       app,
       given(opened("/search")),
       Subscription.emit(changedUrl("/search?q=d")),
-      see(text("Type to search for artists, albums, songs and playlists.")).toBeAbsent(),
-      see(results).toHaveAttr("aria-busy", "true"),
-      expectAll(placeholders).toHaveCount(2),
+      see(searchWithField("centered")).toExist(),
+      expectAll(listening).toHaveCount(1),
+      see(results).toBeAbsent(),
+      see(searchOutcome).toHaveText(""),
       Command.resolve(
         WaitForTypingPause,
         Message.CompletedWaitForTypingPause({ pauseId: nextId(opened("/search")) }),
@@ -527,7 +561,9 @@ describe("rule 6: search keeps its results while it loads", () => {
         Catalog.CatalogSearch,
         reply.search(nextId(after(opened("/search"), changedUrl("/search?q=d")))),
       ),
-      inside(results, see(sectionTitle("Artists")).toExist()),
+      see(searchWithField("docked")).toExist(),
+      expectAll(listening).toHaveCount(0),
+      inside(results, see(sectionTitle("Top result")).toExist()),
     ));
 
   test("a search that fails behind results keeps them, with a notice", () => {

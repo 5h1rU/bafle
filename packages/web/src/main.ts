@@ -1139,6 +1139,17 @@ const rewriteSearchTerm =
     );
   };
 
+/**
+ * The field emptied by its own control, or by Escape: the term goes from the
+ * URL as it does when the last letter is deleted, and the field keeps the
+ * focus, which the control would otherwise take away with it as it goes.
+ */
+const clearSearch = (model: Model): UpdateReturn =>
+  Update.combine(model, [
+    rewriteSearchTerm(Option.none()),
+    (stepModel) => ({ model: stepModel, commands: [FocusSearchField()] }),
+  ]);
+
 // PLAYER
 
 const readPlayer = (model: Model) => Option.some(model.player);
@@ -1591,6 +1602,10 @@ const respond = (model: Model, message: Message) =>
 
     UpdatedSearchField: ({ value }) =>
       rewriteSearchTerm(Option.liftPredicate(value, String.isNonEmpty))(model),
+
+    ClickedClearSearch: () => clearSearch(model),
+
+    PressedEscapeInSearch: () => clearSearch(model),
 
     CompletedWaitForTypingPause: ({ pauseId }) =>
       Option.match(searchedTerm(model.route), {

@@ -268,9 +268,12 @@ describe("artist tiles lead to the artist's page", () => {
     scene(
       app,
       given(onSearch),
+      // The artist found first is on a card of their own, marked as their tile is.
       inside(
-        role("list", { name: "Artists" }),
+        role("region", { name: "Results" }),
         see(artistTile).toHaveAttr("href", "/artist/ar-1"),
+        see(artistTile).toHaveAttr("aria-busy", "false"),
+        see(artistTile).toContainText("Daft Punk"),
       ),
     );
   });

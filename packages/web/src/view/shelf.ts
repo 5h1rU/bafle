@@ -178,6 +178,15 @@ export const SHELF_ROW_CLASS =
 export const SHELF_TILE_CLASS = "w-36 shrink-0 snap-start sm:w-40";
 
 /**
+ * How a shelf is laid out: its row and each tile on it. A page whose design
+ * lays a shelf out its own way says so, and the shelf is still a shelf: the
+ * same tiles, links, records and names.
+ */
+export type ShelfLook = Readonly<{ row: string; tile: string }>;
+
+const SHELF_LOOK: ShelfLook = { row: SHELF_ROW_CLASS, tile: SHELF_TILE_CLASS };
+
+/**
  * Where a row of tiles stands on its page: at its head, on screen as the
  * page arrives, or below something else, where the listener scrolls to it.
  */
@@ -269,6 +278,7 @@ const shelfView = (
   shape: ArtworkShape,
   tiles: Array.NonEmptyReadonlyArray<Tile>,
   place: ShelfPlace,
+  look: ShelfLook,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.section(
@@ -281,14 +291,11 @@ const shelfView = (
           h.Role("list"),
           h.AriaLabelledBy(id),
           h.Class(
-            clsx(
-              SHELF_ROW_CLASS,
-              "rounded-lg focus-visible:outline-2 focus-visible:outline-accent",
-            ),
+            clsx(look.row, "rounded-lg focus-visible:outline-2 focus-visible:outline-accent"),
           ),
         ],
         Array.map(tiles, (tile, index) =>
-          tileView(tile, shape, SHELF_TILE_CLASS, tileLoading(place, index), h),
+          tileView(tile, shape, look.tile, tileLoading(place, index), h),
         ),
       ),
     ],
@@ -306,10 +313,11 @@ export const maybeShelfView = (
   tiles: ReadonlyArray<Tile>,
   h: HtmlBuilder<Message>,
   place: ShelfPlace = "Below",
+  look: ShelfLook = SHELF_LOOK,
 ): Option.Option<Html> =>
   Array.match(tiles, {
     onEmpty: () => Option.none(),
-    onNonEmpty: (shelved) => Option.some(shelfView(id, title, shape, shelved, place, h)),
+    onNonEmpty: (shelved) => Option.some(shelfView(id, title, shape, shelved, place, look, h)),
   });
 
 /**

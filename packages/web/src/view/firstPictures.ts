@@ -65,9 +65,12 @@ export const firstPicturesOf = (message: CatalogMessage): ReadonlyArray<string> 
           ...tilesOf(result.playlists, pictureOf),
         ],
         SucceededNewMusic: ({ result }) => rowsOf(result.tracks),
+        // NOTE: Search opens with the artist it found first, on a card of
+        // their own, then the first albums and the first songs.
         SucceededCatalogSearch: ({ result }) => [
-          ...tilesOf(result.artists, pictureOf),
+          ...tilesOf(result.artists, pictureOf, 1),
           ...tilesOf(result.albums, coverOf),
+          ...rowsOf(result.tracks),
         ],
         SucceededTrackDetail: ({ result }) => headOf(result.album.cover),
         SucceededAlbumDetail: ({ result }) => headOf(result.cover),
