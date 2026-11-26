@@ -571,7 +571,7 @@ const moveHistory = (history: History, command: Issued): Option.Option<Moved> =>
     return Option.some(
       history.index > 0
         ? { history: { entries: history.entries, index: history.index - 1 }, violations: [] }
-        : { history, violations: ["a page's back control led out of the app"] },
+        : { history, violations: ["the player's handle led out of the app"] },
     );
   }
   return Option.none();
@@ -944,7 +944,7 @@ const broken = (model: Model): ReadonlyArray<string> => {
  * What must be true of the Model against the browser's history, once the app
  * has heard of every URL change: the URL is where the app takes it to be,
  * which is the page on screen unless the browser went elsewhere and that page
- * is loading, and it claims a way back only if this visit left a page behind.
+ * is loading, and it takes a page to be behind only if this visit left one.
  */
 const astray = (model: Model, history: History): ReadonlyArray<string> => {
   const rules: ReadonlyArray<readonly [rule: string, holds: boolean]> = [
@@ -957,7 +957,7 @@ const astray = (model: Model, history: History): ReadonlyArray<string> => {
       Array.isReadonlyArrayEmpty(model.trail) || history.index > 0,
     ],
     [
-      "a way back is offered only when the history has a page to go back to",
+      "the player's handle goes back only when the history has a page to go back to",
       Option.isNone(wayBack(model)) || history.index > 0,
     ],
     [
@@ -1181,6 +1181,21 @@ const acting = (walk: Walk, seed: number): Happening => {
     message: clickedLink(path),
     ...unchanged,
   });
+  // No page has a control of its own to go back. A listener leaves a page that is no section
+  // by the browser's Back when this visit left a page behind it, and by the navigation otherwise.
+  const leaves = (page: string): Happening => {
+    if (Option.isNone(wayBack(walk.model)) || walk.history.index === 0) {
+      return clicks("/");
+    }
+    const history = { entries: walk.history.entries, index: walk.history.index - 1 };
+    return {
+      label: `leaves the ${page}'s page by the browser's Back to ${currentPath(history)}`,
+      message: changedUrl(currentPath(history)),
+      history,
+      urlChanges: [],
+      replies: walk.replies,
+    };
+  };
   // The browser's history menu jumps over entries. One jump is left out: onto a page the same
   // as the nearest one the app knows behind. All the app hears is the URL, which is then what
   // Back would have given it, so it cannot tell the two apart.
@@ -1275,10 +1290,7 @@ const acting = (walk: Walk, seed: number): Happening => {
     };
   }
   if (albumRoll < 60 && walk.model.route._tag === "Album") {
-    // The page's own way back, as a track's page has it.
-    return Option.isSome(wayBack(walk.model))
-      ? { label: "clicks the album page's Back", message: Message.ClickedBack(), ...unchanged }
-      : clicks("/");
+    return leaves("album");
   }
 
   const shelfRoll = nextSeed(albumChoice) % 100;
@@ -1317,14 +1329,7 @@ const acting = (walk: Walk, seed: number): Happening => {
     };
   }
   if (shelfRoll < 65 && (walk.model.route._tag === "Artist" || walk.model.route._tag === "Playlist")) {
-    // The page's own way back, as a track's page has it.
-    return Option.isSome(wayBack(walk.model))
-      ? {
-          label: `clicks the ${walk.model.route._tag === "Artist" ? "artist" : "playlist"} page's Back`,
-          message: Message.ClickedBack(),
-          ...unchanged,
-        }
-      : clicks("/");
+    return leaves(walk.model.route._tag === "Artist" ? "artist" : "playlist");
   }
 
   const genreRoll = nextSeed(shelfChoice) % 100;
@@ -1369,14 +1374,7 @@ const acting = (walk: Walk, seed: number): Happening => {
     };
   }
   if (genreRoll < 85 && (walk.model.route._tag === "Genre" || walk.model.route._tag === "Station")) {
-    // The page's own way back, as a track's page has it.
-    return Option.isSome(wayBack(walk.model))
-      ? {
-          label: `clicks the ${walk.model.route._tag === "Genre" ? "genre" : "station"} page's Back`,
-          message: Message.ClickedBack(),
-          ...unchanged,
-        }
-      : clicks("/");
+    return leaves(walk.model.route._tag === "Genre" ? "genre" : "station");
   }
 
   if (roll < 12 && walk.history.index > 0) {
@@ -1422,9 +1420,13 @@ const acting = (walk: Walk, seed: number): Happening => {
     return clicks(pick(TRACK_PATHS, choice));
   }
   if (roll < 60 && walk.model.route._tag === "Track") {
-    // The page's own way back: a button when the app knows of a page behind, else a link Home.
+    // The expanded player is closed by its handle: a button when the app knows of a page
+    // behind, else a link Home. A track's plain page has no control to leave it by.
+    if (!isPlayerExpanded(walk.model)) {
+      return leaves("track");
+    }
     return Option.isSome(wayBack(walk.model))
-      ? { label: "clicks the page's Back", message: Message.ClickedBack(), ...unchanged }
+      ? { label: "closes the player by its handle", message: Message.ClickedBack(), ...unchanged }
       : clicks("/");
   }
   if (roll < 75 && walk.model.route._tag === "Search") {
@@ -1582,7 +1584,10 @@ test("the walks do reach what they are meant to try", () => {
 
   // A rule nobody walked into was not checked: these are the moves the rules above are about.
   expect(reaching("clicks link /track/")).toBeGreaterThan(WALKS / 10);
-  expect(reaching("clicks the page's Back")).toBeGreaterThan(WALKS / 50);
+  // NOTE: fewer than a hundredth of the walks: a track's page with a page behind it is mostly
+  // the expanded player, which is closed by its handle.
+  expect(reaching("leaves the track's page by the browser's Back")).toBeGreaterThan(WALKS / 200);
+  expect(reaching("closes the player by its handle")).toBeGreaterThan(WALKS / 50);
   expect(reaching("presses the browser's Back")).toBeGreaterThan(WALKS / 10);
   expect(reaching("presses the browser's Forward")).toBeGreaterThan(WALKS / 20);
   expect(reaching("jumps through the browser's history")).toBeGreaterThan(WALKS / 50);
@@ -1607,7 +1612,7 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching("presses Go to album again on the row that failed")).toBeGreaterThan(WALKS / 200);
   expect(reaching("taps a row of the album to play")).toBeGreaterThan(WALKS / 100);
   expect(reaching("chooses Song details on a row of the album")).toBeGreaterThan(WALKS / 100);
-  expect(reaching("clicks the album page's Back")).toBeGreaterThan(WALKS / 100);
+  expect(reaching("leaves the album's page by the browser's Back")).toBeGreaterThan(WALKS / 100);
   // Artists and playlists: chosen from a tile, found, failed, missing, played from, gone on from
   // to an album or a song, and left.
   expect(reaching("clicks link /artist/")).toBeGreaterThan(WALKS / 20);
@@ -1617,7 +1622,7 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching("pushes /artist/")).toBeGreaterThan(WALKS / 100);
   expect(reaching("taps a row of the artist to play")).toBeGreaterThan(WALKS / 100);
   expect(reaching("chooses Go to album on a row of the artist")).toBeGreaterThan(WALKS / 100);
-  expect(reaching("clicks the artist page's Back")).toBeGreaterThan(WALKS / 200);
+  expect(reaching("leaves the artist's page by the browser's Back")).toBeGreaterThan(WALKS / 200);
   expect(reaching("clicks link /playlist/")).toBeGreaterThan(WALKS / 20);
   expect(reaching("SucceededPlaylistDetail")).toBeGreaterThan(WALKS / 20);
   expect(reaching("PlaylistNotFound")).toBeGreaterThan(WALKS / 50);
@@ -1626,7 +1631,7 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching("taps a row of the playlist to play")).toBeGreaterThan(WALKS / 100);
   expect(reaching("chooses Go to album on a row of the playlist")).toBeGreaterThan(WALKS / 100);
   expect(reaching("chooses Song details on a row of the playlist")).toBeGreaterThan(WALKS / 100);
-  expect(reaching("clicks the playlist page's Back")).toBeGreaterThan(WALKS / 200);
+  expect(reaching("leaves the playlist's page by the browser's Back")).toBeGreaterThan(WALKS / 200);
   // Genres and Radio: chosen from the menu, found and failed; and the genres and stations their
   // tiles lead to: found, failed, missing, played from, gone on from to an album or a song, and left.
   expect(reaching("clicks link /genres")).toBeGreaterThan(WALKS / 20);
@@ -1644,7 +1649,7 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching("pushes /genre/")).toBeGreaterThan(WALKS / 100);
   expect(reaching("taps a row of the genre to play")).toBeGreaterThan(WALKS / 300);
   expect(reaching("chooses Go to album on a row of the genre")).toBeGreaterThan(WALKS / 300);
-  expect(reaching("clicks the genre page's Back")).toBeGreaterThan(WALKS / 200);
+  expect(reaching("leaves the genre's page by the browser's Back")).toBeGreaterThan(WALKS / 200);
   expect(reaching("clicks link /station/")).toBeGreaterThan(WALKS / 50);
   expect(reaching("SucceededStationDetail")).toBeGreaterThan(WALKS / 100);
   expect(reaching("StationNotFound")).toBeGreaterThan(WALKS / 100);
@@ -1653,7 +1658,7 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching("taps a row of the station to play")).toBeGreaterThan(WALKS / 300);
   expect(reaching("chooses Go to album on a row of the station")).toBeGreaterThan(WALKS / 300);
   expect(reaching("chooses Song details on a row of the station")).toBeGreaterThan(WALKS / 300);
-  expect(reaching("clicks the station page's Back")).toBeGreaterThan(WALKS / 200);
+  expect(reaching("leaves the station's page by the browser's Back")).toBeGreaterThan(WALKS / 200);
   // A request nobody answered: the Command's timeout, reported as a lost reply.
   expect(reaching('"failure":{"_tag":"Unknown"}')).toBeGreaterThan(WALKS / 10);
   // Playing, and everything an engine can answer with, while all of the above goes on.

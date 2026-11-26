@@ -1798,7 +1798,7 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       genres: HashMap.empty(),
       stations: HashMap.empty(),
       maybeAskedRoute: Option.none(),
-      // A fresh load knows nothing of the history behind it, so no page has a way back yet.
+      // A fresh load knows nothing of the history behind it, so it takes no page to be behind this one yet.
       trail: [],
       navigation: "Open",
       launch: "Launching",

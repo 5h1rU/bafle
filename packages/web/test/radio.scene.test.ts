@@ -349,7 +349,7 @@ describe("a station's tile leads to the station's page", () => {
     ).toEqual({ types: ["open-detail", name] });
   });
 
-  test("a failure is said on the station's page, with Try again and the way back: a tile has no room for it", () =>
+  test("a failure is said on the station's page, with Try again: a tile has no room for it", () =>
     scene(
       app,
       given(openingStationFromTile),
@@ -364,7 +364,6 @@ describe("a station's tile leads to the station's page", () => {
         see(role("alert")).toContainText("Station could not load."),
         see(role("alert")).toContainText("The music catalog is not answering right now."),
         see(tryAgain).toExist(),
-        see(backControl).toExist(),
       ),
       click(tryAgain),
       Command.expectExact(Catalog.StationDetail, FocusPage),
@@ -377,7 +376,7 @@ describe("a station's tile leads to the station's page", () => {
       ),
     ));
 
-  test("a station the catalog does not have says so on its page for good: a way out, and no Try again", () =>
+  test("a station the catalog does not have says so on its page for good, with no Try again", () =>
     scene(
       app,
       given(answered(openingStationFromTile, reply.stationMissing, stationPath(station.id))),
@@ -385,7 +384,6 @@ describe("a station's tile leads to the station's page", () => {
         onScreen,
         see(pageTitle("This station is not available")).toExist(),
         see(text("The catalog no longer has it, or the link to it is wrong.")).toExist(),
-        see(backControl).toExist(),
         expectAll(tryAgainButtons).toHaveCount(0),
       ),
     ));
@@ -415,9 +413,8 @@ describe("rule 5: a direct link paints the station page's shape", () => {
       see(sectionTitle("Songs")).toExist(),
       expectAll(placeholderBlocks).not.toHaveCount(0),
       see(songs).toBeAbsent(),
-      // Nothing is behind a page reached by its address: its way out leads Home.
-      see(homeControl).toHaveAttr("href", "/"),
-      see(backControl).toBeAbsent(),
+      // No page has a control of its own to leave it by: the navigation is the way out.
+      inside(onScreen, see(homeControl).toBeAbsent(), see(backControl).toBeAbsent()),
       see(text("Loading Station")).toExist(),
     ));
 
@@ -457,8 +454,8 @@ describe("the station page", () => {
         // The order is the station's, not a chart: the rows are not numbered.
         see(selector("#station-page ul[aria-labelledby='station-songs']")).toExist(),
         see(selector("#station-page ol")).toBeAbsent(),
-        // Opened from a shelf: the way out goes back through the history.
-        see(backControl).toExist(),
+        // Nor has one opened from a list: the browser's Back is the way back.
+        see(backControl).toBeAbsent(),
       ),
     ));
 

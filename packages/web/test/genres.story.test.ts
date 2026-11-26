@@ -9,7 +9,6 @@ import {
   GenreData,
   genreData,
   GenreListData,
-  hasWayBackFromGenre,
   maybeAlbumIdInDocument,
   maybeArtistIdInDocument,
   maybeGenreIdInDocument,
@@ -449,21 +448,6 @@ describe("the genre's page behind a page reached from it", () => {
     expect(maybeAlbumIdInDocument(onSongFromAlbum.route, onSongFromAlbum.trail)).toEqual(
       Option.some(album.id),
     );
-  });
-
-  test("its way back is the page behind its own entry, on screen and kept alike", () => {
-    expect(hasWayBackFromGenre(onGenre.route, onGenre.trail)).toBe(true);
-    expect(hasWayBackFromGenre(onSongFromGenre.route, onSongFromGenre.trail)).toBe(true);
-
-    // Reached by its address, nothing is behind it: not on screen, and not once a song is over it.
-    const direct = answered(opened(genrePath(genre.id)), reply.genre);
-    const songOverDirect = answered(
-      after(direct, choseFromRow("Genre", track.id, "OpenSong")),
-      reply.track,
-      trackPath(track.id),
-    );
-    expect(hasWayBackFromGenre(direct.route, direct.trail)).toBe(false);
-    expect(hasWayBackFromGenre(songOverDirect.route, songOverDirect.trail)).toBe(false);
   });
 
   test("a genre left for good is in the document no longer, and another takes the one place there is", () => {

@@ -19,7 +19,6 @@ import {
   FocusPage,
   FocusSearchField,
   FocusTrackRow,
-  NavigateBack,
   NavigateInternal,
   ReplaceSearchTerm,
   WaitForTypingPause,
@@ -1031,8 +1030,9 @@ describe("the track page", () => {
       expectAll(all.selector("audio")).toHaveCount(0),
       inside(
         onScreen,
-        expectAll(all.role("button")).toHaveCount(2),
-        see(backControl).toExist(),
+        // The Play control is the page's one button: no page has one to go back.
+        expectAll(all.role("button")).toHaveCount(1),
+        see(backControl).toBeAbsent(),
         see(role("button", { name: "Play: Harder, Better, Faster, Stronger" })).toHaveText("Play"),
       ),
     ));
@@ -1050,8 +1050,8 @@ describe("rule d: a direct link paints the track page's shape", () => {
         expectAll(placeholders).toHaveCount(1),
         expectAll(all.selector('[aria-busy="true"] .animate-pulse.aspect-square')).toHaveCount(1),
         expectAll(placeholderBlocks).not.toBeEmpty(),
-        // Nothing behind a direct link: the way out is a link to Home.
-        see(homeControl).toHaveAttr("href", "/"),
+        // No page has a control of its own to leave it by: the navigation is the way out.
+        see(homeControl).toBeAbsent(),
         see(backControl).toBeAbsent(),
       ),
       see(text("Loading Song")).toExist(),
@@ -1067,7 +1067,6 @@ describe("rule d: a direct link paints the track page's shape", () => {
         onScreen,
         see(pageTitle("Harder, Better, Faster, Stronger")).toExist(),
         expectAll(placeholders).toHaveCount(0),
-        see(homeControl).toExist(),
       ),
     );
   });
@@ -1089,14 +1088,13 @@ describe("B: a track reached through the browser's history fails in its own page
       see(text("Loading Song")).toExist(),
     ));
 
-  test("a track the catalog does not have says so for good: a way out, and no Try again", () =>
+  test("a track the catalog does not have says so for good, with no Try again", () =>
     scene(
       app,
       given(answered(heldForTrack, reply.trackMissing)),
       inside(
         onScreen,
         see(pageTitle("This song is not available")).toExist(),
-        see(homeControl).toExist(),
       ),
       see(tryAgain).toBeAbsent(),
       see(role("alert")).toBeAbsent(),
@@ -1107,7 +1105,6 @@ describe("B: a track reached through the browser's history fails in its own page
       app,
       given(answered(opened(trackPath(track.id)), reply.trackMissing)),
       see(pageTitle("This song is not available")).toExist(),
-      see(homeControl).toHaveAttr("href", "/"),
       see(tryAgain).toBeAbsent(),
     ));
 
@@ -1125,7 +1122,6 @@ describe("B: a track reached through the browser's history fails in its own page
           see(text("Song could not load.")).toExist(),
           see(text("The music catalog is not answering right now.")).toExist(),
         ),
-        see(homeControl).toExist(),
       ),
       click(tryAgain),
       Command.resolve(FocusPage, Message.CompletedFocusPage()),
@@ -1225,9 +1221,6 @@ describe("rule f: the pages behind the one on screen are kept, and hidden", () =
     scene(
       app,
       given(onTrack),
-      click(backControl),
-      Command.expectExact(NavigateBack),
-      Command.resolve(NavigateBack, Message.CompletedNavigateBack()),
       // The browser goes back, and the URL changes.
       Subscription.emit(changedUrl("/new")),
       see(selector("#new-page:not([inert])")).toExist(),
@@ -1379,14 +1372,12 @@ describe("rule g: the cover is one element on its way between the row and the pa
   });
 });
 
-describe("rule h: the way back", () => {
-  test("a track opened from a list goes back through the history, not by a link", () =>
+describe("rule h: no page has a control to go back", () => {
+  test("a track opened from a list has none, nor a link Home: the navigation and the browser's Back are the ways out", () =>
     scene(
       app,
       given(onTrack),
-      inside(onScreen, see(backControl).toExist(), see(homeControl).toBeAbsent()),
-      click(backControl),
-      Command.expectExact(NavigateBack),
-      Command.resolve(NavigateBack, Message.CompletedNavigateBack()),
+      inside(onScreen, see(backControl).toBeAbsent(), see(homeControl).toBeAbsent()),
+      inside(navigation, see(homeControl).toHaveAttr("href", "/")),
     ));
 });

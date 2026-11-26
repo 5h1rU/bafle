@@ -23,7 +23,6 @@ import {
   trackListView,
   type TrackListContext,
 } from "../view/trackList.ts";
-import { wayBackControlView } from "../view/wayBack.ts";
 
 import "./album.css";
 
@@ -119,7 +118,7 @@ const foundView = (
 
 /**
  * The catalog has no such album. That will not change, so there is nothing
- * to try again: the page says so, under its way back.
+ * to try again: the page says so.
  */
 const notAvailableView = (h: HtmlBuilder<Message>): Html =>
   h.div(
@@ -154,14 +153,12 @@ const untitledView = (album: AlbumData, h: HtmlBuilder<Message>): Html =>
 export const view = (
   albumId: AlbumId,
   album: AlbumData,
-  hasWayBack: boolean,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): Html => {
   const hasAlbum = Option.isSome(Option.flatten(AsyncData.getData(album)));
   const overlay = hasAlbum || AsyncData.isPending(album);
   return h.keyed("div")(albumId, pageAttributes(PAGE_ID, context.presence, h), [
-    h.div([h.Class(clsx("album-return", { "album-overlay": overlay }))], [wayBackControlView(hasWayBack, h)]),
     h.div(
       [h.AriaBusy(AsyncData.isPending(album)), h.Class(clsx({ "album-unavailable": !overlay }))],
       [

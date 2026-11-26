@@ -34,7 +34,6 @@ import { pageDataView } from "../view/pageData.ts";
 import { BLOCK_CLASS } from "../view/placeholder.ts";
 import { formatDuration } from "../view/time.ts";
 import { explicitMarkerView } from "../view/trackList.ts";
-import { wayBackView } from "../view/wayBack.ts";
 
 // VIEW
 
@@ -325,7 +324,7 @@ const foundView = (
 
 /**
  * The catalog has no such track. That will not change, so there is nothing
- * to try again: the page says so, under its way back.
+ * to try again: the page says so.
  */
 const notAvailableView = (h: HtmlBuilder<Message>): Html =>
   h.div(
@@ -358,15 +357,13 @@ const untitledView = (track: TrackData, h: HtmlBuilder<Message>): Html =>
 export const view = (
   trackId: TrackId,
   track: TrackData,
-  maybeWayBack: Option.Option<AppRoute>,
   status: TrackStatus,
   queueing: Queueing,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.keyed("div")(trackId, pageAttributes(PAGE_ID, "OnScreen", h), [
-    wayBackView(Option.isSome(maybeWayBack), h),
     h.div(
-      [h.AriaBusy(AsyncData.isPending(track)), h.Class("@container mt-4")],
+      [h.AriaBusy(AsyncData.isPending(track)), h.Class("@container")],
       [
         untitledView(track, h),
         pageDataView(
@@ -397,10 +394,10 @@ const grabberView = (h: HtmlBuilder<Message>): Html =>
  * The way out of the expanded player: it shrinks back into the island over
  * the page it was opened from. It is the handle at the top of the sheet,
  * which says that the sheet is swiped down to close it, and is itself a
- * control for whoever does not swipe. Like the track page's own way back, it
- * goes back through the browser's history when the app knows of a page
- * behind, and is a plain link to Home when the player's page was reached
- * directly.
+ * control for whoever does not swipe. It goes back through the browser's
+ * history when the app knows of a page behind, so that page is found as it
+ * was left and the history gains no entry, and is a plain link to Home when
+ * the player's page was reached directly.
  */
 export const collapseControlView = (
   maybeWayBack: Option.Option<AppRoute>,

@@ -9,7 +9,6 @@ import {
   AlbumData,
   albumData,
   Awaiting,
-  hasWayBackFromAlbum,
   maybeAlbumIdInDocument,
   type Model,
   wayBack,
@@ -363,21 +362,6 @@ describe("the album's page behind a page reached from it", () => {
       "FocusTrackRow",
       { pageId: PAGE_IDS.Album, trackId: track.id },
     ]);
-  });
-
-  test("its way back is the page behind its own entry, on screen and kept alike", () => {
-    expect(hasWayBackFromAlbum(onAlbum.route, onAlbum.trail)).toBe(true);
-    expect(hasWayBackFromAlbum(onSongFromAlbum.route, onSongFromAlbum.trail)).toBe(true);
-
-    // Reached by its address, nothing is behind it: not on screen, and not once a song is over it.
-    const direct = answered(opened(albumPath(album.id)), reply.album);
-    const songOverDirect = answered(
-      after(direct, choseFromRow("Album", track.id, "OpenSong")),
-      reply.track,
-      trackPath(track.id),
-    );
-    expect(hasWayBackFromAlbum(direct.route, direct.trail)).toBe(false);
-    expect(hasWayBackFromAlbum(songOverDirect.route, songOverDirect.trail)).toBe(false);
   });
 
   test("an album left for good is in the document no longer", () => {

@@ -71,9 +71,9 @@
    moves, so nothing under it is laid out again on the way.
 
    At the head it stays as the page scrolls under it, so another search is
-   always in reach. Where it holds is counted from inside the page's padding
-   (as the way back's is, `view/wayBack.ts`): three quarters of a rem from the
-   top. */
+   always in reach. Where it holds is counted from inside the page's padding,
+   not from the edge of the box that scrolls: three quarters of a rem from
+   the top. */
 .search-bar {
   position: sticky;
   z-index: 5;

@@ -1458,7 +1458,7 @@ describe("rule 6: search keeps its results while it loads", () => {
     ));
 });
 
-describe("the way back", () => {
+describe("the page behind", () => {
   test("a track opened from a list knows the list is behind it", () => {
     expect(wayBack(onTrack)).toEqual(Option.some(AppRoute.New()));
   });
@@ -1471,7 +1471,7 @@ describe("the way back", () => {
     expect(wayBack(loaded)).toEqual(Option.none());
   });
 
-  test("the back control goes back in the history: it changes nothing and pushes nothing", () =>
+  test("the handle of the expanded player goes back in the history: it changes nothing and pushes nothing", () =>
     story(
       update,
       given(onTrack),

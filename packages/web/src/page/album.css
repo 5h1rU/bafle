@@ -2,16 +2,16 @@
   --album-gutter: clamp(1.375rem, 3.5vw, 3.5rem);
   /* The bar the head draws back to: as high as a bar of the system's, and
      the cover in it a thumbnail that leaves it a little room above and
-     below. The thumbnail stands after the way back. */
+     below. The thumbnail stands at the bar's near end. */
   /* NOTE: no inset for the top of the screen is added. The page is drawn
      under the screen's top already, in a browser and installed alike, and a
      browser that draws its own bar over the page can report that inset to a
      page that is not under it: the bar was then twice its height. */
   --album-bar-inner: 3rem;
   --album-bar-height: var(--album-bar-inner);
-  --album-bar-pad: max(1rem, calc(var(--album-gutter) - .25rem));
+  --album-bar-pad: var(--album-gutter);
   --album-thumb: 2rem;
-  --album-thumb-left: calc(var(--album-bar-pad) + 3.125rem);
+  --album-thumb-left: var(--album-bar-pad);
   --album-hero-height: clamp(19rem, 103.5vw, 35rem);
   padding-inline: 0;
   padding-top: 0;
@@ -71,7 +71,7 @@
 .album-placeholder { background: var(--color-panel); }
 .album-placeholder::after { display: none; }
 
-.album-toolbar, .album-return {
+.album-toolbar {
   position: sticky;
   z-index: 3;
   top: 0;
@@ -81,9 +81,8 @@
   align-items: center;
   gap: .75rem;
   pointer-events: none;
+  margin-bottom: calc(0px - var(--album-bar-height));
 }
-.album-return { z-index: 4; }
-.album-toolbar, .album-overlay { margin-bottom: calc(0px - var(--album-bar-height)); }
 .album-toolbar::before {
   content: "";
   position: absolute;
@@ -92,45 +91,13 @@
   background: var(--color-panel);
   border-bottom: 1px solid var(--color-line);
 }
-/* NOTE: the way back is the control every page has (`view/wayBack.ts`).
-   Over the cover, and in the bar the head draws back to, it is white on
-   the night, whatever the page's colours: a cover can be any colour. On a
-   page with no album to show there is no cover, and it is as it is on any
-   other page. */
-.album-overlay > :is(button, a) {
-  color: white;
-  background: rgb(22 15 21 / 65%);
-  border-color: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-.album-overlay > :is(button, a):is(:hover, :active) { background: rgb(22 15 21 / 85%); }
-
-/* The head of the page travels from the album's tile as one picture: the
-   cover with its title over it (`albumHeadFlightAttributes`). The way back
-   lies over that picture and is not part of it, so in the swap that brings
-   the page in it is a picture of its own, above the head, and comes on the
-   head's clock instead of appearing once the head has landed. */
-:root:active-view-transition-type(open-detail, close-detail) .album-return > :is(button, a) {
-  view-transition-name: album-return;
-}
-::view-transition-group(album-return) { z-index: 2; }
-::view-transition-new(album-return):only-child {
-  animation: 250ms cubic-bezier(0.23, 1, 0.32, 1) both album-return-arrive;
-}
-::view-transition-old(album-return):only-child {
-  animation: 120ms ease-out both album-return-leave;
-}
-@keyframes album-return-arrive { from { opacity: 0; } }
-@keyframes album-return-leave { to { opacity: 0; } }
-
-.album-compact { margin-left: 3.125rem; display: flex; min-width: 0; gap: .625rem; align-items: center; }
+.album-compact { display: flex; min-width: 0; gap: .625rem; align-items: center; }
 .album-compact > :first-child { flex: none; width: var(--album-thumb); }
 .album-compact-title { font-size: .9375rem; font-weight: 650; line-height: 1.2; letter-spacing: -.015em; }
 .album-compact-artist { font-size: .75rem; line-height: 1.25; color: var(--color-muted); }
 
 /* Without scroll timelines the cover slides over the sticky strip and reveals it
-   as it leaves. The back control stays above both layers. */
+   as it leaves. */
 @supports not ((animation-timeline: view()) and (timeline-scope: --album-cover)) {
   .album-hero { z-index: 3; }
   .album-toolbar { z-index: 2; }
@@ -236,7 +203,9 @@
   }
 }
 
-.album-unavailable { padding: 1rem var(--album-gutter); }
+/* With no album there is no head: what the page says instead starts where
+   any page's title does (`pageAttributes` in view/layout.ts). */
+.album-unavailable { padding: 2rem var(--album-gutter) 1rem; }
 .album-songs {
   padding: .5rem var(--album-gutter) 0;
   max-width: 64rem;
@@ -285,5 +254,6 @@
 .album-songs [data-now-playing="Failed"] svg { color: var(--color-danger); }
 @media (min-width: 48rem) {
   #album-page { --album-hero-height: clamp(20rem, 46svh, 34rem); }
+  .album-unavailable { padding-top: 2.5rem; }
   .album-caption { padding-bottom: 2rem; }
 }

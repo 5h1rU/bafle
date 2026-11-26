@@ -29,11 +29,6 @@ import {
   canShow,
   genreData,
   genreDataIn,
-  hasWayBackFromAlbum,
-  hasWayBackFromArtist,
-  hasWayBackFromGenre,
-  hasWayBackFromPlaylist,
-  hasWayBackFromStation,
   isPlayerExpanded,
   isPlayersTrack,
   maybeAlbumIdInDocument,
@@ -681,7 +676,6 @@ const searchPlaceView = (
 const albumPlaceView = (
   albumId: AlbumId | undefined,
   presence: Presence,
-  hasWayBack: boolean,
   tracks: Model["tracks"],
   albums: Model["albums"],
   albumRows: Model["albumRows"],
@@ -703,7 +697,6 @@ const albumPlaceView = (
           Album.view(
             albumId,
             album,
-            hasWayBack,
             listContext(
               presence,
               "Album",
@@ -727,7 +720,6 @@ const albumPlaceView = (
 const artistPlaceView = (
   artistId: ArtistId | undefined,
   presence: Presence,
-  hasWayBack: boolean,
   artists: Model["artists"],
   tracks: Model["tracks"],
   albums: Model["albums"],
@@ -750,7 +742,6 @@ const artistPlaceView = (
           Artist.view(
             artistId,
             artist,
-            hasWayBack,
             listContext(
               presence,
               "Artist",
@@ -771,7 +762,6 @@ const artistPlaceView = (
 const playlistPlaceView = (
   playlistId: PlaylistId | undefined,
   presence: Presence,
-  hasWayBack: boolean,
   playlists: Model["playlists"],
   tracks: Model["tracks"],
   albums: Model["albums"],
@@ -794,7 +784,6 @@ const playlistPlaceView = (
           Playlist.view(
             playlistId,
             playlist,
-            hasWayBack,
             listContext(
               presence,
               "Playlist",
@@ -818,7 +807,6 @@ const playlistPlaceView = (
 const genrePlaceView = (
   genreId: GenreId | undefined,
   presence: Presence,
-  hasWayBack: boolean,
   genres: Model["genres"],
   tracks: Model["tracks"],
   albums: Model["albums"],
@@ -843,7 +831,6 @@ const genrePlaceView = (
           Genre.view(
             genreId,
             genre,
-            hasWayBack,
             listContext(
               presence,
               "Genre",
@@ -864,7 +851,6 @@ const genrePlaceView = (
 const stationPlaceView = (
   stationId: StationId | undefined,
   presence: Presence,
-  hasWayBack: boolean,
   stations: Model["stations"],
   tracks: Model["tracks"],
   albums: Model["albums"],
@@ -887,7 +873,6 @@ const stationPlaceView = (
           Station.view(
             stationId,
             station,
-            hasWayBack,
             listContext(
               presence,
               "Station",
@@ -907,7 +892,6 @@ const stationPlaceView = (
 const passingPlaceView = (
   route: AppRoute,
   tracks: Model["tracks"],
-  trail: Model["trail"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
   rowDone: Model["rowDone"],
@@ -923,7 +907,6 @@ const passingPlaceView = (
             Track.view(
               trackId,
               trackDataIn(tracks, trackId),
-              wayBackOn(trail),
               Player.statusFor(playingTrackId, playingStatus, trackId),
               {
                 // A queue is what comes after a track: there is one once something plays.
@@ -1009,7 +992,6 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
     lazyAlbumPlace(albumPlaceView, [
       Option.getOrUndefined(maybeAlbumIdInDocument(model.route, model.trail)),
       presenceOf(model, "Album"),
-      hasWayBackFromAlbum(model.route, model.trail),
       model.tracks,
       model.albums,
       model.albumRows,
@@ -1022,7 +1004,6 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
     lazyArtistPlace(artistPlaceView, [
       Option.getOrUndefined(maybeArtistIdInDocument(model.route, model.trail)),
       presenceOf(model, "Artist"),
-      hasWayBackFromArtist(model.route, model.trail),
       model.artists,
       model.tracks,
       model.albums,
@@ -1036,7 +1017,6 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
     lazyPlaylistPlace(playlistPlaceView, [
       Option.getOrUndefined(maybePlaylistIdInDocument(model.route, model.trail)),
       presenceOf(model, "Playlist"),
-      hasWayBackFromPlaylist(model.route, model.trail),
       model.playlists,
       model.tracks,
       model.albums,
@@ -1062,7 +1042,6 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
     lazyGenrePlace(genrePlaceView, [
       Option.getOrUndefined(maybeGenreIdInDocument(model.route, model.trail)),
       presenceOf(model, "Genre"),
-      hasWayBackFromGenre(model.route, model.trail),
       model.genres,
       model.tracks,
       model.albums,
@@ -1078,7 +1057,6 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
     lazyStationPlace(stationPlaceView, [
       Option.getOrUndefined(maybeStationIdInDocument(model.route, model.trail)),
       presenceOf(model, "Station"),
-      hasWayBackFromStation(model.route, model.trail),
       model.stations,
       model.tracks,
       model.albums,
@@ -1096,7 +1074,6 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       : lazyPassingPlace(passingPlaceView, [
           model.route,
           model.tracks,
-          model.trail,
           playingTrackId,
           playingStatus,
           model.rowDone,

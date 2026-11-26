@@ -71,13 +71,11 @@ const staleReason = (error: LoadError): string =>
  * what is on the page stays where it is when the notice comes, and when the
  * listener puts it away. It offers to try again, and to be put away.
  */
-// NOTE: on a narrow screen it keeps clear of the page's top corner, where a
-// page that is no section has its way back (`wayBack.ts`).
 export const staleBannerView = (error: LoadError, h: HtmlBuilder<Message>): Html =>
   h.div(
     [
       h.Class(
-        "pointer-events-none absolute top-2 right-3 left-16 z-30 flex justify-center md:top-3 md:right-6 md:left-6",
+        "pointer-events-none absolute top-2 right-3 left-3 z-30 flex justify-center md:top-3 md:right-6 md:left-6",
       ),
     ],
     [

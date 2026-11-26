@@ -6,7 +6,6 @@ import { init, update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import {
   Awaiting,
-  hasWayBackFromPlaylist,
   maybeAlbumIdInDocument,
   maybePlaylistIdInDocument,
   type Model,
@@ -327,21 +326,6 @@ describe("the playlist's page behind a page reached from it", () => {
     expect(maybeAlbumIdInDocument(onSongFromAlbum.route, onSongFromAlbum.trail)).toEqual(
       Option.some(album.id),
     );
-  });
-
-  test("its way back is the page behind its own entry, on screen and kept alike", () => {
-    expect(hasWayBackFromPlaylist(onPlaylist.route, onPlaylist.trail)).toBe(true);
-    expect(hasWayBackFromPlaylist(onSongFromPlaylist.route, onSongFromPlaylist.trail)).toBe(true);
-
-    // Reached by its address, nothing is behind it: not on screen, and not once a song is over it.
-    const direct = answered(opened(playlistPath(playlist.id)), reply.playlist);
-    const songOverDirect = answered(
-      after(direct, choseFromRow("Playlist", track.id, "OpenSong")),
-      reply.track,
-      trackPath(track.id),
-    );
-    expect(hasWayBackFromPlaylist(direct.route, direct.trail)).toBe(false);
-    expect(hasWayBackFromPlaylist(songOverDirect.route, songOverDirect.trail)).toBe(false);
   });
 
   test("a playlist left for good is in the document no longer", () => {

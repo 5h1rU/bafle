@@ -32,7 +32,6 @@ import {
   type TilesOpening,
 } from "../view/shelf.ts";
 import { maybeTrackSectionView, type TrackListContext } from "../view/trackList.ts";
-import { wayBackView } from "../view/wayBack.ts";
 
 // VIEW
 
@@ -165,7 +164,7 @@ const foundView = (
 
 /**
  * The catalog has no such genre. That will not change, so there is nothing
- * to try again: the page says so, under its way back.
+ * to try again: the page says so.
  */
 const notAvailableView = (h: HtmlBuilder<Message>): Html =>
   h.div(
@@ -200,15 +199,13 @@ const untitledView = (genre: GenreData, h: HtmlBuilder<Message>): Html =>
 export const view = (
   genreId: GenreId,
   genre: GenreData,
-  hasWayBack: boolean,
   context: TrackListContext,
   opening: TilesOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.keyed("div")(genreId, pageAttributes(PAGE_ID, context.presence, h), [
-    wayBackView(hasWayBack, h),
     h.div(
-      [h.AriaBusy(AsyncData.isPending(genre)), h.Class("mt-4")],
+      [h.AriaBusy(AsyncData.isPending(genre))],
       [
         untitledView(genre, h),
         pageDataView(

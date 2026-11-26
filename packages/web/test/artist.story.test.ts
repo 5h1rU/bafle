@@ -8,7 +8,6 @@ import {
   ArtistData,
   artistData,
   Awaiting,
-  hasWayBackFromArtist,
   maybeAlbumIdInDocument,
   maybeArtistIdInDocument,
   type Model,
@@ -340,21 +339,6 @@ describe("the artist's page behind a page reached from it", () => {
     expect(maybeAlbumIdInDocument(onSongFromAlbum.route, onSongFromAlbum.trail)).toEqual(
       Option.some(album.id),
     );
-  });
-
-  test("their way back is the page behind their own entry, on screen and kept alike", () => {
-    expect(hasWayBackFromArtist(onArtist.route, onArtist.trail)).toBe(true);
-    expect(hasWayBackFromArtist(onAlbumFromArtist.route, onAlbumFromArtist.trail)).toBe(true);
-
-    // Reached by their address, nothing is behind them: not on screen, and not once an album is over them.
-    const direct = answered(opened(artistPath(artist.id)), reply.artist);
-    const albumOverDirect = answered(
-      chose(direct, albumPath(album.id)),
-      reply.album,
-      albumPath(album.id),
-    );
-    expect(hasWayBackFromArtist(direct.route, direct.trail)).toBe(false);
-    expect(hasWayBackFromArtist(albumOverDirect.route, albumOverDirect.trail)).toBe(false);
   });
 
   test("an artist left for good is in the document no longer", () => {

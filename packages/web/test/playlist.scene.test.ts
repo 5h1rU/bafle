@@ -136,9 +136,8 @@ describe("rule 5: a direct link paints the playlist page's shape", () => {
       see(sectionTitle("Songs")).toExist(),
       expectAll(placeholderBlocks).not.toHaveCount(0),
       see(songs).toBeAbsent(),
-      // Nothing is behind a page reached by its address: its way out leads Home.
-      see(homeControl).toHaveAttr("href", "/"),
-      see(backControl).toBeAbsent(),
+      // No page has a control of its own to leave it by: the navigation is the way out.
+      inside(onScreen, see(homeControl).toBeAbsent(), see(backControl).toBeAbsent()),
       see(text("Loading Playlist")).toExist(),
     ));
 
@@ -178,8 +177,8 @@ describe("the playlist page", () => {
         // The order is the keeper's, not a chart: the rows are not numbered.
         see(selector("#playlist-page ul[aria-labelledby='playlist-songs']")).toExist(),
         see(selector("#playlist-page ol")).toBeAbsent(),
-        // Opened from a shelf: the way out goes back through the history.
-        see(backControl).toExist(),
+        // Nor has one opened from a list: the browser's Back is the way back.
+        see(backControl).toBeAbsent(),
       ),
       // A playlist is not a section: no item is the current page.
       inside(navigation, expectAll(all.selector("[aria-current]")).toHaveCount(0)),
@@ -365,7 +364,6 @@ describe("playlist tiles lead to the playlist's page", () => {
         see(role("alert")).toContainText("Playlist could not load."),
         see(role("alert")).toContainText("The music catalog is not answering right now."),
         see(tryAgain).toExist(),
-        see(backControl).toExist(),
       ),
       click(tryAgain),
       Command.expectExact(Catalog.PlaylistDetail, FocusPage),
@@ -381,7 +379,7 @@ describe("playlist tiles lead to the playlist's page", () => {
       see(role("alert")).toContainText("Bafle could not be reached. Check your connection."),
     ));
 
-  test("a playlist the catalog does not have says so on its page for good: a way out, and no Try again", () =>
+  test("a playlist the catalog does not have says so on its page for good, with no Try again", () =>
     scene(
       app,
       given(answered(openingPlaylistFromTile, reply.playlistMissing, playlistPath(playlist.id))),
@@ -389,7 +387,6 @@ describe("playlist tiles lead to the playlist's page", () => {
         onScreen,
         see(pageTitle("This playlist is not available")).toExist(),
         see(text("The catalog no longer has it, or the link to it is wrong.")).toExist(),
-        see(backControl).toExist(),
         expectAll(tryAgainButtons).toHaveCount(0),
       ),
     ));

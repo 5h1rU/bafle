@@ -133,9 +133,8 @@ describe("rule 5: a direct link paints the artist page's shape", () => {
       see(selector('#artist-page [aria-hidden="true"] .rounded-full.animate-pulse')).toExist(),
       see(topSongs).toBeAbsent(),
       see(albums).toBeAbsent(),
-      // Nothing is behind a page reached by its address: its way out leads Home.
-      see(homeControl).toHaveAttr("href", "/"),
-      see(backControl).toBeAbsent(),
+      // No page has a control of its own to leave it by: the navigation is the way out.
+      inside(onScreen, see(homeControl).toBeAbsent(), see(backControl).toBeAbsent()),
       see(text("Loading Artist")).toExist(),
     ));
 
@@ -181,8 +180,8 @@ describe("the artist page", () => {
           see(albumTile).toHaveAttr("href", "/album/al-1"),
           see(albumTile).toHaveAttr("aria-busy", "false"),
         ),
-        // Opened from a shelf: the way out goes back through the history.
-        see(backControl).toExist(),
+        // Nor has one opened from a list: the browser's Back is the way back.
+        see(backControl).toBeAbsent(),
       ),
       // An artist is not a section: no item is the current page.
       inside(navigation, expectAll(all.selector("[aria-current]")).toHaveCount(0)),
@@ -352,7 +351,6 @@ describe("artist tiles lead to the artist's page", () => {
         see(role("alert")).toContainText("Artist could not load."),
         see(role("alert")).toContainText("The music catalog is not answering right now."),
         see(tryAgain).toExist(),
-        see(backControl).toExist(),
       ),
       click(tryAgain),
       Command.expectExact(Catalog.ArtistDetail, FocusPage),
@@ -368,7 +366,7 @@ describe("artist tiles lead to the artist's page", () => {
       see(role("alert")).toContainText("Bafle could not be reached. Check your connection."),
     ));
 
-  test("an artist the catalog does not have says so on their page for good: a way out, and no Try again", () =>
+  test("an artist the catalog does not have says so on their page for good, with no Try again", () =>
     scene(
       app,
       given(answered(openingArtistFromTile, reply.artistMissing, artistPath(artist.id))),
@@ -376,7 +374,6 @@ describe("artist tiles lead to the artist's page", () => {
         onScreen,
         see(pageTitle("This artist is not available")).toExist(),
         see(text("The catalog no longer has them, or the link to them is wrong.")).toExist(),
-        see(backControl).toExist(),
         expectAll(tryAgainButtons).toHaveCount(0),
       ),
     ));

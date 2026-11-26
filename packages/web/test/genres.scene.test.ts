@@ -390,7 +390,7 @@ describe("a genre's tile leads to the genre's page", () => {
     ).toBe(false);
   });
 
-  test("a failure is said on the genre's page, with Try again and the way back: a tile has no room for it", () =>
+  test("a failure is said on the genre's page, with Try again: a tile has no room for it", () =>
     scene(
       app,
       given(openingGenreFromTile),
@@ -405,7 +405,6 @@ describe("a genre's tile leads to the genre's page", () => {
         see(role("alert")).toContainText("Genre could not load."),
         see(role("alert")).toContainText("The music catalog is not answering right now."),
         see(tryAgain).toExist(),
-        see(backControl).toExist(),
       ),
       click(tryAgain),
       Command.expectExact(Catalog.GenreDetail, FocusPage),
@@ -414,7 +413,7 @@ describe("a genre's tile leads to the genre's page", () => {
       inside(onScreen, see(pageTitle("Electro")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 
-  test("a genre the catalog does not have says so on its page for good: a way out, and no Try again", () =>
+  test("a genre the catalog does not have says so on its page for good, with no Try again", () =>
     scene(
       app,
       given(answered(openingGenreFromTile, reply.genreMissing, genrePath(genre.id))),
@@ -422,7 +421,6 @@ describe("a genre's tile leads to the genre's page", () => {
         onScreen,
         see(pageTitle("This genre is not available")).toExist(),
         see(text("The catalog no longer has it, or the link to it is wrong.")).toExist(),
-        see(backControl).toExist(),
         expectAll(tryAgainButtons).toHaveCount(0),
       ),
     ));
@@ -455,9 +453,8 @@ describe("rule 5: a direct link paints the genre page's shape", () => {
       see(sectionTitle("Top playlists")).toExist(),
       expectAll(placeholderBlocks).not.toHaveCount(0),
       see(topSongs).toBeAbsent(),
-      // Nothing is behind a page reached by its address: its way out leads Home.
-      see(homeControl).toHaveAttr("href", "/"),
-      see(backControl).toBeAbsent(),
+      // No page has a control of its own to leave it by: the navigation is the way out.
+      inside(onScreen, see(homeControl).toBeAbsent(), see(backControl).toBeAbsent()),
       see(text("Loading Genre")).toExist(),
     ));
 
@@ -496,8 +493,8 @@ describe("the genre page", () => {
           role("list", { name: "Top playlists" }),
           see(playlistTile).toHaveAttr("href", "/playlist/pl-1"),
         ),
-        // Opened from Genres: the way out goes back through the history.
-        see(backControl).toExist(),
+        // Nor has one opened from a list: the browser's Back is the way back.
+        see(backControl).toBeAbsent(),
       ),
     ));
 

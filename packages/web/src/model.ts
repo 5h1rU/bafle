@@ -257,8 +257,8 @@ export const Model = Schema.Struct({
   /**
    * The pages the app takes to be behind the current one in the browser's
    * history, nearest last: those it left by a link and has not gone back to.
-   * It is empty unless this visit left a page behind, which is what a page's
-   * own way back relies on: see `retrace` in main.ts.
+   * It is empty unless this visit left a page behind, which is what the
+   * handle of the expanded player relies on: see `retrace` in main.ts.
    */
   trail: Schema.Array(AppRoute),
   /**
@@ -402,21 +402,6 @@ const maybeIdInDocument =
     );
 
 /**
- * Whether the page of a kind that is in the document has a page behind it in
- * the browser's history. On screen, that is any page behind the current one;
- * kept, any page behind its own entry.
- */
-const hasWayBackFrom =
-  (page: ListPage) =>
-  (route: AppRoute, trail: Model["trail"]): boolean =>
-    route._tag === page
-      ? Array.isReadonlyArrayNonEmpty(trail)
-      : Option.exists(
-          Array.findLastIndex(trail, (behind) => behind._tag === page),
-          (index) => index > 0,
-        );
-
-/**
  * The album whose page is in the document: the one on screen, else the
  * nearest one behind the page on screen. An album's page is a list, and a
  * list is found as it was left: while the listener is on a page reached from
@@ -429,14 +414,6 @@ export const maybeAlbumIdInDocument: (
 ) => Option.Option<AlbumId> = maybeIdInDocument(maybeAlbumIdOf);
 
 /**
- * Whether the album's page in the document has a page behind it in the
- * browser's history. On screen, that is any page behind the current one;
- * kept, any page behind its own entry.
- */
-export const hasWayBackFromAlbum: (route: AppRoute, trail: Model["trail"]) => boolean =
-  hasWayBackFrom("Album");
-
-/**
  * The artist whose page is in the document, as an album's is: an artist's
  * page is a list and a shelf, kept behind the album or the song reached from
  * it. One artist's page is kept at a time.
@@ -445,10 +422,6 @@ export const maybeArtistIdInDocument: (
   route: AppRoute,
   trail: Model["trail"],
 ) => Option.Option<ArtistId> = maybeIdInDocument(maybeArtistIdOf);
-
-/** Whether the artist's page in the document has a page behind it, as for an album's. */
-export const hasWayBackFromArtist: (route: AppRoute, trail: Model["trail"]) => boolean =
-  hasWayBackFrom("Artist");
 
 /**
  * The playlist whose page is in the document, as an album's is: a playlist's
@@ -460,10 +433,6 @@ export const maybePlaylistIdInDocument: (
   trail: Model["trail"],
 ) => Option.Option<PlaylistId> = maybeIdInDocument(maybePlaylistIdOf);
 
-/** Whether the playlist's page in the document has a page behind it, as for an album's. */
-export const hasWayBackFromPlaylist: (route: AppRoute, trail: Model["trail"]) => boolean =
-  hasWayBackFrom("Playlist");
-
 /**
  * The genre whose page is in the document, as an album's is: a genre's page
  * is a list and shelves, kept behind the song, the album, the artist or the
@@ -474,10 +443,6 @@ export const maybeGenreIdInDocument: (
   trail: Model["trail"],
 ) => Option.Option<GenreId> = maybeIdInDocument(maybeGenreIdOf);
 
-/** Whether the genre's page in the document has a page behind it, as for an album's. */
-export const hasWayBackFromGenre: (route: AppRoute, trail: Model["trail"]) => boolean =
-  hasWayBackFrom("Genre");
-
 /**
  * The station whose page is in the document, as an album's is: a station's
  * page is a list, kept behind the song or the album reached from it. One
@@ -487,10 +452,6 @@ export const maybeStationIdInDocument: (
   route: AppRoute,
   trail: Model["trail"],
 ) => Option.Option<StationId> = maybeIdInDocument(maybeStationIdOf);
-
-/** Whether the station's page in the document has a page behind it, as for an album's. */
-export const hasWayBackFromStation: (route: AppRoute, trail: Model["trail"]) => boolean =
-  hasWayBackFrom("Station");
 
 /** A page with data, or with a failure to state, has more to show than placeholders. */
 const hasSomethingToShow = <A>(data: AsyncData.AsyncData<A, LoadError>): boolean =>
@@ -611,7 +572,8 @@ export const addressOf = (model: Model): AppRoute =>
 
 /**
  * The page behind the current one in the browser's history, when the app
- * knows of one: where a page's own way back leads.
+ * knows of one: where the browser's Back leads, and the handle that closes
+ * the expanded player.
  */
 export const wayBackOn = (trail: Model["trail"]): Option.Option<AppRoute> => Array.last(trail);
 

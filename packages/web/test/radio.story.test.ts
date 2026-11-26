@@ -6,7 +6,6 @@ import { init, update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import {
   Awaiting,
-  hasWayBackFromStation,
   maybeAlbumIdInDocument,
   maybeStationIdInDocument,
   type Model,
@@ -416,21 +415,6 @@ describe("the station's page behind a page reached from it", () => {
       "FocusTrackRow",
       { pageId: PAGE_IDS.Station, trackId: track.id },
     ]);
-  });
-
-  test("its way back is the page behind its own entry, on screen and kept alike", () => {
-    expect(hasWayBackFromStation(onStation.route, onStation.trail)).toBe(true);
-    expect(hasWayBackFromStation(onSongFromStation.route, onSongFromStation.trail)).toBe(true);
-
-    // Reached by its address, nothing is behind it: not on screen, and not once a song is over it.
-    const direct = answered(opened(stationPath(station.id)), reply.station);
-    const songOverDirect = answered(
-      after(direct, choseFromRow("Station", track.id, "OpenSong")),
-      reply.track,
-      trackPath(track.id),
-    );
-    expect(hasWayBackFromStation(direct.route, direct.trail)).toBe(false);
-    expect(hasWayBackFromStation(songOverDirect.route, songOverDirect.trail)).toBe(false);
   });
 
   test("a station left for good is in the document no longer, and another takes the one place there is", () => {

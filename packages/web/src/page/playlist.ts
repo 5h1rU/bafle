@@ -20,7 +20,6 @@ import {
 import { pageDataView } from "../view/pageData.ts";
 import { BLOCK_CLASS, trackListPlaceholderView } from "../view/placeholder.ts";
 import { maybeTrackSectionView, type TrackListContext } from "../view/trackList.ts";
-import { wayBackView } from "../view/wayBack.ts";
 
 // VIEW
 
@@ -120,7 +119,7 @@ const foundView = (playlist: Playlist, context: TrackListContext, h: HtmlBuilder
 
 /**
  * The catalog has no such playlist. That will not change, so there is
- * nothing to try again: the page says so, under its way back.
+ * nothing to try again: the page says so.
  */
 const notAvailableView = (h: HtmlBuilder<Message>): Html =>
   h.div(
@@ -155,14 +154,12 @@ const untitledView = (playlist: PlaylistData, h: HtmlBuilder<Message>): Html =>
 export const view = (
   playlistId: PlaylistId,
   playlist: PlaylistData,
-  hasWayBack: boolean,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.keyed("div")(playlistId, pageAttributes(PAGE_ID, context.presence, h), [
-    wayBackView(hasWayBack, h),
     h.div(
-      [h.AriaBusy(AsyncData.isPending(playlist)), h.Class("mt-4")],
+      [h.AriaBusy(AsyncData.isPending(playlist))],
       [
         untitledView(playlist, h),
         pageDataView(

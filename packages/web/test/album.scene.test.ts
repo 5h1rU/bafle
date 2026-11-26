@@ -136,9 +136,8 @@ describe("rule 5: a direct link paints the album page's shape", () => {
       see(sectionTitle("Songs")).toExist(),
       expectAll(placeholderBlocks).not.toHaveCount(0),
       see(songs).toBeAbsent(),
-      // Nothing is behind a page reached by its address: its way out leads Home.
-      see(homeControl).toHaveAttr("href", "/"),
-      see(backControl).toBeAbsent(),
+      // No page has a control of its own to leave it by: the navigation is the way out.
+      inside(onScreen, see(homeControl).toBeAbsent(), see(backControl).toBeAbsent()),
       see(text("Loading Album")).toExist(),
     ));
 
@@ -179,8 +178,8 @@ describe("the album page", () => {
           see(playRow(TITLE)).toContainText("02"),
           see(text("This song has no audio to play.")).toExist(),
         ),
-        // Opened from a list: the way out goes back through the history.
-        see(backControl).toExist(),
+        // Nor has one opened from a list: the browser's Back is the way back.
+        see(backControl).toBeAbsent(),
       ),
       // An album is not a section: no item is the current page.
       inside(navigation, expectAll(all.selector("[aria-current]")).toHaveCount(0)),
@@ -546,7 +545,6 @@ describe("album tiles lead to the album's page", () => {
         see(role("alert")).toContainText("Album could not load."),
         see(role("alert")).toContainText("The music catalog is not answering right now."),
         see(tryAgain).toExist(),
-        see(backControl).toExist(),
       ),
       click(tryAgain),
       Command.expectExact(Catalog.AlbumDetail, FocusPage),
@@ -555,7 +553,7 @@ describe("album tiles lead to the album's page", () => {
       inside(onScreen, see(pageTitle("Discovery")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 
-  test("an album the catalog does not have says so on its page for good: a way out, and no Try again", () =>
+  test("an album the catalog does not have says so on its page for good, with no Try again", () =>
     scene(
       app,
       given(answered(openingAlbumFromTile, reply.albumMissing, albumPath(album.id))),
@@ -563,7 +561,6 @@ describe("album tiles lead to the album's page", () => {
         onScreen,
         see(pageTitle("This album is not available")).toExist(),
         see(text("The catalog no longer has it, or the link to it is wrong.")).toExist(),
-        see(backControl).toExist(),
         expectAll(tryAgainButtons).toHaveCount(0),
       ),
     ));

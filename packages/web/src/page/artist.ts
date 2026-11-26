@@ -26,7 +26,6 @@ import {
 } from "../view/placeholder.ts";
 import { albumTile, type IsAlbumOpening, maybeShelfView } from "../view/shelf.ts";
 import { maybeTrackSectionView, type TrackListContext } from "../view/trackList.ts";
-import { wayBackView } from "../view/wayBack.ts";
 
 // VIEW
 
@@ -143,7 +142,7 @@ const foundView = (
 
 /**
  * The catalog has no such artist. That will not change, so there is nothing
- * to try again: the page says so, under its way back.
+ * to try again: the page says so.
  */
 const notAvailableView = (h: HtmlBuilder<Message>): Html =>
   h.div(
@@ -178,15 +177,13 @@ const untitledView = (artist: ArtistData, h: HtmlBuilder<Message>): Html =>
 export const view = (
   artistId: ArtistId,
   artist: ArtistData,
-  hasWayBack: boolean,
   context: TrackListContext,
   isAlbumOpening: IsAlbumOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.keyed("div")(artistId, pageAttributes(PAGE_ID, context.presence, h), [
-    wayBackView(hasWayBack, h),
     h.div(
-      [h.AriaBusy(AsyncData.isPending(artist)), h.Class("mt-4")],
+      [h.AriaBusy(AsyncData.isPending(artist))],
       [
         untitledView(artist, h),
         pageDataView(
