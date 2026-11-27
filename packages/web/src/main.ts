@@ -1823,7 +1823,7 @@ const closePlayerMenuOnceCollapsed: Step = (model) =>
  * The faces of the expanded player are the expanded player's. Once it is
  * its island again, by whatever way it got there, the face it had turned to
  * is put away with it: opened again, the player shows the song, which is
- * the face the island grows into (`player-opens` in styles.css).
+ * the face the island grows into (`player-opens` in player/transitions.css).
  */
 const showSongOnceCollapsed: Step = (model) =>
   isPlayerExpanded(model) || Player.isOnSongFace(model.player)

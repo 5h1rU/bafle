@@ -84,10 +84,23 @@ export type Presence = "OnScreen" | "Uncovered" | "Kept";
  * the last row is never under it. On a narrow screen the navigation floats
  * over the foot of the page too, so every page ends with room for it as well.
  */
+/**
+ * Where a page's content starts. Most pages keep it in from the screen's
+ * edges and down from its top; a page whose head is a picture from edge to
+ * edge (an album's) lays its own content out, to the edge.
+ */
+export type PageEdges = "Margins" | "ToEdge";
+
+const PAGE_EDGES_CLASS: Readonly<Record<PageEdges, string>> = {
+  Margins: "px-5 pt-8 md:px-10 md:pt-10",
+  ToEdge: "",
+};
+
 export const pageAttributes = (
   pageId: string,
   presence: Presence,
   h: HtmlBuilder<Message>,
+  edges: PageEdges = "Margins",
 ): ReadonlyArray<Attribute<Message>> => [
   h.Id(pageId),
   h.Role("region"),
@@ -95,14 +108,17 @@ export const pageAttributes = (
   h.Tabindex(0),
   h.Inert(presence !== "OnScreen"),
   h.Class(
-    // NOTE: a page scrolls up and down only. A tile's record comes out past
-    // the page's edge at the end of a row, and must not make the page one
-    // that can be pushed sideways.
-    //
-    // The room at the page's foot, for the navigation and the island over
-    // it, has a name (`--page-foot`): a page that has to know how much of
-    // its box is left for what it shows reads it (an album's, page/album.css).
-    "relative h-full overflow-x-hidden overflow-y-auto px-5 pt-8 [--page-foot:calc(6rem+env(safe-area-inset-bottom))] pb-[var(--page-foot)] scroll-pb-24 group-data-player/shell:scroll-pb-40 group-data-player/shell:[--page-foot:calc(10rem+env(safe-area-inset-bottom))] md:scroll-pb-0 md:[--page-foot:3rem] md:group-data-player/shell:scroll-pb-28 md:group-data-player/shell:[--page-foot:7rem] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent md:px-10 md:pt-10",
+    clsx(
+      // NOTE: a page scrolls up and down only. A tile's record comes out past
+      // the page's edge at the end of a row, and must not make the page one
+      // that can be pushed sideways.
+      //
+      // The room at the page's foot, for the navigation and the island over
+      // it, has a name (`--page-foot`): a page that has to know how much of
+      // its box is left for what it shows reads it (an album's, page/album.css).
+      "relative h-full overflow-x-hidden overflow-y-auto [--page-foot:calc(6rem+env(safe-area-inset-bottom))] pb-[var(--page-foot)] scroll-pb-24 group-data-player/shell:scroll-pb-40 group-data-player/shell:[--page-foot:calc(10rem+env(safe-area-inset-bottom))] md:scroll-pb-0 md:[--page-foot:3rem] md:group-data-player/shell:scroll-pb-28 md:group-data-player/shell:[--page-foot:7rem] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+      PAGE_EDGES_CLASS[edges],
+    ),
   ),
 ];
 

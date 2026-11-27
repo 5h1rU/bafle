@@ -24,8 +24,6 @@ import {
   type TrackListContext,
 } from "../view/trackList.ts";
 
-import "./album.css";
-
 // VIEW
 
 const PAGE_ID = PAGE_IDS.Album;
@@ -40,6 +38,9 @@ export const titleOf = (album: AlbumData): string =>
     onSome: Option.match({ onNone: () => NOT_AVAILABLE, onSome: (found) => found.title }),
   });
 
+/** The list's title, as high as the bar the head draws back to: the two meet as the page is scrolled. */
+const SONGS_HEADING_CLASS = clsx(SECTION_HEADING_CLASS, "flex min-h-12 items-center");
+
 const placeholderView = (h: HtmlBuilder<Message>): Html =>
   h.div([], [
     h.div([h.Class("album-hero album-placeholder"), h.AriaHidden(true)], [
@@ -49,7 +50,7 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
       ]),
     ]),
     h.section([h.Class("album-songs")], [
-      h.h2([h.Class(SECTION_HEADING_CLASS)], [SONGS]),
+      h.h2([h.Class(SONGS_HEADING_CLASS)], [SONGS]),
       trackListPlaceholderView(h),
     ]),
   ]);
@@ -110,7 +111,7 @@ const foundView = (
           // NOTE: there is no control here to play the album. Any row does
           // it: pressed, it plays its song and the songs under it are what
           // comes next (playback rule 1).
-          h.h2([h.Id("album-songs"), h.Class(SECTION_HEADING_CLASS)], [SONGS]),
+          h.h2([h.Id("album-songs"), h.Class(SONGS_HEADING_CLASS)], [SONGS]),
           ...trackListView("album-songs", "Ranked", "Single", tracks, { ...context, albumArtistId: album.artist.id }, h),
         ]),
     }),
@@ -158,7 +159,7 @@ export const view = (
 ): Html => {
   const hasAlbum = Option.isSome(Option.flatten(AsyncData.getData(album)));
   const overlay = hasAlbum || AsyncData.isPending(album);
-  return h.keyed("div")(albumId, pageAttributes(PAGE_ID, context.presence, h), [
+  return h.keyed("div")(albumId, pageAttributes(PAGE_ID, context.presence, h, "ToEdge"), [
     h.div(
       [h.AriaBusy(AsyncData.isPending(album)), h.Class(clsx({ "album-unavailable": !overlay }))],
       [

@@ -1,0 +1,29 @@
+.crash-screen {
+  color-scheme: dark;
+  background: var(--color-crash-canvas);
+  color: var(--color-crash-ink);
+}
+
+.crash-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: 35rem;
+  margin-inline: auto;
+  padding-top: max(clamp(1.5rem, 6.5dvh, 3.5rem), env(safe-area-inset-top));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+}
+
+.crash-speaker {
+  width: 1.5rem;
+  height: 2rem;
+  margin-left: 0.25rem;
+  background: currentColor;
+  mask: url("/icons/monochrome.svg") center / 3rem 3rem no-repeat;
+}
+
+.crash-message {
+  margin-block: clamp(2rem, 13.5dvh, 7.25rem) 3rem;
+}

@@ -88,7 +88,7 @@ export const artworkView = <M>(
  * medium one. A cached thumbnail fills the box while the final picture decodes.
  */
 const headPictureView = (
-  shapeClass: string,
+  boxClass: string,
   flightStyle: Readonly<Record<string, string>>,
   maybeArtwork: Option.Option<Artwork>,
   h: HtmlBuilder<Message>,
@@ -96,7 +96,7 @@ const headPictureView = (
 ): Html =>
   h.div(
     [
-      h.Class(clsx("catalog-art relative aspect-square overflow-hidden bg-tile", shapeClass)),
+      h.Class(clsx("catalog-art overflow-hidden bg-tile", boxClass)),
       ...pictureBoxAttributes(flightStyle, maybeArtwork, h),
     ],
     Option.match(maybeArtwork, {
@@ -119,6 +119,9 @@ const headPictureView = (
     }),
   );
 
+/** A square picture beside a page's title: its box has its size before the picture arrives. */
+const SQUARE_HEAD_CLASS = "relative aspect-square";
+
 /**
  * The cover at the head of an album's page. It does not travel by itself:
  * the head it lies in does, with the title over it (`albumHeadFlightAttributes`).
@@ -126,7 +129,7 @@ const headPictureView = (
 export const albumCoverView = (
   maybeArtwork: Option.Option<Artwork>,
   h: HtmlBuilder<Message>,
-): Html => headPictureView("album-cover", {}, maybeArtwork, h, "large");
+): Html => headPictureView("album-cover absolute inset-0 size-full", {}, maybeArtwork, h, "large");
 
 /**
  * What makes the head of an album's page the piece that travels to and from
@@ -136,7 +139,7 @@ export const albumCoverView = (
  * they grow out of the tile together and shrink back into it together.
  */
 // NOTE: the head also carries the class `catalog-art`, which is what keeps
-// the name off outside a flight (styles.css).
+// the name off outside a flight (artwork.css).
 export const albumHeadFlightAttributes = (
   albumId: AlbumId,
   presence: Presence,
@@ -150,7 +153,7 @@ export const artistPictureView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   headPictureView(
-    "rounded-full",
+    clsx(SQUARE_HEAD_CLASS, "rounded-full"),
     artistPictureTransitionStyle(artistId, "OnScreen"),
     maybeArtwork,
     h,
@@ -163,7 +166,7 @@ export const playlistPictureView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   headPictureView(
-    "rounded-xl",
+    clsx(SQUARE_HEAD_CLASS, "rounded-xl"),
     playlistPictureTransitionStyle(playlistId, "OnScreen"),
     maybeArtwork,
     h,
@@ -176,7 +179,7 @@ export const genrePictureView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   headPictureView(
-    "rounded-xl",
+    clsx(SQUARE_HEAD_CLASS, "rounded-xl"),
     genrePictureTransitionStyle(genreId, "OnScreen"),
     maybeArtwork,
     h,
@@ -189,7 +192,7 @@ export const stationPictureView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   headPictureView(
-    "rounded-xl",
+    clsx(SQUARE_HEAD_CLASS, "rounded-xl"),
     stationPictureTransitionStyle(stationId, "OnScreen"),
     maybeArtwork,
     h,

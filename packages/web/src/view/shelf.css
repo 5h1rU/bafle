@@ -1,0 +1,78 @@
+/* A TILE WHOSE PAGE IS ON ITS WAY
+
+   The picture is a sleeve, and behind it is its record. Chosen, the sleeve
+   moves a little aside and the record comes part of the way out and turns,
+   for as long as the page takes: the picture itself says that it is being
+   fetched, and nothing is laid over it. When the page opens, the picture
+   travels to the page's head and the record is left behind with the shelf.
+   Under reduced motion the record is out and still. */
+.tile-record {
+  position: absolute;
+  inset: 4%;
+  /* NOTE: clear, and not hidden. A page kept behind the one on screen is
+     hidden as a whole, and a piece of it that said it was visible would
+     be seen through it: the record of the tile just chosen would stand
+     over the page it opened. Clear, it goes with its page. */
+  opacity: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    var(--color-canvas) 0 4%,
+    var(--color-accent) 4.5% 17%,
+    var(--color-record) 17.5% 100%
+  );
+}
+
+/* The light on the record: two bright sectors, which is what is seen to turn. */
+.tile-record::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 20deg,
+    rgb(255 255 255 / 0%) 0 8%,
+    rgb(255 255 255 / 24%) 12%,
+    rgb(255 255 255 / 0%) 18% 55%,
+    rgb(255 255 255 / 17%) 62%,
+    rgb(255 255 255 / 0%) 70% 100%
+  );
+}
+
+[data-opening] > .tile-record {
+  opacity: 1;
+  transform: translateX(34%);
+}
+
+[data-opening] > .tile-sleeve {
+  transform: translateX(-6%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Going back in, the record is made clear only once it is behind the sleeve. */
+  .tile-record {
+    transition:
+      transform 420ms cubic-bezier(0.23, 1, 0.32, 1),
+      opacity 0s 420ms;
+  }
+
+  .tile-sleeve {
+    transition: transform 420ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  [data-opening] > .tile-record {
+    transition:
+      transform 420ms cubic-bezier(0.23, 1, 0.32, 1),
+      opacity 0s;
+  }
+
+  [data-opening] > .tile-record::after {
+    animation: record-turns 1400ms linear infinite;
+  }
+}
+
+@keyframes record-turns {
+  to {
+    transform: rotate(360deg);
+  }
+}

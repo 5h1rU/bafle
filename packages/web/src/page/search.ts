@@ -30,13 +30,9 @@ import {
   artistTile,
   maybeShelfView,
   playlistTile,
-  SHELF_ROW_CLASS,
-  type ShelfLook,
   type TilesOpening,
 } from "../view/shelf.ts";
 import { type TrackListContext, type TrackSpread, trackListView } from "../view/trackList.ts";
-import "./search.css";
-
 // VIEW
 
 const PAGE_ID = PAGE_IDS.Search;
@@ -262,12 +258,8 @@ const songSectionsView = (
 };
 
 // NOTE: the albums are a shelf wherever they are found, with the tiles, the
-// links and the records of one. How the shelf is laid out is this page's:
-// three across in a row that goes on sideways, or a grid on a wide page.
-const ALBUMS_LOOK: ShelfLook = {
-  row: clsx(SHELF_ROW_CLASS, "search-albums"),
-  tile: "search-album",
-};
+// links and the records of one. How the shelf is laid out is this page's
+// own: three across (`ShelfLayout`).
 
 /**
  * What was found: the artist found first on a card, the songs, the albums,
@@ -309,7 +301,7 @@ const foundView = (
             Array.map(albums, albumTile(isAlbumOpening, context.presence)),
             h,
             "AtHead",
-            ALBUMS_LOOK,
+            "ThreeAcross",
           ),
           place("search-albums-place"),
         ),

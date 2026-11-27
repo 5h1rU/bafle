@@ -44,7 +44,7 @@ export const TRACK_ROW_CLASS = "flex items-center gap-4 py-2.5";
 
 /**
  * A row, with the line under it. The line is the row's and not its
- * surface's, whose corners are rounded: styles.css hides it wherever it
+ * surface's, whose corners are rounded: trackList.css hides it wherever it
  * would run into a surface that is lit, under the `track-row` names.
  */
 export const TRACK_ROW_LINE_CLASS = "track-row";
@@ -121,24 +121,61 @@ export type TrackListContext = Readonly<{
 
 const isInPlayer = (status: TrackStatus): boolean => status !== "Elsewhere";
 
-const BAR_CLASS = "now-bar w-0.5 origin-bottom rounded-full bg-white";
+/**
+ * Where the mark of the track the player holds is drawn: over the track's
+ * cover, dark under white bars, or over the row's number where a list has no
+ * covers (an album's), in the accent's colours.
+ */
+type MarkPlace = "OverCover" | "OverNumber";
+
+type MarkLook = Readonly<{
+  sounding: string;
+  failed: string;
+  failedIcon: string;
+  bar: string;
+  spinner: string;
+  spinnerIcon: string;
+}>;
+
+const MARK_LOOKS: Readonly<Record<MarkPlace, MarkLook>> = {
+  OverCover: {
+    sounding: "absolute inset-0 grid items-end justify-items-center rounded-lg bg-black/50 pb-3.5",
+    failed: "absolute inset-0 grid place-items-center rounded-lg bg-black/55",
+    failedIcon: "size-5 text-white",
+    bar: "w-0.5 origin-bottom rounded-full bg-white",
+    spinner: "mb-[-0.125rem] flex",
+    spinnerIcon: "size-5 animate-spin text-white motion-reduce:animate-pulse",
+  },
+  // NOTE: a little taller than the number it stands over, which is one line
+  // of small figures: the bars need the room.
+  OverNumber: {
+    sounding:
+      "absolute inset-x-0 -inset-y-[0.15rem] grid items-center justify-items-center rounded-lg bg-accent-wash",
+    failed: "absolute inset-x-0 -inset-y-[0.15rem] grid place-items-center rounded-lg bg-canvas",
+    failedIcon: "size-5 text-danger",
+    bar: "w-0.5 origin-bottom rounded-full bg-accent",
+    spinner: "flex",
+    spinnerIcon: "size-5 animate-spin text-accent motion-reduce:animate-pulse",
+  },
+};
 
 /**
- * The mark of the track the player holds, over its cover. The bars move
- * while the engine says it sounds and lie low while it does not; a start
- * slow enough to mention turns a spinner instead. Under reduced motion the
- * bars keep still, tall for sound and low for silence.
+ * The mark of the track the player holds. The bars move while the engine
+ * says it sounds and lie low while it does not; a start slow enough to
+ * mention turns a spinner instead. Under reduced motion the bars keep still,
+ * tall for sound and low for silence.
  *
  * The spinner and the bars are both in the mark whatever it shows, one over
  * the other, and the one that is not shown is drawn small and clear
- * (`now-mark` in styles.css). So a start that was slow turns into sound
+ * (`now-mark` in trackList.css). So a start that was slow turns into sound
  * where it stands, the spinner drawing in as the bars come out of it, and
  * is not one picture taken away and another put in its place.
  */
-const nowPlayingMarkView = (status: TrackStatus, h: HtmlBuilder<Message>): Html => {
+const nowPlayingMarkView = (status: TrackStatus, place: MarkPlace, h: HtmlBuilder<Message>): Html => {
   if (status === "Elsewhere" || status === "Chosen") {
     return h.empty;
   }
+  const look = MARK_LOOKS[place];
   // NOTE: a song that could not be played says so where it would have shown
   // that it sounds, and the row stays the height it was: words under the
   // row made it a row of three lines among rows of two.
@@ -147,16 +184,16 @@ const nowPlayingMarkView = (status: TrackStatus, h: HtmlBuilder<Message>): Html 
       [
         h.AriaHidden(true),
         h.DataAttribute("now-playing", "Failed"),
-        h.Class("now-mark absolute inset-0 grid place-items-center rounded-lg bg-black/55"),
+        h.Class(clsx("now-mark", look.failed)),
       ],
-      [alertIcon("size-5 text-white")],
+      [alertIcon(look.failedIcon)],
     );
   }
   const isSounding = status === "Sounding";
   const bar = (delay: string): Html =>
     h.span([
       h.Class(
-        clsx(BAR_CLASS, delay, {
+        clsx(look.bar, delay, {
           "h-3.5 animate-equalize motion-reduce:animate-none": isSounding,
           "h-1": !isSounding,
           "animate-pulse motion-reduce:animate-none": status === "Waiting",
@@ -168,13 +205,10 @@ const nowPlayingMarkView = (status: TrackStatus, h: HtmlBuilder<Message>): Html 
     [
       h.AriaHidden(true),
       h.DataAttribute("now-playing", status),
-      h.Class("now-mark absolute inset-0 grid items-end justify-items-center rounded-lg bg-black/50 pb-3.5"),
+      h.Class(clsx("now-mark", look.sounding)),
     ],
     [
-      h.span(
-        [h.Class("now-spinner mb-[-0.125rem] flex")],
-        [spinnerIcon("size-5 animate-spin text-white motion-reduce:animate-pulse")],
-      ),
+      h.span([h.Class(clsx("now-spinner", look.spinner))], [spinnerIcon(look.spinnerIcon)]),
       h.span(
         [h.Class("now-bars flex h-3.5 items-end gap-0.5")],
         [bar("[animation-delay:-600ms]"), bar("[animation-delay:-300ms]"), bar("")],
@@ -198,9 +232,35 @@ const trackThumbnailView = (
     ],
     [
       artworkView(Option.fromNullishOr(track.album.cover), "Square", "small", h, loading),
-      nowPlayingMarkView(status, h),
+      nowPlayingMarkView(status, "OverCover", h),
     ],
   );
+
+/**
+ * What a row leads with. A list with covers has each track's thumbnail, and
+ * before it the track's place when the list is a chart; a list of one
+ * album's songs has no covers to tell them by, and leads with the track's
+ * number, set close, with the mark of the track the player holds over it.
+ */
+type RowLead = "Cover" | "Number";
+
+const leadOf = (context: TrackListContext): RowLead => (context.from === "Album" ? "Number" : "Cover");
+
+const ROW_PART_CLASS: Readonly<Record<RowLead, string>> = {
+  Cover: "flex min-w-0 flex-1 items-center gap-4 py-2.5 pl-2",
+  Number: "flex min-h-13 min-w-0 flex-1 items-center gap-3 py-2.5 pl-2",
+};
+
+const ROW_SURFACE_CLASS: Readonly<Record<RowLead, string>> = {
+  Cover: "track-row-surface -mx-2 flex items-center",
+  Number: "track-row-surface -mx-2 flex min-h-13 items-center",
+};
+
+const POSITION_CLASS: Readonly<Record<RowLead, string>> = {
+  Cover: "relative w-6 shrink-0 text-right text-sm text-muted tabular-nums",
+  Number:
+    "relative w-5.5 shrink-0 text-left text-13 leading-(--text-sm--line-height) text-muted tabular-nums",
+};
 
 /**
  * What every row shows, whatever can be done with it. A track with nothing
@@ -220,13 +280,15 @@ const rowContentView = (
     // Hidden from assistive technology: the ordered list already says the position.
     onSome: (position) =>
       h.span(
-        [h.AriaHidden(true), h.Class("relative w-6 shrink-0 text-right text-sm text-muted tabular-nums")],
-        context.from === "Album"
-          ? [String(position).padStart(2, "0"), nowPlayingMarkView(status, h)]
+        [h.AriaHidden(true), h.Class(POSITION_CLASS[leadOf(context)])],
+        leadOf(context) === "Number"
+          ? [String(position).padStart(2, "0"), nowPlayingMarkView(status, "OverNumber", h)]
           : [position.toString()],
       ),
   }),
-  context.from === "Album" ? h.empty : trackThumbnailView(track, status, context.presence, loading, h),
+  leadOf(context) === "Number"
+    ? h.empty
+    : trackThumbnailView(track, status, context.presence, loading, h),
   h.div(
     [h.Class("min-w-0 flex-1 text-left")],
     [
@@ -268,8 +330,6 @@ const rowContentView = (
 const rowLabel = (track: TrackSummary, status: TrackStatus): string =>
   `${status === "Sounding" || status === "Waiting" ? "Pause" : "Play"}: ${track.title}${track.explicit ? ", explicit," : ""} by ${track.artist.name}, ${formatDuration(track.durationSeconds)}`;
 
-const ROW_PART_CLASS = "flex min-w-0 flex-1 items-center gap-4 py-2.5 pl-2";
-
 /**
  * Pressing a row plays its track, and the whole row but its last control is
  * the target. For the track the player holds, the row is that track's own
@@ -297,7 +357,7 @@ const playRowView = (
             h.AriaBusy(status === "Starting"),
             h.Class(
               clsx(
-                ROW_PART_CLASS,
+                ROW_PART_CLASS[leadOf(context)],
                 // A press held on the row is a press, not the start of picking out its words.
                 "track-row-play cursor-pointer touch-manipulation rounded-lg select-none [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
               ),
@@ -318,7 +378,7 @@ const silentRowView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
-    [h.Class(ROW_PART_CLASS)],
+    [h.Class(ROW_PART_CLASS[leadOf(context)])],
     rowContentView(track, maybePosition, loading, "Elsewhere", context, h),
   );
 
@@ -607,7 +667,7 @@ const trackRowView = (
     [
       // NOTE: read by the style sheet, for the line under the row before
       // this one: that row is the foot of the column before, and no
-      // neighbour of this one (`track-columns` in styles.css).
+      // neighbour of this one (`track-columns` in trackList.css).
       ...(isColumnHead ? [h.DataAttribute("column-head", "")] : []),
       h.Class(TRACK_ROW_LINE_CLASS),
     ],
@@ -616,7 +676,7 @@ const trackRowView = (
         [
           h.DataAttribute("track", track.id),
           ...(isInPlayer(status) ? [h.DataAttribute("in-player", "")] : []),
-          h.Class("track-row-surface -mx-2 flex items-center"),
+          h.Class(ROW_SURFACE_CLASS[leadOf(context)]),
         ],
         [
           isPlayable(track)
@@ -645,7 +705,7 @@ export type TrackOrder = "Ranked" | "Unranked";
  * down the one after, so a chart still reads from its top. The columns
  * stand in a row that goes on sideways and snaps, as a shelf does, two of
  * them seen at once. Where the list is narrow, on a phone, it is one column
- * of all its rows (`track-columns` in styles.css).
+ * of all its rows (`track-columns` in trackList.css).
  *
  * Top songs are `Columns` wherever they are listed, on New, on an artist's
  * page and on a genre's: a chart is one thing, and looks one way. So are
@@ -671,7 +731,7 @@ const rowsInColumnOf = (count: number): number => Math.ceil(count / columnsOf(co
 // edge of the page and not at the edge of its text. Where each column
 // stands, and how wide it is, is the style sheet's (`track-columns`).
 export const TRACK_COLUMNS_CLASS =
-  "track-columns -mx-5 mt-2 snap-x snap-mandatory scroll-px-5 overflow-x-auto overscroll-x-contain px-5 pb-3 [scrollbar-color:var(--color-line)_transparent] [scrollbar-width:thin] md:-mx-10 md:scroll-px-10 md:px-10";
+  "track-columns -mx-5 mt-2 snap-x snap-mandatory scroll-px-5 overflow-x-auto overscroll-x-contain px-5 pb-3 md:-mx-10 md:scroll-px-10 md:px-10";
 
 /** What a list in columns says of itself to the style sheet: how many rows a column holds, and how many columns there are. */
 export const trackColumnsAttributes = (
@@ -709,7 +769,7 @@ export const trackListView = (
           h.Id(turningRowIdOf(labelledBy)),
           ...trackColumnsAttributes(tracks.length, h, "turning-row"),
         ]
-      : [h.Class("mt-2")]),
+      : [h.Class(leadOf(context) === "Number" ? "mt-1" : "mt-2")]),
   ];
   const rowsInColumn = rowsInColumnOf(tracks.length);
   const isColumnHead = (index: number): boolean =>

@@ -174,18 +174,33 @@ export const stationTile =
 // standing at its leading edge where the page's own margin is. Without it a
 // flick leaves the row wherever it ran out, half a tile in.
 export const SHELF_ROW_CLASS =
-  "-mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-5 overflow-x-auto overscroll-x-contain px-5 pt-1 pb-4 [scrollbar-color:var(--color-line)_transparent] [scrollbar-width:thin] md:-mx-10 md:scroll-px-10 md:px-10";
+  "-mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-5 overflow-x-auto overscroll-x-contain px-5 pt-1 pb-4 md:-mx-10 md:scroll-px-10 md:px-10";
 
 export const SHELF_TILE_CLASS = "w-36 shrink-0 snap-start sm:w-40";
 
 /**
- * How a shelf is laid out: its row and each tile on it. A page whose design
- * lays a shelf out its own way says so, and the shelf is still a shelf: the
- * same tiles, links, records and names.
+ * How a shelf's tiles are laid out. `Row` is the shelf of every section and
+ * every page: tiles of one size on a row that goes on sideways. `ThreeAcross`
+ * is how Search shelves the albums it found: three tiles to the row's width,
+ * on a row that goes on sideways, and where Search's page is wide a grid
+ * that fills it, as many across as there is room for. Whichever it is, the
+ * shelf is the same shelf: the same tiles, links, records and names.
  */
-export type ShelfLook = Readonly<{ row: string; tile: string }>;
+export type ShelfLayout = "Row" | "ThreeAcross";
 
-const SHELF_LOOK: ShelfLook = { row: SHELF_ROW_CLASS, tile: SHELF_TILE_CLASS };
+const SHELF_LAYOUTS: Readonly<Record<ShelfLayout, Readonly<{ row: string; tile: string }>>> = {
+  Row: { row: SHELF_ROW_CLASS, tile: SHELF_TILE_CLASS },
+  // NOTE: how many columns the grid has goes by the least a tile can be, so
+  // a dozen albums are small tiles in two rows; columns left empty are not
+  // kept, so three albums share the whole width between them. A tile is
+  // never larger than the design's, however few there are. The page is
+  // wide by its own width (`search` names it as a container), not the
+  // screen's: the queue opens beside it.
+  ThreeAcross: {
+    row: "-mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto overscroll-x-contain px-5 pt-1 pb-4 md:-mx-10 md:scroll-px-10 md:px-10 @min-[40rem]/search:mx-0 @min-[40rem]/search:grid @min-[40rem]/search:snap-none @min-[40rem]/search:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] @min-[40rem]/search:gap-4.5 @min-[40rem]/search:overflow-visible @min-[40rem]/search:px-0",
+    tile: "min-w-0 shrink-0 grow-0 basis-[calc((100%-1.5rem)/3)] snap-start @min-[40rem]/search:max-w-93",
+  },
+};
 
 /**
  * Where a row of tiles stands on its page: at its head, on screen as the
@@ -210,7 +225,7 @@ const tileLoading = (place: ShelfPlace, index: number): PictureLoading =>
  * What a tile shows. A tile whose page is on its way says so with its own
  * picture: the sleeve moves a little aside and its record comes part of the
  * way out from behind it and turns, for as long as the page takes, and goes
- * back in when the page opens (`tile-record` in styles.css).
+ * back in when the page opens (`tile-record` in shelf.css).
  */
 // NOTE: the record is there whether or not it shows, behind the picture, so
 // that it comes out and goes back by degrees, and so that the picture is
@@ -280,7 +295,21 @@ const shelfView = (
   shape: ArtworkShape,
   tiles: Array.NonEmptyReadonlyArray<Tile>,
   place: ShelfPlace,
-  look: ShelfLook,
+  layout: ShelfLayout,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const look = SHELF_LAYOUTS[layout];
+
+  return shelfSectionView(id, title, shape, tiles, place, look, h);
+};
+
+const shelfSectionView = (
+  id: string,
+  title: string,
+  shape: ArtworkShape,
+  tiles: Array.NonEmptyReadonlyArray<Tile>,
+  place: ShelfPlace,
+  look: Readonly<{ row: string; tile: string }>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.section(
@@ -324,11 +353,11 @@ export const maybeShelfView = (
   tiles: ReadonlyArray<Tile>,
   h: HtmlBuilder<Message>,
   place: ShelfPlace = "Below",
-  look: ShelfLook = SHELF_LOOK,
+  layout: ShelfLayout = "Row",
 ): Option.Option<Html> =>
   Array.match(tiles, {
     onEmpty: () => Option.none(),
-    onNonEmpty: (shelved) => Option.some(shelfView(id, title, shape, shelved, place, look, h)),
+    onNonEmpty: (shelved) => Option.some(shelfView(id, title, shape, shelved, place, layout, h)),
   });
 
 /**

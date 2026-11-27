@@ -47,7 +47,7 @@ const arrowView = (rowId: string, way: TurnWay, h: HtmlBuilder<Message>): Html =
  * at a time where there is a pointer to press them with. They are drawn
  * only there, come when the pointer is over the row, and each is gone when
  * there is no more its way: all of that is the style sheet's, which reads
- * it off the row's own scroll (`turning` in styles.css). On a screen that
+ * it off the row's own scroll (`turning` in turning.css). On a screen that
  * is touched there are none, and the row is swiped.
  */
 export const turningView = (

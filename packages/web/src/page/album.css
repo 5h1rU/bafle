@@ -13,8 +13,6 @@
   --album-thumb: 2rem;
   --album-thumb-left: var(--album-bar-pad);
   --album-hero-height: clamp(19rem, 103.5vw, 35rem);
-  padding-inline: 0;
-  padding-top: 0;
   scroll-padding-top: var(--album-bar-height);
 }
 
@@ -29,13 +27,6 @@
      over it as the page is scrolled, and the white words stand on it. */
   background: rgb(22 15 21);
   color: white;
-}
-
-.album-hero .album-cover {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
 }
 
 .album-caption {
@@ -226,26 +217,6 @@
    (`album-bar-takes-over`). A page that fell a part of a pixel short of it
    never showed its bar. */
 .album-songs { min-height: calc(100dvh - var(--album-bar-height) - var(--page-foot, 0px) + 1px); }
-.album-songs > h2 { display: flex; align-items: center; min-height: 3rem; }
-/* NOTE: a little room between the heading and the first row: a row that is
-   lit has a surface with a top of its own. */
-.album-songs ol { margin-top: .25rem; }
-.album-songs .track-row-surface { min-height: 3.25rem; }
-.album-songs .track-row-surface > :first-child { min-height: 3.25rem; gap: .75rem; }
-.album-songs .track-row-surface > :first-child > span:first-child { width: 1.375rem; font-size: .8125rem; text-align: left; }
-.album-songs [data-now-playing] {
-  inset: -.15rem 0;
-  padding: 0;
-  align-items: center;
-  background: var(--color-accent-wash);
-}
-.album-songs [data-now-playing] .now-bar { background: var(--color-accent); }
-.album-songs [data-now-playing] svg { color: var(--color-accent); }
-.album-songs [data-now-playing] .now-spinner { margin-bottom: 0; }
-/* A song that could not be played: the mark stands where the row's number
-   was, in the colour of what went wrong. */
-.album-songs [data-now-playing="Failed"] { background: var(--color-canvas); }
-.album-songs [data-now-playing="Failed"] svg { color: var(--color-danger); }
 @media (min-width: 48rem) {
   #album-page { --album-hero-height: clamp(20rem, 46svh, 34rem); }
   .album-unavailable { padding-top: 2.5rem; }

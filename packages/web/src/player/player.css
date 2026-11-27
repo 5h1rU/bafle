@@ -67,22 +67,8 @@
    picture of its own while the player opens, closes, or turns to the queue.
    The one over it has no name and stays in the sheet's picture, under the
    veil and the title, so that the travelling one can land on it and fade:
-   a cover that travelled alone would land bare, over the title. */
-.player-flight,
-.player-art {
-  position: absolute;
-  inset: 0;
-}
-
-.player-flight {
-  width: 100%;
-  height: 100%;
-}
-
-.player-art > * {
-  width: 100%;
-  height: 100%;
-}
+   a cover that travelled alone would land bare, over the title
+   (`songHeadView` in view.ts). */
 
 [data-pane="Artwork"] .player-head::after {
   content: "";
@@ -270,13 +256,6 @@
   outline: 2px solid var(--color-accent);
   outline-offset: -4px;
   border-radius: 1rem;
-}
-
-.player-thumb {
-  width: 3.25rem;
-  height: 3.25rem;
-  flex: none;
-  border-radius: 0.5rem;
 }
 
 .player-now-title {
@@ -521,46 +500,6 @@
   margin-right: 0.625rem;
 }
 
-/* THE CHIN
-
-   The island's figure has a second, lower piece under its body on this
-   screen (design/desktop.pen; `chinUnderside` in view/islandOutline.ts),
-   and the progress of the sound lies in it: the time played, the bar, the
-   time left. The island's box is as high as the body and the chin
-   together, so that a picture of the island taken for a view transition
-   has all of it; the body, with the cover, the words and the controls, is
-   the top of that box, and the chin the rest. The chin runs from past the
-   cover to just before the swell, whatever the island's width. */
-.island-on-desktop {
-  --island-chin: 1.5625rem;
-  height: calc(2.75rem + var(--island-chin));
-  align-items: flex-start;
-  /* The chin hangs below where the island's foot was. */
-  bottom: max(0.6875rem, env(safe-area-inset-bottom));
-}
-
-.island-on-desktop > .island-surface {
-  height: 2.75rem;
-}
-
-.island-progress {
-  position: absolute;
-  top: 2.75rem;
-  right: 7.5rem;
-  left: 5.125rem;
-  display: flex;
-  height: var(--island-chin);
-  align-items: center;
-  gap: 0.5rem;
-  /* A little above the chin's middle: its foot is round. */
-  padding-bottom: 0.4375rem;
-}
-
-.island-time {
-  width: 2.125rem;
-  font-size: 0.6875rem;
-}
-
 .island-action {
   display: flex;
   width: 2.125rem;
@@ -703,7 +642,7 @@
 }
 
 /* NOTE: a row's surface is lit with the panel's colour (`track-row` in
-   styles.css), which is the column's own: here it is lit with the ink's. */
+   view/trackList.css), which is the column's own: here it is lit with the ink's. */
 .queue-column .track-row-surface:has(.track-row-play:hover) {
   background-color: color-mix(in srgb, var(--color-ink) 8%, transparent);
 }

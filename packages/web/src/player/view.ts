@@ -56,8 +56,6 @@ import {
   queueColumnView as queueColumnOf,
   queuePanelView,
 } from "./queue.ts";
-import "./player.css";
-
 // VIEW
 
 /**
@@ -291,7 +289,7 @@ const nextLabel = (session: Session): string =>
  */
 const coverView = (
   track: TrackSummary,
-  sizeClass: string,
+  boxClass: string,
   rendition: "small" | "large",
   h: HtmlBuilder<Message>,
   isNamed = true,
@@ -300,7 +298,7 @@ const coverView = (
     track.id,
     [
       h.DataAttribute("cover", ""),
-      h.Class(clsx(sizeClass, "catalog-art relative shrink-0 overflow-hidden bg-tile")),
+      h.Class(clsx(boxClass, "catalog-art overflow-hidden bg-tile")),
       ...(isNamed ? [h.DataAttribute("flight", coverTransitionName(track.id))] : []),
       h.Style({
         viewTransitionName: isNamed ? coverTransitionName(track.id) : "none",
@@ -485,8 +483,11 @@ const trackWordsView = (
 // and a browser that lays such a box out again may put it back on the place
 // it last rested at, which under a swipe is the sheet whole: a tick of the
 // clock must not reach that box.
-const TIME_CLASS =
-  "h-4 w-11 shrink-0 overflow-hidden text-xs leading-4 font-[550] tabular-nums [contain:strict]";
+const TIME_BOX_CLASS =
+  "h-4 shrink-0 overflow-hidden leading-4 font-[550] tabular-nums [contain:strict]";
+
+/** The times under the expanded player's bar. */
+const TIME_CLASS = clsx(TIME_BOX_CLASS, "w-11 text-xs");
 
 /** What is left of the track to play, as the listener reads it: counted down. */
 const formatRemaining = (seconds: number): string => `−${formatDuration(Math.max(0, seconds))}`;
@@ -890,7 +891,14 @@ const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
 /** The island's words where they are no link: laid out as the link lays them out. */
 const ISLAND_WORDS_CLASS = "flex h-full min-w-0 flex-1 items-center gap-2.5 pr-2";
 
-const ISLAND_TIME_CLASS = clsx(TIME_CLASS, "island-time");
+// NOTE: the chin runs from past the cover to just before the swell, whatever
+// the island's width, and what is in it stands a little above its middle:
+// its foot is round.
+const ISLAND_PROGRESS_CLASS =
+  "absolute top-11 right-30 left-20.5 flex h-6.25 items-center gap-2 pb-1.75";
+
+/** The times beside the island's bar, in its chin: there is less room, and they are drawn smaller. */
+const ISLAND_TIME_CLASS = clsx(TIME_BOX_CLASS, "w-8.5 text-11");
 
 /**
  * The progress of the sound on the island of a desktop's screen, where the
@@ -907,7 +915,7 @@ const islandProgressView = (session: Session, h: HtmlBuilder<Message>): Html => 
   const isWish = !Seek.guards.Settled(session.seek);
 
   return h.div(
-    [h.Class("island-progress")],
+    [h.Class(ISLAND_PROGRESS_CLASS)],
     Option.match(session.maybeDurationSeconds, {
       onNone: () => [
         h.span(
@@ -1012,6 +1020,21 @@ const islandExtrasView = (
     ],
   );
 
+/**
+ * The island's box. On a compact screen it is as high as its body and stands
+ * over the navigation. On a desktop's it is taller by the chin under its
+ * body, where the progress of the sound lies (design/desktop.pen): the body,
+ * with the cover, the words and the controls, is the top of that box, and
+ * the chin hangs below where the island's foot was. The box is as high as
+ * the two together so that a picture of it taken for a view transition has
+ * all of it.
+ */
+const ISLAND_BOX_CLASS: Readonly<Record<Screen, string>> = {
+  Compact:
+    "bottom-[5.125rem] h-11 items-center md:bottom-[max(1rem,env(safe-area-inset-bottom))]",
+  Desktop: "bottom-[max(0.6875rem,env(safe-area-inset-bottom))] h-17.25 items-start",
+};
+
 const islandView = (
   model: Model,
   session: Session,
@@ -1022,14 +1045,20 @@ const islandView = (
   const { isUnderSheet } = viewInputs;
   const isDesktop = viewInputs.screen === "Desktop";
   const words = [
-    coverView(current, "-my-[3px] size-[3.125rem] rounded-full", "small", h, !isUnderSheet),
+    coverView(
+      current,
+      "relative -my-[3px] size-[3.125rem] shrink-0 rounded-full",
+      "small",
+      h,
+      !isUnderSheet,
+    ),
     ...trackWordsView(session, model.title, model.artist, h),
   ];
 
   // NOTE: under the sheet the island gives up its id and its names: the
   // player on the sheet has them, and two pieces by one name end a view
   // transition before it starts. `data-under-sheet` takes the names of its
-  // light and its shadow too (styles.css).
+  // light and its shadow too (island.css).
   return h.section(
     [
       ...(isUnderSheet ? [h.DataAttribute("under-sheet", "")] : [h.Id(PLAYER_ID)]),
@@ -1042,27 +1071,34 @@ const islandView = (
       h.OnMount(DrawIslandFigure()),
       h.Class(
         clsx(
-          "dock-island absolute right-5 bottom-[5.125rem] left-5 z-30 flex h-11 items-center text-on-island md:right-6 md:bottom-[max(1rem,env(safe-area-inset-bottom))] md:left-6 md:mx-auto md:max-w-2xl",
-          {
-            "[view-transition-name:player]": !isUnderSheet,
-            // Taller on a desktop's screen, by the chin under its body (player.css).
-            "island-on-desktop": isDesktop,
-          },
+          "dock-island absolute right-5 left-5 z-30 flex text-on-island md:right-6 md:left-6 md:mx-auto md:max-w-2xl",
+          ISLAND_BOX_CLASS[viewInputs.screen],
         ),
       ),
     ],
     [
-      h.div([h.OnMount(FollowIslandPress()), h.Class("island-surface relative isolate flex size-full items-center")], [
-        ...islandFigureView(current.album.cover?.small, model.light, h),
-        // NOTE: on a compact screen the words are the way to the expanded
-        // player. On a desktop's there is no expanded player to lead to, and
-        // they are only words: the track's page is in the island's menu.
-        isDesktop
-          ? h.div([h.Class(ISLAND_WORDS_CLASS)], words)
-          : viewInputs.toTrackPageLink(current, words),
-        isDesktop ? islandExtrasView(model, session, viewInputs, h) : h.empty,
-        islandControlsView(session, isDesktop, h),
-      ]),
+      h.div(
+        [
+          h.OnMount(FollowIslandPress()),
+          h.Class(
+            clsx("island-surface relative isolate flex w-full items-center", {
+              "h-full": !isDesktop,
+              "h-11": isDesktop,
+            }),
+          ),
+        ],
+        [
+          ...islandFigureView(current.album.cover?.small, model.light, h),
+          // NOTE: on a compact screen the words are the way to the expanded
+          // player. On a desktop's there is no expanded player to lead to, and
+          // they are only words: the track's page is in the island's menu.
+          isDesktop
+            ? h.div([h.Class(ISLAND_WORDS_CLASS)], words)
+            : viewInputs.toTrackPageLink(current, words),
+          isDesktop ? islandExtrasView(model, session, viewInputs, h) : h.empty,
+          islandControlsView(session, isDesktop, h),
+        ],
+      ),
       // NOTE: under the island's body, in the chin of its figure, and no
       // part of the surface a press swells.
       isDesktop ? islandProgressView(session, h) : h.empty,
@@ -1112,8 +1148,11 @@ const songHeadView = (
     "song",
     [h.Class("player-head")],
     [
-      coverView(current, "player-flight", "large", h),
-      h.div([h.AriaHidden(true), h.Class("player-art")], [coverView(current, "", "large", h, false)]),
+      coverView(current, "absolute inset-0 size-full", "large", h),
+      h.div(
+        [h.AriaHidden(true), h.Class("player-art absolute inset-0")],
+        [coverView(current, "relative size-full", "large", h, false)],
+      ),
       // NOTE: keyed by the track, so another track's words are another
       // element; and not by the track's id alone, which is the cover's key.
       h.keyed("div")(
@@ -1167,7 +1206,7 @@ const faceHeadView = (
       h.div(
         [h.Class("player-now")],
         [
-          coverView(current, "player-thumb", "large", h),
+          coverView(current, "relative size-13 shrink-0 rounded-lg", "large", h),
           h.keyed("div")(
             `${current.id}/words`,
             [h.Class("min-w-0")],
@@ -1336,7 +1375,7 @@ const sheetView = (
       // either: a border would make it a pixel taller than its place, and a
       // sheet that does not fit its place is never whole on screen.
       h.Class(
-        "player-sheet box-content h-full w-full max-w-lg rounded-t-3xl text-ink [view-transition-name:player]",
+        "player-sheet box-content h-full w-full max-w-lg rounded-t-3xl text-ink",
       ),
       ...viewInputs.sheetAttributes,
     ],

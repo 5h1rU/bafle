@@ -1,0 +1,12 @@
+/* The sheet the expanded player is drawn on (`sheet/`). What is behind it
+   comes as the sheet goes: the backdrop follows the swipe, by the sheet's own
+   timeline in place of a clock, from nothing with the sheet gone to whole
+   with the sheet whole. */
+@keyframes sheet-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

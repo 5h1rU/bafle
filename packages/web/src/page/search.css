@@ -317,7 +317,7 @@
 /* THE ARTIST'S PAGE ON ITS WAY
 
    The card is a sleeve, as a tile's picture is, and behind it is its
-   record (`tile-record` in styles.css, which draws it and turns it): chosen,
+   record (`tile-record` in view/shelf.css, which draws it and turns it): chosen,
    the card moves a little aside and the record comes part of the way out
    past its far end and turns, for as long as the artist's page takes.
 
@@ -345,18 +345,8 @@
 
 /* THE ALBUMS
 
-   Narrow, a row of three across that goes on sideways and snaps, as a shelf
-   does. */
-.search-albums {
-  gap: 0.75rem;
-}
-
-.search-album {
-  flex: 0 0 calc((100% - 1.5rem) / 3);
-  min-width: 0;
-  scroll-snap-align: start;
-}
-
+   Three across in a row, or a grid on a wide page (`ShelfLayout` in
+   view/shelf.ts). */
 /* The arrows that turn the row stand at the middle of its covers, which
    are a third of the row here and not a shelf's tile. */
 .search-albums-place .turning {
@@ -565,27 +555,6 @@
 
   .search-top-go {
     display: grid;
-  }
-
-  /* The albums fill the page's width, as many across as there is room for:
-     three found are three large covers, and a dozen are two rows. */
-  .search-albums {
-    display: grid;
-    /* NOTE: how many columns there are goes by the least a tile can be, so
-       a dozen albums are small tiles in two rows; columns left empty are
-       not kept, so three albums share the whole width between them. A tile
-       is never larger than the design's, however few there are. */
-    grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
-    gap: 1.125rem;
-    margin-inline: 0;
-    padding-inline: 0;
-    overflow: visible;
-    scroll-snap-type: none;
-  }
-
-  .search-album {
-    flex: none;
-    max-width: 23.25rem;
   }
 
   /* A grid is not turned. */

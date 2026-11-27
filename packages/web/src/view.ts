@@ -106,7 +106,7 @@ type Destination = Exclude<
 
 // NOTE: the order is the menu's, and the style sheet counts on it: Search is
 // last, apart from the menu, and each item of the menu is told by its place
-// to find its way into the circle (`dock-current` in styles.css).
+// to find its way into the circle (`dock-current` in view/dock.css).
 const DESTINATIONS: ReadonlyArray<Destination> = ["Home", "New", "Genres", "Radio", "Search"];
 
 const MENU_HREFS: Readonly<Record<Exclude<Destination, "Search">, string>> = {
@@ -317,7 +317,7 @@ const MENU_PLACES: Readonly<Record<MenuSection, number>> = { Home: 0, New: 1, Ge
  * piece for the whole menu and not each item's own ground, so that it
  * travels from the item the listener left to the one they chose, and it
  * sets off as they choose (`maybeMarkedDestination`; `dock-mark` in
- * styles.css). When what is marked is none of the menu's, it is not shown,
+ * view/dock.css). When what is marked is none of the menu's, it is not shown,
  * and waits where the circle's section is.
  */
 const menuSurfaceView = (model: Model, h: HtmlBuilder<Message>): Html =>

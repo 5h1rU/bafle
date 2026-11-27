@@ -105,7 +105,7 @@ const maybePutBefore = (drag: DragAndDrop.Model): Option.Option<number> => {
   return Option.none();
 };
 
-// NOTE: a row here is a list's row (`track-row` in styles.css): the line
+// NOTE: a row here is a list's row (`track-row` in view/trackList.css): the line
 // under it is the row's, and its surface, which is what a press lights, has
 // rounded corners and stands a little outside the column, so that the line
 // under the row and the one above it go when the surface is lit.

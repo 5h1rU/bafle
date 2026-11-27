@@ -17,7 +17,7 @@ import { ISLAND_OUTLINE_ATTRIBUTE, StartIslandLight } from "./mount.ts";
 // the island is in the document at that moment, so the Mount
 // `DrawIslandFigure` writes it to every path marked as an outline, in the
 // frame the width changes. How the layers look, and how the light travels,
-// is in styles.css under the `island-` names.
+// is in island.css under the `island-` names.
 
 // The light is made of two things. The glow is a short, wide stroke in a
 // layer of its own that is blurred, so it has no edge and spills to both

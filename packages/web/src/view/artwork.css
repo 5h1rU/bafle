@@ -1,0 +1,17 @@
+.artwork-with-caption::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgb(22 15 21 / 12%) 0%,
+    transparent 28%,
+    rgb(22 15 21 / 35%) 56%,
+    rgb(22 15 21 / 88%) 100%
+  );
+}
+
+:where(.catalog-art) {
+  view-transition-name: none !important;
+}

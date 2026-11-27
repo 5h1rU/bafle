@@ -212,7 +212,7 @@ const milliseconds = (time: string, otherwise: number): number => {
 // went on, which read as a great bounce. So the width is given the spring's
 // own time, curve and wait, read from the style sheet that gives them to the
 // island's place (`--dock-out`, `--ease-island-out`, and the two for the way
-// back, on the `dock-island` rules in styles.css).
+// back, on the `dock-island` rules in view/dock.css).
 const DOCK_OUT = { time: "--dock-out", curve: "--ease-island-out", waitMs: 30, otherwiseMs: 500 };
 const DOCK_BACK = { time: "--dock-back", curve: "--ease-island-back", waitMs: 50, otherwiseMs: 620 };
 
