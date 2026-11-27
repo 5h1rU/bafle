@@ -1,4 +1,8 @@
 /* The navigation and the island on their way between their two places.
+   Where each piece stands in either is said in its view (view.ts,
+   player/view.ts). What is here is the way between: a movement of several
+   pieces at once, each with its own time, and the springs they go by.
+
    They move on springs, as the app they are modelled on does: each piece
    goes a little past its place and comes back to it, and that is what makes
    the whole of it read as one soft movement instead of pieces arriving.
@@ -53,45 +57,12 @@
   }
 }
 
-/* The menu's items keep their full layout slots. The active icon moves to
-   the centre of the compact button, regardless of which item owns it: the
-   items are of one width, so the nth of them has its centre (n - 0.5) of
-   its own widths from the menu's near end, and the circle's centre is
-   1.75rem from it. */
-@variant max-md {
-  .dock-island { width: calc(100% - 2.5rem); }
-  .dock-surface { clip-path: inset(-2rem round 4rem); }
-  /* The mark of the section on screen: one piece the size of an item's
-     ground, a quarter of the menu less the room round it, moved along by
-     as many places as the section has before it. */
-  .dock-mark {
-    position: absolute;
-    top: 0.25rem;
-    bottom: 0.25rem;
-    left: 0.25rem;
-    width: calc((100% - 4rem) / 4 - 0.5rem);
-    border-radius: 9999px;
-    background-color: color-mix(in srgb, var(--color-ink) 10%, transparent);
-    transform: translateX(calc(var(--dock-place) * (100% + 0.5rem)));
-    opacity: 0;
-  }
-  .dock-mark[data-shown] { opacity: 1; }
-  [data-navigation="minimized"] .dock-mark { opacity: 0; }
-  [data-navigation="minimized"] {
-    .dock-island {
-      width: calc(100% - 9.75rem);
-      transform: translate(3.625rem, 3.875rem);
-    }
-    .dock-surface { clip-path: inset(0.375rem calc(100% - 3.125rem) 0.375rem 0.375rem round 2rem); opacity: 0; }
-    .dock-current:nth-child(1) { transform: translateX(calc(1.75rem - 50%)); }
-    .dock-current:nth-child(2) { transform: translateX(calc(1.75rem - 150%)); }
-    .dock-current:nth-child(3) { transform: translateX(calc(1.75rem - 250%)); }
-    .dock-current:nth-child(4) { transform: translateX(calc(1.75rem - 350%)); }
-    .dock-current svg { transform: translateY(0.5rem); }
-    .dock-search { transform: scale(calc(44 / 56)); }
-    .dock-search svg { transform: scale(calc(56 / 44)); }
-  }
-}
+/* THE TIMES
+
+   Each piece has its own, different on the way out and on the way back,
+   read frame by frame off the app they follow. They are for a listener who
+   uses a pointer or a finger: one who uses the keys sees every piece where
+   it stands at once. */
 @variant max-md:motion-safe {
   [data-input="Pointer"] {
     .dock-surface { transition: clip-path var(--dock-out) var(--ease-menu-out), opacity 180ms ease-out; }
@@ -114,50 +85,5 @@
       transition: transform var(--dock-back) var(--ease-menu-back);
     }
     .dock-island { transition: transform var(--dock-back) var(--ease-island-back) 50ms; }
-  }
-}
-
-[data-input="Keyboard"] :is([data-glyph], .island-surface, .island-words, .player-cover, #main-navigation a) {
-  transition: none !important;
-}
-
-/* A press moves the entire figure independently of the dock spring. */
-@media (prefers-reduced-motion: no-preference) {
-  .island-surface {
-    transition: scale 280ms var(--ease-island-out);
-  }
-
-  .island-surface[data-pressed] {
-    scale: 1.025 1.055;
-    transition: scale 85ms ease-out;
-  }
-}
-
-button:focus-visible [data-glyph] {
-  transition: none;
-}
-
-/* A DESTINATION WHOSE PAGE IS ON ITS WAY
-
-   The navigation's mark is already on the item that was chosen, and the
-   item's own icon breathes there for as long as its page takes: it draws in
-   and comes back, as a pressed thing does. Nothing takes the icon's place. */
-@media (prefers-reduced-motion: no-preference) {
-  .nav-breathes {
-    animation: nav-breathes 1100ms ease-in-out infinite;
-  }
-}
-
-/* NOTE: `scale` and not `transform`, which the dock uses to bring the icon
-   to the middle of its circle. */
-@keyframes nav-breathes {
-  0%,
-  100% {
-    scale: 1;
-    opacity: 1;
-  }
-  50% {
-    scale: 0.8;
-    opacity: 0.55;
   }
 }

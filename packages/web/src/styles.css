@@ -140,7 +140,21 @@
   /* What breathes while something is on its way: a destination's icon, the
      magnifier of Search's field. It draws in and comes back, as a pressed
      thing does. */
-  --animate-breathe: nav-breathes 1100ms ease-in-out infinite;
+  --animate-breathe: breathes 1100ms ease-in-out infinite;
+
+  /* NOTE: `scale` and not `transform`, which the dock uses to bring an icon
+     to the middle of its circle. */
+  @keyframes breathes {
+    0%,
+    100% {
+      scale: 1;
+      opacity: 1;
+    }
+    50% {
+      scale: 0.8;
+      opacity: 0.55;
+    }
+  }
 
   /* The island's light, going once round its edge. Each stroke of it is a
      stretch of the outline that sets out from its own place (`--sets-out`,

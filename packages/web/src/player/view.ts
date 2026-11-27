@@ -7,6 +7,7 @@ import { Submodel } from "foldkit";
 import { type ChildAttribute, childAttributes, type Html, type HtmlBuilder } from "foldkit/html";
 import type { Screen } from "../screen.ts";
 import {
+  BREATHES_CLASS,
   moreIcon,
   nextIcon,
   noteIcon,
@@ -121,7 +122,7 @@ const CONTROL_CLASS =
 
 /** A glyph arrives by growing into place: small, quick, and still under reduced motion. */
 const GLYPH_CLASS =
-  "flex transition-[opacity,scale] duration-150 ease-out starting:scale-50 starting:opacity-0 motion-reduce:transition-none";
+  "flex transition-[opacity,scale] duration-150 ease-out starting:scale-50 starting:opacity-0 motion-reduce:transition-none keyboard:transition-none! [button:focus-visible_&]:transition-none";
 
 /**
  * The pause glyph, fainter while it is only a wish. Each glyph is an element
@@ -484,7 +485,7 @@ const trackWordsView = (
       `${track.id}/words`,
       [
         h.Class(
-          "island-words block min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none",
+          "island-words block min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none keyboard:transition-none!",
         ),
       ],
       [
@@ -840,6 +841,22 @@ const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>)
 // tail (see `islandView`), so the control itself stays where it is while
 // this happens. The tail's width is the one thing the island's shape reads
 // from the document besides the island's own: see `DrawIslandFigure` in `mount.ts`.
+/**
+ * Where the island stands: over the navigation, and in its row, between the
+ * circle and Search, once the navigation has drawn back. `dock-island` is
+ * what the style sheet times its way by (view/dock.css).
+ */
+const ISLAND_PLACE_CLASS =
+  "dock-island absolute right-5 left-5 z-30 flex text-on-island max-md:w-[calc(100%-2.5rem)] minimized:w-[calc(100%-9.75rem)] minimized:transform-[translate(3.625rem,3.875rem)] md:right-6 md:left-6 md:mx-auto md:max-w-2xl";
+
+/**
+ * The island's surface: what its layers and its pieces stand in. A press
+ * swells all of it a little, quickly, and it comes back on the island's own
+ * spring, whatever the dock is doing (`data-pressed`, from `FollowIslandPress`).
+ */
+const ISLAND_SURFACE_CLASS =
+  "relative isolate flex w-full items-center motion-safe:transition-[scale] motion-safe:duration-[280ms] motion-safe:ease-(--ease-island-out) motion-safe:data-pressed:scale-[1.025_1.055] motion-safe:data-pressed:duration-[85ms] motion-safe:data-pressed:ease-[ease-out] keyboard:transition-none!";
+
 const TAIL_CLASS =
   "dock-island-next flex h-9 w-[2.125rem] shrink-0 items-center justify-end minimized:pointer-events-none minimized:w-0";
 
@@ -1104,7 +1121,7 @@ const islandView = (
       h.OnMount(DrawIslandFigure()),
       h.Class(
         clsx(
-          "dock-island absolute right-5 left-5 z-30 flex text-on-island md:right-6 md:left-6 md:mx-auto md:max-w-2xl",
+          ISLAND_PLACE_CLASS,
           ISLAND_BOX_CLASS[viewInputs.screen],
         ),
       ),
@@ -1115,7 +1132,7 @@ const islandView = (
           h.OnMount(FollowIslandPress()),
           h.DataAttribute(ISLAND_SURFACE_ATTRIBUTE, ""),
           h.Class(
-            clsx("island-surface relative isolate flex w-full items-center", {
+            clsx(ISLAND_SURFACE_CLASS, {
               "h-full": !isDesktop,
               "h-11": isDesktop,
             }),
@@ -1350,7 +1367,7 @@ const moreMenuView = (
       itemToSearchText: (action: PlayerAction) => ACTION_LOOKS[action].label,
       ariaLabel: `More: ${session.current.title}`,
       buttonContent: moreIcon(
-        clsx(look.glyph, { "nav-breathes motion-reduce:animate-pulse": isPageOpening }),
+        clsx(look.glyph, { [BREATHES_CLASS]: isPageOpening }),
       ),
       buttonClassName: iconControlClass(place),
       // NOTE: lit by the Model's own word that the menu is open, which is

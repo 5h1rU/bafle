@@ -241,7 +241,7 @@ describe("rule 1: Genres chosen from the menu holds the page and marks its item"
       see(destination("Genres")).toHaveAttr("aria-busy", "true"),
       // Its icon breathes where it stands, and the navigation marks it at once:
       // the page on screen is still the one `aria-current` names.
-      inside(destination("Genres"), expectAll(all.selector("svg.nav-breathes")).toHaveCount(1)),
+      inside(destination("Genres"), see(selector("svg")).toHaveClass("motion-safe:animate-breathe")),
       see(destination("Genres")).toHaveAttr("data-marked", ""),
       see(destination("Genres")).not.toHaveAttr("aria-current"),
       see(text("Loading Genres")).toExist(),

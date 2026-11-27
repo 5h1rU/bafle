@@ -78,6 +78,7 @@ import { creditView } from "./view/about.ts";
 import { artworkFlightRules, routeArtwork } from "./view/artwork.ts";
 import { staleBannerView, saidView } from "./view/feedback.ts";
 import {
+  BREATHES_CLASS,
   genresIcon,
   homeIcon,
   newIcon,
@@ -104,9 +105,9 @@ type Destination = Exclude<
   "Track" | "Album" | "Artist" | "Playlist" | "Genre" | "Station" | "NotFound"
 >;
 
-// NOTE: the order is the menu's, and the style sheet counts on it: Search is
-// last, apart from the menu, and each item of the menu is told by its place
-// to find its way into the circle (`dock-current` in view/dock.css).
+// NOTE: the order is the menu's: Search is last, apart from the menu, and
+// each item of the menu finds its way into the circle by its place
+// (`CIRCLE_ITEM_CLASS`).
 const DESTINATIONS: ReadonlyArray<Destination> = ["Home", "New", "Genres", "Radio", "Search"];
 
 const MENU_HREFS: Readonly<Record<Exclude<Destination, "Search">, string>> = {
@@ -207,11 +208,24 @@ const WIDE_LINK_CLASS =
 const MENU_ITEM_CLASS =
   "dock-item min-w-0 grow basis-0 p-1 md:grow-0 md:basis-auto md:p-0";
 
-const CIRCLE_ITEM_CLASS = "dock-current";
+/**
+ * The item for where the listener is, which stays when the menu draws back:
+ * its icon goes to the middle of the circle, whichever item it is.
+ */
+// NOTE: the menu's items keep their full layout slots. They are of one
+// width, so the nth of them has its centre (n - 0.5) of its own widths from
+// the menu's near end, and the circle's centre is 1.75rem from it.
+// `dock-current` is what the style sheet times its way by (view/dock.css).
+const CIRCLE_ITEM_CLASS: Readonly<Record<MenuSection, string>> = {
+  Home: "dock-current minimized:transform-[translateX(calc(1.75rem-50%))]",
+  New: "dock-current minimized:transform-[translateX(calc(1.75rem-150%))]",
+  Genres: "dock-current minimized:transform-[translateX(calc(1.75rem-250%))]",
+  Radio: "dock-current minimized:transform-[translateX(calc(1.75rem-350%))]",
+};
 const LEAVING_ITEM_CLASS = "minimized:invisible minimized:opacity-0";
 
 const MENU_LINK_CLASS = clsx(
-  "pointer-events-auto flex h-full touch-manipulation flex-col items-center justify-center rounded-full text-muted transition-colors duration-200 hover:text-ink data-marked:text-accent minimized:pointer-events-none minimized:text-ink minimized:data-marked:text-accent",
+  "pointer-events-auto flex h-full touch-manipulation flex-col items-center justify-center rounded-full text-muted transition-colors duration-200 hover:text-ink data-marked:text-accent minimized:pointer-events-none minimized:text-ink minimized:data-marked:text-accent keyboard:transition-none!",
   ITEM_FOCUS_CLASS,
   WIDE_LINK_CLASS,
 );
@@ -224,7 +238,9 @@ const MENU_LINK_CLASS = clsx(
 // stops being there (`invisible` takes it out of the order of focus and out
 // of what is said aloud) and its icon alone is still drawn.
 const CIRCLE_LINK_CLASS = "minimized:invisible";
-const CIRCLE_ICON_CLASS = "minimized:visible";
+// NOTE: the icon stood over its name, which is gone from the circle: it
+// comes down to the circle's middle.
+const CIRCLE_ICON_CLASS = "minimized:visible minimized:transform-[translateY(0.5rem)]";
 
 /** An item's name under its icon. Drawn back, the circle has room for the icon alone. */
 const MENU_NAME_CLASS =
@@ -240,8 +256,10 @@ const MENU_NAME_CLASS =
 const SEARCH_ITEM_CLASS =
   "ml-auto flex h-14 w-16 shrink-0 items-center justify-center pl-2 md:ml-0 md:block md:h-auto md:w-auto md:pl-0";
 
+const SEARCH_ICON_CLASS = "minimized:transform-[scale(calc(56/44))]";
+
 const SEARCH_LINK_CLASS = clsx(
-  "dock-search pointer-events-auto flex size-14 touch-manipulation items-center justify-center rounded-full text-ink data-marked:text-accent",
+  "dock-search pointer-events-auto flex size-14 touch-manipulation items-center justify-center rounded-full text-ink data-marked:text-accent minimized:transform-[scale(calc(44/56))]",
   FLOATING_CLASS,
   ITEM_FOCUS_CLASS,
   WIDE_LINK_CLASS,
@@ -255,15 +273,22 @@ const destinationView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const isSearch = item.value === "Search";
-  const iconClass = { [CIRCLE_ICON_CLASS]: isShownInCircle && !isSearch };
+  // NOTE: Search is made smaller as one piece, and its icon is made as much
+  // larger within it: the icon keeps its size while its circle draws in.
+  const iconClass = isSearch
+    ? SEARCH_ICON_CLASS
+    : { [CIRCLE_ICON_CLASS]: isShownInCircle };
 
   return h.keyed("li")(
     item.value,
     [
       h.Class(
-        isSearch
+        item.value === "Search"
           ? SEARCH_ITEM_CLASS
-          : clsx(MENU_ITEM_CLASS, isShownInCircle ? CIRCLE_ITEM_CLASS : LEAVING_ITEM_CLASS),
+          : clsx(
+              MENU_ITEM_CLASS,
+              isShownInCircle ? CIRCLE_ITEM_CLASS[item.value] : LEAVING_ITEM_CLASS,
+            ),
       ),
     ],
     [
@@ -280,11 +305,9 @@ const destinationView = (
         ],
         [
           // While its page is on its way the icon itself breathes: it is the
-          // thing that was pressed, and it stays what it is (`nav-breathes`).
+          // thing that was pressed, and it stays what it is.
           DESTINATION_ICONS[item.value](
-            clsx("size-6 md:size-5", iconClass, {
-              "nav-breathes motion-reduce:animate-pulse": isLoading,
-            }),
+            clsx("size-6 md:size-5", iconClass, { [BREATHES_CLASS]: isLoading }),
           ),
           // NOTE: at the foot of a narrow screen Search is its icon alone: its name is still said.
           h.span(
@@ -308,6 +331,28 @@ const maybeMarkedMenuSection = (model: Model): Option.Option<MenuSection> =>
 const MENU_PLACES: Readonly<Record<MenuSection, number>> = { Home: 0, New: 1, Genres: 2, Radio: 3 };
 
 /**
+ * The menu's surface: whole, cut wide of its own box so that its shadow is
+ * drawn, and drawn back, cut to the circle at its near end and clear, since
+ * the circle is a piece of its own.
+ */
+const SURFACE_CLASS =
+  "dock-surface absolute inset-y-0 right-16 left-0 rounded-full max-md:[clip-path:inset(-2rem_round_4rem)] minimized:opacity-0 minimized:[clip-path:inset(0.375rem_calc(100%-3.125rem)_0.375rem_0.375rem_round_2rem)]";
+
+/**
+ * The mark of the section on screen: one piece the size of an item's ground,
+ * a quarter of the menu less the room round it, moved along by as many
+ * places as the section has before it (`--dock-place`).
+ */
+const MARK_CLASS =
+  "dock-mark absolute inset-y-1 left-1 w-[calc((100%-4rem)/4-0.5rem)] transform-[translateX(calc(var(--dock-place)*(100%+0.5rem)))] rounded-full bg-ink/10";
+
+/** Whether the mark is seen. Drawn back, the menu has no mark: the circle is where the listener is. */
+const MARKS = {
+  Shown: "opacity-100 minimized:opacity-0",
+  Gone: "opacity-0",
+} as const;
+
+/**
  * The menu's own surface on a narrow screen: one piece behind its items,
  * which draws back to a circle around the item that stays. The circle is a
  * little smaller than the menu is tall, and stands where the menu's near
@@ -316,8 +361,8 @@ const MENU_PLACES: Readonly<Record<MenuSection, number>> = { Home: 0, New: 1, Ge
  * Over the surface, under the items, is the navigation's mark. It is one
  * piece for the whole menu and not each item's own ground, so that it
  * travels from the item the listener left to the one they chose, and it
- * sets off as they choose (`maybeMarkedDestination`; `dock-mark` in
- * view/dock.css). When what is marked is none of the menu's, it is not shown,
+ * sets off as they choose (`maybeMarkedDestination`; `dock-mark` is what the
+ * style sheet times its way by, in view/dock.css). When what is marked is none of the menu's, it is not shown,
  * and waits where the circle's section is.
  */
 const menuSurfaceView = (model: Model, h: HtmlBuilder<Message>): Html =>
@@ -325,15 +370,16 @@ const menuSurfaceView = (model: Model, h: HtmlBuilder<Message>): Html =>
     [h.AriaHidden(true), h.Class("pointer-events-none md:hidden")],
     [
       h.div([h.Class(clsx("dock-circle absolute top-1.5 left-1.5 size-11 rounded-full opacity-0 minimized:opacity-100", FLOATING_CLASS))]),
-      h.div([h.Class(clsx("dock-surface absolute inset-y-0 right-16 left-0 rounded-full", FLOATING_CLASS))]),
+      h.div([h.Class(clsx(SURFACE_CLASS, FLOATING_CLASS))]),
       h.div([
-        ...(Option.isSome(maybeMarkedMenuSection(model)) ? [h.DataAttribute("shown", "")] : []),
         h.Style({
           "--dock-place": String(
             MENU_PLACES[Option.getOrElse(maybeMarkedMenuSection(model), () => circleSection(model))],
           ),
         }),
-        h.Class("dock-mark"),
+        h.Class(
+          clsx(MARK_CLASS, Option.isSome(maybeMarkedMenuSection(model)) ? MARKS.Shown : MARKS.Gone),
+        ),
       ]),
     ],
   );

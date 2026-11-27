@@ -3,6 +3,14 @@ import { type Html, inertHtml as ih } from "foldkit/html";
 
 // VIEW
 
+/**
+ * What an icon wears while the page it leads to is on its way: it breathes
+ * where it stands, drawing in and coming back as a pressed thing does, and
+ * nothing takes its place. Whoever asks for less motion sees it grow dim and
+ * bright instead.
+ */
+export const BREATHES_CLASS = "motion-safe:animate-breathe motion-reduce:animate-pulse";
+
 /** A 24-unit outline icon, hidden from assistive technology: the text beside it names the thing. */
 const outlineIcon = (className: string, paths: ReadonlyArray<string>): Html =>
   ih.svg(

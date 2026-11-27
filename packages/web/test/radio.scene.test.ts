@@ -222,7 +222,7 @@ describe("rule 1: Radio chosen from the menu holds the page and marks its item",
       see(destination("Radio")).toHaveAttr("aria-busy", "true"),
       // Its icon breathes where it stands, and the navigation marks it at once:
       // the page on screen is still the one `aria-current` names.
-      inside(destination("Radio"), expectAll(all.selector("svg.nav-breathes")).toHaveCount(1)),
+      inside(destination("Radio"), see(selector("svg")).toHaveClass("motion-safe:animate-breathe")),
       see(destination("Radio")).toHaveAttr("data-marked", ""),
       see(destination("Radio")).not.toHaveAttr("aria-current"),
       see(destination("Genres")).toHaveAttr("aria-busy", "false"),
