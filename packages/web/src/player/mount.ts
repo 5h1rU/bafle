@@ -29,6 +29,12 @@ export const ISLAND_CHIN_ATTRIBUTE = "island-chin";
 /** Marks every path that is drawn along the island's outline. */
 export const ISLAND_OUTLINE_ATTRIBUTE = "island-outline";
 
+/** The data attribute that marks the island's surface: what a press swells, and what its layers and its pieces stand in. */
+export const ISLAND_SURFACE_ATTRIBUTE = "island-surface";
+
+/** The data attribute that marks each of the layers the island's figure is drawn on. */
+export const ISLAND_LAYER_ATTRIBUTE = "island-layer";
+
 /**
  * What marks the pieces of a line of words that may travel, within its
  * place: the words themselves, and the line that is moved.
@@ -219,9 +225,10 @@ const DOCK_BACK = { time: "--dock-back", curve: "--ease-island-back", waitMs: 50
 /** Keep the figure and transport continuous across the single layout change.
  * The moving layers start at their currently displayed size on a reversal. */
 const dockResizeMotion = (island: Element) => {
-  const figures = island.querySelectorAll(":scope > .island-surface > .island-layer");
-  const controls = island.querySelector(':scope > .island-surface > [role="group"]');
-  const words = island.querySelector(":scope > .island-surface > a");
+  const surface = `:scope > [data-${ISLAND_SURFACE_ATTRIBUTE}]`;
+  const figures = island.querySelectorAll(`${surface} > [data-${ISLAND_LAYER_ATTRIBUTE}]`);
+  const controls = island.querySelector(`${surface} > [role="group"]`);
+  const words = island.querySelector(`${surface} > a`);
   const animations = new Map<Element, Animation>();
   const move = (element: Element, from: string, timing: KeyframeAnimationOptions): Animation => {
     animations.get(element)?.cancel();

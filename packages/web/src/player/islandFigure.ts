@@ -1,8 +1,9 @@
-import type { Html, HtmlBuilder } from "foldkit/html";
+import { clsx } from "clsx";
+import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 import { ISLAND_LIGHTS_ATTRIBUTE, LIGHT_LENGTH } from "./islandLight.ts";
 import type { Message } from "./message.ts";
 import type { IslandLight } from "./model.ts";
-import { ISLAND_OUTLINE_ATTRIBUTE, StartIslandLight } from "./mount.ts";
+import { ISLAND_LAYER_ATTRIBUTE, ISLAND_OUTLINE_ATTRIBUTE, StartIslandLight } from "./mount.ts";
 
 // VIEW
 
@@ -17,7 +18,8 @@ import { ISLAND_OUTLINE_ATTRIBUTE, StartIslandLight } from "./mount.ts";
 // the island is in the document at that moment, so the Mount
 // `DrawIslandFigure` writes it to every path marked as an outline, in the
 // frame the width changes. How the layers look, and how the light travels,
-// is in island.css under the `island-` names.
+// is drawn here; the names its shadow and its light travel under in a view
+// transition are in island.css.
 
 // The light is made of two things. The glow is a short, wide stroke in a
 // layer of its own that is blurred, so it has no edge and spills to both
@@ -30,23 +32,41 @@ import { ISLAND_OUTLINE_ATTRIBUTE, StartIslandLight } from "./mount.ts";
 
 const TAIL_LAYERS = 10;
 
-type Stroke = Readonly<{ kind: string; length: number; behind: number }>;
+/** What a stroke of the light is: a part of the beam, or of the glow round it. */
+type StrokeKind = "Tail" | "HeadFaint" | "Head" | "GlowFar" | "GlowNear";
 
-const stroke = (kind: string, length: number, behind = 0): Stroke => ({ kind, length, behind });
+const STROKE_KINDS: Readonly<Record<StrokeKind, string>> = {
+  Tail: "stroke-island-light stroke-2 [stroke-opacity:0.24]",
+  HeadFaint: "stroke-island-light-head stroke-2 [stroke-opacity:0.3]",
+  Head: "stroke-island-light-head stroke-2 [stroke-opacity:0.6]",
+  GlowFar: "stroke-island-light stroke-7 [stroke-opacity:0.5]",
+  GlowNear: "stroke-island-light stroke-7 [stroke-opacity:0.9]",
+};
+
+// NOTE: where a stroke sets out from is a length, not a bare number. An
+// offset takes either, but a browser does not animate from a number to a
+// length: it went from the one to the other in a step each second, and the
+// light stood still and jumped. Two lengths it does.
+const STROKE_CLASS =
+  "fill-none [stroke-dashoffset:calc(var(--sets-out)*1px)] [stroke-linecap:round] motion-safe:animate-island-light-travel";
+
+type Stroke = Readonly<{ kind: StrokeKind; length: number; behind: number }>;
+
+const stroke = (kind: StrokeKind, length: number, behind = 0): Stroke => ({ kind, length, behind });
 
 const BEAM: ReadonlyArray<Stroke> = [
   ...Array.from({ length: TAIL_LAYERS }, (_, layer) =>
-    stroke("island-light-tail", LIGHT_LENGTH * (1 - layer / TAIL_LAYERS) ** 1.6),
+    stroke("Tail", LIGHT_LENGTH * (1 - layer / TAIL_LAYERS) ** 1.6),
   ),
-  stroke("island-light-head island-light-head-faint", LIGHT_LENGTH * 0.2),
-  stroke("island-light-head", LIGHT_LENGTH * 0.11),
-  stroke("island-light-head", LIGHT_LENGTH * 0.05),
+  stroke("HeadFaint", LIGHT_LENGTH * 0.2),
+  stroke("Head", LIGHT_LENGTH * 0.11),
+  stroke("Head", LIGHT_LENGTH * 0.05),
 ];
 
 // The glow is widest about the head and reaches a little ahead of it.
 const GLOW: ReadonlyArray<Stroke> = [
-  stroke("island-light-glow island-light-glow-far", LIGHT_LENGTH * 0.8, -LIGHT_LENGTH * 0.04),
-  stroke("island-light-glow island-light-glow-near", LIGHT_LENGTH * 0.32, -LIGHT_LENGTH * 0.04),
+  stroke("GlowFar", LIGHT_LENGTH * 0.8, -LIGHT_LENGTH * 0.04),
+  stroke("GlowNear", LIGHT_LENGTH * 0.32, -LIGHT_LENGTH * 0.04),
 ];
 
 const round = (value: number): string => String(Math.round(value * 1000) / 1000);
@@ -59,20 +79,39 @@ const outlineView = (className: string, h: HtmlBuilder<Message>): Html =>
 const strokeView = ({ kind, length, behind }: Stroke, h: HtmlBuilder<Message>): Html =>
   h.path([
     h.DataAttribute(ISLAND_OUTLINE_ATTRIBUTE, ""),
-    h.Class(`island-light-stroke ${kind}`),
+    h.Class(clsx(STROKE_CLASS, STROKE_KINDS[kind])),
     h.PathLength("100"),
     h.StrokeDasharray(`${round(length)} ${round(100 - length)}`),
     h.Style({ "--sets-out": round(length + behind - LIGHT_LENGTH) }),
   ]);
 
+/** A layer the size of the island, drawn past its box where the figure stands out of it. */
+const LAYER_CLASS = "pointer-events-none absolute top-0 left-0 size-full overflow-visible";
+
+/**
+ * One of the three layers the island's pieces stand on and under: each is
+ * marked, since the island's width is brought to its new one by script, from
+ * its left end (`dockResizeMotion` in mount.ts).
+ */
+const STANDING_LAYER_CLASS = clsx(LAYER_CLASS, "origin-left");
+
 const layerView = (
   className: string,
   children: ReadonlyArray<Html>,
   h: HtmlBuilder<Message>,
-): Html => h.svg([h.AriaHidden(true), h.Class(className)], children);
+  attributes: ReadonlyArray<Attribute<Message>> = [],
+): Html => h.svg([h.AriaHidden(true), ...attributes, h.Class(className)], children);
 
+// NOTE: the shadow is the figure once more, under the figure. It is a layer
+// of its own so that it can be a picture of its own in a view transition
+// (`island-shadow` in island.css).
 const shadowView = (h: HtmlBuilder<Message>): Html =>
-  layerView("island-layer island-shadow", [outlineView("island-body", h)], h);
+  layerView(
+    clsx("island-shadow -z-2 drop-shadow-(--island-shadow)", STANDING_LAYER_CLASS),
+    [outlineView("fill-island", h)],
+    h,
+    [h.DataAttribute(ISLAND_LAYER_ATTRIBUTE, "")],
+  );
 
 /**
  * The figure, and over it near the cover a blurred copy of the cover that
@@ -80,7 +119,7 @@ const shadowView = (h: HtmlBuilder<Message>): Html =>
  */
 const figureView = (maybeCover: string | undefined, h: HtmlBuilder<Message>): Html =>
   layerView(
-    "island-layer island-figure",
+    clsx("-z-1", STANDING_LAYER_CLASS),
     [
       h.defs(
         [],
@@ -132,7 +171,7 @@ const figureView = (maybeCover: string | undefined, h: HtmlBuilder<Message>): Ht
           ),
         ],
       ),
-      outlineView("island-body", h),
+      outlineView("fill-island", h),
       h.g(
         [h.ClipPath("url(#island-within)")],
         [
@@ -142,7 +181,8 @@ const figureView = (maybeCover: string | undefined, h: HtmlBuilder<Message>): Ht
               ? []
               : [
                   h.image([
-                    h.Class("island-tint"),
+                    // The cover's colours, near the cover, as bright as they are.
+                    h.Class("opacity-85"),
                     // NOTE: an attribute, not a property: an SVG image has no `href`
                     // property that the attribute follows.
                     h.Attribute("href", maybeCover),
@@ -159,7 +199,15 @@ const figureView = (maybeCover: string | undefined, h: HtmlBuilder<Message>): Ht
       ),
     ],
     h,
+    [h.DataAttribute(ISLAND_LAYER_ATTRIBUTE, "")],
   );
+
+/** How bright the light is: dark until there has been sound, bright while it travels, an ember at rest. */
+const LIGHTS: Readonly<Record<IslandLight, string>> = {
+  Dark: "opacity-0",
+  Resting: "opacity-30",
+  Travelling: "opacity-100",
+};
 
 /**
  * The light. What it does is the Model's to say, and shows as how bright it
@@ -170,18 +218,26 @@ const lightsView = (light: IslandLight, h: HtmlBuilder<Message>): Html =>
   h.div(
     [
       h.DataAttribute(ISLAND_LIGHTS_ATTRIBUTE, ""),
+      h.DataAttribute(ISLAND_LAYER_ATTRIBUTE, ""),
       h.DataAttribute("light", light),
-      h.Class("island-layer island-lights"),
+      h.Class(
+        clsx(
+          "island-lights z-1 transition-opacity duration-1400 ease-[ease-in-out]",
+          STANDING_LAYER_CLASS,
+          LIGHTS[light],
+        ),
+      ),
       h.OnMount(StartIslandLight({ initialLight: light })),
     ],
     [
+      // The glow is blurred as a whole, so it has no edge.
       layerView(
-        "island-layer island-light-soft",
+        clsx(LAYER_CLASS, "blur-[3px]"),
         GLOW.map((glow) => strokeView(glow, h)),
         h,
       ),
       layerView(
-        "island-layer",
+        LAYER_CLASS,
         BEAM.map((beam) => strokeView(beam, h)),
         h,
       ),

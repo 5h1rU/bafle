@@ -211,7 +211,7 @@ type MarkPlace = "OverCover" | "OverNumber";
 
 // NOTE: the mark comes over the cover, or the row's number, out of nothing.
 const MARK_CLASS =
-  "motion-safe:transition-opacity motion-safe:duration-150 motion-safe:ease-out motion-safe:starting:opacity-0";
+  "motion-safe:transition-opacity motion-safe:duration-150 motion-safe:ease-[ease-out] motion-safe:starting:opacity-0";
 
 // THE SPINNER AND THE BARS
 //
@@ -224,7 +224,7 @@ const MARK_PIECE_CLASS =
   "col-start-1 row-start-1 motion-safe:transition-[opacity,scale,visibility] motion-safe:duration-[160ms,240ms,0s] motion-safe:ease-[ease-out,var(--ease-settle),ease]";
 
 const MARK_PIECE_GONE_CLASS =
-  "invisible scale-[0.4] opacity-0 motion-safe:delay-[0s,0s,160ms] motion-safe:duration-[110ms,160ms,0s] motion-safe:ease-in";
+  "invisible scale-[0.4] opacity-0 motion-safe:delay-[0s,0s,160ms] motion-safe:duration-[110ms,160ms,0s] motion-safe:ease-[ease-in]";
 
 type MarkLook = Readonly<{
   sounding: string;

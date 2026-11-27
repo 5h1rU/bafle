@@ -1459,7 +1459,7 @@ describe("the island", () => {
       // Acknowledged: a wish to sound. The light has never travelled, and stays dark.
       inside(island, see(lights).toHaveAttr("data-light", "Dark")),
       // Every path of the figure and of the light is one the outline is written to.
-      inside(island, expectAll(all.selector(".island-layer path:not([data-island-outline])")).toHaveCount(0)),
+      inside(island, expectAll(all.selector("[data-island-layer] path:not([data-island-outline])")).toHaveCount(0)),
     ));
 
   test("the light travels on the engine's word that there is sound", () =>

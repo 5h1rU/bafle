@@ -47,6 +47,7 @@ import {
   DrawIslandFigure,
   FollowIslandPress,
   ISLAND_CHIN_ATTRIBUTE,
+  ISLAND_SURFACE_ATTRIBUTE,
   ISLAND_TAIL_ATTRIBUTE,
   ARTIST_MARKS,
   type MarqueeMarks,
@@ -197,7 +198,7 @@ type MainControlLook = Readonly<{ disc: string; glyph: string; stopped: string }
  * in, and back on the island's own spring.
  */
 const PRESSED_IN_CLASS =
-  "motion-safe:transition-[scale] motion-safe:duration-280 motion-safe:ease-(--ease-island-out) motion-safe:active:scale-[0.935] motion-safe:active:duration-85 motion-safe:active:ease-out";
+  "motion-safe:transition-[scale] motion-safe:duration-280 motion-safe:ease-(--ease-island-out) motion-safe:active:scale-[0.935] motion-safe:active:duration-85 motion-safe:active:ease-[ease-out]";
 
 // NOTE: on the sheet the control is 84 across and its glyph half of that.
 const ON_SHEET: MainControlLook = {
@@ -418,6 +419,17 @@ const ARTIST_LOOK: LineLook = {
  * line's Mount tells the Model, and from there the waits and the passes are
  * the Model's (`title`, `artist`), kept in time by Commands.
  */
+// NOTE: a line of the island's words comes in from under the cover's edge
+// and fades there, so its place reaches a little under the cover; a line
+// that does not fit fades at the far end too. Under reduced motion the line
+// keeps still, whatever the view says of where it is.
+const MARQUEE_CLASS = "-ml-2 overflow-hidden pl-2 whitespace-nowrap";
+
+const MARQUEE_EDGES = {
+  Lead: "mask-[linear-gradient(to_right,transparent,black_0.5rem)]",
+  Both: "mask-[linear-gradient(to_right,transparent,black_0.5rem,black_calc(100%-1rem),transparent)]",
+} as const;
+
 const marqueeView = (
   words: string,
   marquee: Marquee,
@@ -430,14 +442,16 @@ const marqueeView = (
     [
       h.DataAttribute(look.phase, marquee.phase),
       ...(isOverflowing ? [h.DataAttribute("overflowing", "")] : []),
-      h.Class(clsx("island-marquee", look.className)),
+      h.Class(clsx(MARQUEE_CLASS, isOverflowing ? MARQUEE_EDGES.Both : MARQUEE_EDGES.Lead, look.className)),
       h.OnMount(look.measure()),
     ],
     [
       h.div(
         [
           h.DataAttribute(look.marks.line, ""),
-          h.Class("island-marquee-line"),
+          h.Class(
+            "inline-flex gap-10 will-change-transform motion-reduce:transform-none! motion-reduce:transition-none!",
+          ),
           h.Style(marqueeLineStyle(marquee)),
         ],
         [
@@ -780,7 +794,7 @@ const announcement = (session: Session): string => {
 // shape alone: no ground comes under them. One that is not to be pressed
 // does not answer.
 const STEP_ON_SHEET_CLASS =
-  "size-12 text-ink motion-safe:transition-[scale] motion-safe:duration-280 motion-safe:ease-(--ease-island-out) motion-safe:not-aria-disabled:active:scale-[0.86] motion-safe:not-aria-disabled:active:duration-85 motion-safe:not-aria-disabled:active:ease-out";
+  "size-12 text-ink motion-safe:transition-[scale] motion-safe:duration-280 motion-safe:ease-(--ease-island-out) motion-safe:not-aria-disabled:active:scale-[0.86] motion-safe:not-aria-disabled:active:duration-85 motion-safe:not-aria-disabled:active:ease-[ease-out]";
 const STEP_GLYPH_CLASS = "size-[2.3125rem]";
 
 // NOTE: the three stand further apart on a wider sheet, by a share of the
@@ -1099,6 +1113,7 @@ const islandView = (
       h.div(
         [
           h.OnMount(FollowIslandPress()),
+          h.DataAttribute(ISLAND_SURFACE_ATTRIBUTE, ""),
           h.Class(
             clsx("island-surface relative isolate flex w-full items-center", {
               "h-full": !isDesktop,
