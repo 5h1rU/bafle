@@ -279,6 +279,10 @@
    cannot: what it last touched would stay lit as if it were still there. */
 @custom-variant can-hover (@media (hover: hover));
 
+/* Where there is a pointer to press a small thing with, and to hold over
+   it: a mouse or a trackpad, whatever the screen's width. */
+@custom-variant fine-pointer (@media (hover: hover) and (pointer: fine));
+
 /* A screen tall enough for a sheet's head and its foot to hold while what
    is between them scrolls. A lower one lets them go with the list. */
 @custom-variant tall (@media (min-height: 30rem));

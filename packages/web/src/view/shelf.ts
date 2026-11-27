@@ -31,7 +31,7 @@ import {
   TILE_ATTRIBUTES,
   type TileKind,
 } from "./layout.ts";
-import { type TurningOf, turningRowIdOf, turningView } from "./turning.ts";
+import { TURNING_ROW_CLASS, type TurningOf, turningRowIdOf, turningView } from "./turning.ts";
 
 // MODEL
 
@@ -392,10 +392,7 @@ const shelfSectionView = (
             h.Role("list"),
             h.AriaLabelledBy(id),
             h.Class(
-              clsx(
-                look.row,
-                "turning-row rounded-lg focus-ring-0",
-              ),
+clsx(look.row, TURNING_ROW_CLASS, "rounded-lg focus-ring-0"),
             ),
           ],
           Array.map(tiles, (tile, index) =>

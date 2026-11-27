@@ -13,7 +13,7 @@ import {
   trackRowPlaceholderView,
   trackRowView,
 } from "./trackRow.ts";
-import { turningRowIdOf, turningView } from "./turning.ts";
+import { TURNING_ROW_CLASS, turningRowIdOf, turningView } from "./turning.ts";
 
 export { explicitMarkerView, type RowLead, type TrackListContext } from "./trackRow.ts";
 
@@ -162,7 +162,7 @@ export const trackListView = (
       h.Role("list"),
       h.AriaLabelledBy(labelledBy),
       ...(spread === "Columns"
-        ? [h.Id(turningRowIdOf(labelledBy)), ...columnsAttributes(tracks.length, h, "turning-row")]
+        ? [h.Id(turningRowIdOf(labelledBy)), ...columnsAttributes(tracks.length, h, TURNING_ROW_CLASS)]
         : [h.Class(lead === "Number" ? "mt-1" : "mt-2")]),
     ],
     Array.map(tracks, (track, index) =>

@@ -15,112 +15,12 @@
    cannot read a scroll this way both arrows are there under the pointer,
    and one pressed at the row's end does nothing.
 
-   Beside a shelf's tiles the arrows stand at the height of the pictures'
-   middle, whatever is written under them: each is placed in a box as high
-   as a tile is wide (`--turning-tile`). Beside a list in columns they
-   stand at the middle of its rows. They stand in the page's margin where
-   it is wide enough to hold them, and over the row's edge where it is not.
+   What the arrows look like and where they stand is said in their view
+   (turning.ts). What is here is what a class list cannot say: that each is
+   gone when there is no more its way, by the row's own scroll.
  */
-.turning {
-  position: relative;
-  --turning-gutter: 1.25rem;
-  --turning-tile: 9rem;
-}
-
-@variant sm {
-  .turning {
-    --turning-tile: 10rem;
-  }
-}
-
-@variant md {
-  .turning {
-    --turning-gutter: 2.5rem;
-  }
-}
-
-/* A row that goes on sideways draws its scrollbar thin, in the colour of
-   the lines; where there is a pointer to press the arrows with, it has none. */
-.turning-row {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-line) transparent;
-}
-
-.turning-place {
-  display: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .turning-row {
-    scrollbar-width: none;
-  }
-
-  .turning-row::-webkit-scrollbar {
-    display: none;
-  }
-
-  .turning-place {
-    position: absolute;
-    z-index: 2;
-    top: 0.25rem;
-    display: grid;
-    width: var(--turning-tile);
-    aspect-ratio: 1;
-    align-items: center;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 150ms;
-  }
-
-  .turning-place[data-way="back"] {
-    left: calc(0.25rem - var(--turning-gutter));
-    justify-items: start;
-  }
-
-  .turning-place[data-way="onward"] {
-    right: calc(0.25rem - var(--turning-gutter));
-    justify-items: end;
-  }
-
-  [data-turning="rows"] > .turning-place {
-    top: 0;
-    bottom: 0.75rem;
-    width: 2rem;
-    aspect-ratio: auto;
-  }
-
-  .turning:hover > .turning-place {
-    opacity: 1;
-  }
-
-  .turning-arrow {
-    display: grid;
-    width: 2rem;
-    height: 2rem;
-    place-items: center;
-    border-radius: 50%;
-    background: color-mix(in oklab, var(--color-canvas) 88%, transparent);
-    color: var(--color-ink);
-    box-shadow:
-      0 0 0 1px var(--color-line),
-      var(--island-shadow);
-    backdrop-filter: blur(12px);
-    cursor: pointer;
-    pointer-events: auto;
-    transition:
-      background-color 150ms,
-      scale 150ms;
-  }
-
-  .turning-arrow:hover {
-    background: var(--color-canvas);
-  }
-
-  .turning-arrow:active {
-    scale: 0.92;
-  }
-
-  @supports (animation-timeline: scroll()) and (timeline-scope: --turning) {
+@variant fine-pointer {
+  @variant scroll-timelines {
     .turning {
       timeline-scope: --turning;
     }
@@ -173,27 +73,5 @@
   100% {
     visibility: hidden;
     opacity: 0;
-  }
-}
-
-/* A shelf of three tiles across (Search's albums): the arrows stand at the
-   middle of its covers, which are a third of the row and not a shelf's tile.
-   Where Search's page is wide the shelf is a grid, and a grid is not turned. */
-.turning[data-turning="thirds"] {
-  --turning-tile: calc((100% - 1.5rem) / 3);
-}
-
-@variant search-wide {
-  [data-turning="thirds"] > .turning-place {
-    display: none;
-  }
-}
-
-/* NOTE: a list in columns is one column where it is narrow, and one column
-   has nothing to turn. Where a browser cannot read the scroll the arrows
-   would still come under the pointer, so they are taken away. */
-@variant @max-2xl {
-  [data-turning="rows"] > .turning-place {
-    display: none;
   }
 }
