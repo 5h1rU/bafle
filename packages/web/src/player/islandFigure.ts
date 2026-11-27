@@ -103,11 +103,18 @@ const layerView = (
 ): Html => h.svg([h.AriaHidden(true), ...attributes, h.Class(className)], children);
 
 // NOTE: the shadow is the figure once more, under the figure. It is a layer
-// of its own so that it can be a picture of its own in a view transition
-// (`island-shadow` in island.css).
+// of its own so that it can be a picture of its own in a view transition,
+// under a name of its own (island.css draws that picture).
+//
+// Under the expanded player's sheet the island is a picture of the island to
+// come, and the player on the sheet carries the names: its light and its
+// shadow are then part of the page, with no picture of their own.
 const shadowView = (h: HtmlBuilder<Message>): Html =>
   layerView(
-    clsx("island-shadow -z-2 drop-shadow-(--island-shadow)", STANDING_LAYER_CLASS),
+    clsx(
+      "-z-2 drop-shadow-(--island-shadow) [view-transition-name:island-shadow] in-data-under-sheet:[view-transition-name:none]",
+      STANDING_LAYER_CLASS,
+    ),
     [outlineView("fill-island", h)],
     h,
     [h.DataAttribute(ISLAND_LAYER_ATTRIBUTE, "")],
@@ -222,7 +229,7 @@ const lightsView = (light: IslandLight, h: HtmlBuilder<Message>): Html =>
       h.DataAttribute("light", light),
       h.Class(
         clsx(
-          "island-lights z-1 transition-opacity duration-1400 ease-[ease-in-out]",
+          "z-1 transition-opacity duration-1400 ease-[ease-in-out] [view-transition-name:island-light] in-data-under-sheet:[view-transition-name:none]",
           STANDING_LAYER_CLASS,
           LIGHTS[light],
         ),

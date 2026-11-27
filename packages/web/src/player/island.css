@@ -1,23 +1,9 @@
 /* THE ISLAND IN A VIEW TRANSITION
 
-   The island's figure is drawn by its view (player/islandFigure.ts). What is
-   here is what a class list cannot say: the names its shadow and its light
-   travel under, and the pictures a view transition makes of them.
-
-   Under the expanded player's sheet the island is a picture of the island to
-   come, and the player on the sheet carries the names: its light and its
-   shadow are then part of the page, with no picture of their own. */
-.island-shadow {
-  view-transition-name: island-shadow;
-}
-
-.island-lights {
-  view-transition-name: island-light;
-}
-
-[data-under-sheet] :is(.island-shadow, .island-lights) {
-  view-transition-name: none;
-}
+   The island's figure is drawn by its view (player/islandFigure.ts), which
+   also says the names its shadow and its light travel under. What is here is
+   what a class list cannot say: the pictures a view transition makes of
+   them. */
 
 /* The island's shadow and its light are pictures of their own in a view
    transition. A transition fades a still picture of the island into the

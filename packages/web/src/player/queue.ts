@@ -579,7 +579,7 @@ const lazyColumnBody = createLazy();
 export const queueColumnView = (session: Session, h: HtmlBuilder<Message>): Html =>
   h.aside(
     [h.Id(QUEUE_COLUMN_ID), h.AriaLabelledBy(COLUMN_TITLE_ID), h.Class(
-        "queue-column flex min-h-0 w-(--queue-column) flex-none flex-col border-l border-line bg-panel text-ink",
+        "flex min-h-0 w-(--queue-column) flex-none flex-col border-l border-line bg-panel text-ink [view-transition-name:queue-column]",
       ),
     ],
     [
