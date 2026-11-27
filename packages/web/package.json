@@ -23,7 +23,8 @@
     "@effect/vitest": "catalog:",
     "@foldkit/vite-plugin": "catalog:",
     "@tailwindcss/vite": "catalog:",
-    "happy-dom": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
+    "playwright": "catalog:",
     "tailwindcss": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

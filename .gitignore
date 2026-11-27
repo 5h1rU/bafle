@@ -4,6 +4,8 @@ design/
 .alchemy/
 .wrangler/
 *.tsbuildinfo
+# What a failed comparison of pictures leaves: what was seen, and how it differs.
+.vitest/
 .env
 .env.*
 .DS_Store

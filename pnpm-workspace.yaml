@@ -18,16 +18,21 @@ catalog:
   "@foldkit/ui": ^0.170.0
   "@foldkit/vite-plugin": ^0.29.1
   "@tailwindcss/vite": ^4.1.18
+  # The browser tests draw the app in a real browser. The provider has to be
+  # the very version of vitest, and playwright is pinned so that every
+  # machine draws with the same Chromium: a screenshot is compared pixel by
+  # pixel with one taken earlier.
+  "@vitest/browser-playwright": 5.1.1
   alchemy: 2.0.0-beta.87
   clsx: ^2.1.1
   effect: ^4.1.5
   foldkit: ^0.170.0
-  happy-dom: ^21.0.4
+  playwright: 1.63.0
   tailwindcss: ^4.1.18
   thumbhash: ^0.1.1
   typescript: ^7.0.2
   vite: ^8.3.5
-  vitest: ^5.0.4
+  vitest: 5.1.1
 
 patchedDependencies:
   foldkit@0.170.0: patches/foldkit@0.170.0.patch

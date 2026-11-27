@@ -27,6 +27,12 @@ pnpm dev           # alchemy dev: Workers in local workerd, the app on Vite
 
 `pnpm deploy` publishes to the Cloudflare account of the active Alchemy profile. Ask before running it.
 
+## How the app is tested
+
+The app's tests run in a real browser (Vitest's browser mode, on Playwright's Chromium), not in a stand-in for a document: `packages/web/vitest.config.ts` builds the app for them as it is built to run. A machine that has never run them needs the browser once: `pnpm --filter @bafle/web exec playwright install chromium`.
+
+Three kinds, all under `packages/web/test`. Stories drive `update` and scenes drive the view, as Foldkit's own do. The tests under `test/visual` look at the app: each hands a Model to the app's own view, draws it on a phone's screen or a desktop's with the style sheet the app ships (`looksAs` in `test/visual/draw.ts`), and compares what is seen with a picture kept beside the test (`toMatchScreenshot`, in `__screenshots__`). A change that is not meant to be seen leaves every picture as it was; one that is meant to be seen is looked at and then kept, with `pnpm --filter @bafle/web exec vitest run test/visual --update`. The pictures are a browser's on one system (`-chromium-linux`): Playwright is pinned so every run draws with the same Chromium, and another system keeps pictures of its own beside these.
+
 ## Where the provider is chosen
 
 `packages/domain/src/Catalog/MusicCatalog.external.ts` declares what Bafle asks of a catalog, in its own words. `packages/server/src/Deezer/` is the only code that knows Deezer, down to where a picture's likeness is worked out from (`likenessSourceOf`). `packages/server/src/BafleWorker.ts` names the adapter in use: to change provider, write another `MusicCatalog.toLayer(...)` and name it there.
