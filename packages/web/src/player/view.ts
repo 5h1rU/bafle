@@ -57,6 +57,7 @@ import {
 import { TITLE_PIXELS_PER_SECOND } from "./command.ts";
 import { MoreMenu, type PlayerAction } from "./moreMenu.ts";
 import {
+  FACE_BODY_CLASS,
   FACE_HEADING_CLASS,
   islandQueueButtonView,
   queueButtonView,
@@ -190,10 +191,17 @@ const mainGlyphView = (playback: Playback, sizeClass: string, h: HtmlBuilder<Mes
  */
 type MainControlLook = Readonly<{ disc: string; glyph: string; stopped: string }>;
 
+/**
+ * The main control of the expanded player is pressed in under the finger and
+ * comes back when it is let go, as the island swells under a press: quickly
+ * in, and back on the island's own spring.
+ */
+const PRESSED_IN_CLASS =
+  "motion-safe:transition-[scale] motion-safe:duration-280 motion-safe:ease-(--ease-island-out) motion-safe:active:scale-[0.935] motion-safe:active:duration-85 motion-safe:active:ease-out";
+
 // NOTE: on the sheet the control is 84 across and its glyph half of that.
-// `player-main` is what presses it in under a finger (player.css).
 const ON_SHEET: MainControlLook = {
-  disc: "player-main bg-island-control text-on-island-control hover:brightness-110",
+  disc: clsx("bg-island-control text-on-island-control hover:brightness-110", PRESSED_IN_CLASS),
   glyph: "size-[2.625rem]",
   stopped: "ring-2 ring-island-light ring-offset-2 ring-offset-canvas",
 };
@@ -768,7 +776,11 @@ const announcement = (session: Session): string => {
   });
 };
 
-const STEP_ON_SHEET_CLASS = "player-step size-12 text-ink";
+// NOTE: the two beside the main control answer a press as it does, by their
+// shape alone: no ground comes under them. One that is not to be pressed
+// does not answer.
+const STEP_ON_SHEET_CLASS =
+  "size-12 text-ink motion-safe:transition-[scale] motion-safe:duration-280 motion-safe:ease-(--ease-island-out) motion-safe:not-aria-disabled:active:scale-[0.86] motion-safe:not-aria-disabled:active:duration-85 motion-safe:not-aria-disabled:active:ease-out";
 const STEP_GLYPH_CLASS = "size-[2.3125rem]";
 
 // NOTE: the three stand further apart on a wider sheet, by a share of the
@@ -1153,7 +1165,7 @@ const songHeadView = (
 
   return h.keyed("header")(
     "song",
-    [h.Class("player-head")],
+    [h.Class(clsx(HEAD_CLASS, HEADS.Song))],
     [
       coverView(current, "absolute inset-0 size-full", "large", h),
       h.div(
@@ -1164,13 +1176,13 @@ const songHeadView = (
       // element; and not by the track's id alone, which is the cover's key.
       h.keyed("div")(
         `${current.id}/words`,
-        [h.Class("player-caption absolute inset-x-0 bottom-0 z-2 px-(--player-gutter) pb-6.75 wrap-anywhere")],
+        [h.Class("player-caption absolute inset-x-0 bottom-0 z-2 px-6 pb-6.75 wrap-anywhere")],
         [
           h.h1(
             [
               h.Id(viewInputs.titleId),
               h.DataAttribute("size", titleSize(current.title)),
-              h.Class("player-title"),
+              h.Class(clsx(TITLE_CLASS, TITLE_SIZES[titleSize(current.title)])),
             ],
             [current.title],
           ),
@@ -1203,20 +1215,32 @@ const faceHeadView = (
 
   return h.keyed("header")(
     isDetails ? "details" : "queue",
-    [h.Class("player-head")],
+    [h.Class(clsx(HEAD_CLASS, HEADS.Face))],
     [
       Option.match(Option.fromNullishOr(current.album.cover), {
         onNone: () => h.empty,
         onSome: (cover) =>
           h.div(
-            [h.AriaHidden(true), h.Class("player-ambience")],
-            [h.img([h.Decoding("sync"), h.Src(cover.small), h.Alt("")])],
+            [
+              h.AriaHidden(true),
+              h.Class(
+                "pointer-events-none absolute inset-0 -z-1 after:absolute after:inset-0 after:bg-ambience",
+              ),
+            ],
+            [
+              h.img([
+                h.Decoding("sync"),
+                h.Src(cover.small),
+                h.Alt(""),
+                h.Class("size-full object-cover"),
+              ]),
+            ],
           ),
       }),
       h.div(
         [
           h.Class(
-            "relative flex items-center gap-3 px-(--player-gutter) pt-[calc(var(--player-handle)+0.25rem)]",
+            "relative flex items-center gap-3 px-6 pt-7",
           ),
         ],
         [
@@ -1368,6 +1392,48 @@ const actionsView = (
  * the queue's, with the songs to come. The deck, the progress and the three
  * controls, is one piece on both, and the style sheet says where it stands.
  */
+// THE SHEET'S PIECES, BY ITS FACE
+
+// On the song's face the cover fills the head of the sheet from edge to
+// edge, as high as the rest leaves, so that the controls and the way to the
+// queue are on the first screen whatever its height, and the deck stands
+// right under it. On the other faces the head is kept low and stands at the
+// top, the deck stands at the foot of the sheet, over what scrolls, and what
+// the face lists takes the room between them.
+
+// NOTE: `cqh` and `cqw` are shares of the piece the sheet is drawn in, which
+// is a size container (see `sheet/geometry.ts`): the screen, as the sheet
+// has it. Under the cover the song's face needs 14rem: the progress, the
+// three controls, and the two under them.
+const HEAD_CLASS = "player-head relative isolate flex-none overflow-hidden";
+
+const HEADS = {
+  Song: "h-[clamp(15rem,calc(100cqh-14rem-env(safe-area-inset-bottom)),135cqw)] bg-tile text-on-night after:pointer-events-none after:absolute after:inset-0 after:z-1 after:bg-player-veil",
+  Face: "z-3 bg-canvas pb-3 text-ink tall:sticky tall:top-0",
+} as const;
+
+const DECK_CLASS =
+  "player-deck relative flex-none bg-canvas px-6 pb-[max(1rem,env(safe-area-inset-bottom))]";
+
+const DECKS = {
+  Song: "pt-1.75",
+  Face: "z-3 order-2 border-t border-line pt-2.5 tall:sticky tall:bottom-0",
+} as const;
+
+// NOTE: the title's lines are closer than its letters are tall, and a box
+// that cuts what does not fit would cut the tails of the last line with it:
+// the room for them is added to the box and taken back from around it.
+const TITLE_CLASS =
+  "-my-[0.12em] -ml-[0.04em] line-clamp-3 py-[0.12em] ps-[0.04em] font-[730] text-balance";
+
+// NOTE: the design sets Inter, and the app the system's face, which is drawn
+// closer at this size: the letters are brought in a little less.
+const TITLE_SIZES: Readonly<Record<ReturnType<typeof titleSize>, string>> = {
+  Large: "text-[min(17.66cqw,4.5rem)]/[0.94] tracking-[-0.052em]",
+  Medium: "text-[min(12.4cqw,3.2rem)]/[1] tracking-[-0.045em]",
+  Small: "text-[min(9.4cqw,2.4rem)]/[1.04] tracking-[-0.035em]",
+};
+
 const sheetView = (
   session: Session,
   viewInputs: ExpandedViewInputs,
@@ -1389,7 +1455,7 @@ const sheetView = (
       // either: a border would make it a pixel taller than its place, and a
       // sheet that does not fit its place is never whole on screen.
       h.Class(
-        "player-sheet box-content h-full w-full max-w-lg rounded-t-3xl text-ink",
+        "player-sheet group/sheet box-content h-full w-full max-w-lg rounded-t-3xl bg-canvas text-ink",
       ),
       ...viewInputs.sheetAttributes,
     ],
@@ -1414,11 +1480,16 @@ const sheetView = (
         ],
         [
           h.div(
-            [h.Class("player-body")],
+            // NOTE: the pieces are laid in a column that is at least the
+            // sheet's height, so that on the other faces the deck can stand
+            // at its foot under a short list. The column is inside the box
+            // that scrolls, not that box itself: a column of the box's own
+            // height would press its pieces together to fit.
+            [h.Class("flex min-h-full flex-col")],
             [
               isSong ? songHeadView(session, viewInputs, h) : faceHeadView(session, viewInputs, h),
               h.div(
-                [h.Class("player-deck")],
+                [h.Class(clsx(DECK_CLASS, isSong ? DECKS.Song : DECKS.Face))],
                 [
                   progressOrNoticeView(session, h),
                   stepsView(session, TRANSPORT_CLASS, h),
@@ -1427,7 +1498,7 @@ const sheetView = (
               ),
               session.pane === "Details"
                 ? h.div(
-                    [h.Class("player-details px-(--player-gutter) pt-3 pb-6")],
+                    [h.Class(clsx(FACE_BODY_CLASS, "px-6 pt-3 pb-6"))],
                     [
                       h.h2([h.Class(clsx(FACE_HEADING_CLASS, "mb-3.5"))], ["Song details"]),
                       viewInputs.toDetail(current),

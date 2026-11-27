@@ -182,6 +182,37 @@
     }
   }
 
+  /* The veil over the cover at the head of the expanded player: darker at the
+     very top, where the sheet's handle stands, clear over the picture, and at
+     its foot what the title stands on (`--player-veil-foot`). */
+  --background-image-player-veil: linear-gradient(
+    to bottom,
+    rgb(8 7 11 / 50%) 0%,
+    rgb(18 15 23 / 3%) 20%,
+    rgb(var(--night-channels) / 0%) 44%,
+    rgb(var(--night-channels) / 21%) 66%,
+    rgb(var(--night-channels) / 67%) 84%,
+    var(--player-veil-foot) 100%
+  );
+
+  /* The same cover behind the head of the player's other faces, as the air
+     of the place: under a veil of the page's own colour. */
+  --background-image-ambience: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-canvas) 63%, transparent),
+    color-mix(in srgb, var(--color-canvas) 81%, transparent) 60%,
+    var(--color-canvas)
+  );
+
+  /* The thin dark edge that keeps the sheet's handle, white over a cover,
+     from being lost on a light one. */
+  --shadow-handle:
+    0 0 0 0.5px rgb(var(--night-channels) / 30%), 0 1px 3px rgb(var(--night-channels) / 35%);
+
+  /* What lifts a song of the queue while it is carried. */
+  --shadow-carried:
+    0 0 0 1px var(--color-line), 0 0.75rem 2rem rgb(var(--night-channels) / 28%);
+
   /* What lifts a menu off the page. */
   --shadow-menu: 0 10px 38px rgb(0 0 0 / 0.22);
 
@@ -218,6 +249,10 @@
     @slot;
   }
 }
+
+/* A screen tall enough for a sheet's head and its foot to hold while what
+   is between them scrolls. A lower one lets them go with the list. */
+@custom-variant tall (@media (min-height: 30rem));
 
 /* While the listener is using the keys: the shell says how the last thing
    was done (`data-input`). */
@@ -292,6 +327,25 @@
    one place a shade apart is a different picture. */
 :root {
   --night-channels: 22 15 21;
+}
+
+/* What the veil over the expanded player's cover ends in. On the dark page
+   it is the page's own colour, and the cover is lost in the sheet; on the
+   light one it stays the night it is, as it does over an album's cover.
+
+   The queue's column beside the page, on a desktop's screen: as wide as the
+   design draws it where there is the room, and narrower on a narrower
+   screen, so that the page beside it is never left with less than it has
+   beside the navigation alone. */
+:root {
+  --player-veil-foot: rgb(var(--night-channels) / 88%);
+  --queue-column: clamp(20rem, 30vw, 26.5rem);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --player-veil-foot: var(--color-canvas);
+  }
 }
 
 /* The shadow that tells a floating piece from the page: the island, and the

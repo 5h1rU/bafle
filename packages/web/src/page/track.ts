@@ -325,13 +325,31 @@ export const view = (
 
 // EXPANDED PLAYER
 
-// NOTE: the look of the handle is the player's (`player-grabber` in
-// player/player.css), which says where on the sheet it stands.
-const COLLAPSE_CLASS = "player-grabber";
+// THE HANDLE
+//
+// A short bar at the very top of the sheet, as on any sheet that is swiped
+// away: it says how the player is closed, and pressed it closes it. It is the
+// sheet's and no face's: it stands there whatever face is shown and however
+// far what is in the sheet has been scrolled, white over the cover on the
+// song's face (the sheet says which face it shows) and the page's ink on the
+// others.
+//
+// NOTE: the sheet stands under the top of the screen already, wherever it is
+// drawn, so the handle is at its very top and adds no inset of its own. A
+// browser that draws its own bar over the page can report the screen's inset
+// to a page that is not under it, and the handle then stood far down the
+// sheet.
+const COLLAPSE_CLASS =
+  "group/grabber absolute top-0 left-1/2 z-5 flex h-6 w-24 -translate-x-1/2 cursor-pointer touch-manipulation justify-center pt-1.5 text-ink focus-ring-inset focus-visible:rounded-full group-data-[pane=Artwork]/sheet:text-on-night";
 
 /** The handle a sheet is closed by: a short bar at the very top of it. */
 const grabberView = (h: HtmlBuilder<Message>): Html =>
-  h.span([h.AriaHidden(true), h.Class("player-grabber-line")]);
+  h.span([
+    h.AriaHidden(true),
+    h.Class(
+      "h-1.25 w-9 rounded-full bg-current opacity-32 group-active/grabber:opacity-100 group-data-[pane=Artwork]/sheet:opacity-72 group-data-[pane=Artwork]/sheet:shadow-handle group-data-[pane=Artwork]/sheet:group-active/grabber:opacity-100",
+    ),
+  ]);
 
 /**
  * The way out of the expanded player: it shrinks back into the island over

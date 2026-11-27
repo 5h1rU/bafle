@@ -32,6 +32,12 @@ import {
 
 const PANEL_ID = "player-queue";
 
+/**
+ * What a face of the expanded player lists takes the room between the head
+ * and the deck, which stands under it at the foot of the sheet.
+ */
+export const FACE_BODY_CLASS = "order-1 grow shrink-0 basis-auto";
+
 /** What a face of the expanded player lists is named once, at its head. */
 export const FACE_HEADING_CLASS = "text-[1.625rem] leading-[1.2] font-bold tracking-[-0.04em]";
 const NEXT_ID = "player-queue-next";
@@ -134,11 +140,22 @@ const moveMarks = (
   ];
 };
 
+// MOVING A SONG OF THE QUEUE
+
+// A song is taken up by its handle and carried: the row it came from grows
+// dim, the song is drawn at the height of the finger that carries it, and a
+// line shows where it would be put down.
+//
+// NOTE: the line is drawn in the row's own box, over its top or under its
+// foot, and takes no room: rows that moved to show the place would move what
+// the place is measured by.
+const MOVE_CLASS =
+  "data-moved:*:opacity-35 data-[put=before]:inset-shadow-[0_2px_0_var(--color-accent)] data-[put=after]:inset-shadow-[0_-2px_0_var(--color-accent)]";
+
 // NOTE: a row of the queue is a list's row (`view/trackRow.ts`): the same
 // row with the line under it, the same surface that a press lights, the same
-// control that plays. `queue-row` is what the style sheet knows it by while
-// a song is being moved (player.css).
-const QUEUE_ROW_CLASS = clsx(ROW_CLASS, "queue-row");
+// control that plays.
+const QUEUE_ROW_CLASS = clsx(ROW_CLASS, MOVE_CLASS);
 
 const GRIP_CLASS =
   "flex flex-none cursor-grab items-center justify-center rounded-lg text-muted focus-ring-inset active:cursor-grabbing active:text-ink";
@@ -321,7 +338,11 @@ const lazyRows = createLazy();
 export const queuePanelView = (session: Session, h: HtmlBuilder<Message>): Html => {
   const open = session.pane === "Queue";
   return h.div(
-    [h.Id(PANEL_ID), h.Class("player-queue px-(--player-gutter) pt-1 pb-6"), h.Hidden(!open)],
+    [
+      h.Id(PANEL_ID),
+      h.Class(clsx("px-6 pt-1 pb-6", session.pane === "Artwork" ? "flex-none" : FACE_BODY_CLASS)),
+      h.Hidden(!open),
+    ],
     open
       ? [
           h.h2([h.Class(FACE_HEADING_CLASS)], ["Up next"]),
@@ -341,8 +362,7 @@ export const queuePanelView = (session: Session, h: HtmlBuilder<Message>): Html 
  * It goes up and down only. A song is moved to another place in a list that
  * runs one way, so the finger's drift to either side says nothing, and a row
  * that followed it sideways looked like one being taken out of the list.
- * Across, it stands where the list stands (`queue-ghost-lane` in
- * player.css).
+ * Across, it stands where the list stands.
  */
 export const queueGhostView = <M>(model: Model, isBeside: boolean, h: HtmlBuilder<M>): Html =>
   Option.match(
@@ -361,12 +381,27 @@ export const queueGhostView = <M>(model: Model, isBeside: boolean, h: HtmlBuilde
         h.div(
           [
             h.AriaHidden(true),
-            // Beside the page, the lane is the column the queue stands in.
-            ...(isBeside ? [h.DataAttribute("beside", "")] : []),
-            h.Class("queue-ghost-lane"),
+            h.Class(
+              clsx("pointer-events-none fixed top-0 right-0 z-9999 flex justify-center", {
+                // The lane is the width of the page the sheet is drawn over:
+                // beside the navigation, where that is a column.
+                "left-0 md:left-60": !isBeside,
+                // Beside the page, the lane is the column the queue stands in.
+                "w-(--queue-column)": isBeside,
+              }),
+            ),
             h.Style({ transform: `translate3d(0, ${String(clientY)}px, 0)` }),
           ],
-          [h.div([h.Class("queue-ghost")], [row.track.title])],
+          [
+            h.div(
+              [
+                h.Class(
+                  "w-[min(calc(100%-2rem),30rem)] -translate-y-1/2 truncate rounded-[0.875rem] bg-canvas px-4.5 py-4 text-lg/[1.5] font-demi tracking-[-0.03em] text-ink shadow-carried",
+                ),
+              ],
+              [row.track.title],
+            ),
+          ],
         ),
     },
   );
@@ -427,7 +462,7 @@ const nextCardView = (
   const { track } = row;
 
   return h.div(
-    [...moveMarks(row, count, drag, h), h.Class("queue-row mt-3 rounded-[0.875rem]")],
+    [...moveMarks(row, count, drag, h), h.Class(clsx("mt-3 rounded-[0.875rem]", MOVE_CLASS))],
     [
       h.div(
         [
