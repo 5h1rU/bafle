@@ -17,12 +17,15 @@ export const turningRowIdOf = (headingId: string): string => `${headingId}-row`;
 export type TurningOf = "Tiles" | "Thirds" | "Rows";
 
 /**
- * A row that goes on sideways draws its scrollbar thin, in the colour of the
- * lines; where there is a pointer to press the arrows with, it has none.
+ * A row that goes on sideways. It draws its scrollbar thin, in the colour of
+ * the lines; where there is a pointer to press the arrows with, it has none.
  * `turning-row` is what the style sheet reads the row's scroll by.
  */
 export const TURNING_ROW_CLASS =
-  "turning-row [scrollbar-color:var(--color-line)_transparent] [scrollbar-width:thin] fine-pointer:[scrollbar-width:none] fine-pointer:[&::-webkit-scrollbar]:hidden";
+  "turning-row overflow-x-auto [scrollbar-color:var(--color-line)_transparent] [scrollbar-width:thin] fine-pointer:[scrollbar-width:none] fine-pointer:[&::-webkit-scrollbar]:hidden";
+
+/** The same row before what it holds is known: laid out as it will be, and not to be scrolled. */
+export const STILL_ROW_CLASS = "overflow-x-hidden";
 
 /**
  * The box an arrow stands in, at one end of the row. It is drawn only where

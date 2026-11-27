@@ -155,7 +155,7 @@ export const albumCoverView = (
  * they grow out of the tile together and shrink back into it together.
  */
 // NOTE: the head also carries the class `catalog-art`, which is what keeps
-// the name off outside a flight (artwork.css).
+// the name off outside a flight (view/pageTransitions.css).
 export const albumHeadFlightAttributes = (
   albumId: AlbumId,
   presence: Presence,

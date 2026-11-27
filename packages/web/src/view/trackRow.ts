@@ -221,10 +221,16 @@ const MARK_CLASS =
 // goes is gone sooner than the other is whole, and is taken out of the
 // picture only once it is clear.
 const MARK_PIECE_CLASS =
-  "col-start-1 row-start-1 motion-safe:transition-[opacity,scale,visibility] motion-safe:duration-[160ms,240ms,0s] motion-safe:ease-[ease-out,var(--ease-settle),ease]";
+  "col-start-1 row-start-1 motion-safe:transition-[opacity,scale,visibility]";
 
-const MARK_PIECE_GONE_CLASS =
-  "invisible scale-[0.4] opacity-0 motion-safe:delay-[0s,0s,160ms] motion-safe:duration-[110ms,160ms,0s] motion-safe:ease-[ease-in]";
+// NOTE: each is a whole way of moving, the one that comes and the one that
+// goes: its times and its curves, for the three things that change. The one
+// that goes is quicker, and is hidden only once it is small and clear.
+const MARK_PIECES = {
+  Shown:
+    "motion-safe:duration-[160ms,240ms,0s] motion-safe:ease-[ease-out,var(--ease-settle),ease]",
+  Gone: "invisible scale-[0.4] opacity-0 motion-safe:delay-[0s,0s,160ms] motion-safe:duration-[110ms,160ms,0s] motion-safe:ease-[ease-in,ease-in,ease]",
+} as const;
 
 type MarkLook = Readonly<{
   sounding: string;
@@ -308,15 +314,21 @@ const nowPlayingMarkView = (status: TrackStatus, place: MarkPlace, h: HtmlBuilde
     ],
     [
       h.span(
-        [h.Class(clsx(MARK_PIECE_CLASS, look.spinner, { [MARK_PIECE_GONE_CLASS]: !isStarting }))],
+        [
+          h.Class(
+            clsx(MARK_PIECE_CLASS, look.spinner, isStarting ? MARK_PIECES.Shown : MARK_PIECES.Gone),
+          ),
+        ],
         [spinnerIcon(look.spinnerIcon)],
       ),
       h.span(
         [
           h.Class(
-            clsx(MARK_PIECE_CLASS, "flex h-3.5 items-end gap-0.5", {
-              [MARK_PIECE_GONE_CLASS]: isStarting,
-            }),
+            clsx(
+              MARK_PIECE_CLASS,
+              "flex h-3.5 items-end gap-0.5",
+              isStarting ? MARK_PIECES.Gone : MARK_PIECES.Shown,
+            ),
           ),
         ],
         [bar("[animation-delay:-600ms]"), bar("[animation-delay:-300ms]"), bar("")],

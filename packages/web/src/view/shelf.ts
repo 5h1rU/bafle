@@ -175,7 +175,7 @@ export const stationTile =
 // standing at its leading edge where the page's own margin is. Without it a
 // flick leaves the row wherever it ran out, half a tile in.
 export const SHELF_ROW_CLASS =
-  "-mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-5 overflow-x-auto overscroll-x-contain px-5 pt-1 pb-4 md:-mx-10 md:scroll-px-10 md:px-10";
+  "-mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-5 overscroll-x-contain px-5 pt-1 pb-4 md:-mx-10 md:scroll-px-10 md:px-10";
 
 export const SHELF_TILE_CLASS = "w-36 shrink-0 snap-start sm:w-40";
 
@@ -198,7 +198,7 @@ const SHELF_LAYOUTS: Readonly<Record<ShelfLayout, Readonly<{ row: string; tile: 
   // wide by its own width (`search` names it as a container), not the
   // screen's: the queue opens beside it.
   ThreeAcross: {
-    row: "-mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto overscroll-x-contain px-5 pt-1 pb-4 md:-mx-10 md:scroll-px-10 md:px-10 search-wide:mx-0 search-wide:grid search-wide:snap-none search-wide:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] search-wide:gap-4.5 search-wide:overflow-visible search-wide:px-0",
+    row: "-mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-3 overscroll-x-contain px-5 pt-1 pb-4 md:-mx-10 md:scroll-px-10 md:px-10 search-wide:mx-0 search-wide:grid search-wide:snap-none search-wide:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] search-wide:gap-4.5 search-wide:overflow-visible search-wide:px-0",
     tile: "min-w-0 shrink-0 grow-0 basis-[calc((100%-1.5rem)/3)] snap-start search-wide:max-w-93",
   },
 };
@@ -391,9 +391,7 @@ const shelfSectionView = (
             h.Id(turningRowIdOf(id)),
             h.Role("list"),
             h.AriaLabelledBy(id),
-            h.Class(
-clsx(look.row, TURNING_ROW_CLASS, "rounded-lg focus-ring-0"),
-            ),
+            h.Class(clsx(look.row, TURNING_ROW_CLASS, "rounded-lg focus-ring-0")),
           ],
           Array.map(tiles, (tile, index) =>
             tileView(tile, shape, look.tile, tileLoading(place, index), h),

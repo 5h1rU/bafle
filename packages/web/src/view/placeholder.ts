@@ -10,6 +10,7 @@ import {
   TILE_GRID_CLASS,
   TILE_GRID_TILE_CLASS,
 } from "./shelf.ts";
+import { STILL_ROW_CLASS } from "./turning.ts";
 
 // VIEW
 
@@ -60,7 +61,7 @@ export const shelfPlaceholderView = (
     [
       h.h2([h.Class(SECTION_HEADING_CLASS)], [title]),
       h.div(
-        [h.AriaHidden(true), h.Class(clsx(SHELF_ROW_CLASS, "overflow-x-hidden"))],
+        [h.AriaHidden(true), h.Class(clsx(SHELF_ROW_CLASS, STILL_ROW_CLASS))],
         Array.makeBy(SHELF_PLACEHOLDER_TILES, () =>
           tilePlaceholderView(shape, SHELF_TILE_CLASS, "TwoLines", h),
         ),
@@ -78,7 +79,7 @@ export const untitledShelfPlaceholderView = (shape: ArtworkShape, h: HtmlBuilder
     [
       h.div([h.Class(clsx(BLOCK_CLASS, "h-6 w-32 rounded"))]),
       h.div(
-        [h.Class(clsx(SHELF_ROW_CLASS, "overflow-x-hidden"))],
+        [h.Class(clsx(SHELF_ROW_CLASS, STILL_ROW_CLASS))],
         Array.makeBy(SHELF_PLACEHOLDER_TILES, () =>
           tilePlaceholderView(shape, SHELF_TILE_CLASS, "OneLine", h),
         ),

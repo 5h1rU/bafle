@@ -24,7 +24,7 @@
 /* THE COVER'S WAY TO THE HEAD OF THE SHEET, AND BACK
 
    In the expanded player the cover lies under a veil and the track's title
-   (player/player.css), and the picture that travels is the bare cover: one
+   (player/view.ts), and the picture that travels is the bare cover: one
    that simply arrived would lie over the title until the transition ended,
    and the title would then appear on it at once. So the sheet has the cover
    twice. The one that travels lands on the other, which is part of the
@@ -264,7 +264,7 @@
 /* THE QUEUE'S COLUMN COMING AND GOING
 
    On a desktop's screen the queue opens in a column past the page
-   (player/player.css). The column comes in from the side it stands on and
+   (player/queue.ts). The column comes in from the side it stands on and
    goes back off it. The page beside it has its new width in the one frame:
    a width that changed little by little would lay every shelf out again on
    every frame of the way. The island stands in the middle of the page's

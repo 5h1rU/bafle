@@ -123,7 +123,7 @@ export const pageAttributes = (
       //
       // The room at the page's foot, for the navigation and the island over
       // it, has a name (`--page-foot`): a page that has to know how much of
-      // its box is left for what it shows reads it (an album's, page/album.css).
+      // its box is left for what it shows reads it (an album's songs, page/album.ts).
       "relative h-full overflow-x-hidden overflow-y-auto [--page-foot:calc(6rem+env(safe-area-inset-bottom))] pb-[var(--page-foot)] scroll-pb-24 group-data-player/shell:scroll-pb-40 group-data-player/shell:[--page-foot:calc(10rem+env(safe-area-inset-bottom))] md:scroll-pb-0 md:[--page-foot:3rem] md:group-data-player/shell:scroll-pb-28 md:group-data-player/shell:[--page-foot:7rem] focus-ring-inset",
       PAGE_EDGES_CLASS[edges],
       { "@container/search": container === "search" },

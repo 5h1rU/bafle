@@ -118,7 +118,7 @@ export type ExpandedViewInputs = Readonly<{
 export const PLAYER_ID = "player";
 
 const CONTROL_CLASS =
-  "relative inline-flex shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full focus-ring";
+  "relative inline-flex shrink-0 touch-manipulation items-center justify-center rounded-full focus-ring";
 
 /** A glyph arrives by growing into place: small, quick, and still under reduced motion. */
 const GLYPH_CLASS =
@@ -242,7 +242,7 @@ const mainControlView = (
             h.AriaBusy(isShowingActivity(playback)),
             h.DataAttribute("playback", playback._tag),
             h.Class(
-              clsx(CONTROL_CLASS, sizeClass, look.disc, {
+              clsx(CONTROL_CLASS, "cursor-pointer", sizeClass, look.disc, {
                 [look.stopped]: Playback.guards.Stopped(playback),
               }),
             ),
@@ -272,9 +272,10 @@ const stepControlView = (
             ...attributes.button,
             h.AriaLabel(label),
             h.Class(
-              clsx(CONTROL_CLASS, lookClass, {
-                "cursor-default opacity-40 hover:bg-transparent active:bg-transparent": !isEnabled,
-              }),
+              // NOTE: a step that leads nowhere is dim, and no pointer lights
+              // it: its look says that by what the control says of itself
+              // (`not-aria-disabled`).
+              clsx(CONTROL_CLASS, isEnabled ? "cursor-pointer" : "cursor-default opacity-40", lookClass),
             ),
           ],
           [icon],
@@ -861,7 +862,7 @@ const TAIL_CLASS =
   "dock-island-next flex h-9 w-[2.125rem] shrink-0 items-center justify-end minimized:pointer-events-none minimized:w-0";
 
 const NEXT_IN_ISLAND_CLASS =
-  "h-9 w-[2.125rem] shrink-0 pr-1 text-on-island hover:bg-on-island/10 active:bg-on-island/10 minimized:invisible minimized:opacity-0";
+  "h-9 w-[2.125rem] shrink-0 pr-1 text-on-island not-aria-disabled:hover:bg-on-island/10 not-aria-disabled:active:bg-on-island/10 minimized:invisible minimized:opacity-0";
 
 // NOTE: the swell is 54 pixels across and the body 44: the control's place
 // stands out of the row by five above and below, and the control sits in it
@@ -877,7 +878,7 @@ const SWELL_CLASS = "relative z-10 -my-[5px] flex size-[3.375rem] shrink-0 items
 // tail is: the two glyphs then stand the same distance from the main
 // control, one on each side of it.
 const PREVIOUS_IN_ISLAND_CLASS =
-  "h-9 w-[2.125rem] shrink-0 pl-1 text-on-island hover:bg-on-island/10 active:bg-on-island/10";
+  "h-9 w-[2.125rem] shrink-0 pl-1 text-on-island not-aria-disabled:hover:bg-on-island/10 not-aria-disabled:active:bg-on-island/10";
 
 const islandControlsView = (
   session: Session,
@@ -1184,7 +1185,7 @@ const titleSize = (title: string): "Large" | "Medium" | "Small" => {
  * title over its foot. Nothing else is over the cover but the sheet's
  * handle, which is the sheet's and not this face's.
  *
- * The cover is drawn twice (see player.css): the one that carries its name
+ * The cover is drawn twice (see player/transitions.css): the one that carries its name
  * in a view transition, and over it the one that stays in the sheet's
  * picture.
  */

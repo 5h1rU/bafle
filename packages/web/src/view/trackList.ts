@@ -13,7 +13,7 @@ import {
   trackRowPlaceholderView,
   trackRowView,
 } from "./trackRow.ts";
-import { TURNING_ROW_CLASS, turningRowIdOf, turningView } from "./turning.ts";
+import { STILL_ROW_CLASS, TURNING_ROW_CLASS, turningRowIdOf, turningView } from "./turning.ts";
 
 export { explicitMarkerView, type RowLead, type TrackListContext } from "./trackRow.ts";
 
@@ -93,7 +93,7 @@ const rowsInColumnOf = (count: number): number => Math.ceil(count / columnsOf(co
 // the first column and the next down the one after, so it still reads from
 // its top, and each column comes to rest at the row's leading edge.
 const COLUMNS_CLASS =
-  "-mx-5 mt-2 flex snap-x snap-mandatory scroll-px-5 flex-col overflow-x-auto overscroll-x-contain px-5 pb-3 md:-mx-10 md:scroll-px-10 md:px-10 @2xl:grid @2xl:grid-flow-col @2xl:grid-rows-[repeat(var(--rows),auto)] @2xl:gap-x-10 @2xl:*:snap-start";
+  "-mx-5 mt-2 flex snap-x snap-mandatory scroll-px-5 flex-col overscroll-x-contain px-5 pb-3 md:-mx-10 md:scroll-px-10 md:px-10 @2xl:grid @2xl:grid-flow-col @2xl:grid-rows-[repeat(var(--rows),auto)] @2xl:gap-x-10 @2xl:*:snap-start";
 
 // NOTE: two columns are seen. When there are more, each is a little
 // narrower, so that the next one shows at the edge and says there is more
@@ -104,11 +104,19 @@ const COLUMNS_WIDTH_CLASS = {
   MoreBeyond: "@2xl:auto-cols-[calc((100%-5.5rem)/2)]",
 } as const;
 
-/** What a list in columns says of itself to the style sheet: how many rows a column holds, and how many columns there are. */
+/** Whether the columns go on sideways, turned by their arrows, or stand still while the tracks are on their way. */
+type ColumnsScroll = "Turned" | "Still";
+
+const COLUMNS_SCROLL_CLASS: Readonly<Record<ColumnsScroll, string>> = {
+  Turned: TURNING_ROW_CLASS,
+  Still: STILL_ROW_CLASS,
+};
+
+/** What a list in columns says of itself: how many rows a column holds, and how many columns there are. */
 const columnsAttributes = (
   count: number,
+  scroll: ColumnsScroll,
   h: HtmlBuilder<Message>,
-  className: string,
 ): ReadonlyArray<Attribute<Message>> => [
   h.Style({ "--rows": String(rowsInColumnOf(count)) }),
   h.DataAttribute("columns", String(columnsOf(count))),
@@ -116,7 +124,7 @@ const columnsAttributes = (
     clsx(
       COLUMNS_CLASS,
       columnsOf(count) > 2 ? COLUMNS_WIDTH_CLASS.MoreBeyond : COLUMNS_WIDTH_CLASS.AllInView,
-      className,
+      COLUMNS_SCROLL_CLASS[scroll],
     ),
   ),
 ];
@@ -162,7 +170,7 @@ export const trackListView = (
       h.Role("list"),
       h.AriaLabelledBy(labelledBy),
       ...(spread === "Columns"
-        ? [h.Id(turningRowIdOf(labelledBy)), ...columnsAttributes(tracks.length, h, TURNING_ROW_CLASS)]
+        ? [h.Id(turningRowIdOf(labelledBy)), ...columnsAttributes(tracks.length, "Turned", h)]
         : [h.Class(lead === "Number" ? "mt-1" : "mt-2")]),
     ],
     Array.map(tracks, (track, index) =>
@@ -229,7 +237,7 @@ export const trackListPlaceholderView = (spread: TrackSpread, h: HtmlBuilder<Mes
     ? h.div(
         [
           h.AriaHidden(true),
-          ...columnsAttributes(ROWS_IN_COLUMN * PLACEHOLDER_COLUMNS, h, "overflow-x-hidden"),
+          ...columnsAttributes(ROWS_IN_COLUMN * PLACEHOLDER_COLUMNS, "Still", h),
         ],
         Array.makeBy(ROWS_IN_COLUMN * PLACEHOLDER_COLUMNS, () => trackRowPlaceholderView(h)),
       )
