@@ -1,11 +1,13 @@
 import type { TrackSummary } from "@bafle/domain/Catalog/Track";
 import { Button, DragAndDrop } from "@foldkit/ui";
+import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { createLazy, type Html, type HtmlBuilder } from "foldkit/html";
 import { iconButtonView } from "../view/control.ts";
 import { closeIcon, gripDotsIcon, gripIcon, noteIcon, queueIcon } from "../view/icon.ts";
 import { formatDuration } from "../view/time.ts";
+import { ROW_CLASS, ROW_PLAY_CLASS, ROW_SURFACE_CLASS, ROW_TOUCH_CLASS } from "../view/trackRow.ts";
 import { Message } from "./message.ts";
 import {
   type Model,
@@ -102,92 +104,188 @@ const maybePutBefore = (drag: DragAndDrop.Model): Option.Option<number> => {
   return Option.none();
 };
 
-// NOTE: a row here is a list's row (`track-row` in view/trackList.css): the line
-// under it is the row's, and its surface, which is what a press lights, has
-// rounded corners and stands a little outside the column, so that the line
-// under the row and the one above it go when the surface is lit.
-const ROW_CLASS = "track-row queue-row";
-const ROW_SURFACE_CLASS = "track-row-surface -mx-2 flex min-h-[3.5625rem] items-center px-2";
+/** Where the queue is drawn: on a face of the expanded player's sheet, or in the column beside the page. */
+type QueueFace = "OnSheet" | "InColumn";
 
-const rowView = (
+/** How a song of the queue is marked while one is being moved: itself moved, or where the moved one would go. */
+const moveMarks = (
+  row: QueueRow,
+  count: number,
+  drag: DragAndDrop.Model,
+  h: HtmlBuilder<Message>,
+) => {
+  const putBefore = Option.getOrUndefined(maybePutBefore(drag));
+  const isMoved =
+    DragAndDrop.isDragging(drag) &&
+    Option.contains(DragAndDrop.maybeDraggedItemId(drag), row.itemId);
+  // Where it would be put down is shown as a line: over this row, or under the last.
+  const mark =
+    putBefore === row.index
+      ? "before"
+      : row.index === count - 1 && putBefore === count
+        ? "after"
+        : undefined;
+  return [
+    ...(isMoved ? [h.DataAttribute("moved", "")] : []),
+    ...(mark === undefined ? [] : [h.DataAttribute("put", mark)]),
+  ];
+};
+
+// NOTE: a row of the queue is a list's row (`view/trackRow.ts`): the same
+// row with the line under it, the same surface that a press lights, the same
+// control that plays. `queue-row` is what the style sheet knows it by while
+// a song is being moved (player.css).
+const QUEUE_ROW_CLASS = clsx(ROW_CLASS, "queue-row");
+
+const GRIP_CLASS =
+  "flex flex-none cursor-grab items-center justify-center rounded-lg text-muted focus-ring-inset active:cursor-grabbing active:text-ink";
+
+const GRIPS: Readonly<
+  Record<QueueFace, Readonly<{ place: string; icon: (className: string) => Html; size: string }>>
+> = {
+  OnSheet: { place: "-mr-2 h-14.25 w-11", icon: gripIcon, size: "size-6" },
+  // Six dots, in the column: smaller, beside a song's length.
+  InColumn: { place: "-mr-1.5 h-11 w-8", icon: gripDotsIcon, size: "size-5" },
+};
+
+/**
+ * The handle a song is taken up by, at the end of its row. On the sheet it
+ * stands where a list's row has the song's length: there what matters of a
+ * song is its place.
+ */
+const gripView = (
+  row: QueueRow,
+  drag: DragAndDrop.Model,
+  face: QueueFace,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.span(
+    [
+      ...DragAndDrop.draggable(
+        {
+          model: drag,
+          toParentMessage: (message) => Message.GotQueueDragMessage({ message }),
+          itemId: row.itemId,
+          containerId: QUEUE_CONTAINER_ID,
+          index: row.index,
+        },
+        h,
+      ),
+      // NOTE: after the component's own, so that these are the ones that
+      // hold: it calls what is dragged an option of a listbox, and this is a
+      // control at the end of a row of a list.
+      h.Role("button"),
+      h.AriaLabel(`Move: ${row.track.title}`),
+      h.Class(clsx(GRIP_CLASS, GRIPS[face].place)),
+    ],
+    [GRIPS[face].icon(GRIPS[face].size)],
+  );
+
+/** The control that plays a song of the queue: the whole of its row, or its card, but the handle. */
+const playView = (
+  { track, index }: QueueRow,
+  className: string,
+  content: ReadonlyArray<Html>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  Button.view(
+    {
+      onClick: Message.ClickedQueueItem({ trackId: track.id, index }),
+      toView: (attributes) =>
+        h.button(
+          [
+            ...attributes.button,
+            h.AriaLabel(`Play: ${track.title} by ${track.artist.name}`),
+            h.Class(clsx(ROW_PLAY_CLASS, className)),
+          ],
+          content,
+        ),
+    },
+    h,
+  );
+
+/** A song's title over who it is by, in the two sizes the column has. */
+const columnWordsView = (
+  track: TrackSummary,
+  titleClass: string,
+  artistClass: string,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.span(
+    [h.Class("block min-w-0 flex-1")],
+    [
+      h.span([h.Class(clsx("block truncate", titleClass))], [track.title]),
+      h.span([h.Class(clsx("block truncate text-muted", artistClass))], [track.artist.name]),
+    ],
+  );
+
+const columnLengthView = (track: TrackSummary, h: HtmlBuilder<Message>): Html =>
+  h.span(
+    [h.Class("shrink-0 pl-3 text-13 text-muted tabular-nums")],
+    [formatDuration(track.durationSeconds)],
+  );
+
+/**
+ * What a row of the queue shows of its song, and how tall it is. On the
+ * sheet: its place in all that is played, and its title, large. In the
+ * column: its place, its title over who it is by, and its length.
+ */
+const QUEUE_ROWS: Readonly<
+  Record<
+    QueueFace,
+    Readonly<{
+      surface: string;
+      play: string;
+      content: (row: QueueRow, place: number, h: HtmlBuilder<Message>) => ReadonlyArray<Html>;
+    }>
+  >
+> = {
+  OnSheet: {
+    surface: "min-h-14.25 px-2",
+    play: clsx(ROW_TOUCH_CLASS, "-ml-2 min-h-14.25 gap-3.5 pl-2"),
+    content: ({ track }, place, h) => [
+      h.span(
+        [h.AriaHidden(true), h.Class("w-5.25 shrink-0 text-left text-13 text-muted tabular-nums")],
+        [placeLabel(place)],
+      ),
+      h.span(
+        [h.Class("min-w-0 flex-1 truncate text-left text-lg font-demi tracking-[-0.03em]")],
+        [track.title],
+      ),
+    ],
+  },
+  InColumn: {
+    surface: "min-h-13 px-2",
+    play: "-ml-2 min-h-13 gap-3 pl-2 text-left",
+    content: ({ track }, place, h) => [
+      h.span(
+        [h.AriaHidden(true), h.Class("w-5 shrink-0 text-xs text-muted tabular-nums")],
+        [placeLabel(place)],
+      ),
+      columnWordsView(track, "text-15 leading-snug font-semibold tracking-[-0.01em]", "text-xs", h),
+      columnLengthView(track, h),
+    ],
+  },
+};
+
+/** A song of those to come: what the face shows of it, and the handle it is moved by. */
+const queueRowView = (
   row: QueueRow,
   place: number,
   count: number,
   drag: DragAndDrop.Model,
+  face: QueueFace,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const { track, index, itemId } = row;
-  const putBefore = Option.getOrUndefined(maybePutBefore(drag));
-  const isMoved =
-    DragAndDrop.isDragging(drag) && Option.contains(DragAndDrop.maybeDraggedItemId(drag), itemId);
-  // Where it would be put down is shown as a line: over this row, or under the last.
-  const mark =
-    putBefore === index ? "before" : index === count - 1 && putBefore === count ? "after" : undefined;
+  const look = QUEUE_ROWS[face];
 
   return h.keyed("li")(
-    itemId,
-    [
-      ...(isMoved ? [h.DataAttribute("moved", "")] : []),
-      ...(mark === undefined ? [] : [h.DataAttribute("put", mark)]),
-      h.Class(ROW_CLASS),
-    ],
+    row.itemId,
+    [...moveMarks(row, count, drag, h), h.Class(QUEUE_ROW_CLASS)],
     [
       h.div(
-        [h.Class(ROW_SURFACE_CLASS)],
-        [
-          Button.view(
-            {
-              onClick: Message.ClickedQueueItem({ trackId: track.id, index }),
-              toView: (attributes) =>
-                h.button(
-                  [
-                    ...attributes.button,
-                    h.AriaLabel(`Play: ${track.title} by ${track.artist.name}`),
-                    h.Class(
-                      "track-row-play -ml-2 flex min-h-[3.5625rem] min-w-0 flex-1 cursor-pointer touch-manipulation items-center gap-3.5 rounded-lg pl-2 select-none [-webkit-touch-callout:none] focus-ring-inset",
-                    ),
-                  ],
-                  [
-                    h.span(
-                      [
-                        h.AriaHidden(true),
-                        h.Class("w-[1.3125rem] shrink-0 text-left text-13 text-muted tabular-nums"),
-                      ],
-                      [placeLabel(place)],
-                    ),
-                    h.span(
-                      [h.Class("min-w-0 flex-1 truncate text-left text-lg font-demi tracking-[-0.03em]")],
-                      [track.title],
-                    ),
-                  ],
-                ),
-            },
-            h,
-          ),
-          // The handle the song is taken up by. It stands where a list's row
-          // has the song's length: here what matters of a song is its place.
-          h.span(
-            [
-              ...DragAndDrop.draggable(
-                {
-                  model: drag,
-                  toParentMessage: (message) => Message.GotQueueDragMessage({ message }),
-                  itemId,
-                  containerId: QUEUE_CONTAINER_ID,
-                  index,
-                },
-                h,
-              ),
-              // NOTE: after the component's own, so that these are the ones
-              // that hold: it calls what is dragged an option of a listbox,
-              // and this is a control at the end of a row of a list.
-              h.Role("button"),
-              h.AriaLabel(`Move: ${track.title}`),
-              h.Class("queue-grip"),
-            ],
-            [gripIcon("size-6")],
-          ),
-        ],
+        [h.Class(clsx(ROW_SURFACE_CLASS, look.surface))],
+        [playView(row, look.play, look.content(row, place, h), h), gripView(row, drag, face, h)],
       ),
     ],
   );
@@ -205,7 +303,9 @@ const rowsView = (
       h.DataAttribute("droppable-id", QUEUE_CONTAINER_ID),
       h.Class("mt-2"),
     ],
-    rowsOf(later).map((row) => rowView(row, firstPlace + row.index, later.length, drag, h)),
+    rowsOf(later).map((row) =>
+      queueRowView(row, firstPlace + row.index, later.length, drag, "OnSheet", h),
+    ),
   );
 
 const lazyRows = createLazy();
@@ -306,177 +406,66 @@ export const islandQueueButtonView = (
   );
 };
 
-/** How a song of the queue is marked while one is being moved: itself moved, or where the moved one would go. */
-const moveMarks = (
-  row: QueueRow,
-  count: number,
-  drag: DragAndDrop.Model,
-  h: HtmlBuilder<Message>,
-) => {
-  const putBefore = Option.getOrUndefined(maybePutBefore(drag));
-  const isMoved =
-    DragAndDrop.isDragging(drag) &&
-    Option.contains(DragAndDrop.maybeDraggedItemId(drag), row.itemId);
-  const mark =
-    putBefore === row.index
-      ? "before"
-      : row.index === count - 1 && putBefore === count
-        ? "after"
-        : undefined;
-  return [
-    ...(isMoved ? [h.DataAttribute("moved", "")] : []),
-    ...(mark === undefined ? [] : [h.DataAttribute("put", mark)]),
-  ];
-};
-
-/** The handle a song of the column is taken up by: six dots at the end of its row. */
-const columnGripView = (row: QueueRow, drag: DragAndDrop.Model, h: HtmlBuilder<Message>): Html =>
-  h.span(
-    [
-      ...DragAndDrop.draggable(
-        {
-          model: drag,
-          toParentMessage: (message) => Message.GotQueueDragMessage({ message }),
-          itemId: row.itemId,
-          containerId: QUEUE_CONTAINER_ID,
-          index: row.index,
-        },
-        h,
-      ),
-      // NOTE: after the component's own, as on the sheet's rows (`rowView`).
-      h.Role("button"),
-      h.AriaLabel(`Move: ${row.track.title}`),
-      h.Class("queue-grip queue-column-grip"),
-    ],
-    [gripDotsIcon("size-5")],
-  );
-
-const PLAY_IN_COLUMN_CLASS =
-  "track-row-play flex min-w-0 flex-1 cursor-pointer items-center rounded-lg text-left select-none focus-ring-inset";
-
-/** A song's title over who it is by, in the two sizes the column has. */
-const columnWordsView = (
-  track: TrackSummary,
-  titleClass: string,
-  artistClass: string,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.span(
-    [h.Class("block min-w-0 flex-1")],
-    [
-      h.span([h.Class(`block truncate ${titleClass}`)], [track.title]),
-      h.span([h.Class(`block truncate text-muted ${artistClass}`)], [track.artist.name]),
-    ],
-  );
-
-const columnLengthView = (track: TrackSummary, h: HtmlBuilder<Message>): Html =>
-  h.span(
-    [h.Class("shrink-0 pl-3 text-13 text-muted tabular-nums")],
-    [formatDuration(track.durationSeconds)],
-  );
-
 /**
  * The song that plays next, set apart at the head of the column on a card of
  * its own, with its cover. It is the first of the songs to come, and is
  * moved as any of them is.
  */
+// NOTE: the card is a row's surface with a ground of its own, and is lit as
+// the column's rows are, with the ink's colour and not the panel's, which is
+// the column's own.
 const nextCardView = (
   row: QueueRow,
   count: number,
   drag: DragAndDrop.Model,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const { track, index } = row;
-  return h.div(
-    [...moveMarks(row, count, drag, h), h.Class("queue-row queue-next")],
-    [
-      h.div(
-        [h.Class("track-row-surface queue-next-surface")],
-        [
-          Button.view(
-            {
-              onClick: Message.ClickedQueueItem({ trackId: track.id, index }),
-              toView: (attributes) =>
-                h.button(
-                  [
-                    ...attributes.button,
-                    h.AriaLabel(`Play: ${track.title} by ${track.artist.name}`),
-                    h.Class(`${PLAY_IN_COLUMN_CLASS} gap-3.5`),
-                  ],
-                  [
-                    h.span(
-                      [h.AriaHidden(true), h.Class("queue-next-cover")],
-                      Option.match(Option.fromNullishOr(track.album.cover), {
-                        onNone: () => [noteIcon("size-2/5")],
-                        onSome: (cover) => [h.img([h.Decoding("async"), h.Src(cover.small), h.Alt("")])],
-                      }),
-                    ),
-                    columnWordsView(
-                      track,
-                      "text-17 leading-snug font-bold tracking-[-0.02em]",
-                      "mt-0.5 text-13",
-                      h,
-                    ),
-                    columnLengthView(track, h),
-                  ],
-                ),
-            },
-            h,
-          ),
-          columnGripView(row, drag, h),
-        ],
-      ),
-    ],
-  );
-};
+  const { track } = row;
 
-/** A song of those that play later: its place in all that is played, its title and who it is by, its length, its handle. */
-const laterRowView = (
-  row: QueueRow,
-  place: number,
-  count: number,
-  drag: DragAndDrop.Model,
-  h: HtmlBuilder<Message>,
-): Html => {
-  const { track, index, itemId } = row;
-  return h.keyed("li")(
-    itemId,
-    [...moveMarks(row, count, drag, h), h.Class("track-row queue-row")],
+  return h.div(
+    [...moveMarks(row, count, drag, h), h.Class("queue-row mt-3 rounded-[0.875rem]")],
     [
       h.div(
-        [h.Class("track-row-surface -mx-2 flex min-h-[3.25rem] items-center px-2")],
         [
-          Button.view(
-            {
-              onClick: Message.ClickedQueueItem({ trackId: track.id, index }),
-              toView: (attributes) =>
-                h.button(
-                  [
-                    ...attributes.button,
-                    h.AriaLabel(`Play: ${track.title} by ${track.artist.name}`),
-                    h.Class(`${PLAY_IN_COLUMN_CLASS} -ml-2 min-h-[3.25rem] gap-3 pl-2`),
+          h.Class(
+            "track-row-surface flex min-h-21 items-center rounded-[0.875rem] border border-line bg-ink/5 py-2.5 pr-1.5 pl-2.5 has-[.track-row-play:hover]:bg-ink/8 has-[.track-row-play:active]:bg-ink/12",
+          ),
+        ],
+        [
+          playView(
+            row,
+            "gap-3.5 text-left",
+            [
+              h.span(
+                [
+                  h.AriaHidden(true),
+                  h.Class(
+                    "flex size-14 flex-none items-center justify-center overflow-hidden rounded-lg bg-tile text-muted",
+                  ),
+                ],
+                Option.match(Option.fromNullishOr(track.album.cover), {
+                  onNone: () => [noteIcon("size-2/5")],
+                  onSome: (cover) => [
+                    h.img([
+                      h.Decoding("async"),
+                      h.Src(cover.small),
+                      h.Alt(""),
+                      h.Class("size-full object-cover"),
+                    ]),
                   ],
-                  [
-                    h.span(
-                      [
-                        h.AriaHidden(true),
-                        h.Class("w-5 shrink-0 text-xs text-muted tabular-nums"),
-                      ],
-                      [placeLabel(place)],
-                    ),
-                    columnWordsView(
-                      track,
-                      "text-15 leading-snug font-semibold tracking-[-0.01em]",
-                      "text-xs",
-                      h,
-                    ),
-                    columnLengthView(track, h),
-                  ],
-                ),
-            },
+                }),
+              ),
+              columnWordsView(
+                track,
+                "text-17 leading-snug font-bold tracking-[-0.02em]",
+                "mt-0.5 text-13",
+                h,
+              ),
+              columnLengthView(track, h),
+            ],
             h,
           ),
-          columnGripView(row, drag, h),
+          gripView(row, drag, "InColumn", h),
         ],
       ),
     ],
@@ -517,7 +506,9 @@ const columnBodyView = (
                 ),
                 h.ol(
                   [h.AriaLabel("Later"), h.Class("mt-1")],
-                  rest.map((row) => laterRowView(row, firstPlace + row.index, rows.length, drag, h)),
+                  rest.map((row) =>
+                    queueRowView(row, firstPlace + row.index, rows.length, drag, "InColumn", h),
+                  ),
                 ),
               ]
             : []),

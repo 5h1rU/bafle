@@ -10,19 +10,11 @@ import {
   TILE_GRID_CLASS,
   TILE_GRID_TILE_CLASS,
 } from "./shelf.ts";
-import {
-  ROWS_IN_COLUMN,
-  TRACK_ROW_CLASS,
-  TRACK_ROW_LINE_CLASS,
-  TRACK_THUMBNAIL_CLASS,
-  trackColumnsAttributes,
-} from "./trackList.ts";
 
 // VIEW
 
 const SHELF_PLACEHOLDER_TILES = 8;
 const GRID_PLACEHOLDER_TILES = 12;
-const TRACK_PLACEHOLDER_ROWS = 8;
 
 /** A grey block standing in for content on its way. It keeps still under reduced motion. */
 export const BLOCK_CLASS = "animate-pulse bg-tile motion-reduce:animate-none";
@@ -101,45 +93,6 @@ export const tileGridPlaceholderView = (shape: ArtworkShape, h: HtmlBuilder<Mess
     Array.makeBy(GRID_PLACEHOLDER_TILES, () =>
       tilePlaceholderView(shape, TILE_GRID_TILE_CLASS, "OneLine", h),
     ),
-  );
-
-const trackRowPlaceholderView = (h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [h.Class(clsx(TRACK_ROW_CLASS, TRACK_ROW_LINE_CLASS))],
-    [
-      h.div([h.Class(clsx(BLOCK_CLASS, TRACK_THUMBNAIL_CLASS, "aspect-square rounded-lg"))]),
-      h.div(
-        [h.Class("min-w-0 flex-1")],
-        [
-          h.div([h.Class(clsx(BLOCK_CLASS, "h-4 w-2/5 rounded"))]),
-          h.div([h.Class(clsx(BLOCK_CLASS, "mt-2 h-4 w-1/4 rounded"))]),
-        ],
-      ),
-      h.div([h.Class(clsx(BLOCK_CLASS, "h-4 w-8 rounded"))]),
-    ],
-  );
-
-/** Rows the size of track rows, for a list whose tracks are on their way. */
-export const trackListPlaceholderView = (h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [h.AriaHidden(true), h.Class("mt-2")],
-    Array.makeBy(TRACK_PLACEHOLDER_ROWS, () => trackRowPlaceholderView(h)),
-  );
-
-/** The two columns a wide page shows of a list in columns; a narrow one shows their rows in one column. */
-const TRACK_PLACEHOLDER_COLUMNS = 2;
-
-/**
- * Rows the size of track rows, for a list in columns whose tracks are on
- * their way: laid out as the list will be, and not to be scrolled.
- */
-export const trackColumnsPlaceholderView = (h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [
-      h.AriaHidden(true),
-      ...trackColumnsAttributes(ROWS_IN_COLUMN * TRACK_PLACEHOLDER_COLUMNS, h, "overflow-x-hidden"),
-    ],
-    Array.makeBy(ROWS_IN_COLUMN * TRACK_PLACEHOLDER_COLUMNS, () => trackRowPlaceholderView(h)),
   );
 
 /** A block where a heading will be, when even the heading depends on the reply. */

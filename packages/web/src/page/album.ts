@@ -17,11 +17,13 @@ import {
   pageTitleView,
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
-import { BLOCK_CLASS, trackListPlaceholderView } from "../view/placeholder.ts";
+import { BLOCK_CLASS } from "../view/placeholder.ts";
 import {
   explicitMarkerView,
-  trackListView,
+  type TrackList,
   type TrackListContext,
+  trackListPlaceholderView,
+  trackListView,
 } from "../view/trackList.ts";
 
 // VIEW
@@ -30,6 +32,17 @@ const PAGE_ID = PAGE_IDS.Album;
 const TITLE = "Album";
 const SONGS = "Songs";
 const NOT_AVAILABLE = "This album is not available";
+
+/**
+ * The album's songs, in the album's order. They have one cover between them,
+ * the one at the page's head, so a row leads with its number.
+ */
+const SONGS_LIST: TrackList = {
+  labelledBy: "album-songs",
+  order: "Ranked",
+  spread: "Single",
+  lead: "Number",
+};
 
 /** What an album's page is called: the album's title once the catalog has told it. */
 export const titleOf = (album: AlbumData): string =>
@@ -51,7 +64,7 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
     ]),
     h.section([h.Class("album-songs")], [
       h.h2([h.Class(SONGS_HEADING_CLASS)], [SONGS]),
-      trackListPlaceholderView(h),
+      trackListPlaceholderView(SONGS_LIST.spread, h),
     ]),
   ]);
 
@@ -111,8 +124,8 @@ const foundView = (
           // NOTE: there is no control here to play the album. Any row does
           // it: pressed, it plays its song and the songs under it are what
           // comes next (playback rule 1).
-          h.h2([h.Id("album-songs"), h.Class(SONGS_HEADING_CLASS)], [SONGS]),
-          ...trackListView("album-songs", "Ranked", "Single", tracks, { ...context, albumArtistId: album.artist.id }, h),
+          h.h2([h.Id(SONGS_LIST.labelledBy), h.Class(SONGS_HEADING_CLASS)], [SONGS]),
+          ...trackListView(SONGS_LIST, tracks, { ...context, albumArtistId: album.artist.id }, h),
         ]),
     }),
   ]);

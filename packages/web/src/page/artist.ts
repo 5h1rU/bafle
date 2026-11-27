@@ -13,19 +13,19 @@ import {
   PAGE_SECTIONS_CLASS,
   PAGE_TITLE_CLASS,
   QUIET_LINE_CLASS,
-  SECTION_HEADING_CLASS,
   pageAttributes,
   pageTitleIdOf,
   pageTitleView,
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
-import {
-  BLOCK_CLASS,
-  shelfPlaceholderView,
-  trackColumnsPlaceholderView,
-} from "../view/placeholder.ts";
+import { BLOCK_CLASS, shelfPlaceholderView } from "../view/placeholder.ts";
 import { albumTile, type IsAlbumOpening, maybeShelfView } from "../view/shelf.ts";
-import { maybeTrackSectionView, type TrackListContext } from "../view/trackList.ts";
+import {
+  maybeTrackSectionView,
+  type TrackListContext,
+  type TrackSection,
+  trackSectionPlaceholderView,
+} from "../view/trackList.ts";
 
 // VIEW
 
@@ -34,6 +34,14 @@ const TITLE = "Artist";
 const TOP_SONGS = "Top songs";
 const ALBUMS = "Albums";
 const NOT_AVAILABLE = "This artist is not available";
+
+/** Their most played songs, in order: a chart, laid out as every chart is. */
+const TOP_SONGS_SECTION: TrackSection = {
+  id: "artist-top-songs",
+  title: TOP_SONGS,
+  order: "Ranked",
+  spread: "Columns",
+};
 
 /** What an artist's page is called: the artist's name once the catalog has told it. */
 export const titleOf = (artist: ArtistData): string =>
@@ -69,10 +77,7 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
       h.div(
         [h.Class(PAGE_SECTIONS_CLASS)],
         [
-          h.section(
-            [h.Class("track-columns-place")],
-            [h.h2([h.Class(SECTION_HEADING_CLASS)], [TOP_SONGS]), trackColumnsPlaceholderView(h)],
-          ),
+          trackSectionPlaceholderView(TOP_SONGS_SECTION, h),
           shelfPlaceholderView(ALBUMS, "Square", h),
         ],
       ),
@@ -111,15 +116,7 @@ const foundView = (
       headView(artist, h),
       Array.match(
         Array.getSomes([
-          maybeTrackSectionView(
-            "artist-top-songs",
-            TOP_SONGS,
-            "Ranked",
-            "Columns",
-            artist.topTracks,
-            context,
-            h,
-          ),
+          maybeTrackSectionView(TOP_SONGS_SECTION, artist.topTracks, context, h),
           maybeShelfView(
             "artist-albums",
             ALBUMS,

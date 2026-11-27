@@ -12,14 +12,18 @@ import {
   PAGE_SECTIONS_CLASS,
   PAGE_TITLE_CLASS,
   QUIET_LINE_CLASS,
-  SECTION_HEADING_CLASS,
   pageAttributes,
   pageTitleIdOf,
   pageTitleView,
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
-import { BLOCK_CLASS, trackListPlaceholderView } from "../view/placeholder.ts";
-import { maybeTrackSectionView, type TrackListContext } from "../view/trackList.ts";
+import { BLOCK_CLASS } from "../view/placeholder.ts";
+import {
+  maybeTrackSectionView,
+  type TrackListContext,
+  type TrackSection,
+  trackSectionPlaceholderView,
+} from "../view/trackList.ts";
 
 // VIEW
 
@@ -27,6 +31,14 @@ const PAGE_ID = PAGE_IDS.Playlist;
 const TITLE = "Playlist";
 const SONGS = "Songs";
 const NOT_AVAILABLE = "This playlist is not available";
+
+/** Its songs, in its own order: they are what the page is. */
+const SONGS_SECTION: TrackSection = {
+  id: "playlist-songs",
+  title: SONGS,
+  order: "Unranked",
+  spread: "Single",
+};
 
 /** What a playlist's page is called: the playlist's title once the catalog has told it. */
 export const titleOf = (playlist: PlaylistData): string =>
@@ -66,10 +78,7 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
       h.div(
         [h.Class(PAGE_SECTIONS_CLASS)],
         [
-          h.section(
-            [h.Class("max-w-3xl")],
-            [h.h2([h.Class(SECTION_HEADING_CLASS)], [SONGS]), trackListPlaceholderView(h)],
-          ),
+          trackSectionPlaceholderView(SONGS_SECTION, h),
         ],
       ),
     ],
@@ -107,7 +116,7 @@ const foundView = (playlist: Playlist, context: TrackListContext, h: HtmlBuilder
     [
       headView(playlist, h),
       Option.match(
-        maybeTrackSectionView("playlist-songs", SONGS, "Unranked", "Single", playlist.tracks, context, h),
+        maybeTrackSectionView(SONGS_SECTION, playlist.tracks, context, h),
         {
           onNone: () =>
             h.p([h.Class(QUIET_LINE_CLASS)], ["The catalog lists no songs for this playlist."]),

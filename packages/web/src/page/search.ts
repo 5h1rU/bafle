@@ -32,7 +32,11 @@ import {
   playlistTile,
   type TilesOpening,
 } from "../view/shelf.ts";
-import { type TrackListContext, type TrackSpread, trackListView } from "../view/trackList.ts";
+import {
+  maybeTrackSectionView,
+  type TrackListContext,
+  type TrackSection,
+} from "../view/trackList.ts";
 // VIEW
 
 const PAGE_ID = PAGE_IDS.Search;
@@ -201,60 +205,54 @@ const topResultView = (
   );
 };
 
-/** A titled list of the songs found, or of some of them. */
-const songsView = (
-  id: string,
-  title: string,
-  className: string,
-  spread: TrackSpread,
-  tracks: Array.NonEmptyReadonlyArray<TrackSummary>,
-  context: TrackListContext,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.section(
-    [h.Class(className)],
-    [
-      h.h2([h.Id(id), h.Class(SECTION_HEADING_CLASS)], [title]),
-      ...trackListView(id, "Unranked", spread, tracks, context, h),
-    ],
-  );
-
 /**
  * The songs found. Beside an artist's card there is room for a few, so the
  * first few are listed there and the rest further down, under a heading of
  * their own, in columns that go on sideways as top songs do. With no artist
- * to stand beside, the songs are one list in columns.
+ * to stand beside, the songs are one list in columns. `place` says where
+ * each stands on the page (`search.css`).
  */
+const SONGS_BESIDE_ARTIST: TrackSection = {
+  id: "search-songs",
+  title: "Songs",
+  order: "Unranked",
+  spread: "Single",
+  place: "search-songs",
+};
+
+const MORE_SONGS: TrackSection = {
+  id: "search-more-songs",
+  title: "More songs",
+  order: "Unranked",
+  spread: "Columns",
+  place: "search-more-songs",
+};
+
+const ALL_SONGS: TrackSection = {
+  id: "search-songs",
+  title: "Songs",
+  order: "Unranked",
+  spread: "Columns",
+  place: "search-all-songs",
+};
+
 const songSectionsView = (
   tracks: ReadonlyArray<TrackSummary>,
   isBesideArtist: boolean,
   context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => {
-  const list = (
-    id: string,
-    title: string,
-    className: string,
-    spread: TrackSpread,
-    listed: ReadonlyArray<TrackSummary>,
-  ): ReadonlyArray<Html> =>
-    Array.match(listed, {
-      onEmpty: () => [],
-      onNonEmpty: (songs) => [songsView(id, title, className, spread, songs, context, h)],
-    });
+  const maybeSection = (section: TrackSection, listed: ReadonlyArray<TrackSummary>) =>
+    maybeTrackSectionView(section, listed, context, h);
 
-  return isBesideArtist
-    ? [
-        ...list("search-songs", "Songs", "search-songs", "Single", Array.take(tracks, SONGS_AT_HEAD)),
-        ...list(
-          "search-more-songs",
-          "More songs",
-          "search-more-songs track-columns-place",
-          "Columns",
-          Array.drop(tracks, SONGS_AT_HEAD),
-        ),
-      ]
-    : list("search-songs", "Songs", "search-all-songs track-columns-place", "Columns", tracks);
+  return Array.getSomes(
+    isBesideArtist
+      ? [
+          maybeSection(SONGS_BESIDE_ARTIST, Array.take(tracks, SONGS_AT_HEAD)),
+          maybeSection(MORE_SONGS, Array.drop(tracks, SONGS_AT_HEAD)),
+        ]
+      : [maybeSection(ALL_SONGS, tracks)],
+  );
 };
 
 // NOTE: the albums are a shelf wherever they are found, with the tiles, the

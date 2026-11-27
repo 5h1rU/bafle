@@ -7,15 +7,19 @@ import type { NewMusicData } from "../model.ts";
 import {
   PAGE_SECTIONS_CLASS,
   QUIET_LINE_CLASS,
-  SECTION_HEADING_CLASS,
   pageAttributes,
   PAGE_IDS,
   pageTitleView,
 } from "../view/layout.ts";
 import { pageDataView } from "../view/pageData.ts";
-import { shelfPlaceholderView, trackColumnsPlaceholderView } from "../view/placeholder.ts";
+import { shelfPlaceholderView } from "../view/placeholder.ts";
 import { albumTile, type IsAlbumOpening, maybeShelfView } from "../view/shelf.ts";
-import { type TrackListContext, maybeTrackSectionView } from "../view/trackList.ts";
+import {
+  maybeTrackSectionView,
+  type TrackListContext,
+  type TrackSection,
+  trackSectionPlaceholderView,
+} from "../view/trackList.ts";
 
 // VIEW
 
@@ -24,15 +28,20 @@ const TITLE = "New";
 const TOP_SONGS = "Top songs";
 const TOP_ALBUMS = "Top albums";
 
+/** What is played most, in order: the catalog's chart. */
+const TOP_SONGS_SECTION: TrackSection = {
+  id: "new-top-songs",
+  title: TOP_SONGS,
+  order: "Ranked",
+  spread: "Columns",
+};
+
 /** New before the catalog has answered: a list of rows under its title, then a shelf. */
 const placeholderView = (h: HtmlBuilder<Message>): Html =>
   h.div(
     [h.Class(PAGE_SECTIONS_CLASS)],
     [
-      h.section(
-        [h.Class("track-columns-place")],
-        [h.h2([h.Class(SECTION_HEADING_CLASS)], [TOP_SONGS]), trackColumnsPlaceholderView(h)],
-      ),
+      trackSectionPlaceholderView(TOP_SONGS_SECTION, h),
       shelfPlaceholderView(TOP_ALBUMS, "Square", h),
     ],
   );
@@ -45,7 +54,7 @@ const chartsView = (
 ): Html =>
   Array.match(
     Array.getSomes([
-      maybeTrackSectionView("new-top-songs", TOP_SONGS, "Ranked", "Columns", trending.tracks, context, h),
+      maybeTrackSectionView(TOP_SONGS_SECTION, trending.tracks, context, h),
       maybeShelfView(
         "new-top-albums",
         TOP_ALBUMS,
