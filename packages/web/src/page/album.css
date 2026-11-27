@@ -25,8 +25,8 @@
   overflow: hidden;
   /* NOTE: the night the veil ends in, in both themes: the cover draws back
      over it as the page is scrolled, and the white words stand on it. */
-  background: rgb(22 15 21);
-  color: white;
+  background: var(--color-night);
+  color: var(--color-on-night);
 }
 
 .album-caption {
@@ -52,7 +52,7 @@
   letter-spacing: -.025em;
 }
 
-.album-facts { margin-top: .3rem; font-size: .875rem; color: rgb(255 255 255 / 87%); }
+.album-facts { margin-top: .3rem; font-size: .875rem; color: --alpha(var(--color-on-night) / 87%); }
 .album-placeholder { background: var(--color-panel); }
 .album-placeholder::after { display: none; }
 
@@ -155,7 +155,7 @@
     }
   }
   @keyframes album-ground-turns {
-    0%, 68% { background-color: rgb(22 15 21); }
+    0%, 68% { background-color: var(--color-night); }
     100% { background-color: var(--color-panel); }
   }
   /* At its own size, growing dim, and clear well before the strip at the

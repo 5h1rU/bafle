@@ -228,7 +228,7 @@ const CIRCLE_ICON_CLASS = "minimized:visible";
 
 /** An item's name under its icon. Drawn back, the circle has room for the icon alone. */
 const MENU_NAME_CLASS =
-  "dock-name text-[0.625rem] leading-4 font-medium minimized:opacity-0 md:text-sm md:leading-normal";
+  "dock-name text-10 leading-4 font-medium minimized:opacity-0 md:text-sm md:leading-normal";
 
 /**
  * Search keeps its place at the far end, and is a little smaller while the

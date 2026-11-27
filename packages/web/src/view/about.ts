@@ -62,7 +62,7 @@ export const creditView = (h: HtmlBuilder<Message>): Html =>
   h.div(
     [h.Class("mt-auto hidden pt-6 pl-3 text-muted md:block")],
     [
-      h.p([h.Class("text-[0.6875rem] leading-3")], [MADE_BY]),
+      h.p([h.Class("text-11 leading-3")], [MADE_BY]),
       h.div(
         [h.Class("flex items-center gap-1")],
         [

@@ -58,7 +58,7 @@ export const explicitMarkerView = (h: HtmlBuilder<Message>): Html =>
       h.span(
         [
           h.AriaHidden(true),
-          h.Class("rounded-sm bg-muted px-1 text-[0.625rem] leading-4 font-bold text-canvas"),
+          h.Class("rounded-sm bg-muted px-1 text-10 leading-4 font-bold text-canvas"),
         ],
         ["E"],
       ),
@@ -139,12 +139,12 @@ type MarkLook = Readonly<{
 
 const MARK_LOOKS: Readonly<Record<MarkPlace, MarkLook>> = {
   OverCover: {
-    sounding: "absolute inset-0 grid items-end justify-items-center rounded-lg bg-black/50 pb-3.5",
-    failed: "absolute inset-0 grid place-items-center rounded-lg bg-black/55",
-    failedIcon: "size-5 text-white",
-    bar: "w-0.5 origin-bottom rounded-full bg-white",
+    sounding: "absolute inset-0 grid items-end justify-items-center rounded-lg bg-shade/50 pb-3.5",
+    failed: "absolute inset-0 grid place-items-center rounded-lg bg-shade/55",
+    failedIcon: "size-5 text-on-night",
+    bar: "w-0.5 origin-bottom rounded-full bg-on-night",
     spinner: "mb-[-0.125rem] flex",
-    spinnerIcon: "size-5 animate-spin text-white motion-reduce:animate-pulse",
+    spinnerIcon: "size-5 animate-spin text-on-night motion-reduce:animate-pulse",
   },
   // NOTE: a little taller than the number it stands over, which is one line
   // of small figures: the bars need the room.
@@ -397,7 +397,7 @@ const MENU_BACKDROP_CLASS = "fixed inset-0 z-40 touch-none";
 // placed by the component under the row's control. It grows out of the
 // corner nearest that control.
 export const MENU_CLASS =
-  "z-50 min-w-60 origin-top-right data-[placement=top]:origin-bottom-right overflow-hidden rounded-2xl bg-canvas text-ink shadow-[0_10px_38px_rgb(0_0_0/0.22)] ring-1 ring-line outline-none transition-[scale,opacity] duration-150 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 motion-reduce:transition-none";
+  "z-50 min-w-60 origin-top-right data-[placement=top]:origin-bottom-right overflow-hidden rounded-2xl bg-canvas text-ink shadow-menu ring-1 ring-line outline-none transition-[scale,opacity] duration-150 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 motion-reduce:transition-none";
 
 export const MENU_ITEM_CLASS =
   "flex cursor-pointer items-center justify-between gap-8 border-line px-4 py-3 select-none not-first:border-t data-[active]:bg-panel active:bg-tile";

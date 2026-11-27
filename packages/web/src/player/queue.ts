@@ -154,12 +154,12 @@ const rowView = (
                     h.span(
                       [
                         h.AriaHidden(true),
-                        h.Class("w-[1.3125rem] shrink-0 text-left text-[0.8125rem] text-muted tabular-nums"),
+                        h.Class("w-[1.3125rem] shrink-0 text-left text-13 text-muted tabular-nums"),
                       ],
                       [placeLabel(place)],
                     ),
                     h.span(
-                      [h.Class("min-w-0 flex-1 truncate text-left text-lg font-[550] tracking-[-0.03em]")],
+                      [h.Class("min-w-0 flex-1 truncate text-left text-lg font-demi tracking-[-0.03em]")],
                       [track.title],
                     ),
                   ],
@@ -378,7 +378,7 @@ const columnWordsView = (
 
 const columnLengthView = (track: TrackSummary, h: HtmlBuilder<Message>): Html =>
   h.span(
-    [h.Class("shrink-0 pl-3 text-[0.8125rem] text-muted tabular-nums")],
+    [h.Class("shrink-0 pl-3 text-13 text-muted tabular-nums")],
     [formatDuration(track.durationSeconds)],
   );
 
@@ -420,8 +420,8 @@ const nextCardView = (
                     ),
                     columnWordsView(
                       track,
-                      "text-[1.0625rem] leading-snug font-bold tracking-[-0.02em]",
-                      "mt-0.5 text-[0.8125rem]",
+                      "text-17 leading-snug font-bold tracking-[-0.02em]",
+                      "mt-0.5 text-13",
                       h,
                     ),
                     columnLengthView(track, h),
@@ -473,7 +473,7 @@ const laterRowView = (
                     ),
                     columnWordsView(
                       track,
-                      "text-[0.9375rem] leading-snug font-semibold tracking-[-0.01em]",
+                      "text-15 leading-snug font-semibold tracking-[-0.01em]",
                       "text-xs",
                       h,
                     ),

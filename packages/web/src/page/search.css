@@ -262,8 +262,8 @@
   padding: 1.375rem;
   overflow: hidden;
   border-radius: inherit;
-  background: rgb(22 15 21);
-  color: white;
+  background: var(--color-night);
+  color: var(--color-on-night);
 }
 
 .search-top-art {
@@ -286,7 +286,7 @@
 .search-top-kind {
   font-size: 0.8125rem;
   font-weight: 550;
-  color: rgb(255 255 255 / 80%);
+  color: --alpha(var(--color-on-night) / 80%);
 }
 
 .search-top-name {
@@ -309,9 +309,9 @@
   place-items: center;
   width: 2.125rem;
   height: 2.125rem;
-  border: 1px solid rgb(255 255 255 / 32%);
+  border: 1px solid --alpha(var(--color-on-night) / 32%);
   border-radius: 50%;
-  background: rgb(22 15 21 / 65%);
+  background: --alpha(var(--color-night) / 65%);
 }
 
 /* THE ARTIST'S PAGE ON ITS WAY

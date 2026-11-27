@@ -381,7 +381,7 @@ type LineLook = Readonly<{
 const TITLE_LOOK: LineLook = {
   marks: TITLE_MARKS,
   phase: "title",
-  className: "text-[0.9375rem] leading-tight font-bold",
+  className: "text-15 leading-tight font-bold",
   measure: MeasureTitle,
 };
 
@@ -484,7 +484,7 @@ const trackWordsView = (
 // it last rested at, which under a swipe is the sheet whole: a tick of the
 // clock must not reach that box.
 const TIME_BOX_CLASS =
-  "h-4 shrink-0 overflow-hidden leading-4 font-[550] tabular-nums [contain:strict]";
+  "h-4 shrink-0 overflow-hidden leading-4 font-demi tabular-nums [contain:strict]";
 
 /** The times under the expanded player's bar. */
 const TIME_CLASS = clsx(TIME_BOX_CLASS, "w-11 text-xs");
