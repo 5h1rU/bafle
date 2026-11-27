@@ -31,8 +31,8 @@ import {
 
 export const SEARCH_FIELD_ID = "search-field";
 
-/** The class of the box Search's field is drawn in: the field, its magnifier and the control that empties it. */
-export const SEARCH_FIELD_BOX_CLASS = "search-field";
+/** The data attribute that marks the box Search's field is drawn in: the field, its magnifier and the control that empties it. */
+export const SEARCH_FIELD_BOX_ATTRIBUTE = "search-field-box";
 
 /** How long the listener must stop typing before Search asks the catalog. */
 export const TYPING_PAUSE = Duration.millis(300);

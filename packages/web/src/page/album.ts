@@ -7,7 +7,12 @@ import { AsyncData } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message.ts";
 import type { AlbumData } from "../model.ts";
-import { albumCoverView, albumHeadFlightAttributes, artworkView } from "../view/artwork.ts";
+import {
+  albumCoverView,
+  albumHeadFlightAttributes,
+  artworkView,
+  VEIL_CLASS,
+} from "../view/artwork.ts";
 import { PAGE_IDS, type Presence, SECTION_HEADING_CLASS, pageTitleIdOf } from "../view/layout.ts";
 import {
   type DetailKind,
@@ -94,7 +99,7 @@ const factsView = (album: Album, h: HtmlBuilder<Message>): Html =>
   );
 
 const headView = (album: Album, presence: Presence, h: HtmlBuilder<Message>): Html =>
-  h.header([h.Class("album-hero artwork-with-caption catalog-art"), ...albumHeadFlightAttributes(album.id, presence, h)], [
+  h.header([h.Class(clsx("album-hero catalog-art", VEIL_CLASS)), ...albumHeadFlightAttributes(album.id, presence, h)], [
     albumCoverView(Option.fromNullishOr(album.cover), h),
     h.div([h.Class(CAPTION_CLASS)], [
       h.h1([h.Id(pageTitleIdOf(KIND.pageId)), h.Class(HEAD_TITLE_CLASS)], [

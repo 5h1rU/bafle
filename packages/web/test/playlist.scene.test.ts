@@ -337,7 +337,7 @@ describe("playlist tiles lead to the playlist's page", () => {
     scene(
       app,
       given(onHome),
-      inside(playlistTile, see(selector(".tile-sleeve")).toHaveStyle("view-transition-name", name)),
+      inside(playlistTile, see(selector("[data-sleeve]")).toHaveStyle("view-transition-name", name)),
     );
     scene(
       app,
@@ -345,7 +345,7 @@ describe("playlist tiles lead to the playlist's page", () => {
       // Kept behind the playlist, Home's tile gives the name up: the page's picture has it.
       inside(
         selector("#home-page[inert] a[data-playlist-tile]"),
-        see(selector(".tile-sleeve")).not.toHaveStyle("view-transition-name"),
+        see(selector("[data-sleeve]")).not.toHaveStyle("view-transition-name"),
       ),
       see(selector("#playlist-page .aspect-square.rounded-xl")).toHaveStyle(
         "view-transition-name",

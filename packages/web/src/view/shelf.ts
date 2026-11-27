@@ -31,7 +31,7 @@ import {
   TILE_ATTRIBUTES,
   type TileKind,
 } from "./layout.ts";
-import { turningRowIdOf, turningView } from "./turning.ts";
+import { type TurningOf, turningRowIdOf, turningView } from "./turning.ts";
 
 // MODEL
 
@@ -198,8 +198,8 @@ const SHELF_LAYOUTS: Readonly<Record<ShelfLayout, Readonly<{ row: string; tile: 
   // wide by its own width (`search` names it as a container), not the
   // screen's: the queue opens beside it.
   ThreeAcross: {
-    row: "-mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto overscroll-x-contain px-5 pt-1 pb-4 md:-mx-10 md:scroll-px-10 md:px-10 @min-[40rem]/search:mx-0 @min-[40rem]/search:grid @min-[40rem]/search:snap-none @min-[40rem]/search:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] @min-[40rem]/search:gap-4.5 @min-[40rem]/search:overflow-visible @min-[40rem]/search:px-0",
-    tile: "min-w-0 shrink-0 grow-0 basis-[calc((100%-1.5rem)/3)] snap-start @min-[40rem]/search:max-w-93",
+    row: "-mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto overscroll-x-contain px-5 pt-1 pb-4 md:-mx-10 md:scroll-px-10 md:px-10 search-wide:mx-0 search-wide:grid search-wide:snap-none search-wide:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] search-wide:gap-4.5 search-wide:overflow-visible search-wide:px-0",
+    tile: "min-w-0 shrink-0 grow-0 basis-[calc((100%-1.5rem)/3)] snap-start search-wide:max-w-93",
   },
 };
 
@@ -222,17 +222,71 @@ export type ShelfPlace = "AtHead" | "Below";
 const tileLoading = (place: ShelfPlace, index: number): PictureLoading =>
   place === "AtHead" && index < TILES_AT_ONCE ? "AtOnce" : "WhenNear";
 
+// A SLEEVE AND ITS RECORD
+
+// The picture of a thing whose page can be on its way is a sleeve, and behind
+// it is its record. Chosen, the sleeve moves a little aside and the record
+// comes part of the way out and turns, for as long as the page takes: the
+// picture itself says that it is being fetched, and nothing is laid over it.
+// When the page opens, the picture travels to the page's head and the record
+// is left behind with the shelf. Under reduced motion the record is out and
+// still.
+
 /**
- * What a tile shows. A tile whose page is on its way says so with its own
- * picture: the sleeve moves a little aside and its record comes part of the
- * way out from behind it and turns, for as long as the page takes, and goes
- * back in when the page opens (`tile-record` in shelf.css).
+ * What the record stands behind. A tile's record is as large as its tile and
+ * comes a third of the way out. A card (the artist a search found) is far
+ * wider than it is high and stands hard against the page's edge, or the
+ * songs beside it, so its record is no larger than a tile's and comes out
+ * only into the room the card makes by moving aside, and a little past it.
  */
-// NOTE: the record is there whether or not it shows, behind the picture, so
-// that it comes out and goes back by degrees, and so that the picture is
-// the same element before, during and after. It is no part of the piece
-// that carries the picture's name in a view transition: the picture travels
-// to the head of its page, and the record stays on the shelf it leaves.
+export type SleeveKind = "Tile" | "Card";
+
+// NOTE: clear, and not hidden, while it is behind its sleeve. A page kept
+// behind the one on screen is hidden as a whole, and a piece of it that said
+// it was visible would be seen through it: the record of the tile just chosen
+// would stand over the page it opened. Clear, it goes with its page. Going
+// back in, it is made clear only once it is behind the sleeve: that is the
+// wait on its opacity, which coming out has none of.
+const RECORD_CLASS =
+  "absolute rounded-full bg-vinyl after:absolute after:inset-0 after:rounded-full after:bg-vinyl-light motion-safe:transition-[translate,opacity] motion-safe:duration-[420ms,0s] motion-safe:ease-settle";
+
+const RECORD_PLACES: Readonly<Record<SleeveKind, Readonly<{ behind: string; out: string }>>> = {
+  Tile: {
+    behind: "inset-[4%] opacity-0 motion-safe:delay-[0s,420ms]",
+    out: "inset-[4%] translate-x-[34%] opacity-100 motion-safe:after:animate-record-turns",
+  },
+  Card: {
+    behind:
+      "top-1/2 right-0 aspect-square h-[min(84%,9rem)] -translate-y-1/2 opacity-0 motion-safe:delay-[0s,420ms]",
+    out: "top-1/2 right-0 aspect-square h-[min(84%,9rem)] translate-x-4 -translate-y-1/2 opacity-100 motion-safe:after:animate-record-turns",
+  },
+};
+
+/**
+ * The record behind a sleeve. It is there whether or not it shows, so that
+ * it comes out and goes back by degrees. It is no part of the piece that
+ * carries the picture's name in a view transition: the picture travels to
+ * the head of its page, and the record stays where it was.
+ */
+export const recordView = <M>(isOpening: boolean, kind: SleeveKind, h: HtmlBuilder<M>): Html =>
+  h.span([
+    h.AriaHidden(true),
+    h.DataAttribute("record", ""),
+    h.Class(clsx(RECORD_CLASS, isOpening ? RECORD_PLACES[kind].out : RECORD_PLACES[kind].behind)),
+  ]);
+
+const SLEEVE_ASIDE: Readonly<Record<SleeveKind, string>> = {
+  Tile: "-translate-x-[6%]",
+  Card: "-translate-x-3.5",
+};
+
+/** The sleeve's own movement: a little aside while its page is on its way, and back. */
+export const sleeveClass = (isOpening: boolean, kind: SleeveKind): string =>
+  clsx("motion-safe:transition-transform motion-safe:duration-420 motion-safe:ease-settle", {
+    [SLEEVE_ASIDE[kind]]: isOpening,
+  });
+
+/** What a tile shows: its picture, a sleeve with its record behind it, over its title and what else it says. */
 const tileContentView = (
   tile: Tile,
   shape: ArtworkShape,
@@ -240,14 +294,15 @@ const tileContentView = (
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => [
   h.div(
+    [...(tile.isOpening ? [h.DataAttribute("opening", "")] : []), h.Class("relative")],
     [
-      ...(tile.isOpening ? [h.DataAttribute("opening", "")] : []),
-      h.Class("tile-art relative"),
-    ],
-    [
-      h.span([h.AriaHidden(true), h.Class("tile-record")], []),
+      recordView(tile.isOpening, "Tile", h),
       h.div(
-        [h.Class("tile-sleeve catalog-art relative"), ...flightAttributes(tile.flightStyle, h)],
+        [
+          h.DataAttribute("sleeve", ""),
+          h.Class(clsx("catalog-art relative", sleeveClass(tile.isOpening, "Tile"))),
+          ...flightAttributes(tile.flightStyle, h),
+        ],
         [artworkView(tile.maybeArtwork, shape, "medium", h, loading)],
       ),
     ],
@@ -301,7 +356,16 @@ const shelfView = (
 ): Html => {
   const look = SHELF_LAYOUTS[layout];
 
-  return shelfSectionView(id, title, shape, tiles, place, look, h);
+  return shelfSectionView(
+    id,
+    title,
+    shape,
+    tiles,
+    place,
+    look,
+    layout === "ThreeAcross" ? "Thirds" : "Tiles",
+    h,
+  );
 };
 
 const shelfSectionView = (
@@ -311,6 +375,7 @@ const shelfSectionView = (
   tiles: Array.NonEmptyReadonlyArray<Tile>,
   place: ShelfPlace,
   look: Readonly<{ row: string; tile: string }>,
+  turning: TurningOf,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.section(
@@ -320,7 +385,7 @@ const shelfSectionView = (
       h.h2([h.Id(id), h.Class(SECTION_HEADING_CLASS)], [title]),
       turningView(
         id,
-        "Tiles",
+        turning,
         h.ul(
           [
             h.Id(turningRowIdOf(id)),

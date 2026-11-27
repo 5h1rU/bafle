@@ -69,9 +69,9 @@ const results = role("region", { name: "Results" });
 const searchWithField = (place: "centered" | "docked") =>
   selector(`#search-page[data-field="${place}"]`);
 /** What Search says to assistive technology of the answer it holds. */
-const searchOutcome = selector(".search-outcome");
+const searchOutcome = selector("[data-search-outcome]");
 /** The field's magnifier, breathing while the catalog is asked. */
-const listening = all.selector("svg.search-listens");
+const listening = all.selector("[data-listening]");
 const clearSearch = role("button", { name: "Clear search" });
 const tryAgain = role("button", { name: "Try again" });
 /** The two ways to who made the app, by what each is called to someone who cannot see its mark. */

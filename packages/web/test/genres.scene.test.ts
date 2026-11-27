@@ -354,8 +354,8 @@ describe("a genre's tile leads to the genre's page", () => {
       given(onGenres),
       inside(
         genreTile,
-        see(selector(".tile-sleeve")).toHaveStyle("view-transition-name", name),
-        see(selector(".tile-sleeve")).toHaveStyle("view-transition-class", "playlist-picture"),
+        see(selector("[data-sleeve]")).toHaveStyle("view-transition-name", name),
+        see(selector("[data-sleeve]")).toHaveStyle("view-transition-class", "playlist-picture"),
       ),
     );
     scene(
@@ -363,7 +363,7 @@ describe("a genre's tile leads to the genre's page", () => {
       given(onGenre),
       inside(
         selector("#genres-page[inert] a[data-genre-tile='ge-1']"),
-        see(selector(".tile-sleeve")).not.toHaveStyle("view-transition-name"),
+        see(selector("[data-sleeve]")).not.toHaveStyle("view-transition-name"),
       ),
       see(selector("#genre-page .aspect-square.rounded-xl")).toHaveStyle(
         "view-transition-name",

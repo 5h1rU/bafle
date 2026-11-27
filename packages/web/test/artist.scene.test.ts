@@ -297,7 +297,7 @@ describe("artist tiles lead to the artist's page", () => {
           artistTile,
           expectAll(records).toHaveCount(1),
           expectAll(all.selector("img")).toHaveCount(1),
-          see(selector(".tile-record")).toHaveAttr("aria-hidden", "true"),
+          see(selector("[data-record]")).toHaveAttr("aria-hidden", "true"),
         ),
         // Only the tile that was chosen says so.
         expectAll(records).toHaveCount(1),
@@ -324,7 +324,7 @@ describe("artist tiles lead to the artist's page", () => {
     scene(
       app,
       given(onHome),
-      inside(artistTile, see(selector(".tile-sleeve")).toHaveStyle("view-transition-name", name)),
+      inside(artistTile, see(selector("[data-sleeve]")).toHaveStyle("view-transition-name", name)),
     );
     scene(
       app,
@@ -332,7 +332,7 @@ describe("artist tiles lead to the artist's page", () => {
       // Kept behind the artist, Home's tile gives the name up: the page's picture has it.
       inside(
         selector("#home-page[inert]"),
-        inside(artistTile, see(selector(".tile-sleeve")).not.toHaveStyle("view-transition-name")),
+        inside(artistTile, see(selector("[data-sleeve]")).not.toHaveStyle("view-transition-name")),
       ),
       see(selector("#artist-page .aspect-square.rounded-full")).toHaveStyle(
         "view-transition-name",

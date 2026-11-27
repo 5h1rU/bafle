@@ -5,7 +5,7 @@ import * as Queue from "effect/Queue";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Dom, Subscription } from "foldkit";
-import { SEARCH_FIELD_BOX_CLASS, SEARCH_FIELD_ID } from "./command.ts";
+import { SEARCH_FIELD_BOX_ATTRIBUTE, SEARCH_FIELD_ID } from "./command.ts";
 import { type InputMethod, Message } from "./message.ts";
 import { drawsSoundProgress, type Model } from "./model.ts";
 import * as Player from "./player/index.ts";
@@ -163,7 +163,7 @@ const dragsUnderSearchField = Stream.suspend(() =>
     filterMapEvent: ({ target }) => {
       const field = document.getElementById(SEARCH_FIELD_ID);
       const isOnField =
-        target instanceof Element && target.closest(`.${SEARCH_FIELD_BOX_CLASS}`) !== null;
+        target instanceof Element && target.closest(`[data-${SEARCH_FIELD_BOX_ATTRIBUTE}]`) !== null;
       return field !== null && document.activeElement === field && !isOnField
         ? Option.some(Message.DraggedSearchPage())
         : Option.none();

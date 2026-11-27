@@ -17,14 +17,11 @@
 @import "./view/dock.css" layer(components);
 @import "./view/trackList.css" layer(components);
 @import "./view/turning.css" layer(components);
-@import "./view/shelf.css" layer(components);
-@import "./view/artwork.css" layer(components);
 @import "./view/pageTransitions.css" layer(components);
 @import "./player/transitions.css" layer(components);
 @import "./player/island.css" layer(components);
 @import "./sheet/sheet.css" layer(components);
 @import "./page/album.css" layer(components);
-@import "./page/search.css" layer(components);
 @import "./player/player.css" layer(components);
 
 /* Aubergine. One neutral scale that leans to it, and one accent taken from
@@ -100,6 +97,91 @@
      titles and the times in. */
   --font-weight-demi: 550;
 
+  /* Search's field: its ground, between the panel's colour and a tile's,
+     the line round it, and the disc of the control that empties it. */
+  --color-field: color-mix(in srgb, var(--color-panel), var(--color-tile));
+  --color-field-line: color-mix(in srgb, var(--color-muted) 35%, var(--color-line));
+  --color-field-disc: color-mix(in srgb, var(--color-muted) 30%, var(--color-tile));
+
+  /* A record, and the light on it: two bright sectors, which is what is seen
+     to turn. */
+  --background-image-vinyl: radial-gradient(
+    circle,
+    var(--color-canvas) 0 4%,
+    var(--color-accent) 4.5% 17%,
+    var(--color-record) 17.5% 100%
+  );
+  --background-image-vinyl-light: conic-gradient(
+    from 20deg,
+    rgb(255 255 255 / 0%) 0 8%,
+    rgb(255 255 255 / 24%) 12%,
+    rgb(255 255 255 / 0%) 18% 55%,
+    rgb(255 255 255 / 17%) 62%,
+    rgb(255 255 255 / 0%) 70% 100%
+  );
+
+  /* The veil over a picture that has words over its foot: clear where the
+     picture is, and the night under the words. */
+  --background-image-veil: linear-gradient(
+    to bottom,
+    rgb(var(--night-channels) / 12%) 0%,
+    transparent 28%,
+    rgb(var(--night-channels) / 35%) 56%,
+    rgb(var(--night-channels) / 88%) 100%
+  );
+
+  /* A piece that comes to rest: fast at first, and a long while settling. */
+  --ease-settle: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* What breathes while something is on its way: a destination's icon, the
+     magnifier of Search's field. It draws in and comes back, as a pressed
+     thing does. */
+  --animate-breathe: nav-breathes 1100ms ease-in-out infinite;
+
+  /* A record, turning for as long as its page takes. */
+  --animate-record-turns: record-turns 1400ms linear infinite;
+
+  @keyframes record-turns {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* SEARCH'S FIELD ON ITS WAY
+
+     The field travels for 400 ms between the middle of the page and its
+     head, a little longer than the design's 280, which was too quick to
+     follow on a phone. The other times keep the design's shares of that:
+     the mark and the name are gone in its first third (128 ms) and come
+     back once the field is most of the way down (after 216), and what was
+     found comes once the field is half way up (240 ms, after 200). */
+  --animate-search-results-come: search-results-come 240ms cubic-bezier(0.4, 0, 0.2, 1) 200ms
+    backwards;
+  --animate-search-intro-comes: search-intro-comes 128ms linear 216ms backwards;
+  --animate-search-name-comes: search-name-comes 128ms linear 216ms backwards;
+
+  @keyframes search-results-come {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+
+  /* NOTE: the name is one piece in two places on a wide page, the middle and
+     the head, and each place has keyframes of its own name, so that going
+     from one to the other starts them again. */
+  @keyframes search-intro-comes {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes search-name-comes {
+    from {
+      opacity: 0;
+    }
+  }
+
   /* What lifts a menu off the page. */
   --shadow-menu: 0 10px 38px rgb(0 0 0 / 0.22);
 
@@ -127,6 +209,19 @@
     }
   }
 }
+
+/* Search's page, where it is wide: by its own width and not the screen's,
+   since the queue opens beside the page on a desktop's screen and takes room
+   from it. The page names itself as the container asked (`PageLook`). */
+@custom-variant search-wide {
+  @container search (width >= 40rem) {
+    @slot;
+  }
+}
+
+/* While the listener is using the keys: the shell says how the last thing
+   was done (`data-input`). */
+@custom-variant keyboard (&:where([data-input="Keyboard"] *));
 
 @media (prefers-color-scheme: dark) {
   :root {

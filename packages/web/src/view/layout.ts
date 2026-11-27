@@ -95,11 +95,18 @@ const PAGE_EDGES_CLASS: Readonly<Record<PageEdges, string>> = {
   ToEdge: "",
 };
 
+/**
+ * What a page says of its own box, beyond what every page's is: where its
+ * content starts, and the name its own width is asked by, for a page whose
+ * layout goes by that width and not the screen's (Search's: `search-wide`).
+ */
+export type PageLook = Readonly<{ edges?: PageEdges; container?: "search" }>;
+
 export const pageAttributes = (
   pageId: string,
   presence: Presence,
   h: HtmlBuilder<Message>,
-  edges: PageEdges = "Margins",
+  { edges = "Margins", container }: PageLook = {},
 ): ReadonlyArray<Attribute<Message>> => [
   h.Id(pageId),
   h.Role("region"),
@@ -117,6 +124,7 @@ export const pageAttributes = (
       // its box is left for what it shows reads it (an album's, page/album.css).
       "relative h-full overflow-x-hidden overflow-y-auto [--page-foot:calc(6rem+env(safe-area-inset-bottom))] pb-[var(--page-foot)] scroll-pb-24 group-data-player/shell:scroll-pb-40 group-data-player/shell:[--page-foot:calc(10rem+env(safe-area-inset-bottom))] md:scroll-pb-0 md:[--page-foot:3rem] md:group-data-player/shell:scroll-pb-28 md:group-data-player/shell:[--page-foot:7rem] focus-ring-inset",
       PAGE_EDGES_CLASS[edges],
+      { "@container/search": container === "search" },
     ),
   ),
 ];

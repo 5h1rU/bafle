@@ -79,6 +79,14 @@ export const artworkView = <M>(
   );
 
 /**
+ * The veil over a picture that has words over its foot (an album's head, the
+ * card of the artist a search found): a piece of its own over the picture,
+ * clear at the top and the night under the words.
+ */
+export const VEIL_CLASS =
+  "after:pointer-events-none after:absolute after:inset-0 after:bg-veil";
+
+/**
  * A picture at the size of a page's head, in a box that is never empty: the
  * small rendition, which the row or the tile the listener came from has
  * already loaded, is drawn at once, with no wait for the network or for

@@ -331,14 +331,14 @@ describe("a station's tile leads to the station's page", () => {
     scene(
       app,
       given(onRadio),
-      inside(stationTile, see(selector(".tile-sleeve")).toHaveStyle("view-transition-name", name)),
+      inside(stationTile, see(selector("[data-sleeve]")).toHaveStyle("view-transition-name", name)),
     );
     scene(
       app,
       given(onStation),
       inside(
         selector("#radio-page[inert] a[data-station-tile='st-1']"),
-        see(selector(".tile-sleeve")).not.toHaveStyle("view-transition-name"),
+        see(selector("[data-sleeve]")).not.toHaveStyle("view-transition-name"),
       ),
       see(selector("#station-page .aspect-square.rounded-xl")).toHaveStyle(
         "view-transition-name",

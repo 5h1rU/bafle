@@ -170,7 +170,7 @@ export const detailPageView = <A>(
 ): Html =>
   h.keyed("div")(
     page.key,
-    pageAttributes(page.kind.pageId, page.presence, h, page.edges),
+    pageAttributes(page.kind.pageId, page.presence, h, { edges: page.edges }),
     [
       h.div(
         [

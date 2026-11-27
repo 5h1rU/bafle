@@ -13,7 +13,13 @@ export const turningRowIdOf = (headingId: string): string => `${headingId}-row`;
  * arrows stand beside, or rows of a list in columns, which they stand
  * beside the middle of.
  */
-export type TurningOf = "Tiles" | "Rows";
+export type TurningOf = "Tiles" | "Thirds" | "Rows";
+
+const TURNING_MARKS: Readonly<Record<TurningOf, string>> = {
+  Tiles: "tiles",
+  Thirds: "thirds",
+  Rows: "rows",
+};
 
 const ARROW_LABELS: Readonly<Record<TurnWay, string>> = {
   Back: "Show earlier",
@@ -59,7 +65,7 @@ export const turningView = (
   const rowId = turningRowIdOf(headingId);
 
   return h.div(
-    [h.DataAttribute("turning", of === "Tiles" ? "tiles" : "rows"), h.Class("turning")],
+    [h.DataAttribute("turning", TURNING_MARKS[of]), h.Class("turning")],
     [row, arrowView(rowId, "Back", h), arrowView(rowId, "Onward", h)],
   );
 };

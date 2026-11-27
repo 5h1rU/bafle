@@ -175,3 +175,16 @@
     opacity: 0;
   }
 }
+
+/* A shelf of three tiles across (Search's albums): the arrows stand at the
+   middle of its covers, which are a third of the row and not a shelf's tile.
+   Where Search's page is wide the shelf is a grid, and a grid is not turned. */
+.turning[data-turning="thirds"] {
+  --turning-tile: calc((100% - 1.5rem) / 3);
+}
+
+@variant search-wide {
+  [data-turning="thirds"] > .turning-place {
+    display: none;
+  }
+}

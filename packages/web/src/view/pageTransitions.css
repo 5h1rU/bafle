@@ -6,6 +6,13 @@
   animation-duration: 150ms;
 }
 
+/* NOTE: a picture that can travel carries its name in its style, and the
+   name holds only while the transition that carries it is under way: outside
+   a flight no picture has one (`artworkFlightRules` in view/artwork.ts). */
+:where(.catalog-art) {
+  view-transition-name: none !important;
+}
+
 /* A CHANGE OF PAGE THE BROWSER HAS ALREADY SHOWN
 
    A swipe from the screen's edge goes back, or forward, and the browser
