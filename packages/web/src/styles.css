@@ -15,14 +15,12 @@
    the layer: a sheet further down wins over one above it where the two are
    as specific as each other. */
 @import "./view/dock.css" layer(components);
-@import "./view/trackList.css" layer(components);
 @import "./view/turning.css" layer(components);
 @import "./view/pageTransitions.css" layer(components);
 @import "./player/transitions.css" layer(components);
 @import "./player/island.css" layer(components);
 @import "./sheet/sheet.css" layer(components);
 @import "./page/album.css" layer(components);
-@import "./player/player.css" layer(components);
 
 /* Aubergine. One neutral scale that leans to it, and one accent taken from
    the mark: the deep aubergine of the speaker (#46203f) and the pale orchid
@@ -249,6 +247,10 @@
     @slot;
   }
 }
+
+/* Where a pointer can be held over a thing without pressing it. A finger
+   cannot: what it last touched would stay lit as if it were still there. */
+@custom-variant can-hover (@media (hover: hover));
 
 /* A screen tall enough for a sheet's head and its foot to hold while what
    is between them scrolls. A lower one lets them go with the list. */

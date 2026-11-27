@@ -48,7 +48,7 @@ describe("a row under the pointer", () => {
       model: Models.newMusic,
       screen: "Desktop",
       arrange: async (root) => {
-        const row = root.querySelector("#new-page .track-row-play");
+        const row = root.querySelector("#new-page [data-row-play]");
         if (row === null) {
           throw new Error("No row to lay the pointer on");
         }

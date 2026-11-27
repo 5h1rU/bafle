@@ -7,7 +7,14 @@ import { createLazy, type Html, type HtmlBuilder } from "foldkit/html";
 import { iconButtonView } from "../view/control.ts";
 import { closeIcon, gripDotsIcon, gripIcon, noteIcon, queueIcon } from "../view/icon.ts";
 import { formatDuration } from "../view/time.ts";
-import { ROW_CLASS, ROW_PLAY_CLASS, ROW_SURFACE_CLASS, ROW_TOUCH_CLASS } from "../view/trackRow.ts";
+import {
+  ROW_PLAY_CLASS,
+  ROW_TOUCH_CLASS,
+  rowClass,
+  rowPlayAttribute,
+  rowSurfaceClass,
+  type SurfaceGround,
+} from "../view/trackRow.ts";
 import { Message } from "./message.ts";
 import {
   type Model,
@@ -155,7 +162,7 @@ const MOVE_CLASS =
 // NOTE: a row of the queue is a list's row (`view/trackRow.ts`): the same
 // row with the line under it, the same surface that a press lights, the same
 // control that plays.
-const QUEUE_ROW_CLASS = clsx(ROW_CLASS, MOVE_CLASS);
+const QUEUE_ROW_CLASS = clsx(rowClass(), MOVE_CLASS);
 
 const GRIP_CLASS =
   "flex flex-none cursor-grab items-center justify-center rounded-lg text-muted focus-ring-inset active:cursor-grabbing active:text-ink";
@@ -216,6 +223,7 @@ const playView = (
           [
             ...attributes.button,
             h.AriaLabel(`Play: ${track.title} by ${track.artist.name}`),
+            rowPlayAttribute(h),
             h.Class(clsx(ROW_PLAY_CLASS, className)),
           ],
           content,
@@ -254,6 +262,7 @@ const QUEUE_ROWS: Readonly<
   Record<
     QueueFace,
     Readonly<{
+      ground: SurfaceGround;
       surface: string;
       play: string;
       content: (row: QueueRow, place: number, h: HtmlBuilder<Message>) => ReadonlyArray<Html>;
@@ -261,6 +270,7 @@ const QUEUE_ROWS: Readonly<
   >
 > = {
   OnSheet: {
+    ground: "OnPage",
     surface: "min-h-14.25 px-2",
     play: clsx(ROW_TOUCH_CLASS, "-ml-2 min-h-14.25 gap-3.5 pl-2"),
     content: ({ track }, place, h) => [
@@ -275,6 +285,7 @@ const QUEUE_ROWS: Readonly<
     ],
   },
   InColumn: {
+    ground: "OnPanel",
     surface: "min-h-13 px-2",
     play: "-ml-2 min-h-13 gap-3 pl-2 text-left",
     content: ({ track }, place, h) => [
@@ -304,7 +315,7 @@ const queueRowView = (
     [...moveMarks(row, count, drag, h), h.Class(QUEUE_ROW_CLASS)],
     [
       h.div(
-        [h.Class(clsx(ROW_SURFACE_CLASS, look.surface))],
+        [h.Class(clsx(rowSurfaceClass(look.ground), look.surface))],
         [playView(row, look.play, look.content(row, place, h), h), gripView(row, drag, face, h)],
       ),
     ],
@@ -467,7 +478,7 @@ const nextCardView = (
       h.div(
         [
           h.Class(
-            "flex min-h-21 items-center rounded-[0.875rem] border border-line bg-ink/5 py-2.5 pr-1.5 pl-2.5 transition-[background-color] duration-150 has-[.track-row-play:hover]:bg-ink/8 has-[.track-row-play:active]:bg-ink/12",
+            "flex min-h-21 items-center rounded-[0.875rem] border border-line bg-ink/5 py-2.5 pr-1.5 pl-2.5 transition-[background-color] duration-150 has-[[data-row-play]:active]:bg-ink/12 has-[[data-row-play]:hover:not(:active)]:bg-ink/8",
           ),
         ],
         [

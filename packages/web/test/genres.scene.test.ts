@@ -519,10 +519,10 @@ describe("the genre page", () => {
       given(withTwelve),
       inside(
         onScreen,
-        see(selector("#genre-page ol.track-columns")).toHaveStyle("--rows", "4"),
-        see(selector("#genre-page ol.track-columns")).toHaveAttr("data-columns", "3"),
-        expectAll(all.selector("#genre-page ol.track-columns li")).toHaveCount(12),
-        expectAll(all.selector("#genre-page ol.track-columns [data-column-head]")).toHaveCount(2),
+        see(selector("#genre-page ol[data-columns]")).toHaveStyle("--rows", "4"),
+        see(selector("#genre-page ol[data-columns]")).toHaveAttr("data-columns", "3"),
+        expectAll(all.selector("#genre-page ol[data-columns] li")).toHaveCount(12),
+        expectAll(all.selector("#genre-page ol[data-columns] [data-column-head]")).toHaveCount(2),
         see(selector('#genre-page [data-column-head] [data-track="tr-top-4"]')).toExist(),
         see(selector('#genre-page [data-column-head] [data-track="tr-top-8"]')).toExist(),
       ),
@@ -542,9 +542,9 @@ describe("the genre page", () => {
       given(withThree),
       inside(
         onScreen,
-        see(selector("#genre-page ol.track-columns")).toHaveStyle("--rows", "3"),
-        see(selector("#genre-page ol.track-columns")).toHaveAttr("data-columns", "1"),
-        expectAll(all.selector("#genre-page ol.track-columns [data-column-head]")).toHaveCount(0),
+        see(selector("#genre-page ol[data-columns]")).toHaveStyle("--rows", "3"),
+        see(selector("#genre-page ol[data-columns]")).toHaveAttr("data-columns", "1"),
+        expectAll(all.selector("#genre-page ol[data-columns] [data-column-head]")).toHaveCount(0),
       ),
     );
   });

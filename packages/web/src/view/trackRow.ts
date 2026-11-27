@@ -43,16 +43,73 @@ import { formatDuration } from "./time.ts";
 // A row is drawn in a frame that every row of songs shares, the queue's
 // among them: the row, with the line under it; its surface, which is what a
 // press lights; and the control that plays, which is the whole row but its
-// last place. The frame's classes are also the names the style sheet knows
-// a row by (`track-row` in trackList.css): the line is the row's and not
-// its surface's, whose corners are rounded, and the sheet hides it wherever
-// it would run into a surface that is lit.
+// last place.
 
-/** A row, with the line under it. */
-export const ROW_CLASS = "track-row";
+/** The data attribute that marks the control that plays a row's track: what lights the row is a press of it, or a pointer over it. */
+const ROW_PLAY_ATTRIBUTE = "row-play";
 
-/** A row's surface: it reaches a little past the row at both ends. */
-export const ROW_SURFACE_CLASS = "track-row-surface -mx-2 flex items-center";
+// THE LINE UNDER A ROW
+//
+// The line is the row's and not its surface's. A surface has rounded corners
+// and reaches a little past the lines between the rows, so a line that ran
+// up to a lit surface would meet a curve it does not follow. A lit surface
+// therefore stands free: the line under its own row and the line under the
+// row above it are not drawn. A row is lit while it is pressed, while a
+// pointer is over it, and for as long as the player holds its track.
+const ROW_LINE_CLASS = "border-b border-line transition-[border-color] duration-150";
+
+const OWN_SURFACE_LIT_CLASS =
+  "has-[>[data-in-player]]:border-b-transparent has-[[data-row-play]:active]:border-b-transparent can-hover:has-[[data-row-play]:hover]:border-b-transparent";
+
+const NEXT_SURFACE_LIT_CLASS =
+  "has-[+_*>[data-in-player]]:border-b-transparent has-[+_*_[data-row-play]:active]:border-b-transparent can-hover:has-[+_*_[data-row-play]:hover]:border-b-transparent";
+
+// NOTE: the row at the head of a column comes after the foot of the column
+// before in the list, and is no neighbour of it on the page: lit, it leaves
+// that row's line alone. Where the list is narrow it is one column, and that
+// row is its neighbour like any other.
+const NEXT_SURFACE_LIT_IN_ONE_COLUMN_CLASS =
+  "@max-2xl:has-[+_*>[data-in-player]]:border-b-transparent @max-2xl:has-[+_*_[data-row-play]:active]:border-b-transparent @max-2xl:can-hover:has-[+_*_[data-row-play]:hover]:border-b-transparent";
+
+/**
+ * A row, with the line under it. `isColumnFoot` is whether the row after it
+ * stands at the head of the next column of a list laid out in columns.
+ */
+export const rowClass = (isColumnFoot = false): string =>
+  clsx(
+    ROW_LINE_CLASS,
+    OWN_SURFACE_LIT_CLASS,
+    isColumnFoot ? NEXT_SURFACE_LIT_IN_ONE_COLUMN_CLASS : NEXT_SURFACE_LIT_CLASS,
+  );
+
+/**
+ * What a row's surface is lit with. On a page it is the panel's colour, and a
+ * tile's while pressed; in the queue's column, whose ground is the panel's
+ * own colour, it is a share of the ink's.
+ */
+export type SurfaceGround = "OnPage" | "OnPanel";
+
+// NOTE: a pointer over a row that is being pressed is still over it, so what
+// a pointer lights is said not to hold during a press: the two never both
+// hold, and which is written first does not matter.
+const SURFACE_LIT: Readonly<Record<SurfaceGround, string>> = {
+  OnPage:
+    "has-[[data-row-play]:active]:bg-tile can-hover:has-[[data-row-play]:hover:not(:active)]:bg-panel",
+  OnPanel:
+    "has-[[data-row-play]:active]:bg-ink/12 has-[[data-row-play]:hover:not(:active)]:bg-ink/8",
+};
+
+/**
+ * A row's surface: it reaches a little past the row at both ends. The
+ * surface of the track the player holds is tinted for as long as the player
+ * holds it.
+ */
+export const rowSurfaceClass = (ground: SurfaceGround = "OnPage", isInPlayer = false): string =>
+  clsx(
+    "-mx-2 flex items-center rounded-lg transition-[background-color] duration-150",
+    SURFACE_LIT[ground],
+    { "bg-accent-wash": isInPlayer },
+  );
 
 /** What a row shows, laid out: the whole row but its last place. */
 const ROW_BODY_CLASS = "flex min-w-0 flex-1 items-center";
@@ -64,8 +121,11 @@ const ROW_BODY_CLASS = "flex min-w-0 flex-1 items-center";
  */
 export const ROW_PLAY_CLASS = clsx(
   ROW_BODY_CLASS,
-  "track-row-play cursor-pointer rounded-lg select-none focus-ring-inset",
+  "cursor-pointer rounded-lg select-none focus-ring-inset",
 );
+
+/** What marks the control that plays, on the control: the row's line and its surface are lit by it. */
+export const rowPlayAttribute = <M>(h: HtmlBuilder<M>) => h.DataAttribute(ROW_PLAY_ATTRIBUTE, "");
 
 /** A press held on a row is a press, not the start of picking out its words. */
 export const ROW_TOUCH_CLASS = "touch-manipulation [-webkit-touch-callout:none]";
@@ -149,6 +209,23 @@ const isInPlayer = (status: TrackStatus): boolean => status !== "Elsewhere";
  */
 type MarkPlace = "OverCover" | "OverNumber";
 
+// NOTE: the mark comes over the cover, or the row's number, out of nothing.
+const MARK_CLASS =
+  "motion-safe:transition-opacity motion-safe:duration-150 motion-safe:ease-out motion-safe:starting:opacity-0";
+
+// THE SPINNER AND THE BARS
+//
+// Both are in the mark whatever it shows, one over the other, and the one
+// that is not shown is small and clear: the spinner draws in as the bars
+// come out of where it was, so the one turns into the other. The one that
+// goes is gone sooner than the other is whole, and is taken out of the
+// picture only once it is clear.
+const MARK_PIECE_CLASS =
+  "col-start-1 row-start-1 motion-safe:transition-[opacity,scale,visibility] motion-safe:duration-[160ms,240ms,0s] motion-safe:ease-[ease-out,var(--ease-settle),ease]";
+
+const MARK_PIECE_GONE_CLASS =
+  "invisible scale-[0.4] opacity-0 motion-safe:delay-[0s,0s,160ms] motion-safe:duration-[110ms,160ms,0s] motion-safe:ease-in";
+
 type MarkLook = Readonly<{
   sounding: string;
   failed: string;
@@ -188,7 +265,7 @@ const MARK_LOOKS: Readonly<Record<MarkPlace, MarkLook>> = {
  *
  * The spinner and the bars are both in the mark whatever it shows, one over
  * the other, and the one that is not shown is drawn small and clear
- * (`now-mark` in trackList.css). So a start that was slow turns into sound
+ * (`MARK_PIECE_CLASS`). So a start that was slow turns into sound
  * where it stands, the spinner drawing in as the bars come out of it, and
  * is not one picture taken away and another put in its place.
  */
@@ -205,12 +282,13 @@ const nowPlayingMarkView = (status: TrackStatus, place: MarkPlace, h: HtmlBuilde
       [
         h.AriaHidden(true),
         h.DataAttribute("now-playing", "Failed"),
-        h.Class(clsx("now-mark", look.failed)),
+        h.Class(clsx(MARK_CLASS, look.failed)),
       ],
       [alertIcon(look.failedIcon)],
     );
   }
   const isSounding = status === "Sounding";
+  const isStarting = status === "Starting";
   const bar = (delay: string): Html =>
     h.span([
       h.Class(
@@ -226,12 +304,21 @@ const nowPlayingMarkView = (status: TrackStatus, place: MarkPlace, h: HtmlBuilde
     [
       h.AriaHidden(true),
       h.DataAttribute("now-playing", status),
-      h.Class(clsx("now-mark", look.sounding)),
+      h.Class(clsx(MARK_CLASS, look.sounding)),
     ],
     [
-      h.span([h.Class(clsx("now-spinner", look.spinner))], [spinnerIcon(look.spinnerIcon)]),
       h.span(
-        [h.Class("now-bars flex h-3.5 items-end gap-0.5")],
+        [h.Class(clsx(MARK_PIECE_CLASS, look.spinner, { [MARK_PIECE_GONE_CLASS]: !isStarting }))],
+        [spinnerIcon(look.spinnerIcon)],
+      ),
+      h.span(
+        [
+          h.Class(
+            clsx(MARK_PIECE_CLASS, "flex h-3.5 items-end gap-0.5", {
+              [MARK_PIECE_GONE_CLASS]: isStarting,
+            }),
+          ),
+        ],
         [bar("[animation-delay:-600ms]"), bar("[animation-delay:-300ms]"), bar("")],
       ),
     ],
@@ -280,7 +367,8 @@ const ROW_SURFACE_HEIGHT_CLASS: Readonly<Record<RowLead, string>> = {
  * One row of a list: its track, and what the list says of it. `maybePosition`
  * is the row's place where the list numbers its rows, a chart's or an
  * album's; `isColumnHead` is whether the row stands at the head of a column
- * of a list laid out in columns.
+ * of a list laid out in columns, and `isColumnFoot` whether the row after it
+ * does.
  */
 export type TrackRow = Readonly<{
   track: TrackSummary;
@@ -288,6 +376,7 @@ export type TrackRow = Readonly<{
   lead: RowLead;
   loading: PictureLoading;
   isColumnHead: boolean;
+  isColumnFoot: boolean;
 }>;
 
 const POSITION_CLASS: Readonly<Record<RowLead, string>> = {
@@ -383,6 +472,7 @@ const playRowView = (
             h.AriaLabel(rowLabel(row.track, status)),
             ...(isInPlayer(status) ? [h.AriaCurrent("true")] : []),
             h.AriaBusy(status === "Starting"),
+            rowPlayAttribute(h),
             h.Class(clsx(ROW_PLAY_CLASS, ROW_TOUCH_CLASS, ROW_DENSITY_CLASS[row.lead])),
           ],
           rowContentView(row, status, context, h),
@@ -644,18 +734,17 @@ export const trackRowView = (
   return h.keyed("li")(
     track.id,
     [
-      // NOTE: read by the style sheet, for the line under the row before
-      // this one: that row is the foot of the column before, and no
-      // neighbour of this one (`track-columns` in trackList.css).
       ...(isColumnHead ? [h.DataAttribute("column-head", "")] : []),
-      h.Class(ROW_CLASS),
+      h.Class(rowClass(row.isColumnFoot)),
     ],
     [
       h.div(
         [
           h.DataAttribute("track", track.id),
           ...(isInPlayer(status) ? [h.DataAttribute("in-player", "")] : []),
-          h.Class(clsx(ROW_SURFACE_CLASS, ROW_SURFACE_HEIGHT_CLASS[row.lead])),
+          h.Class(
+            clsx(rowSurfaceClass("OnPage", isInPlayer(status)), ROW_SURFACE_HEIGHT_CLASS[row.lead]),
+          ),
         ],
         [
           isPlayable(track)
@@ -675,7 +764,7 @@ export const trackRowView = (
 /** A row the size of a row of songs, for a list whose tracks are on their way. */
 export const trackRowPlaceholderView = (h: HtmlBuilder<Message>): Html =>
   h.div(
-    [h.Class(clsx(ROW_CLASS, "flex items-center gap-4 py-2.5"))],
+    [h.Class(clsx(ROW_LINE_CLASS, "flex items-center gap-4 py-2.5"))],
     [
       h.div([h.Class(clsx(BLOCK_CLASS, THUMBNAIL_CLASS, "aspect-square rounded-lg"))]),
       h.div(

@@ -39,7 +39,7 @@ export type TrackOrder = "Ranked" | "Unranked";
  * down the one after, so a chart still reads from its top. The columns
  * stand in a row that goes on sideways and snaps, as a shelf does, two of
  * them seen at once. Where the list is narrow, on a phone, it is one column
- * of all its rows (`track-columns` in trackList.css).
+ * of all its rows.
  *
  * Top songs are `Columns` wherever they are listed, on New, on an artist's
  * page and on a genre's: a chart is one thing, and looks one way. So are
@@ -88,10 +88,21 @@ const rowsInColumnOf = (count: number): number => Math.ceil(count / columnsOf(co
 // NOTE: the row of columns reaches the page's edges and is padded back in
 // by as much, as a shelf's row is, so what is scrolled is cut off at the
 // edge of the page and not at the edge of its text. Where each column
-// stands, and how wide it is, is the style sheet's (`track-columns` in
-// trackList.css).
+// stands is the list's own: wide enough for two columns of rows, it is laid
+// out in columns of as many rows as it says (`--rows`), the first rows down
+// the first column and the next down the one after, so it still reads from
+// its top, and each column comes to rest at the row's leading edge.
 const COLUMNS_CLASS =
-  "track-columns -mx-5 mt-2 snap-x snap-mandatory scroll-px-5 overflow-x-auto overscroll-x-contain px-5 pb-3 md:-mx-10 md:scroll-px-10 md:px-10";
+  "-mx-5 mt-2 flex snap-x snap-mandatory scroll-px-5 flex-col overflow-x-auto overscroll-x-contain px-5 pb-3 md:-mx-10 md:scroll-px-10 md:px-10 @2xl:grid @2xl:grid-flow-col @2xl:grid-rows-[repeat(var(--rows),auto)] @2xl:gap-x-10 @2xl:*:snap-start";
+
+// NOTE: two columns are seen. When there are more, each is a little
+// narrower, so that the next one shows at the edge and says there is more
+// that way; a list that is all in view has nothing to show there, and its
+// columns take all the width.
+const COLUMNS_WIDTH_CLASS = {
+  AllInView: "@2xl:auto-cols-[calc((100%-2.5rem)/2)]",
+  MoreBeyond: "@2xl:auto-cols-[calc((100%-5.5rem)/2)]",
+} as const;
 
 /** What a list in columns says of itself to the style sheet: how many rows a column holds, and how many columns there are. */
 const columnsAttributes = (
@@ -101,18 +112,24 @@ const columnsAttributes = (
 ): ReadonlyArray<Attribute<Message>> => [
   h.Style({ "--rows": String(rowsInColumnOf(count)) }),
   h.DataAttribute("columns", String(columnsOf(count))),
-  h.Class(clsx(COLUMNS_CLASS, className)),
+  h.Class(
+    clsx(
+      COLUMNS_CLASS,
+      columnsOf(count) > 2 ? COLUMNS_WIDTH_CLASS.MoreBeyond : COLUMNS_WIDTH_CLASS.AllInView,
+      className,
+    ),
+  ),
 ];
 
 /**
  * What a section that holds a list is, for the list's sake. A list in
  * columns goes by its own width, so its section is what that width is
- * measured on (`track-columns-place`); a list in one column is kept to a
+ * measured on (a container); a list in one column is kept to a
  * width that reads well.
  */
 const SECTION_CLASS: Readonly<Record<TrackSpread, string>> = {
   Single: "max-w-3xl",
-  Columns: "track-columns-place",
+  Columns: "@container",
 };
 
 /**
@@ -136,6 +153,8 @@ export const trackListView = (
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => {
   const rowsInColumn = rowsInColumnOf(tracks.length);
+  const isColumnHead = (index: number): boolean =>
+    spread === "Columns" && index > 0 && index < tracks.length && index % rowsInColumn === 0;
   // A ranked list is an ordered one: the order is the catalog's chart.
   const listOf = order === "Ranked" ? h.ol : h.ul;
   const list = listOf(
@@ -153,7 +172,8 @@ export const trackListView = (
           maybePosition: order === "Ranked" ? Option.some(index + 1) : Option.none(),
           lead,
           loading: rowLoading(spread, index),
-          isColumnHead: spread === "Columns" && index > 0 && index % rowsInColumn === 0,
+          isColumnHead: isColumnHead(index),
+          isColumnFoot: isColumnHead(index + 1),
         },
         context,
         h,

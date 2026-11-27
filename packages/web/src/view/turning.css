@@ -188,3 +188,12 @@
     display: none;
   }
 }
+
+/* NOTE: a list in columns is one column where it is narrow, and one column
+   has nothing to turn. Where a browser cannot read the scroll the arrows
+   would still come under the pointer, so they are taken away. */
+@variant @max-2xl {
+  [data-turning="rows"] > .turning-place {
+    display: none;
+  }
+}
