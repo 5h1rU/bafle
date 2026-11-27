@@ -191,6 +191,14 @@
   }
 }
 
+/* The night once more, as its three channels, for a veil: a gradient of
+   shares of it. A browser draws a gradient between colours written this way
+   a shade apart from one between colours that were mixed, and a veil is the
+   one place a shade apart is a different picture. */
+:root {
+  --night-channels: 22 15 21;
+}
+
 /* The shadow that tells a floating piece from the page: the island, and the
    arrows that turn a row. */
 :root {

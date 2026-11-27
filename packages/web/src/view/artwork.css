@@ -5,10 +5,10 @@
   pointer-events: none;
   background: linear-gradient(
     to bottom,
-    --alpha(var(--color-night) / 12%) 0%,
+    rgb(var(--night-channels) / 12%) 0%,
     transparent 28%,
-    --alpha(var(--color-night) / 35%) 56%,
-    --alpha(var(--color-night) / 88%) 100%
+    rgb(var(--night-channels) / 35%) 56%,
+    rgb(var(--night-channels) / 88%) 100%
   );
 }
 

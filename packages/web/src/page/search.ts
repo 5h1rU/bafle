@@ -147,6 +147,12 @@ const fieldView = (fieldText: string, isListening: boolean, h: HtmlBuilder<Messa
  * tile does: it is a sleeve, which moves a little aside, and its record
  * comes part of the way out from behind it and turns (`search.css`).
  */
+// NOTE: the card is the night under the artist's portrait, which fills it,
+// with their name in white over its foot. `search-top-card` is what the
+// style sheet moves aside while the artist's page is on its way (search.css).
+const CARD_CLASS =
+  "relative isolate grid min-h-41.5 min-w-0 flex-1 content-end overflow-hidden rounded-[inherit] bg-night p-5.5 text-on-night aspect-11/4 @min-[40rem]/search:min-h-48.75";
+
 const topResultView = (
   artist: ArtistSummary,
   isOpening: boolean,
@@ -157,22 +163,24 @@ const topResultView = (
   const flightStyle = pictureFlightStyle("Artist", artist.id, presence);
 
   return h.section(
-    [h.Class("search-top")],
+    [h.Class("search-top flex flex-col")],
     [
       artworkFlightRules(Option.toArray(Option.fromNullishOr(flightStyle.viewTransitionName)), h),
-      h.h2([h.Class(clsx(SECTION_HEADING_CLASS, "search-top-heading"))], ["Top result"]),
+      h.h2([h.Class(clsx(SECTION_HEADING_CLASS, "sr-only @min-[40rem]/search:not-sr-only"))], ["Top result"]),
       h.a(
         [
           h.Href(artistRouter({ artistId: artist.id })),
           h.AriaBusy(isOpening),
           h.DataAttribute(TILE_ATTRIBUTES.Artist, artist.id),
           ...(isOpening ? [h.DataAttribute("opening", "")] : []),
-          h.Class("search-top-link"),
+          h.Class(
+            "relative isolate flex flex-1 touch-manipulation rounded-[1.0625rem] focus-ring @min-[40rem]/search:mt-3 @min-[40rem]/search:rounded-xl",
+          ),
         ],
         [
           h.span([h.AriaHidden(true), h.Class("tile-record search-top-record")]),
           h.span(
-            [h.Class("tile-sleeve search-top-card artwork-with-caption")],
+            [h.Class(clsx("tile-sleeve search-top-card artwork-with-caption", CARD_CLASS))],
             [
               Option.match(maybePicture, {
                 onNone: () => h.empty,
@@ -180,7 +188,7 @@ const topResultView = (
                   h.span(
                     [
                       h.AriaHidden(true),
-                      h.Class("search-top-art catalog-art"),
+                      h.Class("catalog-art absolute inset-0 -z-2"),
                       ...flightAttributes(flightStyle, h),
                     ],
                     [
@@ -190,13 +198,32 @@ const topResultView = (
                         h.Decoding("sync"),
                         h.Src(picture.large),
                         h.Alt(""),
+                        // A portrait's face is in its upper part: that is what a wide card keeps.
+                        h.Class("size-full object-cover object-[center_30%]"),
                       ]),
                     ],
                   ),
               }),
-              h.span([h.Class("search-top-kind")], ["Artist"]),
-              h.span([h.Class("search-top-name")], [artist.name]),
-              h.span([h.AriaHidden(true), h.Class("search-top-go")], [openIcon("size-4")]),
+              h.span([h.Class("text-13 font-demi text-on-night/80")], ["Artist"]),
+              h.span(
+                [
+                  h.Class(
+                    "max-w-[78%] text-4xl/[1.08] font-bold tracking-[-0.045em] text-balance wrap-anywhere @min-[40rem]/search:max-w-[68%] @min-[40rem]/search:text-[3.0625rem] @min-[40rem]/search:tracking-[-0.047em]",
+                  ),
+                ],
+                [artist.name],
+              ),
+              // NOTE: the way in, drawn on a wide page as the design draws
+              // it. Narrow, the whole card is plainly that.
+              h.span(
+                [
+                  h.AriaHidden(true),
+                  h.Class(
+                    "absolute right-4 bottom-4 hidden size-8.5 place-items-center rounded-full border border-on-night/32 bg-night/65 @min-[40rem]/search:grid",
+                  ),
+                ],
+                [openIcon("size-4")],
+              ),
             ],
           ),
         ],
@@ -370,9 +397,12 @@ const resultsView = (
       h.AriaBusy(AsyncData.isPending(search)),
       h.Class(
         // Dimmed, not removed: still readable, visibly not the answer to what the field says.
-        clsx("search-results transition-opacity duration-150 motion-reduce:transition-none", {
-          "opacity-60": isOutOfDate,
-        }),
+        clsx(
+          "search-results mt-(--search-gap) transition-opacity duration-150 motion-reduce:transition-none @min-[40rem]/search:mt-6",
+          {
+            "opacity-60": isOutOfDate,
+          },
+        ),
       ),
     ],
     [
@@ -382,7 +412,14 @@ const resultsView = (
         onData: (answer) =>
           hasResults(answer)
             ? foundView(answer, context, opening, h)
-            : h.p([h.Class("search-none")], [noResults(answer)]),
+            : h.p(
+                [
+                  h.Class(
+                    "text-center text-[0.875rem] text-pretty text-muted @min-[40rem]/search:mt-8 @min-[40rem]/search:text-start @min-[40rem]/search:text-[1rem]",
+                  ),
+                ],
+                [noResults(answer)],
+              ),
       }),
     ],
   );

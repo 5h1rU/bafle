@@ -19,6 +19,19 @@ export default mergeConfig(
         provider: playwright(),
         instances: [{ browser: "chromium" }],
         screenshotFailures: false,
+        // NOTE: the comparison's own allowance for a pixel's colour, a
+        // tenth, lets a ground go from one tone to the next unnoticed, which
+        // is the very thing these pictures are kept to notice. A hundredth
+        // is what a browser's rounding comes to: the same colour written
+        // another way (a share of a token in place of `rgb()`) is drawn a
+        // level or two apart in a letter's edge, and nothing a listener
+        // could see is as near as that. No pixel may be further off.
+        expect: {
+          toMatchScreenshot: {
+            comparatorName: "pixelmatch",
+            comparatorOptions: { threshold: 0.01, allowedMismatchedPixels: 0 },
+          },
+        },
       },
     },
   }),

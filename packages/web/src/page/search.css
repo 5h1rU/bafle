@@ -187,18 +187,6 @@
   background: color-mix(in srgb, var(--color-muted) 30%, var(--color-tile));
 }
 
-/* WHAT WAS FOUND */
-.search-results {
-  margin-top: var(--search-gap);
-}
-
-.search-none {
-  color: var(--color-muted);
-  font-size: 0.875rem;
-  text-align: center;
-  text-wrap: pretty;
-}
-
 /* Narrow, one thing under another: the artist, the albums, the songs, then
    the rest. The songs come before the albums in the document, where they are
    read beside the artist on a wide page, so their order here is said. */
@@ -220,98 +208,13 @@
 .search-artists-place { order: 5; }
 .search-playlists-place { order: 6; }
 
-.search-top-heading {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
+/* THE ARTIST FOUND FIRST
 
-/* THE ARTIST FOUND FIRST */
-.search-top {
-  display: flex;
-  flex-direction: column;
-}
-
-/* The way to the artist's page: the card, with its record behind it. */
-.search-top-link {
-  position: relative;
-  isolation: isolate;
-  display: flex;
-  flex: 1;
-  border-radius: 1.0625rem;
-  touch-action: manipulation;
-}
-
-.search-top-link:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.search-top-card {
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  flex: 1;
-  align-content: end;
-  min-width: 0;
-  min-height: 10.375rem;
-  aspect-ratio: 11 / 4;
-  padding: 1.375rem;
-  overflow: hidden;
-  border-radius: inherit;
-  background: var(--color-night);
-  color: var(--color-on-night);
-}
-
-.search-top-art {
-  position: absolute;
-  z-index: -2;
-  inset: 0;
-}
-
-.search-top-art img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 30%;
-}
-
+   Their card is drawn by the view (`topResultView` in search.ts). What is
+   left here is what stands over its picture and behind it: the veil's place
+   under the words, and the record. */
 .search-top-card::after {
   z-index: -1;
-}
-
-.search-top-kind {
-  font-size: 0.8125rem;
-  font-weight: 550;
-  color: --alpha(var(--color-on-night) / 80%);
-}
-
-.search-top-name {
-  max-width: 78%;
-  overflow-wrap: anywhere;
-  font-size: 2.25rem;
-  font-weight: 700;
-  line-height: 1.08;
-  letter-spacing: -0.045em;
-  text-wrap: balance;
-}
-
-/* The way in, drawn on a wide page as the design draws it. Narrow, the
-   whole card is plainly that. */
-.search-top-go {
-  position: absolute;
-  right: 1rem;
-  bottom: 1rem;
-  display: none;
-  place-items: center;
-  width: 2.125rem;
-  height: 2.125rem;
-  border: 1px solid --alpha(var(--color-on-night) / 32%);
-  border-radius: 50%;
-  background: --alpha(var(--color-night) / 65%);
 }
 
 /* THE ARTIST'S PAGE ON ITS WAY
@@ -460,10 +363,6 @@
     font-size: 0.9375rem;
   }
 
-  .search-results {
-    margin-top: 1.5rem;
-  }
-
   @media (prefers-reduced-motion: no-preference) {
     .search-bar {
       transition:
@@ -498,12 +397,6 @@
     }
   }
 
-  .search-none {
-    margin-top: 2rem;
-    font-size: 1rem;
-    text-align: start;
-  }
-
   /* The artist beside the first songs, then everything else across the page. */
   .search-found {
     display: grid;
@@ -527,34 +420,6 @@
   /* An artist with no songs found beside them does not take the page's width. */
   .search-found:not(:has(> .search-songs)) > .search-top {
     max-width: 40rem;
-  }
-
-  .search-top-heading {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip-path: none;
-    white-space: normal;
-  }
-
-  .search-top-link {
-    margin-top: 0.75rem;
-    border-radius: 0.75rem;
-  }
-
-  .search-top-card {
-    min-height: 12.1875rem;
-  }
-
-  .search-top-name {
-    max-width: 68%;
-    font-size: 3.0625rem;
-    letter-spacing: -0.047em;
-  }
-
-  .search-top-go {
-    display: grid;
   }
 
   /* A grid is not turned. */

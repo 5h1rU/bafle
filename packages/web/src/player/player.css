@@ -23,7 +23,7 @@
   /* What the veil over the cover ends in. On the dark page it is the page's
      own colour, and the cover is lost in the sheet; on the light one it
      stays the night it is, as it does over an album's cover. */
-  --player-veil-foot: --alpha(var(--color-night) / 88%);
+  --player-veil-foot: rgb(var(--night-channels) / 88%);
   background-color: var(--color-canvas);
 }
 
@@ -80,9 +80,9 @@
     to bottom,
     rgb(8 7 11 / 50%) 0%,
     rgb(18 15 23 / 3%) 20%,
-    --alpha(var(--color-night) / 0%) 44%,
-    --alpha(var(--color-night) / 21%) 66%,
-    --alpha(var(--color-night) / 67%) 84%,
+    rgb(var(--night-channels) / 0%) 44%,
+    rgb(var(--night-channels) / 21%) 66%,
+    rgb(var(--night-channels) / 67%) 84%,
     var(--player-veil-foot) 100%
   );
 }
@@ -131,7 +131,7 @@
    it from being lost on a light one. */
 [data-pane="Artwork"] > .player-grabber > .player-grabber-line {
   opacity: 0.72;
-  box-shadow: 0 0 0 0.5px --alpha(var(--color-night) / 30%), 0 1px 3px --alpha(var(--color-night) / 35%);
+  box-shadow: 0 0 0 0.5px rgb(var(--night-channels) / 30%), 0 1px 3px rgb(var(--night-channels) / 35%);
 }
 
 .player-grabber:active .player-grabber-line {
@@ -321,7 +321,7 @@
   border-radius: 0.875rem;
   color: var(--color-ink);
   background-color: var(--color-canvas);
-  box-shadow: 0 0 0 1px var(--color-line), 0 0.75rem 2rem --alpha(var(--color-night) / 28%);
+  box-shadow: 0 0 0 1px var(--color-line), 0 0.75rem 2rem rgb(var(--night-channels) / 28%);
   font-size: 1.125rem;
   font-weight: 550;
   letter-spacing: -0.03em;
