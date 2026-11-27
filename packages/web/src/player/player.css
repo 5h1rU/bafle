@@ -308,7 +308,7 @@
   pointer-events: none;
 }
 
-@media (width >= 48rem) {
+@variant md {
   .queue-ghost-lane {
     left: 15rem;
   }

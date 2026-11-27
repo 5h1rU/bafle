@@ -480,7 +480,7 @@
    is drawn over the page that comes and slid off it. The island is on one
    side only, and comes in where it stands. On a wider screen the sheet is a
    column beside the navigation, and still draws back into its island. */
-@media (width < 48rem) {
+@variant max-md {
   :root:active-view-transition-type(player-closes) .player-sheet {
     view-transition-name: none;
   }

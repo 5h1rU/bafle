@@ -83,7 +83,7 @@
   flex-direction: column;
 }
 
-@container (width >= 42rem) {
+@variant @2xl {
   .track-columns {
     --gap: 2.5rem;
     --peek: 3rem;
@@ -112,7 +112,7 @@
 /* NOTE: one column has nothing to turn. Where a browser cannot read the
    scroll the arrows would still come under the pointer, so they are taken
    away; not in a layer, since the arrows' own rules are not. */
-@container (width < 42rem) {
+@variant @max-2xl {
   [data-turning="rows"] > .turning-place {
     display: none;
   }

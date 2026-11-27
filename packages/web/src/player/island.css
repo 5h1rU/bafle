@@ -221,7 +221,7 @@
   --island-rise: 2rem;
 }
 
-@media (width >= 48rem) {
+@variant md {
   :root:active-view-transition-type(island-appears) {
     --island-rise: 6.5rem;
   }

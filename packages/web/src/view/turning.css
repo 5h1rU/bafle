@@ -27,13 +27,13 @@
   --turning-tile: 9rem;
 }
 
-@media (width >= 40rem) {
+@variant sm {
   .turning {
     --turning-tile: 10rem;
   }
 }
 
-@media (width >= 48rem) {
+@variant md {
   .turning {
     --turning-gutter: 2.5rem;
   }

@@ -31,7 +31,7 @@
   --search-gap: 1.75rem;
 }
 
-@media (width >= 48rem) {
+@variant md {
   #search-page {
     --search-top: 2.5rem;
     --search-gutter: 2.5rem;

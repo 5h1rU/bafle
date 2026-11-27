@@ -68,7 +68,7 @@
   --ease-page: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-@media (width >= 48rem) {
+@variant md {
   :root {
     --page-travel: 3rem;
     --page-step: -1rem;
