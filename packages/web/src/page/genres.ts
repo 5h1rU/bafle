@@ -1,19 +1,11 @@
 import type { MusicGenres } from "@bafle/domain/Catalog/MusicCatalog.external";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
-import { AsyncData } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
 import type { GenreListData } from "../model.ts";
-import {
-  type Presence,
-  QUIET_LINE_CLASS,
-  pageAttributes,
-  PAGE_IDS,
-  pageTitleIdOf,
-  pageTitleView,
-} from "../view/layout.ts";
-import { pageDataView } from "../view/pageData.ts";
+import { PAGE_IDS, type Presence, QUIET_LINE_CLASS, pageTitleIdOf } from "../view/layout.ts";
+import { sectionPageView } from "../view/page.ts";
 import { tileGridPlaceholderView } from "../view/placeholder.ts";
 import { genreTile, type IsGenreOpening, maybeTileGridView } from "../view/shelf.ts";
 
@@ -54,18 +46,9 @@ export const view = (
   isGenreOpening: IsGenreOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
-  h.div(pageAttributes(PAGE_ID, presence, h), [
-    pageTitleView(PAGE_ID, TITLE, h),
-    h.div(
-      [h.AriaBusy(AsyncData.isPending(genreList))],
-      [
-        pageDataView(
-          genreList,
-          TITLE,
-          () => placeholderView(h),
-          (all) => gridView(all, presence, isGenreOpening, h),
-          h,
-        ),
-      ],
-    ),
-  ]);
+  sectionPageView(
+    { pageId: PAGE_ID, title: TITLE, presence, data: genreList },
+    () => placeholderView(h),
+    (all) => gridView(all, presence, isGenreOpening, h),
+    h,
+  );

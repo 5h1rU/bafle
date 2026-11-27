@@ -1,17 +1,10 @@
 import type { TrendingMusic } from "@bafle/domain/Catalog/MusicCatalog.external";
 import * as Array from "effect/Array";
-import { AsyncData } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
 import type { NewMusicData } from "../model.ts";
-import {
-  PAGE_SECTIONS_CLASS,
-  QUIET_LINE_CLASS,
-  pageAttributes,
-  PAGE_IDS,
-  pageTitleView,
-} from "../view/layout.ts";
-import { pageDataView } from "../view/pageData.ts";
+import { PAGE_IDS, PAGE_SECTIONS_CLASS } from "../view/layout.ts";
+import { sectionPageView, sectionsView } from "../view/page.ts";
 import { shelfPlaceholderView } from "../view/placeholder.ts";
 import { albumTile, type IsAlbumOpening, maybeShelfView } from "../view/shelf.ts";
 import {
@@ -52,8 +45,8 @@ const chartsView = (
   isAlbumOpening: IsAlbumOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
-  Array.match(
-    Array.getSomes([
+  sectionsView(
+    [
       maybeTrackSectionView(TOP_SONGS_SECTION, trending.tracks, context, h),
       maybeShelfView(
         "new-top-albums",
@@ -62,11 +55,9 @@ const chartsView = (
         Array.map(trending.albums, albumTile(isAlbumOpening, context.presence)),
         h,
       ),
-    ]),
-    {
-      onEmpty: () => h.p([h.Class(QUIET_LINE_CLASS)], ["The catalog has no charts right now."]),
-      onNonEmpty: (charts) => h.div([h.Class(PAGE_SECTIONS_CLASS)], charts),
-    },
+    ],
+    "The catalog has no charts right now.",
+    h,
   );
 
 export const view = (
@@ -75,18 +66,9 @@ export const view = (
   isAlbumOpening: IsAlbumOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
-  h.div(pageAttributes(PAGE_ID, context.presence, h), [
-    pageTitleView(PAGE_ID, TITLE, h),
-    h.div(
-      [h.AriaBusy(AsyncData.isPending(newMusic))],
-      [
-        pageDataView(
-          newMusic,
-          TITLE,
-          () => placeholderView(h),
-          (trending) => chartsView(trending, context, isAlbumOpening, h),
-          h,
-        ),
-      ],
-    ),
-  ]);
+  sectionPageView(
+    { pageId: PAGE_ID, title: TITLE, presence: context.presence, data: newMusic },
+    () => placeholderView(h),
+    (trending) => chartsView(trending, context, isAlbumOpening, h),
+    h,
+  );

@@ -46,24 +46,23 @@ export const pageTitleIdOf = (pageId: string): string => `${pageId}-title`;
  */
 export const TRACK_ROW_ATTRIBUTE = "track-row";
 
-/** The data attribute that marks a shelf's tile with its album, so the focus can be given back to it. */
-export const ALBUM_TILE_ATTRIBUTE = "album-tile";
+/** The kinds of thing that have a tile, and a page of their own that the tile leads to. */
+export type TileKind = "Album" | "Artist" | "Playlist" | "Genre" | "Station";
 
+/**
+ * The data attribute that marks a tile with what it shows, so the focus can
+ * be given back to it.
+ */
 // NOTE: a kind of tile has an attribute of its own because the catalog's ids
 // are only told apart within a kind: Search shelves artists, albums and
 // playlists on one page, and an artist can have the id an album has.
-
-/** The data attribute that marks a shelf's tile with its artist, as an album's tile is marked. */
-export const ARTIST_TILE_ATTRIBUTE = "artist-tile";
-
-/** The data attribute that marks a shelf's tile with its playlist, as an album's tile is marked. */
-export const PLAYLIST_TILE_ATTRIBUTE = "playlist-tile";
-
-/** The data attribute that marks a tile with its genre, as an album's tile is marked. */
-export const GENRE_TILE_ATTRIBUTE = "genre-tile";
-
-/** The data attribute that marks a shelf's tile with its station, as an album's tile is marked. */
-export const STATION_TILE_ATTRIBUTE = "station-tile";
+export const TILE_ATTRIBUTES: Readonly<Record<TileKind, string>> = {
+  Album: "album-tile",
+  Artist: "artist-tile",
+  Playlist: "playlist-tile",
+  Genre: "genre-tile",
+  Station: "station-tile",
+};
 
 /**
  * Whether a page is the one on screen, or kept behind it. A kept page stays

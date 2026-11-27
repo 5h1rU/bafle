@@ -1,20 +1,12 @@
 import type { FeaturedMusic } from "@bafle/domain/Catalog/MusicCatalog.external";
 import type { Popover } from "@foldkit/ui";
 import * as Array from "effect/Array";
-import { AsyncData } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
 import type { HomeData } from "../model.ts";
 import { aboutView } from "../view/about.ts";
-import {
-  PAGE_SECTIONS_CLASS,
-  type Presence,
-  QUIET_LINE_CLASS,
-  pageAttributes,
-  PAGE_IDS,
-  pageTitleView,
-} from "../view/layout.ts";
-import { pageDataView } from "../view/pageData.ts";
+import { PAGE_IDS, PAGE_SECTIONS_CLASS, type Presence } from "../view/layout.ts";
+import { sectionPageView, sectionsView } from "../view/page.ts";
 import { shelfPlaceholderView } from "../view/placeholder.ts";
 import {
   albumTile,
@@ -49,8 +41,8 @@ const shelvesView = (
   { isAlbumOpening, isArtistOpening, isPlaylistOpening }: TilesOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
-  Array.match(
-    Array.getSomes([
+  sectionsView(
+    [
       maybeShelfView(
         "home-editors-picks",
         EDITORS_PICKS,
@@ -74,12 +66,9 @@ const shelvesView = (
         Array.map(featured.artists, artistTile(isArtistOpening, presence)),
         h,
       ),
-    ]),
-    {
-      onEmpty: () =>
-        h.p([h.Class(QUIET_LINE_CLASS)], ["The catalog has nothing to recommend right now."]),
-      onNonEmpty: (shelves) => h.div([h.Class(PAGE_SECTIONS_CLASS)], shelves),
-    },
+    ],
+    "The catalog has nothing to recommend right now.",
+    h,
   );
 
 export const view = (
@@ -89,23 +78,11 @@ export const view = (
   about: Popover.Model,
   h: HtmlBuilder<Message>,
 ): Html =>
-  h.div(pageAttributes(PAGE_ID, presence, h), [
+  sectionPageView(
     // NOTE: Home is where the app says who made it, on a narrow screen: a
     // control at the far end of its title's row (`view/about.ts`).
-    h.div(
-      [h.Class("flex items-center justify-between gap-4")],
-      [pageTitleView(PAGE_ID, TITLE, h), aboutView(about, h)],
-    ),
-    h.div(
-      [h.AriaBusy(AsyncData.isPending(home))],
-      [
-        pageDataView(
-          home,
-          TITLE,
-          () => placeholderView(h),
-          (featured) => shelvesView(featured, presence, opening, h),
-          h,
-        ),
-      ],
-    ),
-  ]);
+    { pageId: PAGE_ID, title: TITLE, presence, data: home, beside: aboutView(about, h) },
+    () => placeholderView(h),
+    (featured) => shelvesView(featured, presence, opening, h),
+    h,
+  );

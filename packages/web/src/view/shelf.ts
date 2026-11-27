@@ -18,25 +18,18 @@ import {
   stationRouter,
 } from "../route.ts";
 import {
-  albumCoverTransitionStyle,
-  artistPictureTransitionStyle,
   type ArtworkShape,
   artworkView,
   artworkFlightRules,
   flightAttributes,
-  genrePictureTransitionStyle,
   type PictureLoading,
-  playlistPictureTransitionStyle,
-  stationPictureTransitionStyle,
+  pictureFlightStyle,
 } from "./artwork.ts";
 import {
-  ALBUM_TILE_ATTRIBUTE,
-  ARTIST_TILE_ATTRIBUTE,
-  GENRE_TILE_ATTRIBUTE,
-  PLAYLIST_TILE_ATTRIBUTE,
   type Presence,
   SECTION_HEADING_CLASS,
-  STATION_TILE_ATTRIBUTE,
+  TILE_ATTRIBUTES,
+  type TileKind,
 } from "./layout.ts";
 import { turningRowIdOf, turningView } from "./turning.ts";
 
@@ -48,6 +41,7 @@ import { turningRowIdOf, turningView } from "./turning.ts";
  */
 export type Tile = Readonly<{
   id: string;
+  kind: TileKind;
   title: string;
   /** The second line. A tile with nothing more to say than its title has none, and is one line shorter. */
   subtitle: string;
@@ -56,8 +50,6 @@ export type Tile = Readonly<{
   href: string;
   /** Whether that page is on its way: the tile was chosen, and the page it is on is held until then. */
   isOpening: boolean;
-  /** The data attribute that marks tiles of its kind, so the focus can be given back to it. */
-  attribute: string;
   /** What its picture carries to travel to the page the tile leads to. */
   flightStyle: Readonly<Record<string, string>>;
 }>;
@@ -85,85 +77,94 @@ export type TilesOpening = Readonly<{
 }>;
 
 /**
- * An album's tile is the way to its page, and its picture is the one that
- * goes there: on the page on screen it carries the name the page's cover
- * carries, so the browser moves the one picture between the two.
+ * A tile is the way to the page of what it shows, and its picture is the one
+ * that goes there: on the page on screen it carries the name the page's
+ * picture carries, so the browser moves the one picture between the two.
+ * What a tile says of its thing is the kind's own, below.
  */
+const tileOf = (
+  kind: TileKind,
+  presence: Presence,
+  thing: Readonly<{
+    id: string;
+    title: string;
+    subtitle: string;
+    picture: Artwork | null;
+    href: string;
+    isOpening: boolean;
+  }>,
+): Tile => ({
+  id: thing.id,
+  kind,
+  title: thing.title,
+  subtitle: thing.subtitle,
+  maybeArtwork: Option.fromNullishOr(thing.picture),
+  href: thing.href,
+  isOpening: thing.isOpening,
+  flightStyle: pictureFlightStyle(kind, thing.id, presence),
+});
+
 export const albumTile =
   (isOpening: IsAlbumOpening, presence: Presence) =>
-  (album: AlbumSummary): Tile => ({
-    id: album.id,
-    title: album.title,
-    subtitle: album.artist.name,
-    maybeArtwork: Option.fromNullishOr(album.cover),
-    href: albumRouter({ albumId: album.id }),
-    isOpening: isOpening(album.id),
-    attribute: ALBUM_TILE_ATTRIBUTE,
-    flightStyle: albumCoverTransitionStyle(album.id, presence),
-  });
+  (album: AlbumSummary): Tile =>
+    tileOf("Album", presence, {
+      id: album.id,
+      title: album.title,
+      subtitle: album.artist.name,
+      picture: album.cover,
+      href: albumRouter({ albumId: album.id }),
+      isOpening: isOpening(album.id),
+    });
 
-/** A playlist's tile is the way to its page, as an album's is, and its picture goes there the same way. */
 export const playlistTile =
   (isOpening: IsPlaylistOpening, presence: Presence) =>
-  (playlist: PlaylistSummary): Tile => ({
-    id: playlist.id,
-    title: playlist.title,
-    subtitle: playlist.curator,
-    maybeArtwork: Option.fromNullishOr(playlist.picture),
-    href: playlistRouter({ playlistId: playlist.id }),
-    isOpening: isOpening(playlist.id),
-    attribute: PLAYLIST_TILE_ATTRIBUTE,
-    flightStyle: playlistPictureTransitionStyle(playlist.id, presence),
-  });
+  (playlist: PlaylistSummary): Tile =>
+    tileOf("Playlist", presence, {
+      id: playlist.id,
+      title: playlist.title,
+      subtitle: playlist.curator,
+      picture: playlist.picture,
+      href: playlistRouter({ playlistId: playlist.id }),
+      isOpening: isOpening(playlist.id),
+    });
 
-/** An artist's tile is the way to their page, as an album's is, and their picture goes there the same way. */
 export const artistTile =
   (isOpening: IsArtistOpening, presence: Presence) =>
-  (artist: ArtistSummary): Tile => ({
-    id: artist.id,
-    title: artist.name,
-    subtitle: "Artist",
-    maybeArtwork: Option.fromNullishOr(artist.picture),
-    href: artistRouter({ artistId: artist.id }),
-    isOpening: isOpening(artist.id),
-    attribute: ARTIST_TILE_ATTRIBUTE,
-    flightStyle: artistPictureTransitionStyle(artist.id, presence),
-  });
+  (artist: ArtistSummary): Tile =>
+    tileOf("Artist", presence, {
+      id: artist.id,
+      title: artist.name,
+      subtitle: "Artist",
+      picture: artist.picture,
+      href: artistRouter({ artistId: artist.id }),
+      isOpening: isOpening(artist.id),
+    });
 
-/**
- * A genre's tile is the way to its page, as an album's is, and its picture
- * goes there the same way. Its name is all there is to say of it.
- */
+/** A genre's name is all there is to say of it. */
 export const genreTile =
   (isOpening: IsGenreOpening, presence: Presence) =>
-  (genre: GenreSummary): Tile => ({
-    id: genre.id,
-    title: genre.name,
-    subtitle: "",
-    maybeArtwork: Option.fromNullishOr(genre.picture),
-    href: genreRouter({ genreId: genre.id }),
-    isOpening: isOpening(genre.id),
-    attribute: GENRE_TILE_ATTRIBUTE,
-    flightStyle: genrePictureTransitionStyle(genre.id, presence),
-  });
+  (genre: GenreSummary): Tile =>
+    tileOf("Genre", presence, {
+      id: genre.id,
+      title: genre.name,
+      subtitle: "",
+      picture: genre.picture,
+      href: genreRouter({ genreId: genre.id }),
+      isOpening: isOpening(genre.id),
+    });
 
-/**
- * A station's tile is the way to its page, as an album's is, and its picture
- * goes there the same way. The shelf it stands on is named after its genre,
- * so its title is all there is to say of it.
- */
+/** The shelf a station stands on is named after its genre, so its title is all there is to say of it. */
 export const stationTile =
   (isOpening: IsStationOpening, presence: Presence) =>
-  (station: StationSummary): Tile => ({
-    id: station.id,
-    title: station.title,
-    subtitle: "",
-    maybeArtwork: Option.fromNullishOr(station.picture),
-    href: stationRouter({ stationId: station.id }),
-    isOpening: isOpening(station.id),
-    attribute: STATION_TILE_ATTRIBUTE,
-    flightStyle: stationPictureTransitionStyle(station.id, presence),
-  });
+  (station: StationSummary): Tile =>
+    tileOf("Station", presence, {
+      id: station.id,
+      title: station.title,
+      subtitle: "",
+      picture: station.picture,
+      href: stationRouter({ stationId: station.id }),
+      isOpening: isOpening(station.id),
+    });
 
 // VIEW
 
@@ -275,7 +276,7 @@ const tileView = (
         [
           h.Href(tile.href),
           h.AriaBusy(tile.isOpening),
-          h.DataAttribute(tile.attribute, tile.id),
+          h.DataAttribute(TILE_ATTRIBUTES[tile.kind], tile.id),
           h.Class(TILE_LINK_CLASS),
         ],
         tileContentView(tile, shape, loading, h),

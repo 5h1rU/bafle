@@ -11,14 +11,14 @@ import { Message } from "../message.ts";
 import { hasSearchAnswer, type SearchAnswer, type SearchData } from "../model.ts";
 import { artistRouter } from "../route.ts";
 import {
-  artistPictureTransitionStyle,
+  pictureFlightStyle,
   artworkFlightRules,
   flightAttributes,
 } from "../view/artwork.ts";
 import { failureView } from "../view/feedback.ts";
 import { closeIcon, openIcon, searchIcon } from "../view/icon.ts";
 import {
-  ARTIST_TILE_ATTRIBUTE,
+  TILE_ATTRIBUTES,
   PAGE_IDS,
   type Presence,
   SECTION_HEADING_CLASS,
@@ -154,7 +154,7 @@ const topResultView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const maybePicture = Option.fromNullishOr(artist.picture);
-  const flightStyle = artistPictureTransitionStyle(artist.id, presence);
+  const flightStyle = pictureFlightStyle("Artist", artist.id, presence);
 
   return h.section(
     [h.Class("search-top")],
@@ -165,7 +165,7 @@ const topResultView = (
         [
           h.Href(artistRouter({ artistId: artist.id })),
           h.AriaBusy(isOpening),
-          h.DataAttribute(ARTIST_TILE_ATTRIBUTE, artist.id),
+          h.DataAttribute(TILE_ATTRIBUTES.Artist, artist.id),
           ...(isOpening ? [h.DataAttribute("opening", "")] : []),
           h.Class("search-top-link"),
         ],

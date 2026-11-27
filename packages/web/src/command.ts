@@ -20,14 +20,10 @@ import { asWait } from "./timing.ts";
 import { type Span, turnedFrom, TurnWay } from "./turn.ts";
 import { firstPicturesOf } from "./view/firstPictures.ts";
 import {
-  ALBUM_TILE_ATTRIBUTE,
-  ARTIST_TILE_ATTRIBUTE,
-  GENRE_TILE_ATTRIBUTE,
   NAVIGATION_ID,
   PAGE_IDS,
   pageTitleIdOf,
-  PLAYLIST_TILE_ATTRIBUTE,
-  STATION_TILE_ATTRIBUTE,
+  TILE_ATTRIBUTES,
   TRACK_ROW_ATTRIBUTE,
 } from "./view/layout.ts";
 
@@ -150,7 +146,7 @@ export const FocusAlbumTile = Command.define("FocusAlbumTile", {
   messages: [Message.CompletedFocusAlbumTile],
   execute: ({ pageId, albumId }) =>
     // A page shelves an album once.
-    Dom.focus(`#${pageId} [data-${ALBUM_TILE_ATTRIBUTE}="${albumId}"]`, {
+    Dom.focus(`#${pageId} [data-${TILE_ATTRIBUTES.Album}="${albumId}"]`, {
       preventScroll: true,
     }).pipe(
       Effect.catch(() => Dom.focus(`#${pageId}`, { preventScroll: true })),
@@ -165,7 +161,7 @@ export const FocusArtistTile = Command.define("FocusArtistTile", {
   messages: [Message.CompletedFocusArtistTile],
   execute: ({ pageId, artistId }) =>
     // A page shelves an artist once.
-    Dom.focus(`#${pageId} [data-${ARTIST_TILE_ATTRIBUTE}="${artistId}"]`, {
+    Dom.focus(`#${pageId} [data-${TILE_ATTRIBUTES.Artist}="${artistId}"]`, {
       preventScroll: true,
     }).pipe(
       Effect.catch(() => Dom.focus(`#${pageId}`, { preventScroll: true })),
@@ -180,7 +176,7 @@ export const FocusPlaylistTile = Command.define("FocusPlaylistTile", {
   messages: [Message.CompletedFocusPlaylistTile],
   execute: ({ pageId, playlistId }) =>
     // A page shelves a playlist once.
-    Dom.focus(`#${pageId} [data-${PLAYLIST_TILE_ATTRIBUTE}="${playlistId}"]`, {
+    Dom.focus(`#${pageId} [data-${TILE_ATTRIBUTES.Playlist}="${playlistId}"]`, {
       preventScroll: true,
     }).pipe(
       Effect.catch(() => Dom.focus(`#${pageId}`, { preventScroll: true })),
@@ -195,7 +191,7 @@ export const FocusGenreTile = Command.define("FocusGenreTile", {
   messages: [Message.CompletedFocusGenreTile],
   execute: ({ pageId, genreId }) =>
     // A page shows a genre's tile once.
-    Dom.focus(`#${pageId} [data-${GENRE_TILE_ATTRIBUTE}="${genreId}"]`, {
+    Dom.focus(`#${pageId} [data-${TILE_ATTRIBUTES.Genre}="${genreId}"]`, {
       preventScroll: true,
     }).pipe(
       Effect.catch(() => Dom.focus(`#${pageId}`, { preventScroll: true })),
@@ -210,7 +206,7 @@ export const FocusStationTile = Command.define("FocusStationTile", {
   messages: [Message.CompletedFocusStationTile],
   execute: ({ pageId, stationId }) =>
     // A page shelves a station once.
-    Dom.focus(`#${pageId} [data-${STATION_TILE_ATTRIBUTE}="${stationId}"]`, {
+    Dom.focus(`#${pageId} [data-${TILE_ATTRIBUTES.Station}="${stationId}"]`, {
       preventScroll: true,
     }).pipe(
       Effect.catch(() => Dom.focus(`#${pageId}`, { preventScroll: true })),

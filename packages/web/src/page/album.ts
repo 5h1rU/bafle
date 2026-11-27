@@ -8,15 +8,14 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message.ts";
 import type { AlbumData } from "../model.ts";
 import { albumCoverView, albumHeadFlightAttributes, artworkView } from "../view/artwork.ts";
+import { PAGE_IDS, type Presence, SECTION_HEADING_CLASS, pageTitleIdOf } from "../view/layout.ts";
 import {
-  PAGE_IDS,
-  type Presence,
-  SECTION_HEADING_CLASS,
-  pageAttributes,
-  pageTitleIdOf,
-  pageTitleView,
-} from "../view/layout.ts";
-import { pageDataView } from "../view/pageData.ts";
+  type DetailKind,
+  detailPageView,
+  detailTitleOf,
+  GONE,
+  songCount,
+} from "../view/page.ts";
 import { BLOCK_CLASS } from "../view/placeholder.ts";
 import {
   explicitMarkerView,
@@ -28,10 +27,14 @@ import {
 
 // VIEW
 
-const PAGE_ID = PAGE_IDS.Album;
-const TITLE = "Album";
+const KIND: DetailKind = {
+  pageId: PAGE_IDS.Album,
+  name: "Album",
+  notAvailable: "This album is not available",
+  gone: GONE,
+};
+
 const SONGS = "Songs";
-const NOT_AVAILABLE = "This album is not available";
 
 /**
  * The album's songs, in the album's order. They have one cover between them,
@@ -46,10 +49,7 @@ const SONGS_LIST: TrackList = {
 
 /** What an album's page is called: the album's title once the catalog has told it. */
 export const titleOf = (album: AlbumData): string =>
-  Option.match(AsyncData.getData(album), {
-    onNone: () => TITLE,
-    onSome: Option.match({ onNone: () => NOT_AVAILABLE, onSome: (found) => found.title }),
-  });
+  detailTitleOf(KIND, album, (found) => found.title);
 
 /** The list's title, as high as the bar the head draws back to: the two meet as the page is scrolled. */
 const SONGS_HEADING_CLASS = clsx(SECTION_HEADING_CLASS, "flex min-h-12 items-center");
@@ -68,18 +68,15 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
     ]),
   ]);
 
-const songCount = (album: Album): string =>
-  album.tracks.length === 1 ? "1 song" : `${album.tracks.length} songs`;
-
 /** The year an album came out, and how many songs it has: only what the catalog knows. */
 const factsView = (album: Album, h: HtmlBuilder<Message>): Html =>
   h.p(
     [h.Class("album-facts")],
     Option.match(Option.fromNullishOr(album.releaseDate), {
-      onNone: () => [songCount(album)],
+      onNone: () => [songCount(album.tracks.length)],
       onSome: (releaseDate) => [
         h.time([h.Datetime(releaseDate)], [releaseDate.slice(0, 4)]),
-        ` · ${songCount(album)}`,
+        ` · ${songCount(album.tracks.length)}`,
       ],
     }),
   );
@@ -88,7 +85,7 @@ const headView = (album: Album, presence: Presence, h: HtmlBuilder<Message>): Ht
   h.header([h.Class("album-hero artwork-with-caption catalog-art"), ...albumHeadFlightAttributes(album.id, presence, h)], [
     albumCoverView(Option.fromNullishOr(album.cover), h),
     h.div([h.Class("album-caption")], [
-      h.h1([h.Id(pageTitleIdOf(PAGE_ID))], [
+      h.h1([h.Id(pageTitleIdOf(KIND.pageId))], [
         album.title,
         album.explicit ? explicitMarkerView(h) : h.empty,
       ]),
@@ -131,38 +128,11 @@ const foundView = (
   ]);
 
 /**
- * The catalog has no such album. That will not change, so there is nothing
- * to try again: the page says so.
- */
-const notAvailableView = (h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [h.Class("max-w-md")],
-    [
-      pageTitleView(PAGE_ID, NOT_AVAILABLE, h),
-      h.p(
-        [h.Class("mt-4 text-muted")],
-        ["The catalog no longer has it, or the link to it is wrong."],
-      ),
-    ],
-  );
-
-/**
- * The page's title while there is no album to take it from. Loading, the
- * placeholders stand for it on screen and it is only said; after a failure
- * it heads the message.
- */
-const untitledView = (album: AlbumData, h: HtmlBuilder<Message>): Html =>
-  AsyncData.matchData(album, {
-    onEmpty: () => h.h1([h.Id(pageTitleIdOf(PAGE_ID)), h.Class("sr-only")], [TITLE]),
-    onFailure: () => pageTitleView(PAGE_ID, TITLE, h),
-    onData: () => h.empty,
-  });
-
-/**
- * The root is keyed by the album: another album is another page, which
- * starts at its top with its own pictures. The page is a list, so it is kept
- * behind a page reached from it, as a section is: `context.presence` says
- * whether it is on screen.
+ * The page is a list, so it is kept behind a page reached from it, as a
+ * section is: `context.presence` says whether it is on screen. Its head
+ * reaches the screen's edges, so the page lays its own content out; with no
+ * album there is no head, and what the page says instead starts where any
+ * page's title does (`album-unavailable`).
  */
 export const view = (
   albumId: AlbumId,
@@ -171,23 +141,19 @@ export const view = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const hasAlbum = Option.isSome(Option.flatten(AsyncData.getData(album)));
-  const overlay = hasAlbum || AsyncData.isPending(album);
-  return h.keyed("div")(albumId, pageAttributes(PAGE_ID, context.presence, h, "ToEdge"), [
-    h.div(
-      [h.AriaBusy(AsyncData.isPending(album)), h.Class(clsx({ "album-unavailable": !overlay }))],
-      [
-        untitledView(album, h),
-        pageDataView(
-          album,
-          TITLE,
-          () => placeholderView(h),
-          Option.match({
-            onNone: () => notAvailableView(h),
-            onSome: (found) => foundView(found, context, h),
-          }),
-          h,
-        ),
-      ],
-    ),
-  ]);
+  const hasHead = hasAlbum || AsyncData.isPending(album);
+
+  return detailPageView(
+    {
+      kind: KIND,
+      key: albumId,
+      presence: context.presence,
+      data: album,
+      edges: "ToEdge",
+      bodyClass: hasHead ? "" : "album-unavailable",
+    },
+    () => placeholderView(h),
+    (found) => foundView(found, context, h),
+    h,
+  );
 };

@@ -1,9 +1,5 @@
 import type { AlbumId } from "@bafle/domain/Catalog/Album";
-import type { ArtistId } from "@bafle/domain/Catalog/Artist";
 import type { Artwork } from "@bafle/domain/Catalog/Artwork";
-import type { GenreId } from "@bafle/domain/Catalog/Genre";
-import type { PlaylistId } from "@bafle/domain/Catalog/Playlist";
-import type { StationId } from "@bafle/domain/Catalog/Station";
 import type { TrackId } from "@bafle/domain/Catalog/Track";
 import { clsx } from "clsx";
 import * as Option from "effect/Option";
@@ -11,7 +7,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
 import { AppRoute } from "../route.ts";
 import { noteIcon } from "./icon.ts";
-import type { Presence } from "./layout.ts";
+import type { Presence, TileKind } from "./layout.ts";
 import { likenessStyle } from "./likeness.ts";
 
 // VIEW
@@ -156,56 +152,22 @@ export const albumHeadFlightAttributes = (
   albumId: AlbumId,
   presence: Presence,
   h: HtmlBuilder<Message>,
-) => flightAttributes(albumCoverTransitionStyle(albumId, presence), h);
+) => flightAttributes(pictureFlightStyle("Album", albumId, presence), h);
 
-/** An artist's picture at the head of their page: round, as their tile is, which it arrives from. */
-export const artistPictureView = (
-  artistId: ArtistId,
+/**
+ * The picture at the head of the page of one thing, which arrives from the
+ * thing's tile: in the tile's shape, round for an artist and square for the
+ * rest.
+ */
+export const headPictureOf = (
+  kind: Exclude<TileKind, "Album">,
+  id: string,
   maybeArtwork: Option.Option<Artwork>,
   h: HtmlBuilder<Message>,
 ): Html =>
   headPictureView(
-    clsx(SQUARE_HEAD_CLASS, "rounded-full"),
-    artistPictureTransitionStyle(artistId, "OnScreen"),
-    maybeArtwork,
-    h,
-  );
-
-/** A playlist's picture at the head of its page, which arrives from its tile as an album's cover does. */
-export const playlistPictureView = (
-  playlistId: PlaylistId,
-  maybeArtwork: Option.Option<Artwork>,
-  h: HtmlBuilder<Message>,
-): Html =>
-  headPictureView(
-    clsx(SQUARE_HEAD_CLASS, "rounded-xl"),
-    playlistPictureTransitionStyle(playlistId, "OnScreen"),
-    maybeArtwork,
-    h,
-  );
-
-/** A genre's picture at the head of its page, which arrives from its tile as a playlist's does. */
-export const genrePictureView = (
-  genreId: GenreId,
-  maybeArtwork: Option.Option<Artwork>,
-  h: HtmlBuilder<Message>,
-): Html =>
-  headPictureView(
-    clsx(SQUARE_HEAD_CLASS, "rounded-xl"),
-    genrePictureTransitionStyle(genreId, "OnScreen"),
-    maybeArtwork,
-    h,
-  );
-
-/** A station's picture at the head of its page, which arrives from its tile as a playlist's does. */
-export const stationPictureView = (
-  stationId: StationId,
-  maybeArtwork: Option.Option<Artwork>,
-  h: HtmlBuilder<Message>,
-): Html =>
-  headPictureView(
-    clsx(SQUARE_HEAD_CLASS, "rounded-xl"),
-    stationPictureTransitionStyle(stationId, "OnScreen"),
+    clsx(SQUARE_HEAD_CLASS, kind === "Artist" ? "rounded-full" : "rounded-xl"),
+    pictureFlightStyle(kind, id, "OnScreen"),
     maybeArtwork,
     h,
   );
@@ -236,91 +198,39 @@ export const artworkFlightRules = <M>(names: ReadonlyArray<string>, h: HtmlBuild
 };
 
 /**
- * The name an album's cover travels under in a view transition: from its
- * tile on a shelf to the head of its page, and back. One element carries it
- * at a time, the one on the page on screen.
+ * What a kind's picture travels as between its tile and the head of its
+ * page: what its name in a view transition starts with, and the class the
+ * style sheet times its flight by.
  */
-export const albumCoverTransitionName = (albumId: AlbumId): string =>
-  `album-cover-${ident(albumId)}`;
-
-/** What makes an album's cover one element to a view transition, on the page on screen only. */
-export const albumCoverTransitionStyle = (
-  albumId: AlbumId,
-  presence: Presence,
-): Readonly<Record<string, string>> =>
-  presence === "OnScreen"
-    ? { viewTransitionName: albumCoverTransitionName(albumId), viewTransitionClass: "album-cover" }
-    : {};
-
-/**
- * The name an artist's picture travels under, as an album's cover does: from
- * their tile on a shelf to the head of their page, and back.
- */
-export const artistPictureTransitionName = (artistId: ArtistId): string =>
-  `artist-picture-${ident(artistId)}`;
-
-/** What makes an artist's picture one element to a view transition, on the page on screen only. */
-export const artistPictureTransitionStyle = (
-  artistId: ArtistId,
-  presence: Presence,
-): Readonly<Record<string, string>> =>
-  presence === "OnScreen"
-    ? {
-        viewTransitionName: artistPictureTransitionName(artistId),
-        viewTransitionClass: "artist-picture",
-      }
-    : {};
-
-/** The name a playlist's picture travels under, as an album's cover does. */
-export const playlistPictureTransitionName = (playlistId: PlaylistId): string =>
-  `playlist-picture-${ident(playlistId)}`;
-
-/** What makes a playlist's picture one element to a view transition, on the page on screen only. */
-export const playlistPictureTransitionStyle = (
-  playlistId: PlaylistId,
-  presence: Presence,
-): Readonly<Record<string, string>> =>
-  presence === "OnScreen"
-    ? {
-        viewTransitionName: playlistPictureTransitionName(playlistId),
-        viewTransitionClass: "playlist-picture",
-      }
-    : {};
-
 // NOTE: a genre's picture and a station's travel exactly as a playlist's
 // does, a square tile to a square head, so they travel in its class: the
 // style sheet times that one flight once, and the three can never drift apart.
-const SQUARE_PICTURE_FLIGHT_CLASS = "playlist-picture";
+const FLIGHTS: Readonly<Record<TileKind, Readonly<{ name: string; flightClass: string }>>> = {
+  Album: { name: "album-cover", flightClass: "album-cover" },
+  Artist: { name: "artist-picture", flightClass: "artist-picture" },
+  Playlist: { name: "playlist-picture", flightClass: "playlist-picture" },
+  Genre: { name: "genre-picture", flightClass: "playlist-picture" },
+  Station: { name: "station-picture", flightClass: "playlist-picture" },
+};
 
-/** The name a genre's picture travels under, as a playlist's does: from its tile to the head of its page, and back. */
-export const genrePictureTransitionName = (genreId: GenreId): string =>
-  `genre-picture-${ident(genreId)}`;
+/**
+ * The name a thing's picture travels under in a view transition: from its
+ * tile on a shelf to the head of its page, and back. One element carries it
+ * at a time, the one on the page on screen.
+ */
+export const pictureFlightName = (kind: TileKind, id: string): string =>
+  `${FLIGHTS[kind].name}-${ident(id)}`;
 
-/** What makes a genre's picture one element to a view transition, on the page on screen only. */
-export const genrePictureTransitionStyle = (
-  genreId: GenreId,
+/** What makes a thing's picture one element to a view transition, on the page on screen only. */
+export const pictureFlightStyle = (
+  kind: TileKind,
+  id: string,
   presence: Presence,
 ): Readonly<Record<string, string>> =>
   presence === "OnScreen"
     ? {
-        viewTransitionName: genrePictureTransitionName(genreId),
-        viewTransitionClass: SQUARE_PICTURE_FLIGHT_CLASS,
-      }
-    : {};
-
-/** The name a station's picture travels under, as a playlist's does. */
-export const stationPictureTransitionName = (stationId: StationId): string =>
-  `station-picture-${ident(stationId)}`;
-
-/** What makes a station's picture one element to a view transition, on the page on screen only. */
-export const stationPictureTransitionStyle = (
-  stationId: StationId,
-  presence: Presence,
-): Readonly<Record<string, string>> =>
-  presence === "OnScreen"
-    ? {
-        viewTransitionName: stationPictureTransitionName(stationId),
-        viewTransitionClass: SQUARE_PICTURE_FLIGHT_CLASS,
+        viewTransitionName: pictureFlightName(kind, id),
+        viewTransitionClass: FLIGHTS[kind].flightClass,
       }
     : {};
 
@@ -328,11 +238,11 @@ export const stationPictureTransitionStyle = (
 export const routeArtwork = (route: AppRoute): Option.Option<string> =>
   AppRoute.matchOrElse(route, {
     Track: ({ trackId }) => Option.some(coverTransitionName(trackId)),
-    Album: ({ albumId }) => Option.some(albumCoverTransitionName(albumId)),
-    Artist: ({ artistId }) => Option.some(artistPictureTransitionName(artistId)),
-    Playlist: ({ playlistId }) => Option.some(playlistPictureTransitionName(playlistId)),
-    Genre: ({ genreId }) => Option.some(genrePictureTransitionName(genreId)),
-    Station: ({ stationId }) => Option.some(stationPictureTransitionName(stationId)),
+    Album: ({ albumId }) => Option.some(pictureFlightName("Album", albumId)),
+    Artist: ({ artistId }) => Option.some(pictureFlightName("Artist", artistId)),
+    Playlist: ({ playlistId }) => Option.some(pictureFlightName("Playlist", playlistId)),
+    Genre: ({ genreId }) => Option.some(pictureFlightName("Genre", genreId)),
+    Station: ({ stationId }) => Option.some(pictureFlightName("Station", stationId)),
   }, () => Option.none());
 
 export const flightAttributes = <M>(style: Readonly<Record<string, string>>, h: HtmlBuilder<M>) =>

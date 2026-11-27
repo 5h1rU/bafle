@@ -22,32 +22,32 @@ import {
   retryIcon,
   spinnerIcon,
 } from "../view/icon.ts";
-import {
-  PAGE_IDS,
-  PAGE_TITLE_CLASS,
-  pageAttributes,
-  pageTitleIdOf,
-  pageTitleView,
-} from "../view/layout.ts";
+import { PAGE_IDS, PAGE_TITLE_CLASS, pageTitleIdOf } from "../view/layout.ts";
 import { saidView } from "../view/feedback.ts";
 import { ACTION_LOOKS, type ActionLook } from "../view/menu.ts";
-import { pageDataView } from "../view/pageData.ts";
+import {
+  type DetailKind,
+  detailPageView,
+  detailTitleOf,
+  GONE,
+  pageDataView,
+} from "../view/page.ts";
 import { BLOCK_CLASS } from "../view/placeholder.ts";
 import { formatDuration } from "../view/time.ts";
 import { explicitMarkerView } from "../view/trackList.ts";
 
 // VIEW
 
-const PAGE_ID = PAGE_IDS.Track;
-const TITLE = "Song";
-const NOT_AVAILABLE = "This song is not available";
+const KIND: DetailKind = {
+  pageId: PAGE_IDS.Track,
+  name: "Song",
+  notAvailable: "This song is not available",
+  gone: GONE,
+};
 
 /** What a track's page is called: the track's title once the catalog has told it. */
 export const titleOf = (track: TrackData): string =>
-  Option.match(AsyncData.getData(track), {
-    onNone: () => TITLE,
-    onSome: Option.match({ onNone: () => NOT_AVAILABLE, onSome: (found) => found.title }),
-  });
+  detailTitleOf(KIND, track, (found) => found.title);
 
 /** The cover beside the rest where the page has the room, above it where it has not. */
 // NOTE: the room is the page's own, not the screen's (`@container` on what
@@ -294,7 +294,7 @@ const foundView = (
         [h.Class("min-w-0")],
         [
           h.h1(
-            [h.Id(pageTitleIdOf(PAGE_ID)), h.Class(PAGE_TITLE_CLASS)],
+            [h.Id(pageTitleIdOf(KIND.pageId)), h.Class(PAGE_TITLE_CLASS)],
             [track.title, track.explicit ? explicitMarkerView(h) : h.empty],
           ),
           h.p([h.Class("mt-1 text-lg text-muted")], [track.album.title]),
@@ -306,36 +306,8 @@ const foundView = (
   );
 
 /**
- * The catalog has no such track. That will not change, so there is nothing
- * to try again: the page says so.
- */
-const notAvailableView = (h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [h.Class("max-w-md")],
-    [
-      pageTitleView(PAGE_ID, NOT_AVAILABLE, h),
-      h.p(
-        [h.Class("mt-4 text-muted")],
-        ["The catalog no longer has it, or the link to it is wrong."],
-      ),
-    ],
-  );
-
-/**
- * The page's title while there is no track to take it from. Loading, the
- * placeholders stand for it on screen and it is only said; after a failure
- * it heads the message.
- */
-const untitledView = (track: TrackData, h: HtmlBuilder<Message>): Html =>
-  AsyncData.matchData(track, {
-    onEmpty: () => h.h1([h.Id(pageTitleIdOf(PAGE_ID)), h.Class("sr-only")], [TITLE]),
-    onFailure: () => pageTitleView(PAGE_ID, TITLE, h),
-    onData: () => h.empty,
-  });
-
-/**
- * The root is keyed by the track: another track is another page, which
- * starts at its top with its own pictures.
+ * A track's page goes by its own width, not the screen's (`@container`):
+ * the queue opens beside it.
  */
 export const view = (
   trackId: TrackId,
@@ -344,24 +316,12 @@ export const view = (
   queueing: Queueing,
   h: HtmlBuilder<Message>,
 ): Html =>
-  h.keyed("div")(trackId, pageAttributes(PAGE_ID, "OnScreen", h), [
-    h.div(
-      [h.AriaBusy(AsyncData.isPending(track)), h.Class("@container")],
-      [
-        untitledView(track, h),
-        pageDataView(
-          track,
-          TITLE,
-          () => placeholderView(h),
-          Option.match({
-            onNone: () => notAvailableView(h),
-            onSome: (found) => foundView(found, status, queueing, h),
-          }),
-          h,
-        ),
-      ],
-    ),
-  ]);
+  detailPageView(
+    { kind: KIND, key: trackId, presence: "OnScreen", data: track, bodyClass: "@container" },
+    () => placeholderView(h),
+    (found) => foundView(found, status, queueing, h),
+    h,
+  );
 
 // EXPANDED PLAYER
 

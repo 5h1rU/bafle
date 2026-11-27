@@ -2,19 +2,11 @@ import type { RadioStations } from "@bafle/domain/Catalog/MusicCatalog.external"
 import type { StationGroup } from "@bafle/domain/Catalog/Station";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
-import { AsyncData } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
 import type { StationListData } from "../model.ts";
-import {
-  PAGE_SECTIONS_CLASS,
-  type Presence,
-  QUIET_LINE_CLASS,
-  pageAttributes,
-  PAGE_IDS,
-  pageTitleView,
-} from "../view/layout.ts";
-import { pageDataView } from "../view/pageData.ts";
+import { PAGE_IDS, PAGE_SECTIONS_CLASS, type Presence } from "../view/layout.ts";
+import { sectionPageView, sectionsView } from "../view/page.ts";
 import { SHELVES_AT_HEAD } from "../view/firstPictures.ts";
 import { untitledShelfPlaceholderView } from "../view/placeholder.ts";
 import {
@@ -70,17 +62,13 @@ const groupsView = (
   isStationOpening: IsStationOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
-  Array.match(
-    Array.getSomes(
-      // The first genres' shelves are what the page opens with.
-      Array.map(radio.groups, (group, index) =>
-        maybeGroupView(group, index < SHELVES_AT_HEAD ? "AtHead" : "Below", presence, isStationOpening, h),
-      ),
+  sectionsView(
+    // The first genres' shelves are what the page opens with.
+    Array.map(radio.groups, (group, index) =>
+      maybeGroupView(group, index < SHELVES_AT_HEAD ? "AtHead" : "Below", presence, isStationOpening, h),
     ),
-    {
-      onEmpty: () => h.p([h.Class(QUIET_LINE_CLASS)], ["The catalog has no stations right now."]),
-      onNonEmpty: (shelves) => h.div([h.Class(PAGE_SECTIONS_CLASS)], shelves),
-    },
+    "The catalog has no stations right now.",
+    h,
   );
 
 export const view = (
@@ -89,18 +77,9 @@ export const view = (
   isStationOpening: IsStationOpening,
   h: HtmlBuilder<Message>,
 ): Html =>
-  h.div(pageAttributes(PAGE_ID, presence, h), [
-    pageTitleView(PAGE_ID, TITLE, h),
-    h.div(
-      [h.AriaBusy(AsyncData.isPending(stationList))],
-      [
-        pageDataView(
-          stationList,
-          TITLE,
-          () => placeholderView(h),
-          (radio) => groupsView(radio, presence, isStationOpening, h),
-          h,
-        ),
-      ],
-    ),
-  ]);
+  sectionPageView(
+    { pageId: PAGE_ID, title: TITLE, presence, data: stationList },
+    () => placeholderView(h),
+    (radio) => groupsView(radio, presence, isStationOpening, h),
+    h,
+  );
