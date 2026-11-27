@@ -81,6 +81,12 @@
   --color-player-rail: #e4d6e1;
   --color-player-time: #6e5c6a;
 
+  /* An album's page: the margin its words and its songs keep from the page's
+     edges, and the height of the bar its head draws back to, a bar of the
+     system's. */
+  --spacing-album-gutter: clamp(1.375rem, 3.5vw, 3.5rem);
+  --spacing-album-bar: 3rem;
+
   /* Sizes of type between the scale's own steps, which the designs draw
      small figures and labels in: the number that leads a row, a song's
      length in the queue. Each is the size alone, and takes the line height
@@ -256,6 +262,15 @@
    from it. The page names itself as the container asked (`PageLook`). */
 @custom-variant search-wide {
   @container search (width >= 40rem) {
+    @slot;
+  }
+}
+
+/* A browser that moves a thing by the scroll of another: a timeline of one
+   element's way across the screen, named for another to go by. Without it
+   what goes by the scroll stands as it is laid out. */
+@custom-variant scroll-timelines {
+  @supports ((animation-timeline: view()) and (timeline-scope: --a)) {
     @slot;
   }
 }

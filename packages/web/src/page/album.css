@@ -1,64 +1,6 @@
-#album-page {
-  --album-gutter: clamp(1.375rem, 3.5vw, 3.5rem);
-  /* The bar the head draws back to: as high as a bar of the system's, and
-     the cover in it a thumbnail that leaves it a little room above and
-     below. The thumbnail stands at the bar's near end. */
-  /* NOTE: no inset for the top of the screen is added. The page is drawn
-     under the screen's top already, in a browser and installed alike, and a
-     browser that draws its own bar over the page can report that inset to a
-     page that is not under it: the bar was then twice its height. */
-  --album-bar-inner: 3rem;
-  --album-bar-height: var(--album-bar-inner);
-  --album-bar-pad: var(--album-gutter);
-  --album-thumb: 2rem;
-  --album-thumb-left: var(--album-bar-pad);
-  --album-hero-height: clamp(19rem, 103.5vw, 35rem);
-  scroll-padding-top: var(--album-bar-height);
-}
-
-.album-hero {
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  align-items: end;
-  min-height: var(--album-hero-height);
-  overflow: hidden;
-  /* NOTE: the night the veil ends in, in both themes: the cover draws back
-     over it as the page is scrolled, and the white words stand on it. */
-  background: var(--color-night);
-  color: var(--color-on-night);
-}
-
-.album-placeholder { background: var(--color-panel); }
-.album-placeholder::after { display: none; }
-
-.album-toolbar {
-  position: sticky;
-  z-index: 3;
-  top: 0;
-  height: var(--album-bar-height);
-  padding: 0 var(--album-bar-pad);
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  pointer-events: none;
-  margin-bottom: calc(0px - var(--album-bar-height));
-}
-.album-toolbar::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background: var(--color-panel);
-  border-bottom: 1px solid var(--color-line);
-}
-.album-compact > :first-child { flex: none; width: var(--album-thumb); }
-/* Without scroll timelines the cover slides over the sticky strip and reveals it
-   as it leaves. */
-@supports not ((animation-timeline: view()) and (timeline-scope: --album-cover)) {
-  .album-hero { z-index: 3; }
-  .album-toolbar { z-index: 2; }
-}
+/* What an album's page looks like is said in its view (page/album.ts). What
+   is here is the one thing a class list cannot say: a movement of several
+   pieces at once, by the scroll. */
 
 /* THE HEAD DRAWS BACK TO THE BAR
 
@@ -86,16 +28,7 @@
    bar proper, with its ground and a thumbnail in that very place, takes
    over at that moment and not before: come any sooner it would lie over a
    cover still on its way, and there would be two to see. */
-#album-page {
-  /* How small the head's words are when they reach the bar, and how far
-     across they have gone: to where the bar's title stands. */
-  --album-caption-lands-at: 0.3;
-  --album-caption-shift: calc(
-    var(--album-thumb-left) + var(--album-thumb) + .625rem - var(--album-gutter) * var(--album-caption-lands-at)
-  );
-}
-
-@supports (animation-timeline: view()) and (timeline-scope: --album-cover) {
+@variant scroll-timelines {
   /* NOTE: the timeline is measured against the whole of the page's box. Left
      to itself it would be measured inside the page's `scroll-padding`, which
      is the bar's height, and every place below would be that much out. */
@@ -106,7 +39,7 @@
     animation-timing-function: linear;
     animation-fill-mode: both;
     animation-timeline: --album-cover;
-    animation-range: exit 0% exit calc(100% - var(--album-bar-height));
+    animation-range: exit 0% exit calc(100% - var(--spacing-album-bar));
   }
   .album-toolbar::before, .album-compact > * {
     animation-name: album-bar-takes-over;
@@ -118,7 +51,18 @@
     .album-hero { animation-name: album-ground-turns; }
     .album-hero .album-cover { animation-name: album-cover-draws-back; }
     .album-hero::after { animation-name: album-veil-lifts; }
-    .album-caption { transform-origin: left bottom; animation-name: album-caption-rises; }
+    .album-caption {
+      /* How small the head's words are when they reach the bar, and how far
+         across they have gone: to where the bar's title stands, past the
+         bar's thumbnail (2rem, and the gap after it) at the bar's near end. */
+      --album-caption-lands-at: 0.3;
+      --album-caption-shift: calc(
+        var(--spacing-album-gutter) + 2rem + 0.625rem - var(--spacing-album-gutter) *
+          var(--album-caption-lands-at)
+      );
+      transform-origin: left bottom;
+      animation-name: album-caption-rises;
+    }
     /* The bar's thumbnail and its title grow bright together, in the bar,
        as the head's cover and words give way under them. */
     .album-compact > * {
@@ -158,29 +102,4 @@
     0%, 84% { opacity: 0; }
     100% { opacity: 1; }
   }
-}
-
-/* NOTE: every album's songs are at least as tall as what the screen has
-   left under the bar and over the room at the page's foot, however few
-   they are. The head draws back to the bar by the scroll, and a page too
-   short to be scrolled that far would be left with its head part of the way
-   there for good: its cover on its way to the bar, and the bar's title half
-   come.
-
-   That is as far as a short album scrolls, and no further: its first song
-   comes to rest right under the bar. The room at the page's foot
-   (`--page-foot`, view/layout.ts) is the page's own and comes after the
-   songs, so it is taken off here. Left in, an album was scrolled that much
-   past its head's end: a short one had a screen's worth of nothing under
-   its last song, and one of a single song went up under the bar and out of
-   sight.
-
-   One pixel more than that: the head's height is a share of the screen's
-   width and seldom a whole number of pixels, a page scrolls by whole ones,
-   and the bar takes over only at the very end of the way
-   (`album-bar-takes-over`). A page that fell a part of a pixel short of it
-   never showed its bar. */
-.album-songs { min-height: calc(100dvh - var(--album-bar-height) - var(--page-foot, 0px) + 1px); }
-@variant md {
-  #album-page { --album-hero-height: clamp(20rem, 46svh, 34rem); }
 }

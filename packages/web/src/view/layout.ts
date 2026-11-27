@@ -92,7 +92,9 @@ export type PageEdges = "Margins" | "ToEdge";
 
 const PAGE_EDGES_CLASS: Readonly<Record<PageEdges, string>> = {
   Margins: "px-5 pt-8 md:px-10 md:pt-10",
-  ToEdge: "",
+  // NOTE: a page whose head reaches the edges has a bar over its top once it
+  // is scrolled, and what is scrolled into view comes to rest under that bar.
+  ToEdge: "scroll-pt-album-bar",
 };
 
 /**
