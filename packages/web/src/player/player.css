@@ -305,35 +305,6 @@
   padding-inline: 0.25rem;
 }
 
-.player-action {
-  display: flex;
-  width: 2.75rem;
-  height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  color: var(--color-muted);
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.player-action:active {
-  background-color: var(--color-tile);
-}
-
-/* NOTE: lit as what it opens comes, and unlit at once when that is closed:
-   a control that took its time to go out read as one still open. */
-.player-action[data-lit] {
-  color: var(--color-accent);
-  background-color: var(--color-accent-wash);
-  transition: background-color 120ms, color 120ms;
-}
-
-.player-action:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
 .player-transport {
   display: flex;
   height: 5.4375rem;
@@ -500,34 +471,6 @@
   margin-right: 0.625rem;
 }
 
-.island-action {
-  display: flex;
-  width: 2.125rem;
-  height: 2.125rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.625rem;
-  color: var(--color-island-muted);
-  cursor: pointer;
-  transition: background-color 120ms, color 120ms;
-}
-
-.island-action:hover,
-.island-action:active {
-  color: var(--color-on-island);
-  background-color: color-mix(in srgb, var(--color-on-island) 10%, transparent);
-}
-
-.island-action[data-lit] {
-  color: var(--color-on-island);
-  background-color: color-mix(in srgb, var(--color-on-island) 15%, transparent);
-}
-
-.island-action:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
 /* THE QUEUE BESIDE THE PAGE
 
    On a desktop's screen the queue is a column of its own past the page
@@ -568,28 +511,6 @@
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.04em;
-}
-
-.queue-column-close {
-  display: flex;
-  width: 2rem;
-  height: 2rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  color: var(--color-muted);
-  background-color: var(--color-tile);
-  cursor: pointer;
-  transition: color 120ms;
-}
-
-.queue-column-close:hover {
-  color: var(--color-ink);
-}
-
-.queue-column-close:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
 }
 
 .queue-column-body {

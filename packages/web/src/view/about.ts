@@ -10,8 +10,9 @@ import {
   type AuthorPlace,
 } from "../about.ts";
 import { Message } from "../message.ts";
+import { iconControlClass } from "./control.ts";
 import { detailsIcon, linkedInIcon, xIcon } from "./icon.ts";
-import { MENU_CLASS } from "./trackList.ts";
+import { MENU_BACKDROP_CLASS, MENU_CLASS } from "./menu.ts";
 
 // VIEW
 
@@ -48,7 +49,7 @@ const placeLinkView = (
 // place is no taller than the name's own line: the credit is two lines set
 // close, and no mark makes the second one taller.
 const CREDIT_LINK_CLASS =
-  "flex size-5 items-center justify-center rounded-md hover:bg-accent-wash hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent";
+  "flex size-5 items-center justify-center rounded-md hover:bg-accent-wash hover:text-ink focus-ring-inset";
 
 /**
  * Who made the app, at the foot of the navigation's column: "Made by" on a
@@ -92,19 +93,15 @@ export const creditView = (h: HtmlBuilder<Message>): Html =>
     ],
   );
 
-// NOTE: the control answers a press over the whole of its place, a finger
-// wide, and lights a smaller circle within it, as the control at the end of
-// a row does. It is drawn out past the title's line above and below, and to
-// the page's edge, so that the title's row is no taller for it and its mark
-// stands where the page's own edge is.
-const ABOUT_BUTTON_CLASS =
-  "relative isolate -my-1 -mr-2.5 flex size-11 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full text-muted before:absolute before:inset-1.5 before:-z-10 before:rounded-full before:content-[''] hover:text-ink hover:before:bg-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent active:before:bg-tile data-[open]:text-ink data-[open]:before:bg-tile";
+// NOTE: the control is drawn out past the title's line above and below, and
+// to the page's edge, so that the title's row is no taller for it and its
+// mark stands where the page's own edge is.
+const ABOUT_BUTTON_CLASS = clsx("-my-1 -mr-2.5", iconControlClass("OnPage"));
 
-/** Over the whole screen: a press anywhere but on what is open closes it. */
-const ABOUT_BACKDROP_CLASS = "fixed inset-0 z-40 touch-none md:hidden";
+const ABOUT_BACKDROP_CLASS = clsx(MENU_BACKDROP_CLASS, "md:hidden");
 
 const ABOUT_LINK_CLASS =
-  "flex items-center justify-between gap-8 border-t border-line px-4 py-3 hover:bg-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent active:bg-tile";
+  "flex items-center justify-between gap-8 border-t border-line px-4 py-3 hover:bg-panel focus-ring-inset active:bg-tile";
 
 const aboutPanelView = (h: HtmlBuilder<Message>): ReadonlyArray<Html> => [
   h.div(

@@ -1,9 +1,8 @@
-import { Button } from "@foldkit/ui";
-import { clsx } from "clsx";
 import * as Match from "effect/Match";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { LoadError } from "../catalog.ts";
 import { Message } from "../message.ts";
+import { iconButtonView, pillButtonView, type PillLook } from "./control.ts";
 import { closeIcon } from "./icon.ts";
 
 // VIEW
@@ -16,27 +15,20 @@ export const reason = (error: LoadError): string =>
     Match.exhaustive,
   );
 
-const tryAgainView = (className: string, h: HtmlBuilder<Message>): Html =>
-  Button.view(
-    {
-      onClick: Message.ClickedTryAgain(),
-      toView: (attributes) =>
-        h.button(
-          [
-            ...attributes.button,
-            h.Class(
-              clsx(
-                className,
-                "cursor-pointer rounded-full text-sm font-semibold",
-                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-              ),
-            ),
-          ],
-          ["Try again"],
-        ),
-    },
+const tryAgainView = (look: PillLook, h: HtmlBuilder<Message>, place?: string): Html =>
+  pillButtonView(
+    { look, size: "Short", content: ["Try again"], onClick: Message.ClickedTryAgain(), place },
     h,
   );
+
+/**
+ * Words for whoever cannot see what changed: said politely when they change,
+ * without being seen and without taking the focus. The place is in the
+ * document whether or not there is anything to say, so that what is said is
+ * heard as a change.
+ */
+export const saidView = <M>(words: string, h: HtmlBuilder<M>): Html =>
+  h.p([h.Role("status"), h.Class("sr-only")], [words]);
 
 /**
  * A page that could not load and has nothing to show: said where its content
@@ -53,7 +45,7 @@ export const failureView = (what: string, error: LoadError, h: HtmlBuilder<Messa
           h.p([h.Class("mt-1 text-sm text-muted")], [reason(error)]),
         ],
       ),
-      tryAgainView("mt-4 bg-accent px-4 py-2 text-on-accent hover:opacity-90", h),
+      tryAgainView("Filled", h, "mt-4"),
     ],
   );
 
@@ -97,24 +89,13 @@ export const staleBannerView = (error: LoadError, h: HtmlBuilder<Message>): Html
             [h.Role("status"), h.Class("min-w-0 text-pretty")],
             [`${staleReason(error)} Showing what loaded earlier.`],
           ),
-          tryAgainView(
-            "shrink-0 px-2 py-1.5 whitespace-nowrap text-accent underline underline-offset-2 hover:no-underline",
-            h,
-          ),
-          Button.view(
+          tryAgainView("Words", h),
+          iconButtonView(
             {
+              look: "OnNotice",
+              label: "Dismiss",
+              content: [closeIcon("size-4")],
               onClick: Message.ClickedDismissStaleNotice(),
-              toView: (attributes) =>
-                h.button(
-                  [
-                    ...attributes.button,
-                    h.AriaLabel("Dismiss"),
-                    h.Class(
-                      "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted hover:bg-tile hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-                    ),
-                  ],
-                  [closeIcon("size-4")],
-                ),
             },
             h,
           ),

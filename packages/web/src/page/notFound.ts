@@ -1,6 +1,8 @@
+import { clsx } from "clsx";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
 import { homeRouter } from "../route.ts";
+import { pillClass } from "../view/control.ts";
 import { PAGE_IDS, pageAttributes, pageTitleView } from "../view/layout.ts";
 
 // VIEW
@@ -16,9 +18,7 @@ export const view = (path: string, h: HtmlBuilder<Message>): Html =>
     h.a(
       [
         h.Href(homeRouter()),
-        h.Class(
-          "mt-6 inline-block rounded-full bg-accent px-4 py-2 text-sm font-semibold text-on-accent hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-        ),
+        h.Class(clsx("mt-6 inline-block", pillClass("Filled", "Short"))),
       ],
       ["Go to Home"],
     ),

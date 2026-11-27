@@ -76,7 +76,7 @@ import {
 } from "./route.ts";
 import { creditView } from "./view/about.ts";
 import { artworkFlightRules, routeArtwork } from "./view/artwork.ts";
-import { staleBannerView } from "./view/feedback.ts";
+import { staleBannerView, saidView } from "./view/feedback.ts";
 import {
   genresIcon,
   homeIcon,
@@ -198,7 +198,7 @@ const circleSection = (model: Model): MenuSection =>
 const FLOATING_CLASS = "border border-line bg-panel/85 shadow-lg backdrop-blur-xl";
 
 const ITEM_FOCUS_CLASS =
-  "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent";
+  "focus-ring-inset";
 
 /** Beside the page, on a wide screen, every item is a row of the same kind. */
 const WIDE_LINK_CLASS =
@@ -362,7 +362,7 @@ const showNavigationView = (model: Model, h: HtmlBuilder<Message>): Html =>
               : [h.AriaLabel("Show navigation"), h.AriaExpanded(false)]),
             h.DataAttribute("section", circleSection(model)),
             h.Class(
-              "pointer-events-auto absolute top-1.5 left-1.5 hidden size-11 cursor-pointer touch-manipulation rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent minimized:block",
+              "pointer-events-auto absolute top-1.5 left-1.5 hidden size-11 cursor-pointer touch-manipulation rounded-full focus-ring minimized:block",
             ),
           ],
           [],
@@ -1336,7 +1336,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
             toParentMessage: (message) => Message.GotPlayerMessage({ message }),
           })
         : h.empty,
-      h.p([h.Role("status"), h.Class("sr-only")], [pageStatus(model)]),
+      saidView(pageStatus(model), h),
       // NOTE: a song of the queue being carried is drawn here and not in the
       // player's sheet. It is placed by the screen, and the sheet is a box
       // that what is in it is placed by.

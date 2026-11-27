@@ -158,6 +158,40 @@
   }
 }
 
+/* THE RING OF A CONTROL THE KEYS HAVE BROUGHT THE FOCUS TO
+
+   One ring for every control, in the accent's colour: `focus-ring` stands a
+   little off the control, `focus-ring-inset` within its edge, for a control
+   whose edge is hard against its neighbours or is the edge of what is seen,
+   and a number after either says how far, in pixels. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@utility focus-ring-* {
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: calc(--value(integer) * 1px);
+  }
+}
+
+@utility focus-ring-inset {
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+}
+
+@utility focus-ring-inset-* {
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: calc(--value(integer) * -1px);
+  }
+}
+
 /* The shadow that tells a floating piece from the page: the island, and the
    arrows that turn a row. */
 :root {

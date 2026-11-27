@@ -14,12 +14,11 @@ import type { TrackData } from "../model.ts";
 import { isPlayable, type QueuePlace, type TrackStatus } from "../player/model.ts";
 import { type AppRoute, homeRouter } from "../route.ts";
 import { artworkView, coverView } from "../view/artwork.ts";
+import { pillButtonView } from "../view/control.ts";
 import {
   checkIcon,
   pauseIcon,
   playIcon,
-  playLastIcon,
-  playNextIcon,
   retryIcon,
   spinnerIcon,
 } from "../view/icon.ts";
@@ -30,6 +29,8 @@ import {
   pageTitleIdOf,
   pageTitleView,
 } from "../view/layout.ts";
+import { saidView } from "../view/feedback.ts";
+import { ACTION_LOOKS, type ActionLook } from "../view/menu.ts";
 import { pageDataView } from "../view/pageData.ts";
 import { BLOCK_CLASS } from "../view/placeholder.ts";
 import { formatDuration } from "../view/time.ts";
@@ -169,11 +170,10 @@ export type Queueing = Readonly<{
   maybeQueued: Option.Option<QueuePlace>;
 }>;
 
-const QUEUE_LOOKS: Readonly<
-  Record<QueuePlace, Readonly<{ label: string; done: string; icon: (className: string) => Html }>>
-> = {
-  Next: { label: "Play next", done: "Plays next", icon: playNextIcon },
-  Last: { label: "Add to queue", done: "Added to the queue", icon: playLastIcon },
+/** What each of the two is called, as a row's menu calls it, and what it says once done. */
+const QUEUE_LOOKS: Readonly<Record<QueuePlace, ActionLook & Readonly<{ done: string }>>> = {
+  Next: { ...ACTION_LOOKS.PlayNext, done: "Plays next" },
+  Last: { ...ACTION_LOOKS.AddToQueue, done: "Added to the queue" },
 };
 
 /**
@@ -190,23 +190,16 @@ const queueControlView = (
   const look = QUEUE_LOOKS[place];
   const isDone = Option.contains(maybeQueued, place);
 
-  return Button.view(
+  return pillButtonView(
     {
+      look: "Outlined",
+      size: "Tall",
+      content: [
+        isDone ? checkIcon("size-5 text-accent") : look.icon("size-5 text-muted"),
+        isDone ? look.done : look.label,
+      ],
       onClick: Message.ClickedQueueTrack({ trackId: track.id, place }),
-      toView: (attributes) =>
-        h.button(
-          [
-            ...attributes.button,
-            h.AriaLabel(`${look.label}: ${track.title}`),
-            h.Class(
-              "inline-flex h-11 cursor-pointer touch-manipulation items-center justify-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-tile",
-            ),
-          ],
-          [
-            isDone ? checkIcon("size-5 text-accent") : look.icon("size-5 text-muted"),
-            isDone ? look.done : look.label,
-          ],
-        ),
+      attributes: [h.AriaLabel(`${look.label}: ${track.title}`)],
     },
     h,
   );
@@ -233,21 +226,13 @@ const playControlView = (
   return h.div(
     [h.Class("mt-6 flex flex-wrap items-center gap-x-4 gap-y-2")],
     [
-      Button.view(
+      pillButtonView(
         {
+          look: "Filled",
+          size: "Tall",
+          content: [face.icon, face.words],
           onClick: Message.ClickedPlayTrack({ trackId: track.id, from: "Track" }),
-          toView: (attributes) =>
-            h.button(
-              [
-                ...attributes.button,
-                h.AriaLabel(`${face.words}: ${track.title}`),
-                h.AriaBusy(status === "Starting"),
-                h.Class(
-                  "inline-flex h-11 min-w-28 cursor-pointer touch-manipulation items-center justify-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-                ),
-              ],
-              [face.icon, face.words],
-            ),
+          attributes: [h.AriaLabel(`${face.words}: ${track.title}`), h.AriaBusy(status === "Starting")],
         },
         h,
       ),
@@ -262,14 +247,12 @@ const playControlView = (
         : h.empty,
       // Said to assistive technology: the control's own words change, and a
       // change of name is not always read out.
-      h.p(
-        [h.Role("status"), h.Class("sr-only")],
-        [
-          Option.match(queueing.maybeQueued, {
-            onNone: () => "",
-            onSome: (place) => `${QUEUE_LOOKS[place].done}.`,
-          }),
-        ],
+      saidView(
+        Option.match(queueing.maybeQueued, {
+          onNone: () => "",
+          onSome: (place) => `${QUEUE_LOOKS[place].done}.`,
+        }),
+        h,
       ),
     ],
   );

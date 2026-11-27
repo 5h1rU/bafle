@@ -7,8 +7,6 @@ import { Submodel } from "foldkit";
 import { type ChildAttribute, childAttributes, type Html, type HtmlBuilder } from "foldkit/html";
 import type { Screen } from "../screen.ts";
 import {
-  albumIcon,
-  detailsIcon,
   moreIcon,
   nextIcon,
   noteIcon,
@@ -19,7 +17,15 @@ import {
   spinnerIcon,
 } from "../view/icon.ts";
 import { coverTransitionName, artworkFlightRules } from "../view/artwork.ts";
-import { MENU_CLASS, MENU_ITEM_CLASS } from "../view/trackList.ts";
+import { iconControlClass } from "../view/control.ts";
+import { saidView } from "../view/feedback.ts";
+import {
+  ACTION_LOOKS,
+  MENU_BACKDROP_OVER_SHEET_CLASS,
+  MENU_CLASS,
+  MENU_ITEM_CLASS,
+  menuItemContentView,
+} from "../view/menu.ts";
 import { formatDuration } from "../view/time.ts";
 import { islandFigureView } from "./islandFigure.ts";
 import { Message } from "./message.ts";
@@ -108,7 +114,7 @@ export type ExpandedViewInputs = Readonly<{
 export const PLAYER_ID = "player";
 
 const CONTROL_CLASS =
-  "relative inline-flex shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "relative inline-flex shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full focus-ring";
 
 /** A glyph arrives by growing into place: small, quick, and still under reduced motion. */
 const GLYPH_CLASS =
@@ -871,7 +877,7 @@ const progressOrNoticeView = (session: Session, h: HtmlBuilder<Message>): Html =
   });
 
 const announcementView = (session: Session, h: HtmlBuilder<Message>): Html =>
-  h.p([h.Role("status"), h.Class("sr-only")], [announcement(session)]);
+  saidView(announcement(session), h);
 
 /**
  * The island: one figure over the foot of the page, light on the light page
@@ -1008,13 +1014,8 @@ const islandExtrasView = (
       islandQueueButtonView(model, session, h),
       moreMenuView(
         session,
-        {
-          items: ["OpenAlbum", "SongDetails"],
-          isPageOpening: viewInputs.isPageOpening,
-          buttonClassName: "island-action",
-          glyphClassName: "size-5",
-          placement: "top-end",
-        },
+        "OnIsland",
+        { items: ["OpenAlbum", "SongDetails"], isPageOpening: viewInputs.isPageOpening },
         h,
       ),
     ],
@@ -1241,19 +1242,6 @@ const faceHeadView = (
   );
 };
 
-// NOTE: the menu's backdrop is what hears the press that closes it: a press
-// anywhere else, the control that opened it among that. It is drawn in the
-// document's body, with the menu, and the player's sheet is drawn over the
-// pages at the height a row's backdrop has (`z-40`): at that height the
-// sheet lay over the backdrop, and no press reached it. Here it is over the
-// sheet and under the menu.
-const MORE_BACKDROP_CLASS = "fixed inset-0 z-[45] touch-none";
-
-const MORE_LOOKS: Readonly<Record<PlayerAction, Readonly<{ label: string; icon: (className: string) => Html }>>> = {
-  OpenAlbum: { label: "Go to album", icon: albumIcon },
-  SongDetails: { label: "Song details", icon: detailsIcon },
-};
-
 /**
  * The control, three dots, that opens the menu of what else can be done
  * with the track that is playing: its album's page, and what the catalog
@@ -1264,17 +1252,28 @@ const MORE_LOOKS: Readonly<Record<PlayerAction, Readonly<{ label: string; icon: 
 // NOTE: the menu is the player's one menu, drawn where the player has its
 // controls: under those of the expanded player, or on the island of a
 // desktop's screen. `look` is what differs between the two.
-type MoreMenuLook = Readonly<{
+type MoreMenuPlace = "OnSheet" | "OnIsland";
+
+const MORE_MENU_PLACES: Readonly<
+  Record<MoreMenuPlace, Readonly<{ glyph: string; placement: "top-start" | "top-end" }>>
+> = {
+  OnSheet: { glyph: "size-6", placement: "top-start" },
+  OnIsland: { glyph: "size-5", placement: "top-end" },
+};
+
+type MoreMenuOffer = Readonly<{
   items: ReadonlyArray<PlayerAction>;
   /** Whether a page chosen from the menu is on its way: the control's mark breathes. */
   isPageOpening: boolean;
-  buttonClassName: string;
-  glyphClassName: string;
-  placement: "top-start" | "top-end";
 }>;
 
-const moreMenuView = (session: Session, look: MoreMenuLook, h: HtmlBuilder<Message>): Html => {
-  const { items } = look;
+const moreMenuView = (
+  session: Session,
+  place: MoreMenuPlace,
+  { items, isPageOpening }: MoreMenuOffer,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const look = MORE_MENU_PLACES[place];
   const menu: Menu.Model = session.moreMenu;
 
   return h.submodel({
@@ -1285,30 +1284,25 @@ const moreMenuView = (session: Session, look: MoreMenuLook, h: HtmlBuilder<Messa
       items,
       itemToConfig: (action: PlayerAction) => ({
         className: MENU_ITEM_CLASS,
-        content: h.div(
-          [h.Class("contents")],
-          [h.span([], [MORE_LOOKS[action].label]), MORE_LOOKS[action].icon("size-5 shrink-0 text-muted")],
-        ),
+        content: menuItemContentView(ACTION_LOOKS[action], h),
       }),
-      itemToSearchText: (action: PlayerAction) => MORE_LOOKS[action].label,
+      itemToSearchText: (action: PlayerAction) => ACTION_LOOKS[action].label,
       ariaLabel: `More: ${session.current.title}`,
       buttonContent: moreIcon(
-        clsx(look.glyphClassName, {
-          "nav-breathes motion-reduce:animate-pulse": look.isPageOpening,
-        }),
+        clsx(look.glyph, { "nav-breathes motion-reduce:animate-pulse": isPageOpening }),
       ),
-      buttonClassName: look.buttonClassName,
+      buttonClassName: iconControlClass(place),
       // NOTE: lit by the Model's own word that the menu is open, which is
       // taken back the moment it is closed. What the component says on its
       // control (`data-open`, `aria-expanded`) holds for as long as the menu
       // takes to fade away, and a control lit by that stayed lit over a menu
       // that was no longer there.
       buttonAttributes: childAttributes([
-        h.AriaBusy(look.isPageOpening),
+        h.AriaBusy(isPageOpening),
         ...(menu.isOpen ? [h.DataAttribute("lit", "")] : []),
       ]),
       itemsClassName: MENU_CLASS,
-      backdropClassName: MORE_BACKDROP_CLASS,
+      backdropClassName: MENU_BACKDROP_OVER_SHEET_CLASS,
       anchor: { placement: look.placement, gap: 8, padding: 12 },
     },
     toParentMessage: (message) => Message.GotMoreMenuMessage({ message }),
@@ -1329,12 +1323,10 @@ const actionsView = (
     [
       moreMenuView(
         session,
+        "OnSheet",
         {
           items: session.pane === "Details" ? ["OpenAlbum"] : ["OpenAlbum", "SongDetails"],
           isPageOpening: viewInputs.isAlbumOpening,
-          buttonClassName: "player-action",
-          glyphClassName: "size-6",
-          placement: "top-start",
         },
         h,
       ),
@@ -1392,7 +1384,7 @@ const sheetView = (
         [
           h.Class(
             clsx(
-              "relative isolate rounded-t-[inherit] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+              "relative isolate rounded-t-[inherit] focus-ring-inset",
               viewInputs.isSheetWhole ? "overflow-y-auto" : "overflow-hidden",
             ),
           ),

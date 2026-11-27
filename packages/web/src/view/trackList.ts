@@ -21,20 +21,25 @@ import {
   flightAttributes,
   type PictureLoading,
 } from "./artwork.ts";
-import { reason } from "./feedback.ts";
+import { iconControlClass } from "./control.ts";
+import { reason, saidView } from "./feedback.ts";
 import { COLUMN_ROWS_AT_ONCE, ROWS_AT_ONCE } from "./firstPictures.ts";
 import {
-  albumIcon,
   alertIcon,
   checkIcon,
-  detailsIcon,
   moreIcon,
-  playLastIcon,
-  playNextIcon,
   spinnerIcon,
   retryIcon,
 } from "./icon.ts";
 import { type Presence, SECTION_HEADING_CLASS, TRACK_ROW_ATTRIBUTE } from "./layout.ts";
+import {
+  ACTION_LOOKS,
+  MENU_BACKDROP_CLASS,
+  MENU_CLASS,
+  MENU_ITEM_CLASS,
+  MENU_ITEM_ICON_CLASS,
+  menuItemContentView,
+} from "./menu.ts";
 import { formatDuration } from "./time.ts";
 import { turningRowIdOf, turningView } from "./turning.ts";
 
@@ -359,7 +364,7 @@ const playRowView = (
               clsx(
                 ROW_PART_CLASS[leadOf(context)],
                 // A press held on the row is a press, not the start of picking out its words.
-                "track-row-play cursor-pointer touch-manipulation rounded-lg select-none [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+                "track-row-play cursor-pointer touch-manipulation rounded-lg select-none [-webkit-touch-callout:none] focus-ring-inset",
               ),
             ),
           ],
@@ -381,35 +386,6 @@ const silentRowView = (
     [h.Class(ROW_PART_CLASS[leadOf(context)])],
     rowContentView(track, maybePosition, loading, "Elsewhere", context, h),
   );
-
-// NOTE: the control answers a press over the whole of its place, a finger
-// wide, and lights a smaller circle within it. The song's length stands
-// hard against that place, and a circle the size of the place touched it:
-// the light is drawn in from the place's edge, and the row keeps its
-// spacing. The circle is a piece of its own behind the mark (`before`).
-const MORE_CLASS =
-  "relative isolate flex size-11 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full text-muted before:absolute before:inset-1.5 before:-z-10 before:rounded-full before:content-[''] hover:text-ink hover:before:bg-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent active:before:bg-tile data-[open]:text-ink data-[open]:before:bg-tile";
-
-/** Over the whole screen: nothing under it is pressed or scrolled while the menu is open. */
-const MENU_BACKDROP_CLASS = "fixed inset-0 z-40 touch-none";
-
-// NOTE: the menu is drawn in the document's body, over everything, and is
-// placed by the component under the row's control. It grows out of the
-// corner nearest that control.
-export const MENU_CLASS =
-  "z-50 min-w-60 origin-top-right data-[placement=top]:origin-bottom-right overflow-hidden rounded-2xl bg-canvas text-ink shadow-menu ring-1 ring-line outline-none transition-[scale,opacity] duration-150 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 motion-reduce:transition-none";
-
-export const MENU_ITEM_CLASS =
-  "flex cursor-pointer items-center justify-between gap-8 border-line px-4 py-3 select-none not-first:border-t data-[active]:bg-panel active:bg-tile";
-
-type ActionLook = Readonly<{ label: string; icon: (className: string) => Html }>;
-
-const ACTION_LOOKS: Readonly<Record<RowAction, ActionLook>> = {
-  PlayNext: { label: "Play next", icon: playNextIcon },
-  AddToQueue: { label: "Add to queue", icon: playLastIcon },
-  OpenAlbum: { label: "Go to album", icon: albumIcon },
-  OpenSong: { label: "Song details", icon: detailsIcon },
-};
 
 /**
  * What a row has to say of the two pages its menu leads to. What is said of
@@ -497,8 +473,6 @@ const pageStateOf = (action: RowAction, pages: RowPages): RowState => {
   return action === "OpenAlbum" ? pages.album : RowState.Openable();
 };
 
-const ITEM_ICON_CLASS = "size-5 shrink-0 text-muted";
-
 /** An item's name over a line that says what became of what it leads to. */
 const itemWithNoteView = (
   label: string,
@@ -523,8 +497,7 @@ const menuItemView = (action: RowAction, pages: RowPages, h: HtmlBuilder<Message
   const look = ACTION_LOOKS[action];
 
   return RowState.match(pageStateOf(action, pages), {
-    Openable: () =>
-      h.div([h.Class("contents")], [h.span([], [look.label]), look.icon(ITEM_ICON_CLASS)]),
+    Openable: () => menuItemContentView(look, h),
     NotAvailable: () =>
       h.div(
         [h.DataAttribute("item-state", "not-available"), h.Class("contents text-muted")],
@@ -538,7 +511,7 @@ const menuItemView = (action: RowAction, pages: RowPages, h: HtmlBuilder<Message
         [h.DataAttribute("item-state", "opening"), h.Class("contents")],
         [
           h.span([], [look.label]),
-          spinnerIcon(clsx(ITEM_ICON_CLASS, "animate-spin motion-reduce:animate-pulse")),
+          spinnerIcon(clsx(MENU_ITEM_ICON_CLASS, "animate-spin motion-reduce:animate-pulse")),
         ],
       ),
     Failed: ({ error }) =>
@@ -581,7 +554,7 @@ const rowMenuView = (
         context.queuedOf(track.id),
         context.menuOf(track.id).isOpen,
       ),
-      buttonClassName: MORE_CLASS,
+      buttonClassName: iconControlClass("OnPage"),
       buttonAttributes: childAttributes([
         h.DataAttribute(TRACK_ROW_ATTRIBUTE, track.id),
         h.AriaBusy(isOpening(pages)),
@@ -640,10 +613,7 @@ const noticeView = (
   context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): Html =>
-  h.p(
-    [h.Role("status"), h.Class("sr-only")],
-    [Array.join(sentences(track, pages, status, context.queuedOf(track.id)), " ")],
-  );
+  saidView(Array.join(sentences(track, pages, status, context.queuedOf(track.id)), " "), h);
 
 /**
  * A row: its surface, with the control that plays and the control that

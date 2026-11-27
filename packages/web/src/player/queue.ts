@@ -3,6 +3,7 @@ import { Button, DragAndDrop } from "@foldkit/ui";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { createLazy, type Html, type HtmlBuilder } from "foldkit/html";
+import { iconButtonView } from "../view/control.ts";
 import { closeIcon, gripDotsIcon, gripIcon, noteIcon, queueIcon } from "../view/icon.ts";
 import { formatDuration } from "../view/time.ts";
 import { Message } from "./message.ts";
@@ -45,25 +46,21 @@ const nextLine = (session: Session): string =>
  */
 export const queueButtonView = (session: Session, h: HtmlBuilder<Message>): Html => {
   const isOpen = session.pane === "Queue";
-  return Button.view(
+  return iconButtonView(
     {
+      look: "OnSheet",
+      label: "Playing Next",
+      content: [
+        queueIcon("size-6"),
+        h.span([h.Id(NEXT_ID), h.Class("sr-only")], [nextLine(session)]),
+      ],
       onClick: Message.ClickedQueue(),
-      toView: (attributes) =>
-        h.button(
-          [
-            ...attributes.button,
-            h.AriaLabel("Playing Next"),
-            h.AriaDescribedBy(NEXT_ID),
-            h.AriaExpanded(isOpen),
-            h.AriaControls(PANEL_ID),
-            ...(isOpen ? [h.DataAttribute("lit", "")] : []),
-            h.Class("player-action"),
-          ],
-          [
-            queueIcon("size-6"),
-            h.span([h.Id(NEXT_ID), h.Class("sr-only")], [nextLine(session)]),
-          ],
-        ),
+      attributes: [
+        h.AriaDescribedBy(NEXT_ID),
+        h.AriaExpanded(isOpen),
+        h.AriaControls(PANEL_ID),
+        ...(isOpen ? [h.DataAttribute("lit", "")] : []),
+      ],
     },
     h,
   );
@@ -147,7 +144,7 @@ const rowView = (
                     ...attributes.button,
                     h.AriaLabel(`Play: ${track.title} by ${track.artist.name}`),
                     h.Class(
-                      "track-row-play -ml-2 flex min-h-[3.5625rem] min-w-0 flex-1 cursor-pointer touch-manipulation items-center gap-3.5 rounded-lg pl-2 select-none [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent",
+                      "track-row-play -ml-2 flex min-h-[3.5625rem] min-w-0 flex-1 cursor-pointer touch-manipulation items-center gap-3.5 rounded-lg pl-2 select-none [-webkit-touch-callout:none] focus-ring-inset",
                     ),
                   ],
                   [
@@ -287,27 +284,23 @@ export const islandQueueButtonView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const isOpen = model.queueColumn === "Open";
-  return Button.view(
+  return iconButtonView(
     {
+      look: "OnIsland",
+      label: "Queue",
+      content: [
+        queueIcon("size-5"),
+        h.span([h.Id(NEXT_IN_ISLAND_ID), h.Class("sr-only")], [nextLine(session)]),
+      ],
       onClick: Message.ClickedIslandQueue(),
-      toView: (attributes) =>
-        h.button(
-          [
-            ...attributes.button,
-            h.Id(QUEUE_CONTROL_ID),
-            h.AriaLabel("Queue"),
-            h.AriaDescribedBy(NEXT_IN_ISLAND_ID),
-            h.AriaExpanded(isOpen),
-            // NOTE: the column is in the document only while it is open, and
-            // a control must not name what is not there.
-            ...(isOpen ? [h.AriaControls(QUEUE_COLUMN_ID), h.DataAttribute("lit", "")] : []),
-            h.Class("island-action"),
-          ],
-          [
-            queueIcon("size-5"),
-            h.span([h.Id(NEXT_IN_ISLAND_ID), h.Class("sr-only")], [nextLine(session)]),
-          ],
-        ),
+      attributes: [
+        h.Id(QUEUE_CONTROL_ID),
+        h.AriaDescribedBy(NEXT_IN_ISLAND_ID),
+        h.AriaExpanded(isOpen),
+        // NOTE: the column is in the document only while it is open, and a
+        // control must not name what is not there.
+        ...(isOpen ? [h.AriaControls(QUEUE_COLUMN_ID), h.DataAttribute("lit", "")] : []),
+      ],
     },
     h,
   );
@@ -359,7 +352,7 @@ const columnGripView = (row: QueueRow, drag: DragAndDrop.Model, h: HtmlBuilder<M
   );
 
 const PLAY_IN_COLUMN_CLASS =
-  "track-row-play flex min-w-0 flex-1 cursor-pointer items-center rounded-lg text-left select-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent";
+  "track-row-play flex min-w-0 flex-1 cursor-pointer items-center rounded-lg text-left select-none focus-ring-inset";
 
 /** A song's title over who it is by, in the two sizes the column has. */
 const columnWordsView = (
@@ -548,14 +541,12 @@ export const queueColumnView = (session: Session, h: HtmlBuilder<Message>): Html
         [h.Class("queue-column-head")],
         [
           h.h2([h.Id(COLUMN_TITLE_ID), h.Class("queue-column-title")], ["Queue"]),
-          Button.view(
+          iconButtonView(
             {
+              look: "OnPanel",
+              label: "Close the queue",
+              content: [closeIcon("size-4")],
               onClick: Message.ClickedCloseQueue(),
-              toView: (attributes) =>
-                h.button(
-                  [...attributes.button, h.AriaLabel("Close the queue"), h.Class("queue-column-close")],
-                  [closeIcon("size-4")],
-                ),
             },
             h,
           ),

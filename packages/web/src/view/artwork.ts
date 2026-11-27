@@ -83,6 +83,32 @@ export const artworkView = <M>(
   );
 
 /**
+ * A picture at the size of a page's head, in a box that is never empty: the
+ * small rendition, which the row or the tile the listener came from has
+ * already loaded, is drawn at once, with no wait for the network or for
+ * decoding, and the larger one is drawn over it when it arrives.
+ */
+const renditionsView = <M>(
+  artwork: Artwork,
+  size: "medium" | "large",
+  h: HtmlBuilder<M>,
+): ReadonlyArray<Html> => [
+  h.img([
+    h.Decoding("sync"),
+    h.Src(artwork.small),
+    h.Alt(""),
+    h.Class("absolute inset-0 size-full object-cover"),
+  ]),
+  h.img([
+    h.Decoding("async"),
+    h.Fetchpriority("high"),
+    h.Src(artwork[size]),
+    h.Alt(""),
+    h.Class("absolute inset-0 size-full object-cover"),
+  ]),
+];
+
+/**
  * The picture at the head of a page. The page is reached from a row, which
  * has loaded the small rendition, or from a tile, which has loaded the
  * medium one. A cached thumbnail fills the box while the final picture decodes.
@@ -101,21 +127,7 @@ const headPictureView = (
     ],
     Option.match(maybeArtwork, {
       onNone: () => [missingPictureView(h)],
-      onSome: (artwork) => [
-        h.img([
-          h.Decoding("sync"),
-          h.Src(artwork.small),
-          h.Alt(""),
-          h.Class("absolute inset-0 size-full object-cover"),
-        ]),
-        h.img([
-          h.Decoding("async"),
-          h.Fetchpriority("high"),
-          h.Src(artwork[size]),
-          h.Alt(""),
-          h.Class("absolute inset-0 size-full object-cover"),
-        ]),
-      ],
+      onSome: (artwork) => renditionsView(artwork, size, h),
     }),
   );
 
@@ -392,20 +404,6 @@ export const coverView = (
     ],
     Option.match(maybeArtwork, {
       onNone: () => [missingPictureView(h)],
-      onSome: (artwork) => [
-        h.img([
-          h.Decoding("sync"),
-          h.Src(artwork.small),
-          h.Alt(""),
-          h.Class("absolute inset-0 size-full object-cover"),
-        ]),
-        h.img([
-          h.Decoding("async"),
-          h.Fetchpriority("high"),
-          h.Src(artwork.large),
-          h.Alt(""),
-          h.Class("absolute inset-0 size-full object-cover"),
-        ]),
-      ],
+      onSome: (artwork) => renditionsView(artwork, "large", h),
     }),
   );

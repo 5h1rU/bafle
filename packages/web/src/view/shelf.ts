@@ -258,7 +258,7 @@ const tileContentView = (
 ];
 
 const TILE_LINK_CLASS =
-  "block touch-manipulation rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "block touch-manipulation rounded-lg focus-ring";
 
 const tileView = (
   tile: Tile,
@@ -328,7 +328,7 @@ const shelfSectionView = (
             h.Class(
               clsx(
                 look.row,
-                "turning-row rounded-lg focus-visible:outline-2 focus-visible:outline-accent",
+                "turning-row rounded-lg focus-ring-0",
               ),
             ),
           ],
