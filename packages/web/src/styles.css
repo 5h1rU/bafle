@@ -19,7 +19,6 @@
 @import "./view/turning.css" layer(components);
 @import "./view/shelf.css" layer(components);
 @import "./view/artwork.css" layer(components);
-@import "./view/crash.css" layer(components);
 @import "./view/pageTransitions.css" layer(components);
 @import "./player/transitions.css" layer(components);
 @import "./player/island.css" layer(components);

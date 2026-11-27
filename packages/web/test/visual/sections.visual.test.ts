@@ -1,5 +1,5 @@
 import { describe, test } from "vitest";
-import { looksAs, pressed } from "./draw.ts";
+import { looksAs, pressed, stoppedLooksAs } from "./draw.ts";
 import * as Models from "./models.ts";
 
 // THE SECTIONS, LOOKED AT
@@ -73,4 +73,10 @@ describe("Radio", () => {
 
 describe("a page that is not there", () => {
   test("on a phone", () => looksAs("not-found-phone", { model: Models.notFound, screen: "Phone" }));
+});
+
+describe("the page that says the app stopped", () => {
+  test("on a phone", () => stoppedLooksAs("stopped-phone", "Phone"));
+
+  test("on a desktop", () => stoppedLooksAs("stopped-desktop", "Desktop"));
 });

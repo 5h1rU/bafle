@@ -2,16 +2,26 @@ import type { Document, HtmlBuilder } from "foldkit/html";
 import waveform from "../assets/crash-waveform.png?inline";
 import { retryIcon } from "./icon.ts";
 
+// NOTE: clear of what the screen keeps for itself at each edge, and no
+// nearer an edge than the page's own margin.
+const LAYOUT_CLASS =
+  "mx-auto flex min-h-dvh max-w-140 flex-col pt-[max(clamp(1.5rem,6.5dvh,3.5rem),env(safe-area-inset-top))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(2rem,env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))]";
+
+/** Bafle's mark, in the colour of the name it stands before: the mark is cut out of that colour. */
+const SPEAKER_CLASS =
+  "ml-1 h-8 w-6 bg-current mask-[url(/icons/monochrome.svg)] mask-center mask-no-repeat mask-size-[3rem_3rem]";
+
 /** This view can run even when the first render failed and the Model cannot be read. */
 export const crashView = (_context: unknown, h: HtmlBuilder<never>): Document => ({
   title: "Bafle stopped.",
-  body: h.main([h.Class("crash-screen font-sans antialiased")], [
-    h.div([h.Class("crash-layout")], [
+  // The stopped signal has the same night palette in either colour scheme.
+  body: h.main([h.Class("bg-crash-canvas font-sans text-crash-ink antialiased scheme-dark")], [
+    h.div([h.Class(LAYOUT_CLASS)], [
       h.p(
         [h.Class("flex items-center gap-3 text-[1.625rem] leading-8 font-bold tracking-tight text-crash-orchid")],
-        [h.span([h.AriaHidden(true), h.Class("crash-speaker")], []), "Bafle"],
+        [h.span([h.AriaHidden(true), h.Class(SPEAKER_CLASS)], []), "Bafle"],
       ),
-      h.div([h.Class("crash-message")], [
+      h.div([h.Class("mt-[clamp(2rem,13.5dvh,7.25rem)] mb-12")], [
         h.img([h.Src(waveform), h.Alt(""), h.Class("mb-5 h-auto w-[18.6rem] max-w-full")]),
         h.div([h.Role("alert")], [
           h.h1([h.Class("text-[2.625rem] leading-[1.1] font-extrabold tracking-tight")], [

@@ -31,6 +31,9 @@ import {
 // the two is in the document at a time, never both.
 
 const PANEL_ID = "player-queue";
+
+/** What a face of the expanded player lists is named once, at its head. */
+export const FACE_HEADING_CLASS = "text-[1.625rem] leading-[1.2] font-bold tracking-[-0.04em]";
 const NEXT_ID = "player-queue-next";
 
 /** What plays next, in a line: the song and who it is by, or that there is none. */
@@ -318,10 +321,10 @@ const lazyRows = createLazy();
 export const queuePanelView = (session: Session, h: HtmlBuilder<Message>): Html => {
   const open = session.pane === "Queue";
   return h.div(
-    [h.Id(PANEL_ID), h.Class("player-queue"), h.Hidden(!open)],
+    [h.Id(PANEL_ID), h.Class("player-queue px-(--player-gutter) pt-1 pb-6"), h.Hidden(!open)],
     open
       ? [
-          h.h2([h.Class("player-face-heading")], ["Up next"]),
+          h.h2([h.Class(FACE_HEADING_CLASS)], ["Up next"]),
           session.later.length > 0
             ? lazyRows(rowsView, [session.later, session.earlier.length + 2, session.queueDrag, h])
             : h.p([h.Class("mt-3 text-sm text-muted")], ["No upcoming songs."]),
@@ -411,9 +414,10 @@ export const islandQueueButtonView = (
  * its own, with its cover. It is the first of the songs to come, and is
  * moved as any of them is.
  */
-// NOTE: the card is a row's surface with a ground of its own, and is lit as
-// the column's rows are, with the ink's colour and not the panel's, which is
-// the column's own.
+// NOTE: the card has a ground of its own, and is lit as the column's rows
+// are, with the ink's colour and not the panel's, which is the column's own.
+// It is a surface of its own and not a row's: what a row's surface is drawn
+// with is the style sheet's, and a card that took it would have to undo it.
 const nextCardView = (
   row: QueueRow,
   count: number,
@@ -428,7 +432,7 @@ const nextCardView = (
       h.div(
         [
           h.Class(
-            "track-row-surface flex min-h-21 items-center rounded-[0.875rem] border border-line bg-ink/5 py-2.5 pr-1.5 pl-2.5 has-[.track-row-play:hover]:bg-ink/8 has-[.track-row-play:active]:bg-ink/12",
+            "flex min-h-21 items-center rounded-[0.875rem] border border-line bg-ink/5 py-2.5 pr-1.5 pl-2.5 transition-[background-color] duration-150 has-[.track-row-play:hover]:bg-ink/8 has-[.track-row-play:active]:bg-ink/12",
           ),
         ],
         [
@@ -472,6 +476,8 @@ const nextCardView = (
   );
 };
 
+const COLUMN_HEADING_CLASS = "text-15 font-[650] tracking-[-0.015em]";
+
 const songCount = (count: number): string => `${String(count)} ${count === 1 ? "song" : "songs"}`;
 
 /**
@@ -487,20 +493,20 @@ const columnBodyView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
-    [h.DataAttribute("droppable-id", QUEUE_CONTAINER_ID), h.Class("queue-column-body")],
+    [h.DataAttribute("droppable-id", QUEUE_CONTAINER_ID), h.Class("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5.5 pt-5 pb-8")],
     Array.match(rowsOf(later), {
       onEmpty: () => [h.p([h.Class("text-sm text-muted")], ["No upcoming songs."])],
       onNonEmpty: (rows) => {
         const rest = Array.tailNonEmpty(rows);
         return [
-          h.h3([h.Class("queue-column-heading")], ["Up next"]),
+          h.h3([h.Class(COLUMN_HEADING_CLASS)], ["Up next"]),
           nextCardView(Array.headNonEmpty(rows), rows.length, drag, h),
           ...(Array.isReadonlyArrayNonEmpty(rest)
             ? [
                 h.div(
                   [h.Class("mt-7 flex items-baseline justify-between")],
                   [
-                    h.h3([h.Class("queue-column-heading")], ["Later"]),
+                    h.h3([h.Class(COLUMN_HEADING_CLASS)], ["Later"]),
                     h.span([h.Class("text-xs text-muted")], [songCount(rest.length)]),
                   ],
                 ),
@@ -526,12 +532,15 @@ const lazyColumnBody = createLazy();
  */
 export const queueColumnView = (session: Session, h: HtmlBuilder<Message>): Html =>
   h.aside(
-    [h.Id(QUEUE_COLUMN_ID), h.AriaLabelledBy(COLUMN_TITLE_ID), h.Class("queue-column")],
+    [h.Id(QUEUE_COLUMN_ID), h.AriaLabelledBy(COLUMN_TITLE_ID), h.Class(
+        "queue-column flex min-h-0 w-(--queue-column) flex-none flex-col border-l border-line bg-panel text-ink",
+      ),
+    ],
     [
       h.header(
-        [h.Class("queue-column-head")],
+        [h.Class("mx-5.5 flex flex-none items-center justify-between border-b border-line pt-5 pb-3.5")],
         [
-          h.h2([h.Id(COLUMN_TITLE_ID), h.Class("queue-column-title")], ["Queue"]),
+          h.h2([h.Id(COLUMN_TITLE_ID), h.Class("text-[1.6875rem] leading-[1.2] font-bold tracking-[-0.04em]")], ["Queue"]),
           iconButtonView(
             {
               look: "OnPanel",

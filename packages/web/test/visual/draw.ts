@@ -1,4 +1,5 @@
 import { Animation, DragAndDrop, Menu, Popover, Slider } from "@foldkit/ui";
+import * as Schema from "effect/Schema";
 import { Runtime } from "foldkit";
 import { type Command, CommandDefinitionTypeId } from "foldkit/command";
 import { expect, onTestFinished } from "vitest";
@@ -7,6 +8,7 @@ import { update } from "../../src/main.ts";
 import { Message } from "../../src/message.ts";
 import { Model } from "../../src/model.ts";
 import { view } from "../../src/view.ts";
+import { crashView } from "../../src/view/crash.ts";
 
 import "../../src/styles.css";
 
@@ -61,10 +63,10 @@ const hears = (model: Model, message: Message) => {
 const frame = (): Promise<void> =>
   new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 
-/** The app's shell, once the app has drawn it: its first drawing comes a frame or more after it is started. */
+/** What the app drew, once it has drawn it: its first drawing comes a frame or more after it is started. */
 const drawn = async (): Promise<HTMLElement> => {
-  await expect.poll(() => document.querySelector("[data-navigation]")).not.toBeNull();
-  const root = document.querySelector("[data-navigation]");
+  await expect.poll(() => document.querySelector(DRAWN)).not.toBeNull();
+  const root = document.querySelector(DRAWN);
   if (!(root instanceof HTMLElement)) {
     throw new Error("The app drew nothing");
   }
@@ -72,6 +74,9 @@ const drawn = async (): Promise<HTMLElement> => {
 
   return root;
 };
+
+/** The app's shell, or the page that says the app stopped. */
+const DRAWN = "[data-navigation], main";
 
 const emulate = (scheme: Scheme): Promise<unknown> =>
   cdp().send("Emulation.setEmulatedMedia", {
@@ -100,9 +105,51 @@ export type Drawing = Readonly<{
  */
 export const looksAs = async (name: string, drawing: Drawing): Promise<void> => {
   const { screen, scheme = "light", arrange } = drawing;
-  const { width, height } = SCREENS[screen];
   // What the app would have been told by the window it is in.
   const model = update(drawing.model, Message.ChangedScreen({ screen: OF_SCREEN[screen] })).model;
+
+  await pictured(name, { screen, scheme, arrange }, (container) =>
+    Runtime.embed(
+      Runtime.makeElement({
+        Model,
+        init: () => ({ model }),
+        update: hears,
+        view: (shown, h) => view(shown, h).body,
+        container,
+        devTools: false,
+        slow: false,
+      }),
+    ),
+  );
+};
+
+/**
+ * The page that says the app stopped, which is drawn when the app can draw
+ * nothing else and reads no Model: compared with the picture kept under
+ * `name`, as the app is.
+ */
+export const stoppedLooksAs = (name: string, screen: ScreenName, scheme: Scheme = "light") =>
+  pictured(name, { screen, scheme }, (container) =>
+    Runtime.embed(
+      Runtime.makeElement({
+        Model: Schema.Null,
+        init: () => ({ model: null }),
+        // Nothing is ever said to this page: it stands when the app has stopped hearing.
+        update: (model: null, _never: never) => ({ model }),
+        view: (shown, h) => crashView(shown, h).body,
+        container,
+        devTools: false,
+        slow: false,
+      }),
+    ),
+  );
+
+const pictured = async (
+  name: string,
+  { screen, scheme, arrange }: Pick<Drawing, "screen" | "arrange"> & Readonly<{ scheme: Scheme }>,
+  start: (container: HTMLElement) => Readonly<{ dispose: () => void }>,
+): Promise<void> => {
+  const { width, height } = SCREENS[screen];
 
   await page.viewport(width, height);
   await emulate(scheme);
@@ -111,17 +158,7 @@ export const looksAs = async (name: string, drawing: Drawing): Promise<void> => 
   container.id = "root";
   document.body.append(container);
 
-  const handle = Runtime.embed(
-    Runtime.makeElement({
-      Model,
-      init: () => ({ model }),
-      update: hears,
-      view: (shown, h) => view(shown, h).body,
-      container,
-      devTools: false,
-      slow: false,
-    }),
-  );
+  const handle = start(container);
   onTestFinished(() => {
     handle.dispose();
     document.body.replaceChildren();

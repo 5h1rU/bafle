@@ -147,14 +147,6 @@
 /* The track's title, over the foot of the cover. A long one is drawn
    smaller, and three lines hold what there is room for (`titleSize` in
    view.ts). */
-.player-caption {
-  position: absolute;
-  z-index: 2;
-  inset: auto 0 0;
-  padding: 0 var(--player-gutter) 1.6875rem;
-  overflow-wrap: anywhere;
-}
-
 /* NOTE: its lines are closer than its letters are tall, and a box that
    cuts what does not fit would cut the tails of the last line with it: the
    room for them is added to the box and taken back from around it. */
@@ -186,17 +178,6 @@
   font-size: min(9.4cqw, 2.4rem);
   line-height: 1.04;
   letter-spacing: -0.035em;
-}
-
-.player-artist {
-  overflow: hidden;
-  margin-top: 0.75rem;
-  font-size: 1.375rem;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.025em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* THE HEAD, ON THE OTHER FACES
@@ -237,81 +218,12 @@
   );
 }
 
-.player-now {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: calc(var(--player-handle) + 0.25rem) var(--player-gutter) 0;
-}
-
-.player-now-return {
-  position: absolute;
-  inset: 0;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.player-now-return:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -4px;
-  border-radius: 1rem;
-}
-
-.player-now-title {
-  overflow: hidden;
-  font-size: 1.125rem;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.025em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.player-now-artist {
-  overflow: hidden;
-  margin-top: 0.0625rem;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  opacity: 0.86;
-}
-
-/* What a face lists is named once, at its head. */
-.player-face-heading {
-  font-size: 1.625rem;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.04em;
-}
-
 /* THE DECK: the progress of the sound, and the three controls. */
 
 .player-deck {
   position: relative;
   padding: 0.4375rem var(--player-gutter) max(1rem, env(safe-area-inset-bottom));
   background-color: var(--color-canvas);
-}
-
-/* Under the three controls, on every face: the menu of what else can be
-   done with the track at the near end, and the way to the queue at the far
-   one. Each is lit while what it opens is open. */
-.player-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 0.5rem;
-  padding-inline: 0.25rem;
-}
-
-.player-transport {
-  display: flex;
-  height: 5.4375rem;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(1.5rem, 13cqw, 3.25rem);
-  margin-top: 1.0625rem;
 }
 
 /* The main control is pressed in under the finger and comes back when it is
@@ -361,23 +273,13 @@
   }
 }
 
-/* What the catalog knows of the track: a face of its own, turned to from
-   the menu under the controls. */
-.player-details {
-  padding: 0.75rem var(--player-gutter) 1.5rem;
-}
-
-.player-details > .player-face-heading {
-  margin-bottom: 0.875rem;
-}
-
 /* MOVING A SONG OF THE QUEUE
 
    Every row ends in a handle, where a list's row has the song's length. A
    song is taken up by it and carried: the row it came from grows dim, the
    song is drawn under the finger that carries it, and a line shows where it
    would be put down. */
-.queue-row[data-moved] > .track-row-surface {
+.queue-row[data-moved] > * {
   opacity: 0.35;
 }
 
@@ -428,26 +330,6 @@
   translate: 0 -50%;
 }
 
-.player-queue {
-  padding: 0.25rem var(--player-gutter) 1.5rem;
-}
-
-/* THE ISLAND ON A DESKTOP'S SCREEN
-
-   There the player does not expand (`screen.ts`), and the island has
-   controls of its own for what the sheet would have held: the way to the
-   queue and the menu of what else can be done with the track, before its
-   transport, and Previous in the transport itself. They are smaller than
-   the transport's and squarer, so the three that play stay the ones seen
-   first. The way to the queue is lit while the queue is open. */
-.island-extras {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 0.25rem;
-  margin-right: 0.625rem;
-}
-
 /* THE QUEUE BESIDE THE PAGE
 
    On a desktop's screen the queue is a column of its own past the page
@@ -461,47 +343,10 @@
   --queue-column: clamp(20rem, 30vw, 26.5rem);
 }
 
+/* The column comes in from its side and goes back off it as a picture of
+   its own in a view transition (transitions.css). */
 .queue-column {
-  display: flex;
-  width: var(--queue-column);
-  min-height: 0;
-  flex: none;
-  flex-direction: column;
-  border-left: 1px solid var(--color-line);
-  color: var(--color-ink);
-  background-color: var(--color-panel);
   view-transition-name: queue-column;
-}
-
-.queue-column-head {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: space-between;
-  margin-inline: 1.375rem;
-  padding-block: 1.25rem 0.875rem;
-  border-bottom: 1px solid var(--color-line);
-}
-
-.queue-column-title {
-  font-size: 1.6875rem;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.04em;
-}
-
-.queue-column-body {
-  min-height: 0;
-  flex: 1;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 1.25rem 1.375rem 2rem;
-}
-
-.queue-column-heading {
-  font-size: 0.9375rem;
-  font-weight: 650;
-  letter-spacing: -0.015em;
 }
 
 /* NOTE: a row's surface is lit with the panel's colour (`track-row` in

@@ -57,6 +57,7 @@ import {
 import { TITLE_PIXELS_PER_SECOND } from "./command.ts";
 import { MoreMenu, type PlayerAction } from "./moreMenu.ts";
 import {
+  FACE_HEADING_CLASS,
   islandQueueButtonView,
   queueButtonView,
   queueColumnView as queueColumnOf,
@@ -770,6 +771,11 @@ const announcement = (session: Session): string => {
 const STEP_ON_SHEET_CLASS = "player-step size-12 text-ink";
 const STEP_GLYPH_CLASS = "size-[2.3125rem]";
 
+// NOTE: the three stand further apart on a wider sheet, by a share of the
+// sheet's own width (`cqw`), and never closer or further than the design's.
+const TRANSPORT_CLASS =
+  "mt-4.25 flex h-21.75 items-center justify-center gap-[clamp(1.5rem,13cqw,3.25rem)]";
+
 const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>): Html =>
   h.div(
     [h.Role("group"), h.AriaLabel("Playback"), h.Class(className)],
@@ -1009,7 +1015,7 @@ const islandExtrasView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
-    [h.Class("island-extras")],
+    [h.Class("mr-2.5 flex flex-none items-center gap-1")],
     [
       islandQueueButtonView(model, session, h),
       moreMenuView(
@@ -1158,7 +1164,7 @@ const songHeadView = (
       // element; and not by the track's id alone, which is the cover's key.
       h.keyed("div")(
         `${current.id}/words`,
-        [h.Class("player-caption")],
+        [h.Class("player-caption absolute inset-x-0 bottom-0 z-2 px-(--player-gutter) pb-6.75 wrap-anywhere")],
         [
           h.h1(
             [
@@ -1168,7 +1174,10 @@ const songHeadView = (
             ],
             [current.title],
           ),
-          h.p([h.Class("player-artist")], [current.artist.name]),
+          h.p(
+            [h.Class("mt-3 truncate text-[1.375rem]/[1.2] font-medium tracking-tight")],
+            [current.artist.name],
+          ),
         ],
       ),
     ],
@@ -1205,7 +1214,11 @@ const faceHeadView = (
           ),
       }),
       h.div(
-        [h.Class("player-now")],
+        [
+          h.Class(
+            "relative flex items-center gap-3 px-(--player-gutter) pt-[calc(var(--player-handle)+0.25rem)]",
+          ),
+        ],
         [
           coverView(current, "relative size-13 shrink-0 rounded-lg", "large", h),
           h.keyed("div")(
@@ -1216,11 +1229,14 @@ const faceHeadView = (
                 [
                   h.Id(viewInputs.titleId),
                   h.DataAttribute("size", titleSize(current.title)),
-                  h.Class("player-now-title"),
+                  h.Class("truncate text-lg/[1.2] font-bold tracking-tight"),
                 ],
                 [current.title],
               ),
-              h.p([h.Class("player-now-artist")], [current.artist.name]),
+              h.p(
+                [h.Class("mt-px truncate text-15 font-medium opacity-86")],
+                [current.artist.name],
+              ),
             ],
           ),
           // NOTE: the way back lies over the whole of the head and is not
@@ -1230,7 +1246,13 @@ const faceHeadView = (
               onClick: isDetails ? Message.ClickedDetails() : Message.ClickedQueue(),
               toView: (attributes) =>
                 h.button(
-                  [...attributes.button, h.AriaLabel("Back to the song"), h.Class("player-now-return")],
+                  [
+                    ...attributes.button,
+                    h.AriaLabel("Back to the song"),
+                    h.Class(
+                      "absolute inset-0 cursor-pointer touch-manipulation focus-ring-inset-4 focus-visible:rounded-2xl",
+                    ),
+                  ],
                   [],
                 ),
             },
@@ -1319,7 +1341,7 @@ const actionsView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
-    [h.Class("player-actions")],
+    [h.Class("mt-2 flex items-center justify-between px-1")],
     [
       moreMenuView(
         session,
@@ -1399,15 +1421,15 @@ const sheetView = (
                 [h.Class("player-deck")],
                 [
                   progressOrNoticeView(session, h),
-                  stepsView(session, "player-transport", h),
+                  stepsView(session, TRANSPORT_CLASS, h),
                   actionsView(session, viewInputs, h),
                 ],
               ),
               session.pane === "Details"
                 ? h.div(
-                    [h.Class("player-details")],
+                    [h.Class("player-details px-(--player-gutter) pt-3 pb-6")],
                     [
-                      h.h2([h.Class("player-face-heading")], ["Song details"]),
+                      h.h2([h.Class(clsx(FACE_HEADING_CLASS, "mb-3.5"))], ["Song details"]),
                       viewInputs.toDetail(current),
                     ],
                   )

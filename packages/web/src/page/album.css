@@ -29,30 +29,6 @@
   color: var(--color-on-night);
 }
 
-.album-caption {
-  z-index: 1;
-  padding: calc(var(--album-bar-height) + 1.5rem) var(--album-gutter) 1.5rem;
-  overflow-wrap: anywhere;
-}
-
-.album-caption h1 {
-  max-width: 26ch;
-  font-size: clamp(2.65rem, 14.4vw, 4.75rem);
-  font-weight: 700;
-  line-height: 1.02;
-  letter-spacing: -.059em;
-  text-wrap: balance;
-}
-
-.album-artist {
-  margin-top: .2rem;
-  font-size: clamp(1.25rem, 5.7vw, 1.65rem);
-  font-weight: 550;
-  line-height: 1.25;
-  letter-spacing: -.025em;
-}
-
-.album-facts { margin-top: .3rem; font-size: .875rem; color: --alpha(var(--color-on-night) / 87%); }
 .album-placeholder { background: var(--color-panel); }
 .album-placeholder::after { display: none; }
 
@@ -76,11 +52,7 @@
   background: var(--color-panel);
   border-bottom: 1px solid var(--color-line);
 }
-.album-compact { display: flex; min-width: 0; gap: .625rem; align-items: center; }
 .album-compact > :first-child { flex: none; width: var(--album-thumb); }
-.album-compact-title { font-size: .9375rem; font-weight: 650; line-height: 1.2; letter-spacing: -.015em; }
-.album-compact-artist { font-size: .75rem; line-height: 1.25; color: var(--color-muted); }
-
 /* Without scroll timelines the cover slides over the sticky strip and reveals it
    as it leaves. */
 @supports not ((animation-timeline: view()) and (timeline-scope: --album-cover)) {
@@ -188,14 +160,6 @@
   }
 }
 
-/* With no album there is no head: what the page says instead starts where
-   any page's title does (`pageAttributes` in view/layout.ts). */
-.album-unavailable { padding: 2rem var(--album-gutter) 1rem; }
-.album-songs {
-  padding: .5rem var(--album-gutter) 0;
-  max-width: 64rem;
-  margin-inline: auto;
-}
 /* NOTE: every album's songs are at least as tall as what the screen has
    left under the bar and over the room at the page's foot, however few
    they are. The head draws back to the bar by the scroll, and a page too
@@ -217,8 +181,6 @@
    (`album-bar-takes-over`). A page that fell a part of a pixel short of it
    never showed its bar. */
 .album-songs { min-height: calc(100dvh - var(--album-bar-height) - var(--page-foot, 0px) + 1px); }
-@media (min-width: 48rem) {
+@variant md {
   #album-page { --album-hero-height: clamp(20rem, 46svh, 34rem); }
-  .album-unavailable { padding-top: 2.5rem; }
-  .album-caption { padding-bottom: 2rem; }
 }
