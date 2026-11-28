@@ -1,17 +1,17 @@
 export { AudioEngine, EngineReport } from "./audioEngine.ts";
 export * from "./command.ts";
-export { Message } from "./message.ts";
+export { Message, OutMessage } from "./message.ts";
 export * from "./model.ts";
 export * from "./mount.ts";
 export { soundPlaces, subscriptions } from "./subscription.ts";
 export {
   choose,
+  closeMenu,
   collapse,
   enqueue,
   init,
-  isAlbumAsked,
-  isDetailsAsked,
   RESTART_AFTER_SECONDS,
+  showDetails,
   update,
 } from "./update.ts";
 export { queueGhostView } from "./queue.ts";

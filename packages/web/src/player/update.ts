@@ -30,7 +30,7 @@ import {
   WaitToTravelTitle,
   titlePassDuration,
 } from "./command.ts";
-import { type MediaKey, Message } from "./message.ts";
+import { type MediaKey, Message, OutMessage } from "./message.ts";
 import {
   type Cue,
   type Marquee,
@@ -56,6 +56,8 @@ import { MoreMenu, type PlayerAction } from "./moreMenu.ts";
 type Services = AudioEngine | CatalogClient;
 type UpdateReturn = Update.Return<Model, Message, Services>;
 type Step = Update.Step<Model, Message, Services>;
+type UpdateReturnWithOutMessage = Update.ReturnWithOutMessage<Model, Message, OutMessage, Services>;
+type StepWithOutMessage = Update.StepWithOutMessage<Model, Message, OutMessage, Services>;
 
 /** Past this many seconds, going to the previous track goes to the start of this one instead. */
 export const RESTART_AFTER_SECONDS = 3;
@@ -626,26 +628,59 @@ export const collapse = (model: Model): UpdateReturn =>
 // THE MENU UNDER THE CONTROLS
 
 /**
- * What was chosen from the player's menu. What the catalog knows of the
- * track is a face of the player, and is turned to. The album's page is no
- * business of the player's, which knows no pages: the app hears that choice
- * itself (`isAlbumAsked`), and here it is nothing.
+ * What was chosen from the player's menu is said to whoever holds the
+ * player, and nothing is done about it here. The album is a page, and the
+ * player knows no pages. The song's details are a face of the player where
+ * it expands and the track's page where it does not, and the player does not
+ * know which screen it is on: its owner does, and turns it to that face
+ * itself (`showDetails`).
  */
-const chooseFromMenu = (action: PlayerAction): Step =>
-  action === "SongDetails" ? onSession((session) => turnTo(session, "Details")) : unchanged;
+const tellOfChoice =
+  (action: PlayerAction): StepWithOutMessage =>
+  (model) => ({
+    model,
+    outMessage:
+      action === "SongDetails" ? OutMessage.RequestedSongDetails() : OutMessage.RequestedAlbum(),
+  });
+
+const readMoreMenu = (model: Model) => Option.map(model.maybeSession, (session) => session.moreMenu);
+
+const writeMoreMenu = (model: Model, nextMenu: Menu.Model): Model =>
+  modifyFields(model, {
+    maybeSession: Option.map((session) =>
+      session.moreMenu === nextMenu ? session : modifyFields(session, { moreMenu: () => nextMenu }),
+    ),
+  });
+
+const toGotMoreMenuMessage = (message: Menu.Message): Message =>
+  Message.GotMoreMenuMessage({ message });
 
 const foldMoreMenu = Update.foldChild({
   update: MoreMenu.update,
-  read: (model: Model) => Option.map(model.maybeSession, (session) => session.moreMenu),
-  write: (model: Model, nextMenu: Menu.Model) =>
-    modifyFields(model, {
-      maybeSession: Option.map((session) =>
-        session.moreMenu === nextMenu ? session : modifyFields(session, { moreMenu: () => nextMenu }),
-      ),
-    }),
-  toParentMessage: (message: Menu.Message): Message => Message.GotMoreMenuMessage({ message }),
-  foldOutMessage: (chosen: Menu.OutMessage<PlayerAction>) => chooseFromMenu(chosen.value),
+  read: readMoreMenu,
+  write: writeMoreMenu,
+  toParentMessage: toGotMoreMenuMessage,
+  foldOutMessage: (chosen: Menu.OutMessage<PlayerAction>) => tellOfChoice(chosen.value),
 });
+
+// NOTE: a menu closed by its owner chose nothing, so it has nothing to say.
+const foldMoreMenuClose = Update.foldChildStep({
+  update: MoreMenu.close,
+  read: readMoreMenu,
+  write: writeMoreMenu,
+  toParentMessage: toGotMoreMenuMessage,
+  foldOutMessage: (): Step => unchanged,
+});
+
+/**
+ * The player's menu, closed by whoever holds the player: the control it hung
+ * from is gone, or what it offered was taken up some other way.
+ */
+export const closeMenu = (model: Model): UpdateReturn => foldMoreMenuClose(model);
+
+/** The face that says what the catalog knows of the track, turned to by whoever holds the player. */
+export const showDetails = (model: Model): UpdateReturn =>
+  onSession((session) => turnTo(session, "Details"))(model);
 
 // MOVING A SONG OF THE QUEUE
 
@@ -682,28 +717,6 @@ const gotQueueDragMessage = (model: Model, message: DragAndDrop.Message): Update
   );
   return foldQueueDrag(wasCarried)(model, message);
 };
-
-/** What a Message chooses from the player's menu, when it chooses something. */
-const maybeAskedOfMenu = (message: Message): Option.Option<PlayerAction> =>
-  message._tag === "GotMoreMenuMessage" && message.message._tag === "SelectedItem"
-    ? Option.liftPredicate(
-        message.message.item,
-        (item): item is PlayerAction => item === "OpenAlbum" || item === "SongDetails",
-      )
-    : Option.none();
-
-/** Whether a Message is the listener choosing the album's page from the player's menu. */
-export const isAlbumAsked = (message: Message): boolean =>
-  Option.contains(maybeAskedOfMenu(message), "OpenAlbum");
-
-/**
- * Whether a Message is the listener choosing the song's details from the
- * player's menu. In the expanded player that is a face of the player, turned
- * to here. On a desktop's screen there is no such face: it is the track's
- * page, which is the app's to open.
- */
-export const isDetailsAsked = (message: Message): boolean =>
-  Option.contains(maybeAskedOfMenu(message), "SongDetails");
 
 const gotSeekSliderMessage = (model: Model, message: Slider.Message): UpdateReturn => {
   const wasDragging = Option.exists(model.maybeSession, (session) =>
@@ -851,32 +864,30 @@ const restLine =
 const withWhatFollows =
   (previous: Model) =>
   (result: UpdateReturn): UpdateReturn => {
-    const { model } = result;
-    const light = Option.match(model.maybeSession, {
-      onNone: () => model.light,
-      onSome: (session) => lightAfter(model.light, session.playback),
+    const light = Option.match(result.model.maybeSession, {
+      onNone: () => result.model.light,
+      onSome: (session) => lightAfter(result.model.light, session.playback),
     });
     const isAnotherTrack = !Equal.equals(
       maybeCurrentTrackId(previous),
-      maybeCurrentTrackId(model),
+      maybeCurrentTrackId(result.model),
     );
-    if (light === model.light && !isAnotherTrack) {
+    if (light === result.model.light && !isAnotherTrack) {
       return result;
     }
     return {
-      ...result,
-      model: modifyFields(model, {
+      model: modifyFields(result.model, {
         light: () => light,
         title: (title) =>
-          isAnotherTrack ? { ...initialMarquee, run: title.run + 1 } : title,
+          isAnotherTrack ? modifyFields(initialMarquee, { run: () => title.run + 1 }) : title,
         artist: (artist) =>
-          isAnotherTrack ? { ...initialMarquee, run: artist.run + 1 } : artist,
+          isAnotherTrack ? modifyFields(initialMarquee, { run: () => artist.run + 1 }) : artist,
       }),
       // NOTE: the light's change of pace is the document's side of the
       // Model's change of mind, so it is a Command given here, where the
       // Model changes, and not a Subscription watching the Model for it.
       commands:
-        light === model.light
+        light === result.model.light
           ? (result.commands ?? [])
           : [
               ...(result.commands ?? []),
@@ -885,11 +896,40 @@ const withWhatFollows =
     };
   };
 
-export const update = (model: Model, message: Message): UpdateReturn =>
-  withWhatFollows(model)(handle(model, message));
+/**
+ * That another track has become the current one is said to whoever holds
+ * the player, whatever brought it: a press of Next, a row, or the track
+ * before coming to its end. It is told from the player before and the player
+ * after, here where both are known, so that nobody outside has to compare
+ * them.
+ */
+const maybeChangeOfTrack = (previous: Model, next: Model): OutMessage | undefined =>
+  Option.match(maybeCurrentTrackId(next), {
+    onNone: () => undefined,
+    onSome: (trackId) =>
+      Option.contains(maybeCurrentTrackId(previous), trackId)
+        ? undefined
+        : OutMessage.ChangedTrack({ maybeFromTrackId: maybeCurrentTrackId(previous), trackId }),
+  });
+
+/**
+ * A result of the player's with what it has to say: what the handler said
+ * itself, a choice from the menu, or else that the track changed. A Message
+ * does one or the other, never both.
+ */
+const told = (previous: Model, result: UpdateReturnWithOutMessage): UpdateReturnWithOutMessage => {
+  const followed = withWhatFollows(previous)({ model: result.model, commands: result.commands });
+  return Update.withOutMessage(
+    followed,
+    result.outMessage ?? maybeChangeOfTrack(previous, followed.model),
+  );
+};
+
+export const update = (model: Model, message: Message): UpdateReturnWithOutMessage =>
+  told(model, handle(model, message));
 
 const handle = (model: Model, message: Message) =>
-  Message.match<UpdateReturn>(message, {
+  Message.match<UpdateReturnWithOutMessage>(message, {
     ClickedPlay: () => onSession(play)(model),
     ClickedPause: () => onSession(silence)(model),
     ClickedNext: () => onSession(next)(model),
@@ -966,8 +1006,9 @@ const toggle = (session: Session): Step =>
 export const choose = (
   model: Model,
   choice: Readonly<{ trackId: TrackId; list: ReadonlyArray<TrackSummary> }>,
-): UpdateReturn =>
-  withWhatFollows(model)(
+): UpdateReturnWithOutMessage =>
+  told(
+    model,
     Option.contains(maybeCurrentTrackId(model), choice.trackId)
       ? onSession(toggle)(model)
       : Option.match(queueFrom(choice.list, choice.trackId), {

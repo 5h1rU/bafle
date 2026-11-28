@@ -59,3 +59,23 @@ export const Message = defineMessageUnion({
   CompletedFocusQueueControl: {},
 });
 export type Message = typeof Message.Type;
+
+// OUT MESSAGE
+
+/**
+ * What the player tells whoever holds it. The player knows no pages and no
+ * screens: what it cannot do itself it says, and its owner does it.
+ */
+export const OutMessage = defineMessageUnion({
+  /** The listener chose the album from the player's menu. An album is a page, and pages are not the player's. */
+  RequestedAlbum: {},
+  /**
+   * The listener chose the song's details from the player's menu. Where the
+   * player expands they are a face of it, which its owner turns it to
+   * (`showDetails`); where it does not, they are the track's own page.
+   */
+  RequestedSongDetails: {},
+  /** Another track has become the one the player holds: chosen, or come by itself as the one before ended. */
+  ChangedTrack: { maybeFromTrackId: Schema.Option(TrackId), trackId: TrackId },
+});
+export type OutMessage = typeof OutMessage.Type;

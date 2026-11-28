@@ -575,6 +575,10 @@ const withRowMenusClosed = (model: Model): Model =>
  * What Home's control opened is closed. It is Home's, and goes with it when
  * another page takes the screen, as a row's menu goes with its list.
  */
+// NOTE: a new one, as it is made, and not this one with its fields changed:
+// which popover there is is its owner's to say, and what goes on inside one
+// is the popover's. Closing the one that was open (`Popover.close`) would
+// give the focus back to its control, on a page that is leaving the screen.
 const withAboutClosed = (model: Model): Model =>
   model.about === initialAbout ? model : modifyFields(model, { about: () => initialAbout });
 
@@ -586,6 +590,9 @@ const withAboutClosed = (model: Model): Model =>
 // NOTE: this is done as the player opens and not as it closes. What the
 // sheet said last is what tells a player that was swiped away from one that
 // was closed (see `viewTransition`), and it has to outlive the close to do so.
+// NOTE: a new sheet, as `Sheet.init` makes it, for a new opening of the
+// player. Whether there is a sheet, and which, is its owner's to say; what
+// happens to a sheet while it is drawn only the sheet changes.
 const withPlayerSheetAnew = (model: Model): Model =>
   !isPlayerExpanded(model) || model.playerSheet === initialPlayerSheet
     ? model
@@ -1183,15 +1190,46 @@ const writePlayer = (model: Model, nextPlayer: Player.Model): Model =>
 const toGotPlayerMessage = (message: Player.Message): Message =>
   Message.GotPlayerMessage({ message });
 
+/**
+ * What the player says, and what the app does about it. The player knows no
+ * pages and no screens, so what it cannot do itself it says: the album
+ * chosen from its menu is a page to open; the song's details are a face of
+ * the player where it expands and the track's page where it does not; and
+ * another track becoming the current one moves the screen with it while the
+ * player is expanded.
+ */
+const foldPlayerOutMessage = (said: Player.OutMessage): Step =>
+  Player.OutMessage.match<Step>(said, {
+    RequestedAlbum: () => openAlbumOfPlayer,
+    RequestedSongDetails: () => openSongDetails,
+    ChangedTrack: ({ maybeFromTrackId, trackId }) => keepUpWithPlayer(maybeFromTrackId, trackId),
+  });
+
 const foldPlayer = Update.foldChild({
   update: Player.update,
   read: readPlayer,
   write: writePlayer,
   toParentMessage: toGotPlayerMessage,
+  foldOutMessage: foldPlayerOutMessage,
 });
 
 const foldPlayerChoice = Update.foldChild({
   update: Player.choose,
+  read: readPlayer,
+  write: writePlayer,
+  toParentMessage: toGotPlayerMessage,
+  foldOutMessage: foldPlayerOutMessage,
+});
+
+const foldPlayerDetails = Update.foldChildStep({
+  update: Player.showDetails,
+  read: readPlayer,
+  write: writePlayer,
+  toParentMessage: toGotPlayerMessage,
+});
+
+const foldPlayerMenuClose = Update.foldChildStep({
+  update: Player.closeMenu,
   read: readPlayer,
   write: writePlayer,
   toParentMessage: toGotPlayerMessage,
@@ -1398,19 +1436,19 @@ const rewriteUrlFor =
   });
 
 /**
- * After the player has had a Message: an expanded player that now holds
- * another track takes the screen and the URL with it. It is told from the
- * Model before and the Model after, not from the Message, so it holds for a
- * press of Next and for a track that follows by itself alike.
+ * Another track has become the one the player holds. An expanded player
+ * takes the screen and the URL with it: its page was the page of the track
+ * it held, and is now the page of this one. It holds for a press of Next and
+ * for a track that follows by itself alike, since the player says the one as
+ * it says the other.
  */
 const keepUpWithPlayer =
-  (before: Model): Step =>
+  (maybeFromTrackId: Option.Option<TrackId>, trackId: TrackId): Step =>
   (model) =>
-    isPlayerExpanded(before) && !isPlayerExpanded(model)
-      ? Option.match(Player.maybeCurrentTrackId(model.player), {
-          onNone: () => ({ model }),
-          onSome: (trackId) => followTrack(trackId)(model),
-        })
+    model.screen === "Compact" &&
+    model.route._tag === "Track" &&
+    Option.contains(maybeFromTrackId, model.route.trackId)
+      ? followTrack(trackId)(model)
       : { model };
 
 // ROW MENU
@@ -1577,10 +1615,16 @@ const openSongOfPlayer: Step = (model) =>
     },
   });
 
+/**
+ * The song's details, chosen from the player's menu. In the expanded player
+ * they are one of its faces, and it is turned to. On a desktop's screen the
+ * player has no such face: they are the track's own page.
+ */
+const openSongDetails: Step = (model) =>
+  model.screen === "Desktop" ? openSongOfPlayer(model) : foldPlayerDetails(model);
+
 const closePlayerMenu: Step = (model) =>
-  Player.isMoreMenuOpen(model.player)
-    ? foldPlayer(Player.Message.GotMoreMenuMessage({ message: Menu.Message.Closed() }))(model)
-    : { model };
+  Player.isMoreMenuOpen(model.player) ? foldPlayerMenuClose(model) : { model };
 
 /**
  * The screen has become a desktop's, or stopped being one. Nothing moves in
@@ -1699,26 +1743,12 @@ const respond = (model: Model, message: Message) =>
     // Message reaches the player, and the player moves the route only while
     // it is expanded, when its page is the page of the track it holds.
     ClickedPlayTrack: ({ trackId, from }) =>
-      Update.combine(model, [
-        foldPlayerChoice({ trackId, list: listPlayedFrom(model, from, trackId) }),
-        keepUpWithPlayer(model),
-      ]),
+      foldPlayerChoice(model, { trackId, list: listPlayedFrom(model, from, trackId) }),
 
-    // NOTE: the album's page, chosen from the player's menu, is followed as
-    // a link to it would be: the player is held until the page can take the
-    // screen, and then shrinks back to its island over it.
-    // NOTE: the song's details are a face of the expanded player, which the
-    // player turns to itself. On a desktop's screen there is no such face,
-    // and the choice is not handed to the player: its menu is closed, and
-    // the track's page is followed as a link to it would be.
-    GotPlayerMessage: ({ message }) =>
-      model.screen === "Desktop" && Player.isDetailsAsked(message)
-        ? Update.combine(model, [closePlayerMenu, openSongOfPlayer])
-        : Update.combine(model, [
-            foldPlayer(message),
-            keepUpWithPlayer(model),
-            Player.isAlbumAsked(message) ? openAlbumOfPlayer : (current) => ({ model: current }),
-          ]),
+    // NOTE: what the player cannot do itself, a page to open or the screen
+    // to move with its track, it says, and is heard where it is folded
+    // (`foldPlayerOutMessage`).
+    GotPlayerMessage: ({ message }) => foldPlayer(model, message),
 
     // NOTE: a sheet's word counts only while the player is expanded. One
     // that comes after the player closed, from a sheet on its way out of the
