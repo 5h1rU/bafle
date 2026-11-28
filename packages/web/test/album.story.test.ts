@@ -248,27 +248,46 @@ describe("an album chosen from a shelf", () => {
     expect(names(chosen)).toEqual(["AlbumDetail"]);
   });
 
-  test("a tile has no room to state a failure: the album's page takes the screen and says it", () => {
+  test("one the catalog could not be asked for stays behind its tile, which says so", () => {
     const failing = update(
       openingAlbumFromTile,
       arrived(reply.albumRefused(awaitedId(openingAlbumFromTile))),
     );
 
-    expect(failing.model.route).toEqual(albumRoute);
+    expect(failing.model.route).toEqual(AppRoute.Home());
+    expect(failing.model.maybeFailedTile).toEqual(Option.some(albumRoute));
     expect(albumData(failing.model, album.id)).toEqual(
       AlbumData.Failure({ error: "CatalogUnavailable" }),
     );
-    expect(names(failing)).toContain("NavigateInternal");
-    expect(wayBack(failing.model)).toEqual(Option.some(AppRoute.Home()));
+    expect(names(failing)).not.toContain("NavigateInternal");
+    expect(failing.model.trail).toEqual(openingAlbumFromTile.trail);
   });
 
-  test("so does the page of an album the catalog does not have", () => {
+  test("the tile is the way to try again, and the page takes the screen when it comes", () => {
+    const failed = answered(openingAlbumFromTile, reply.albumRefused);
+    const again = update(failed, clickedLink(albumPath(album.id)));
+
+    expect(again.model.route).toEqual(AppRoute.Home());
+    expect(again.model.maybeFailedTile).toEqual(Option.none());
+    expect(again.model.awaiting).toMatchObject({ _tag: "Intention", route: albumRoute });
+    expect(names(again)).toEqual(["AlbumDetail"]);
+    expect(answered(again.model, reply.album, albumPath(album.id)).route).toEqual(albumRoute);
+  });
+
+  test("whatever the listener does next forgets the failure", () => {
+    const failed = answered(openingAlbumFromTile, reply.albumRefused);
+
+    expect(chose(failed, "/new").maybeFailedTile).toEqual(Option.none());
+  });
+
+  test("the page of an album the catalog does not have takes the screen and says so", () => {
     const missing = update(
       openingAlbumFromTile,
       arrived(reply.albumMissing(awaitedId(openingAlbumFromTile))),
     );
 
     expect(missing.model.route).toEqual(albumRoute);
+    expect(missing.model.maybeFailedTile).toEqual(Option.none());
     expect(names(missing)).toContain("NavigateInternal");
   });
 
@@ -278,8 +297,10 @@ describe("an album chosen from a shelf", () => {
 
     expect(HashMap.has(fromTile.albumRows, album.id)).toBe(false);
     expect(fromTile.route).toEqual(AppRoute.New());
-    // This time the failure has nowhere on the list to be said: the page says it.
-    expect(answered(fromTile, reply.albumRefused, albumPath(album.id)).route).toEqual(albumRoute);
+    // This time the tile says it: the list stays, and so does the URL.
+    const failedFromTile = answered(fromTile, reply.albumRefused);
+    expect(failedFromTile.route).toEqual(AppRoute.New());
+    expect(failedFromTile.maybeFailedTile).toEqual(Option.some(albumRoute));
   });
 });
 

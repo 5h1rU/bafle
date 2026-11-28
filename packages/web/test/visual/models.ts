@@ -105,6 +105,8 @@ export const albumOfOneSong = answered(
 );
 /** Home with the first album's tile chosen, and its page on its way: the tile's record is out. */
 export const albumOpening = chose(home, albumPath(albumId));
+/** Home still on screen: the album's tile could not ask for its page, and its record broke. */
+export const albumFailedFromTile = answered(albumOpening, reply.albumRefused);
 
 export const artist = answered(opened(artistPath(fullArtist.id)), saying(reply.artist, fullArtist));
 export const artistWaiting = opened(artistPath(fullArtist.id));

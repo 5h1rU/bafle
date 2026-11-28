@@ -31,6 +31,15 @@ describe("Home", () => {
   test("with a tile's page on its way", () =>
     looksAs("home-album-opening-phone", { model: Models.albumOpening, screen: "Phone" }));
 
+  test("with a tile whose page could not be asked", () =>
+    looksAs("home-album-failed-phone", { model: Models.albumFailedFromTile, screen: "Phone" }));
+
+  test("with a tile whose page could not be asked, on a desktop", () =>
+    looksAs("home-album-failed-desktop", {
+      model: Models.albumFailedFromTile,
+      screen: "Desktop",
+    }));
+
   test("showing what it loaded earlier", () =>
     looksAs("home-stale-phone", { model: Models.homeStale, screen: "Phone" }));
 

@@ -33,6 +33,7 @@ import {
   menuItemContentView,
 } from "./menu.ts";
 import { BLOCK_CLASS } from "./placeholder.ts";
+import { type RecordState, recordView, sleeveClass } from "./shelf.ts";
 import { formatDuration } from "./time.ts";
 
 // A ROW OF SONGS
@@ -342,27 +343,42 @@ const nowPlayingMarkView = (
   );
 };
 
+/**
+ * A row's thumbnail is a sleeve with a record behind it, as a tile's picture
+ * is, but its record only comes out to break: when the page the row asked
+ * for, its song's or its album's, could not be asked. Opening, the row's
+ * control says so, as it says the rest.
+ */
 const trackThumbnailView = (
   track: TrackSummary,
   status: TrackStatus,
+  pages: RowPages,
   presence: Presence,
   loading: PictureLoading,
   h: HtmlBuilder<Message>,
-): Html =>
-  h.div(
+): Html => {
+  const record: RecordState = hasFailed(pages) ? "Broken" : "Behind";
+  return h.div(
+    [h.Class(clsx(THUMBNAIL_CLASS, "relative"))],
     [
-      h.DataAttribute("cover", ""),
-      h.Class(clsx(THUMBNAIL_CLASS, "catalog-art relative")),
-      ...flightAttributes(
-        coverTransitionStyle(track.id, { presence, isInPlayer: isInPlayer(status) }),
-        h,
+      recordView(record, "Thumbnail", h),
+      h.div(
+        [
+          h.DataAttribute("cover", ""),
+          h.Class(clsx("catalog-art relative", sleeveClass(record, "Thumbnail"))),
+          ...flightAttributes(
+            coverTransitionStyle(track.id, { presence, isInPlayer: isInPlayer(status) }),
+            h,
+          ),
+        ],
+        [
+          artworkView(Option.fromNullishOr(track.album.cover), "Square", "small", h, loading),
+          nowPlayingMarkView(status, "OverCover", h),
+        ],
       ),
     ],
-    [
-      artworkView(Option.fromNullishOr(track.album.cover), "Square", "small", h, loading),
-      nowPlayingMarkView(status, "OverCover", h),
-    ],
   );
+};
 
 /**
  * What a row leads with. A list with covers has each track's thumbnail, and
@@ -427,7 +443,9 @@ const rowContentView = (
           : [position.toString()],
       ),
   }),
-  lead === "Number" ? h.empty : trackThumbnailView(track, status, context.presence, loading, h),
+  lead === "Number"
+    ? h.empty
+    : trackThumbnailView(track, status, rowPagesOf(track, context), context.presence, loading, h),
   h.div(
     [h.Class("min-w-0 flex-1 text-left")],
     [
@@ -537,6 +555,10 @@ const isAmiss = (state: RowState): boolean =>
   RowState.guards.Failed(state) || RowState.guards.NotAvailable(state);
 
 const hasSomethingAmiss = (pages: RowPages): boolean => isAmiss(pages.song) || isAmiss(pages.album);
+
+/** A page the row asked for could not be asked: its thumbnail's record breaks. */
+const hasFailed = (pages: RowPages): boolean =>
+  RowState.guards.Failed(pages.song) || RowState.guards.Failed(pages.album);
 
 /**
  * What a row's menu offers for its track, in the order it is offered. A

@@ -6,8 +6,9 @@ import type { PlaylistId, PlaylistSummary } from "@bafle/domain/Catalog/Playlist
 import type { StationId, StationSummary } from "@bafle/domain/Catalog/Station";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
+import * as Match from "effect/Match";
 import * as Option from "effect/Option";
-import type { Html, HtmlBuilder } from "foldkit/html";
+import { type Html, type HtmlBuilder, inertHtml as ih } from "foldkit/html";
 import type { Message } from "../message.ts";
 import { GRID_TILES_AT_ONCE, TILES_AT_ONCE } from "./firstPictures.ts";
 import { albumRouter, artistRouter, genreRouter, playlistRouter, stationRouter } from "../route.ts";
@@ -19,6 +20,7 @@ import {
   flightAttributes,
   pictureFlightStyle,
 } from "./artwork.ts";
+import { retryIcon } from "./icon.ts";
 import { type Presence, SECTION_HEADING_CLASS, TILE_ATTRIBUTES, type TileKind } from "./layout.ts";
 import { TURNING_ROW_CLASS, type TurningOf, turningRowIdOf, turningView } from "./turning.ts";
 
@@ -37,32 +39,40 @@ export type Tile = Readonly<{
   maybeArtwork: Option.Option<Artwork>;
   /** Where the tile leads: the page of what it shows. */
   href: string;
-  /** Whether that page is on its way: the tile was chosen, and the page it is on is held until then. */
-  isOpening: boolean;
+  /** Where that page stands: at rest, on its way while the page the tile is on is held, or failed to be asked. */
+  state: TileState;
   /** What its picture carries to travel to the page the tile leads to. */
   flightStyle: Readonly<Record<string, string>>;
 }>;
 
-/** Whether an album chosen from a shelf is on its way to the screen. */
-export type IsAlbumOpening = (albumId: AlbumId) => boolean;
+/**
+ * Where the page a tile leads to stands. Chosen, it is on its way, and the
+ * page the tile is on is held until it comes. When the catalog could not be
+ * asked for it, the page on screen stays and the tile says so: its record
+ * breaks in two, and the tile is the way to try again.
+ */
+export type TileState = "Resting" | "Opening" | "Failed";
 
-/** Whether an artist chosen from a shelf is on their way to the screen. */
-export type IsArtistOpening = (artistId: ArtistId) => boolean;
+/** Where an album chosen from a shelf stands. */
+export type AlbumTileState = (albumId: AlbumId) => TileState;
 
-/** Whether a playlist chosen from a shelf is on its way to the screen. */
-export type IsPlaylistOpening = (playlistId: PlaylistId) => boolean;
+/** Where an artist chosen from a shelf stands. */
+export type ArtistTileState = (artistId: ArtistId) => TileState;
 
-/** Whether a genre chosen from its tile is on its way to the screen. */
-export type IsGenreOpening = (genreId: GenreId) => boolean;
+/** Where a playlist chosen from a shelf stands. */
+export type PlaylistTileState = (playlistId: PlaylistId) => TileState;
 
-/** Whether a station chosen from a shelf is on its way to the screen. */
-export type IsStationOpening = (stationId: StationId) => boolean;
+/** Where a genre chosen from its tile stands. */
+export type GenreTileState = (genreId: GenreId) => TileState;
 
-/** What a page that shelves every kind reads to say which of its tiles is opening. */
-export type TilesOpening = Readonly<{
-  isAlbumOpening: IsAlbumOpening;
-  isArtistOpening: IsArtistOpening;
-  isPlaylistOpening: IsPlaylistOpening;
+/** Where a station chosen from a shelf stands. */
+export type StationTileState = (stationId: StationId) => TileState;
+
+/** What a page that shelves every kind reads to say where each of its tiles stands. */
+export type TileStates = Readonly<{
+  albumState: AlbumTileState;
+  artistState: ArtistTileState;
+  playlistState: PlaylistTileState;
 }>;
 
 /**
@@ -80,7 +90,7 @@ const tileOf = (
     subtitle: string;
     picture: Artwork | null;
     href: string;
-    isOpening: boolean;
+    state: TileState;
   }>,
 ): Tile => ({
   id: thing.id,
@@ -89,12 +99,12 @@ const tileOf = (
   subtitle: thing.subtitle,
   maybeArtwork: Option.fromNullishOr(thing.picture),
   href: thing.href,
-  isOpening: thing.isOpening,
+  state: thing.state,
   flightStyle: pictureFlightStyle(kind, thing.id, presence),
 });
 
 export const albumTile =
-  (isOpening: IsAlbumOpening, presence: Presence) =>
+  (stateOf: AlbumTileState, presence: Presence) =>
   (album: AlbumSummary): Tile =>
     tileOf("Album", presence, {
       id: album.id,
@@ -102,11 +112,11 @@ export const albumTile =
       subtitle: album.artist.name,
       picture: album.cover,
       href: albumRouter({ albumId: album.id }),
-      isOpening: isOpening(album.id),
+      state: stateOf(album.id),
     });
 
 export const playlistTile =
-  (isOpening: IsPlaylistOpening, presence: Presence) =>
+  (stateOf: PlaylistTileState, presence: Presence) =>
   (playlist: PlaylistSummary): Tile =>
     tileOf("Playlist", presence, {
       id: playlist.id,
@@ -114,11 +124,11 @@ export const playlistTile =
       subtitle: playlist.curator,
       picture: playlist.picture,
       href: playlistRouter({ playlistId: playlist.id }),
-      isOpening: isOpening(playlist.id),
+      state: stateOf(playlist.id),
     });
 
 export const artistTile =
-  (isOpening: IsArtistOpening, presence: Presence) =>
+  (stateOf: ArtistTileState, presence: Presence) =>
   (artist: ArtistSummary): Tile =>
     tileOf("Artist", presence, {
       id: artist.id,
@@ -126,12 +136,12 @@ export const artistTile =
       subtitle: "Artist",
       picture: artist.picture,
       href: artistRouter({ artistId: artist.id }),
-      isOpening: isOpening(artist.id),
+      state: stateOf(artist.id),
     });
 
 /** A genre's name is all there is to say of it. */
 export const genreTile =
-  (isOpening: IsGenreOpening, presence: Presence) =>
+  (stateOf: GenreTileState, presence: Presence) =>
   (genre: GenreSummary): Tile =>
     tileOf("Genre", presence, {
       id: genre.id,
@@ -139,12 +149,12 @@ export const genreTile =
       subtitle: "",
       picture: genre.picture,
       href: genreRouter({ genreId: genre.id }),
-      isOpening: isOpening(genre.id),
+      state: stateOf(genre.id),
     });
 
 /** The shelf a station stands on is named after its genre, so its title is all there is to say of it. */
 export const stationTile =
-  (isOpening: IsStationOpening, presence: Presence) =>
+  (stateOf: StationTileState, presence: Presence) =>
   (station: StationSummary): Tile =>
     tileOf("Station", presence, {
       id: station.id,
@@ -152,7 +162,7 @@ export const stationTile =
       subtitle: "",
       picture: station.picture,
       href: stationRouter({ stationId: station.id }),
-      isOpening: isOpening(station.id),
+      state: stateOf(station.id),
     });
 
 // VIEW
@@ -220,15 +230,34 @@ const tileLoading = (place: ShelfPlace, index: number): PictureLoading =>
 // When the page opens, the picture travels to the page's head and the record
 // is left behind with the shelf. Under reduced motion the record is out and
 // still.
+//
+// When the catalog could not be asked, the record breaks: a scratch runs
+// across it from its edge to the sleeve, and there it comes apart in two,
+// and the sleeve takes the knock (`view/record.css`, from
+// `design/motion/vinyl-errors`, "Corte"). Tried again, it is whole, and
+// turns from the first frame.
 
 /**
  * What the record stands behind. A tile's record is as large as its tile and
  * comes a third of the way out. A card (the artist a search found) is far
  * wider than it is high and stands hard against the page's edge, or the
  * songs beside it, so its record is no larger than a tile's and comes out
- * only into the room the card makes by moving aside, and a little past it.
+ * only into the room the card makes by moving aside, and a little past it. A
+ * row's thumbnail has a record only to break: it comes out when the row's
+ * page could not be asked, and breaks once it is out.
  */
-export type SleeveKind = "Tile" | "Card";
+export type SleeveKind = "Tile" | "Card" | "Thumbnail";
+
+/** Where a record is: behind its sleeve, out and turning, or out and broken in two. */
+export type RecordState = "Behind" | "Turning" | "Broken";
+
+export const recordStateOf = (state: TileState): RecordState =>
+  Match.value(state).pipe(
+    Match.when("Resting", (): RecordState => "Behind"),
+    Match.when("Opening", (): RecordState => "Turning"),
+    Match.when("Failed", (): RecordState => "Broken"),
+    Match.exhaustive,
+  );
 
 // NOTE: clear, and not hidden, while it is behind its sleeve. A page kept
 // behind the one on screen is hidden as a whole, and a piece of it that said
@@ -237,18 +266,82 @@ export type SleeveKind = "Tile" | "Card";
 // back in, it is made clear only once it is behind the sleeve: that is the
 // wait on its opacity, which coming out has none of.
 const RECORD_CLASS =
-  "absolute rounded-full bg-vinyl after:absolute after:inset-0 after:rounded-full after:bg-vinyl-light motion-safe:transition-[translate,opacity] motion-safe:duration-[420ms,0s] motion-safe:ease-settle";
+  "absolute motion-safe:transition-[translate,opacity] motion-safe:duration-[420ms,0s] motion-safe:ease-settle";
 
+// NOTE: a thumbnail's record breaks only once it is out
+// (`--record-breaks-after`, which the sleeve reads too, for its knock).
 const RECORD_PLACES: Readonly<Record<SleeveKind, Readonly<{ behind: string; out: string }>>> = {
   Tile: {
     behind: "inset-[4%] opacity-0 motion-safe:delay-[0s,420ms]",
-    out: "inset-[4%] translate-x-[34%] opacity-100 motion-safe:after:animate-record-turns",
+    out: "inset-[4%] translate-x-[34%] opacity-100",
   },
   Card: {
     behind:
       "top-1/2 right-0 aspect-square h-[min(84%,9rem)] -translate-y-1/2 opacity-0 motion-safe:delay-[0s,420ms]",
-    out: "top-1/2 right-0 aspect-square h-[min(84%,9rem)] translate-x-4 -translate-y-1/2 opacity-100 motion-safe:after:animate-record-turns",
+    out: "top-1/2 right-0 aspect-square h-[min(84%,9rem)] translate-x-4 -translate-y-1/2 opacity-100",
   },
+  Thumbnail: {
+    behind: "inset-[4%] opacity-0 motion-safe:delay-[0s,420ms]",
+    out: "inset-[4%] translate-x-[34%] opacity-100 [--record-breaks-after:420ms]",
+  },
+};
+
+// A record is two parts, cut along the line the scratch runs: whole, the
+// near part is the whole record and the far one is there but not seen, and
+// turns with it so that its light is where the record's is when it shows.
+// Each carries where it is cut and where it goes when it breaks; the sheet
+// says only how it gets there.
+const RECORD_PART_CLASS =
+  "record-part absolute inset-0 origin-[55%_60%] rounded-full bg-vinyl after:absolute after:inset-0 after:rounded-full after:bg-vinyl-light";
+
+const RECORD_PART_TURNS: Readonly<Record<RecordState, string>> = {
+  Behind: "",
+  Turning: "motion-safe:after:animate-record-turns",
+  // The same turn, held where it was: the light stops where the record broke.
+  Broken: "motion-safe:after:animate-record-held",
+};
+
+const NEAR_PART_CLASS =
+  "[--record-apart:translate(-1%,-2%)_rotate(-3deg)] [--record-cut:polygon(0_0,100%_0,100%_37%,90%_46%,86%_44%,79%_53%,74%_50%,66%_61%,59%_57%,46%_70%,0_86%)]";
+
+// NOTE: the far part is clear, not hidden, until the record breaks, as the
+// record is behind its sleeve: the way it comes into sight must not be by
+// `visibility`, or a broken record on a page kept behind the one on screen
+// would be seen through it (the same album's tile on Home, behind New).
+const FAR_PART_CLASS =
+  "opacity-0 [--record-apart:translate(4%,6%)_rotate(7deg)] [--record-cut:polygon(0_86%,46%_70%,59%_57%,66%_61%,74%_50%,79%_53%,86%_44%,90%_46%,100%_37%,100%_100%,0_100%)]";
+
+/** The line the record breaks along, from its edge to where it meets the sleeve, in hundredths of it. */
+const SCRATCH_PATH = "M100 37 L90 46 86 44 79 53 74 50 66 61 59 57 46 70";
+
+const scratchView = (): Html =>
+  ih.svg(
+    [
+      ih.AriaHidden(true),
+      ih.Class(
+        "record-scratch pointer-events-none absolute inset-0 hidden size-full [clip-path:circle(50%)] in-data-[record=broken]:block",
+      ),
+      ih.Xmlns("http://www.w3.org/2000/svg"),
+      ih.Fill("none"),
+      ih.ViewBox("0 0 100 100"),
+    ],
+    [
+      ih.path([
+        ih.Class("stroke-record-scratch"),
+        ih.D(SCRATCH_PATH),
+        ih.PathLength("1"),
+        ih.VectorEffect("non-scaling-stroke"),
+        ih.StrokeWidth("1.8"),
+        ih.StrokeLinecap("round"),
+        ih.StrokeLinejoin("round"),
+      ]),
+    ],
+  );
+
+const RECORD_DATA: Readonly<Record<RecordState, string>> = {
+  Behind: "behind",
+  Turning: "turning",
+  Broken: "broken",
 };
 
 /**
@@ -257,23 +350,116 @@ const RECORD_PLACES: Readonly<Record<SleeveKind, Readonly<{ behind: string; out:
  * carries the picture's name in a view transition: the picture travels to
  * the head of its page, and the record stays where it was.
  */
-export const recordView = <M>(isOpening: boolean, kind: SleeveKind, h: HtmlBuilder<M>): Html =>
-  h.span([
-    h.AriaHidden(true),
-    h.DataAttribute("record", ""),
-    h.Class(clsx(RECORD_CLASS, isOpening ? RECORD_PLACES[kind].out : RECORD_PLACES[kind].behind)),
-  ]);
+export const recordView = <M>(state: RecordState, kind: SleeveKind, h: HtmlBuilder<M>): Html =>
+  h.span(
+    [
+      h.AriaHidden(true),
+      h.DataAttribute("record", RECORD_DATA[state]),
+      h.Class(
+        clsx(
+          RECORD_CLASS,
+          state === "Behind" ? RECORD_PLACES[kind].behind : RECORD_PLACES[kind].out,
+        ),
+      ),
+    ],
+    [
+      h.span([h.Class(clsx(RECORD_PART_CLASS, RECORD_PART_TURNS[state], NEAR_PART_CLASS))]),
+      h.span([h.Class(clsx(RECORD_PART_CLASS, RECORD_PART_TURNS[state], FAR_PART_CLASS))]),
+      scratchView(),
+    ],
+  );
 
 const SLEEVE_ASIDE: Readonly<Record<SleeveKind, string>> = {
   Tile: "-translate-x-[6%]",
   Card: "-translate-x-3.5",
+  Thumbnail: "-translate-x-[6%] [--record-breaks-after:420ms]",
 };
 
-/** The sleeve's own movement: a little aside while its page is on its way, and back. */
-export const sleeveClass = (isOpening: boolean, kind: SleeveKind): string =>
-  clsx("motion-safe:transition-transform motion-safe:duration-420 motion-safe:ease-settle", {
-    [SLEEVE_ASIDE[kind]]: isOpening,
-  });
+/**
+ * The sleeve's own movement: a little aside while its record is out, and
+ * back. `record-sleeve` is what the sheet knocks when the record breaks.
+ */
+export const sleeveClass = (state: RecordState, kind: SleeveKind): string =>
+  clsx(
+    "record-sleeve motion-safe:transition-transform motion-safe:duration-420 motion-safe:ease-settle",
+    {
+      [SLEEVE_ASIDE[kind]]: state !== "Behind",
+    },
+  );
+
+// A TILE THAT COULD NOT OPEN
+
+/**
+ * What the colour of what went wrong lies over: a tile's picture, square or
+ * round, or a card, which cuts off what is in it and has words over it.
+ */
+export type WashOver = ArtworkShape | "Card";
+
+const WASH_PLACES: Readonly<Record<WashOver, string>> = {
+  Square: "rounded-lg",
+  Round: "rounded-full",
+  Card: "-z-1",
+};
+
+const WASH_CLASS =
+  "pointer-events-none absolute inset-0 bg-linear-145 from-failure-wash-from to-failure-wash-to transition-opacity duration-180 ease-settle";
+
+/**
+ * The colour of what went wrong, over the picture of a tile whose page could
+ * not be asked. It is there whatever the tile's state, so that it comes by degrees.
+ */
+export const washView = (state: TileState, over: WashOver, h: HtmlBuilder<Message>): Html =>
+  h.span([
+    h.AriaHidden(true),
+    h.Class(clsx(WASH_CLASS, WASH_PLACES[over], state === "Failed" ? "opacity-100" : "opacity-0")),
+  ]);
+
+/** Where a failure stands over its picture: a tile's sleeve is moved aside, so a little left of its middle. */
+export type FailureOver = "Tile" | "Card";
+
+const FAILURE_PLACES: Readonly<Record<FailureOver, string>> = {
+  Tile: "left-[44%]",
+  Card: "left-[45%]",
+};
+
+/**
+ * What a tile whose page could not be asked says over its picture: that it
+ * could not load, over the way to try again. The way is the tile itself, so
+ * what stands here is only seen, and the tile's own words say it.
+ */
+export const failureOverView = (over: FailureOver, h: HtmlBuilder<Message>): Html =>
+  h.span(
+    [
+      h.AriaHidden(true),
+      h.Class(
+        clsx(
+          "pointer-events-none absolute top-1/2 z-10 -translate-1/2 text-center motion-safe:animate-failure-comes",
+          FAILURE_PLACES[over],
+        ),
+      ),
+    ],
+    [
+      h.span(
+        [
+          h.Class(
+            "mx-auto mb-0.75 block w-max rounded-[3px] bg-failure-chip px-1.25 py-px text-11 leading-normal font-semibold text-on-night",
+          ),
+        ],
+        ["Couldn’t load"],
+      ),
+      h.span(
+        [
+          h.Class(
+            "inline-flex min-h-11 items-center justify-center gap-1.25 rounded-full bg-failure-pill px-3 text-13 font-semibold whitespace-nowrap text-on-failure-pill shadow-failure-pill sm:min-h-9.5",
+          ),
+        ],
+        [retryIcon("size-3.5"), "Try again"],
+      ),
+    ],
+  );
+
+/** What a tile whose page could not be asked says to assistive technology, after its own words. */
+export const FAILED_WORDS = "Could not open. Activate to try again.";
 
 /** What a tile shows: its picture, a sleeve with its record behind it, over its title and what else it says. */
 const tileContentView = (
@@ -281,24 +467,32 @@ const tileContentView = (
   shape: ArtworkShape,
   loading: PictureLoading,
   h: HtmlBuilder<Message>,
-): ReadonlyArray<Html> => [
-  h.div(
-    [...(tile.isOpening ? [h.DataAttribute("opening", "")] : []), h.Class("relative")],
-    [
-      recordView(tile.isOpening, "Tile", h),
-      h.div(
-        [
-          h.DataAttribute("sleeve", ""),
-          h.Class(clsx("catalog-art relative", sleeveClass(tile.isOpening, "Tile"))),
-          ...flightAttributes(tile.flightStyle, h),
-        ],
-        [artworkView(tile.maybeArtwork, shape, "medium", h, loading)],
-      ),
-    ],
-  ),
-  h.p([h.Class("mt-3 truncate text-sm font-medium")], [tile.title]),
-  tile.subtitle === "" ? h.empty : h.p([h.Class("truncate text-sm text-muted")], [tile.subtitle]),
-];
+): ReadonlyArray<Html> => {
+  const record = recordStateOf(tile.state);
+  return [
+    h.div(
+      [...(tile.state === "Opening" ? [h.DataAttribute("opening", "")] : []), h.Class("relative")],
+      [
+        recordView(record, "Tile", h),
+        h.div(
+          [
+            h.DataAttribute("sleeve", ""),
+            h.Class(clsx("catalog-art relative", sleeveClass(record, "Tile"))),
+            ...flightAttributes(tile.flightStyle, h),
+          ],
+          [
+            artworkView(tile.maybeArtwork, shape, "medium", h, loading),
+            washView(tile.state, shape, h),
+          ],
+        ),
+        tile.state === "Failed" ? failureOverView("Tile", h) : h.empty,
+      ],
+    ),
+    h.p([h.Class("mt-3 truncate text-sm font-medium")], [tile.title]),
+    tile.subtitle === "" ? h.empty : h.p([h.Class("truncate text-sm text-muted")], [tile.subtitle]),
+    tile.state === "Failed" ? h.span([h.Class("sr-only")], [FAILED_WORDS]) : h.empty,
+  ];
+};
 
 const TILE_LINK_CLASS = "block touch-manipulation rounded-lg focus-ring";
 
@@ -316,7 +510,7 @@ const tileView = (
       h.a(
         [
           h.Href(tile.href),
-          h.AriaBusy(tile.isOpening),
+          h.AriaBusy(tile.state === "Opening"),
           h.DataAttribute(TILE_ATTRIBUTES[tile.kind], tile.id),
           h.Class(TILE_LINK_CLASS),
         ],

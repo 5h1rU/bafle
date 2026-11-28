@@ -18,7 +18,7 @@ import {
 } from "../view/page.ts";
 import { shelfPlaceholderView } from "../view/placeholder.ts";
 import {
-  type TilesOpening,
+  type TileStates,
   albumTile,
   artistTile,
   maybeShelfView,
@@ -87,7 +87,7 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
 const foundView = (
   genre: Genre,
   context: TrackListContext,
-  { isAlbumOpening, isArtistOpening, isPlaylistOpening }: TilesOpening,
+  { albumState, artistState, playlistState }: TileStates,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
@@ -108,21 +108,21 @@ const foundView = (
             "genre-top-albums",
             TOP_ALBUMS,
             "Square",
-            Array.map(genre.albums, albumTile(isAlbumOpening, context.presence)),
+            Array.map(genre.albums, albumTile(albumState, context.presence)),
             h,
           ),
           maybeShelfView(
             "genre-top-artists",
             TOP_ARTISTS,
             "Round",
-            Array.map(genre.artists, artistTile(isArtistOpening, context.presence)),
+            Array.map(genre.artists, artistTile(artistState, context.presence)),
             h,
           ),
           maybeShelfView(
             "genre-top-playlists",
             TOP_PLAYLISTS,
             "Square",
-            Array.map(genre.playlists, playlistTile(isPlaylistOpening, context.presence)),
+            Array.map(genre.playlists, playlistTile(playlistState, context.presence)),
             h,
           ),
         ],
@@ -140,12 +140,12 @@ export const view = (
   genreId: GenreId,
   genre: GenreData,
   context: TrackListContext,
-  opening: TilesOpening,
+  tileStates: TileStates,
   h: HtmlBuilder<Message>,
 ): Html =>
   detailPageView(
     { kind: KIND, key: genreId, presence: context.presence, data: genre },
     () => placeholderView(h),
-    (found) => foundView(found, context, opening, h),
+    (found) => foundView(found, context, tileStates, h),
     h,
   );

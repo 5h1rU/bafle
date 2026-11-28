@@ -27,13 +27,18 @@ import {
   pageTitleIdOf,
 } from "../view/layout.ts";
 import {
-  type TilesOpening,
+  FAILED_WORDS,
+  type TileState,
+  type TileStates,
   albumTile,
   artistTile,
+  failureOverView,
   maybeShelfView,
   playlistTile,
+  recordStateOf,
   recordView,
   sleeveClass,
+  washView,
 } from "../view/shelf.ts";
 import {
   type TrackListContext,
@@ -259,13 +264,14 @@ const CARD_CLASS =
  */
 const topResultView = (
   artist: ArtistSummary,
-  isOpening: boolean,
+  state: TileState,
   isAlone: boolean,
   presence: Presence,
   h: HtmlBuilder<Message>,
 ): Html => {
   const maybePicture = Option.fromNullishOr(artist.picture);
   const flightStyle = pictureFlightStyle("Artist", artist.id, presence);
+  const record = recordStateOf(state);
 
   return h.section(
     [h.Class(clsx("flex flex-col", PLACES.Top, { "search-wide:max-w-160": isAlone }))],
@@ -278,19 +284,19 @@ const topResultView = (
       h.a(
         [
           h.Href(artistRouter({ artistId: artist.id })),
-          h.AriaBusy(isOpening),
+          h.AriaBusy(state === "Opening"),
           h.DataAttribute(TILE_ATTRIBUTES.Artist, artist.id),
-          ...(isOpening ? [h.DataAttribute("opening", "")] : []),
+          ...(state === "Opening" ? [h.DataAttribute("opening", "")] : []),
           h.Class(
             "relative isolate flex flex-1 touch-manipulation rounded-[1.0625rem] focus-ring search-wide:mt-3 search-wide:rounded-xl",
           ),
         ],
         [
-          recordView(isOpening, "Card", h),
+          recordView(record, "Card", h),
           h.span(
             [
               h.DataAttribute("sleeve", ""),
-              h.Class(clsx(CARD_CLASS, VEIL_CLASS, sleeveClass(isOpening, "Card"))),
+              h.Class(clsx(CARD_CLASS, VEIL_CLASS, sleeveClass(record, "Card"))),
             ],
             [
               Option.match(maybePicture, {
@@ -335,8 +341,11 @@ const topResultView = (
                 ],
                 [openIcon("size-4")],
               ),
+              washView(state, "Card", h),
             ],
           ),
+          state === "Failed" ? failureOverView("Card", h) : h.empty,
+          state === "Failed" ? h.span([h.Class("sr-only")], [FAILED_WORDS]) : h.empty,
         ],
       ),
     ],
@@ -424,7 +433,7 @@ const songSectionsView = (
 const foundView = (
   answer: SearchAnswer,
   context: TrackListContext,
-  { isAlbumOpening, isArtistOpening, isPlaylistOpening }: TilesOpening,
+  { albumState, artistState, playlistState }: TileStates,
   h: HtmlBuilder<Message>,
 ): Html => {
   const { albums, artists, playlists, tracks } = answer.results;
@@ -446,7 +455,7 @@ const foundView = (
         onSome: (artist) => [
           topResultView(
             artist,
-            isArtistOpening(artist.id),
+            artistState(artist.id),
             Array.isReadonlyArrayEmpty(tracks),
             context.presence,
             h,
@@ -460,7 +469,7 @@ const foundView = (
             "search-albums",
             "Albums",
             "Square",
-            Array.map(albums, albumTile(isAlbumOpening, context.presence)),
+            Array.map(albums, albumTile(albumState, context.presence)),
             h,
             "AtHead",
             "ThreeAcross",
@@ -475,7 +484,7 @@ const foundView = (
             "search-artists",
             "Artists",
             "Round",
-            Array.map(Array.drop(artists, 1), artistTile(isArtistOpening, context.presence)),
+            Array.map(Array.drop(artists, 1), artistTile(artistState, context.presence)),
             h,
           ),
           place(PLACES.Artists),
@@ -485,7 +494,7 @@ const foundView = (
             "search-playlists",
             "Playlists",
             "Square",
-            Array.map(playlists, playlistTile(isPlaylistOpening, context.presence)),
+            Array.map(playlists, playlistTile(playlistState, context.presence)),
             h,
           ),
           place(PLACES.Playlists),
@@ -519,7 +528,7 @@ const resultsView = (
   search: SearchData,
   searchedTerm: string,
   context: TrackListContext,
-  opening: TilesOpening,
+  tileStates: TileStates,
   h: HtmlBuilder<Message>,
 ): Html => {
   // Out of date as soon as the field asks for something else, whether or not the new query is out yet.
@@ -545,10 +554,10 @@ const resultsView = (
     [
       AsyncData.matchData(search, {
         onEmpty: () => h.empty,
-        onFailure: (error) => failureView(TITLE, error, h),
+        onFailure: (error) => failureView(TITLE, error, "Page", h),
         onData: (answer) =>
           hasResults(answer)
-            ? foundView(answer, context, opening, h)
+            ? foundView(answer, context, tileStates, h)
             : h.p(
                 [
                   h.Class(
@@ -572,7 +581,7 @@ export const view = (
   maybeSearchedTerm: Option.Option<string>,
   search: SearchData,
   context: TrackListContext,
-  opening: TilesOpening,
+  tileStates: TileStates,
   h: HtmlBuilder<Message>,
 ): Html => {
   const place: FieldPlace = hasSearchAnswer(maybeSearchedTerm, search) ? "Docked" : "Centered";
@@ -605,7 +614,7 @@ export const view = (
             Option.filter(maybeSearchedTerm, () => place === "Docked"),
             {
               onNone: () => h.empty,
-              onSome: (searchedTerm) => resultsView(search, searchedTerm, context, opening, h),
+              onSome: (searchedTerm) => resultsView(search, searchedTerm, context, tileStates, h),
             },
           ),
         ],

@@ -16,7 +16,7 @@ import {
   sectionsView,
 } from "../view/page.ts";
 import { shelfPlaceholderView } from "../view/placeholder.ts";
-import { type IsAlbumOpening, albumTile, maybeShelfView } from "../view/shelf.ts";
+import { type AlbumTileState, albumTile, maybeShelfView } from "../view/shelf.ts";
 import {
   type TrackListContext,
   type TrackSection,
@@ -72,7 +72,7 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
 const foundView = (
   artist: Artist,
   context: TrackListContext,
-  isAlbumOpening: IsAlbumOpening,
+  albumState: AlbumTileState,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
@@ -93,7 +93,7 @@ const foundView = (
             "artist-albums",
             ALBUMS,
             "Square",
-            Array.map(artist.albums, albumTile(isAlbumOpening, context.presence)),
+            Array.map(artist.albums, albumTile(albumState, context.presence)),
             h,
           ),
         ],
@@ -111,12 +111,12 @@ export const view = (
   artistId: ArtistId,
   artist: ArtistData,
   context: TrackListContext,
-  isAlbumOpening: IsAlbumOpening,
+  albumState: AlbumTileState,
   h: HtmlBuilder<Message>,
 ): Html =>
   detailPageView(
     { kind: KIND, key: artistId, presence: context.presence, data: artist },
     () => placeholderView(h),
-    (found) => foundView(found, context, isAlbumOpening, h),
+    (found) => foundView(found, context, albumState, h),
     h,
   );

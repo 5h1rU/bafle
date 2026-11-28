@@ -830,6 +830,14 @@ describe("the player expanded: the page of the track it holds", () => {
     expect(arrivedAt.route).toEqual(AppRoute.Album({ albumId: track.album.id }));
   });
 
+  test("an album the player's menu could not ask for takes the screen to say so: there is no tile to say it on", () => {
+    const asked = after(expandedOnFirst, choseFromPlayer("OpenAlbum"));
+    const failed = after(asked, arrived(reply.albumRefused(awaitedId(asked))));
+
+    expect(failed.route).toEqual(AppRoute.Album({ albumId: track.album.id }));
+    expect(failed.maybeFailedTile).toEqual(Option.none());
+  });
+
   test("the face that says what the catalog knows of the song: its name leads back, and the queue's control to the queue", () =>
     scene(
       app,

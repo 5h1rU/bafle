@@ -76,7 +76,6 @@ const item = (name: string | RegExp) => role("menuitem", { name });
 /** The last control of a row that has a page that would not open, or is not to be had, to answer for. */
 const amiss = all.selector("[data-amiss]");
 const items = all.role("menuitem");
-const tryAgain = role("button", { name: "Try again" });
 const tryAgainButtons = all.role("button", { name: /^Try again/ });
 const backControl = role("button", { name: "Back" });
 const homeControl = role("link", { name: "Home" });
@@ -84,6 +83,8 @@ const albumTile = role("link", { name: /Discovery/ });
 const spinners = all.selector("svg.animate-spin");
 /** A tile whose page is on its way: its record is out of its sleeve, and turns. */
 const records = all.selector("[data-opening]");
+/** A record broken in two: the tile's page could not be asked. */
+const brokenRecord = selector('[data-record="broken"]');
 /** The rows that say these words: each row's status holds all it has to say. */
 const saying = (words: string) => all.role("status", { name: words });
 const placeholderBlocks = all.selector('[aria-busy="true"] [aria-hidden="true"] .animate-pulse');
@@ -519,26 +520,33 @@ describe("album tiles lead to the album's page", () => {
       ),
     ));
 
-  test("a failure is said on the album's page, with Try again: a tile has no room for it", () =>
+  test("a failure is said on the album's tile: its record breaks, Home stays, and the tile tries again", () =>
     scene(
       app,
       given(openingAlbumFromTile),
       Subscription.emit(arrived(reply.albumRefused(nextId(onHome)))),
+      inside(
+        onScreen,
+        see(pageTitle("Home")).toExist(),
+        see(albumTile).toHaveAttr("aria-busy", "false"),
+        see(albumTile).toContainText("Could not open. Activate to try again."),
+        inside(
+          albumTile,
+          see(brokenRecord).toExist(),
+          see(text("Couldn’t load")).toExist(),
+          see(text("Try again")).toExist(),
+        ),
+        expectAll(tryAgainButtons).toHaveCount(0),
+      ),
+      see(text("Album could not open. The music catalog is not answering right now.")).toExist(),
+      Subscription.emit(clickedLink(albumPath(album.id))),
+      Command.expectExact(Catalog.AlbumDetail),
+      inside(albumTile, see(brokenRecord).toBeAbsent(), expectAll(records).toHaveCount(1)),
+      Command.resolve(Catalog.AlbumDetail, reply.album("page:3")),
       Command.resolveAll(
         [NavigateInternal, Message.CompletedNavigateInternal()],
         [FocusPage, Message.CompletedFocusPage()],
       ),
-      inside(
-        onScreen,
-        see(pageTitle("Album")).toExist(),
-        see(role("alert")).toContainText("Album could not load."),
-        see(role("alert")).toContainText("The music catalog is not answering right now."),
-        see(tryAgain).toExist(),
-      ),
-      click(tryAgain),
-      Command.expectExact(Catalog.AlbumDetail, FocusPage),
-      Command.resolve(FocusPage, Message.CompletedFocusPage()),
-      Command.resolve(Catalog.AlbumDetail, reply.album("page:3")),
       inside(onScreen, see(pageTitle("Discovery")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 

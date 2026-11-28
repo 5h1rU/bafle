@@ -10,8 +10,8 @@ import { sectionPageView, sectionsView } from "../view/page.ts";
 import { SHELVES_AT_HEAD } from "../view/firstPictures.ts";
 import { untitledShelfPlaceholderView } from "../view/placeholder.ts";
 import {
-  type IsStationOpening,
   type ShelfPlace,
+  type StationTileState,
   maybeShelfView,
   stationTile,
 } from "../view/shelf.ts";
@@ -41,7 +41,7 @@ const maybeGroupView = (
   group: StationGroup,
   place: ShelfPlace,
   presence: Presence,
-  isStationOpening: IsStationOpening,
+  stationState: StationTileState,
   h: HtmlBuilder<Message>,
 ): Option.Option<Html> =>
   Option.map(
@@ -49,7 +49,7 @@ const maybeGroupView = (
       groupTitleId(group),
       group.genre.name,
       "Square",
-      Array.map(group.stations, stationTile(isStationOpening, presence)),
+      Array.map(group.stations, stationTile(stationState, presence)),
       h,
       place,
     ),
@@ -59,7 +59,7 @@ const maybeGroupView = (
 const groupsView = (
   radio: RadioStations,
   presence: Presence,
-  isStationOpening: IsStationOpening,
+  stationState: StationTileState,
   h: HtmlBuilder<Message>,
 ): Html =>
   sectionsView(
@@ -69,7 +69,7 @@ const groupsView = (
         group,
         index < SHELVES_AT_HEAD ? "AtHead" : "Below",
         presence,
-        isStationOpening,
+        stationState,
         h,
       ),
     ),
@@ -80,12 +80,12 @@ const groupsView = (
 export const view = (
   stationList: StationListData,
   presence: Presence,
-  isStationOpening: IsStationOpening,
+  stationState: StationTileState,
   h: HtmlBuilder<Message>,
 ): Html =>
   sectionPageView(
     { pageId: PAGE_ID, title: TITLE, presence, data: stationList },
     () => placeholderView(h),
-    (radio) => groupsView(radio, presence, isStationOpening, h),
+    (radio) => groupsView(radio, presence, stationState, h),
     h,
   );

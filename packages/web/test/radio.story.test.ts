@@ -230,21 +230,33 @@ describe("a station chosen from a shelf", () => {
     ]);
   });
 
-  test("a tile has no room to state a failure: the station's page takes the screen and says it", () => {
+  test("one the catalog could not be asked for stays behind its tile, which says so", () => {
     const failing = update(
       openingStationFromTile,
       arrived(reply.stationRefused(awaitedId(openingStationFromTile))),
     );
 
-    expect(failing.model.route).toEqual(stationRoute);
+    expect(failing.model.route).toEqual(radioRoute);
+    expect(failing.model.maybeFailedTile).toEqual(Option.some(stationRoute));
     expect(stationData(failing.model, station.id)).toEqual(
       StationData.Failure({ error: "CatalogUnavailable" }),
     );
-    expect(names(failing)).toContain("NavigateInternal");
-    expect(wayBack(failing.model)).toEqual(Option.some(radioRoute));
+    expect(names(failing)).not.toContain("NavigateInternal");
+    expect(failing.model.trail).toEqual(openingStationFromTile.trail);
   });
 
-  test("so does the page of a station the catalog does not have", () => {
+  test("the tile is the way to try again", () => {
+    const failed = after(
+      openingStationFromTile,
+      arrived(reply.stationRefused(awaitedId(openingStationFromTile))),
+    );
+    const again = update(failed, clickedLink(routeToUrl(stationRoute)));
+
+    expect(again.model.maybeFailedTile).toEqual(Option.none());
+    expect(again.model.awaiting).toMatchObject({ _tag: "Intention", route: stationRoute });
+  });
+
+  test("the page of a station the catalog does not have takes the screen and says so", () => {
     const missing = update(
       openingStationFromTile,
       arrived(reply.stationMissing(awaitedId(openingStationFromTile))),

@@ -7,7 +7,7 @@ import type { GenreListData } from "../model.ts";
 import { PAGE_IDS, type Presence, QUIET_LINE_CLASS, pageTitleIdOf } from "../view/layout.ts";
 import { sectionPageView } from "../view/page.ts";
 import { tileGridPlaceholderView } from "../view/placeholder.ts";
-import { type IsGenreOpening, genreTile, maybeTileGridView } from "../view/shelf.ts";
+import { type GenreTileState, genreTile, maybeTileGridView } from "../view/shelf.ts";
 
 // VIEW
 
@@ -24,14 +24,14 @@ const placeholderView = (h: HtmlBuilder<Message>): Html => tileGridPlaceholderVi
 const gridView = (
   all: MusicGenres,
   presence: Presence,
-  isGenreOpening: IsGenreOpening,
+  genreState: GenreTileState,
   h: HtmlBuilder<Message>,
 ): Html =>
   Option.match(
     maybeTileGridView(
       pageTitleIdOf(PAGE_ID),
       "Square",
-      Array.map(all.genres, genreTile(isGenreOpening, presence)),
+      Array.map(all.genres, genreTile(genreState, presence)),
       h,
     ),
     {
@@ -43,12 +43,12 @@ const gridView = (
 export const view = (
   genreList: GenreListData,
   presence: Presence,
-  isGenreOpening: IsGenreOpening,
+  genreState: GenreTileState,
   h: HtmlBuilder<Message>,
 ): Html =>
   sectionPageView(
     { pageId: PAGE_ID, title: TITLE, presence, data: genreList },
     () => placeholderView(h),
-    (all) => gridView(all, presence, isGenreOpening, h),
+    (all) => gridView(all, presence, genreState, h),
     h,
   );

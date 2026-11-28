@@ -170,6 +170,18 @@ export type Ahead = typeof Ahead.Type;
 export const StaleNotice = Schema.Literals(["Open", "Dismissed"]);
 export type StaleNotice = typeof StaleNotice.Type;
 
+/**
+ * Why the notice over the page speaks: the device has no connection, as the
+ * browser says, or a refresh behind what is on screen failed, and why. With
+ * no connection there is nothing to try again with.
+ */
+export const NoticeReason = Schema.Literals(["Offline", "Unreachable", "CatalogUnavailable"]);
+export type NoticeReason = typeof NoticeReason.Type;
+
+/** Whether the device has a connection, as the browser says. */
+export const Connection = Schema.Literals(["Online", "Offline"]);
+export type Connection = typeof Connection.Type;
+
 export const Model = Schema.Struct({
   /**
    * The route whose page is on screen. It is the browser's URL too, except
@@ -222,6 +234,16 @@ export const Model = Schema.Struct({
    */
   albumRows: Schema.HashMap(AlbumId, Rows.RowId),
   /**
+   * The page a tile was chosen for and that the catalog could not be asked
+   * for: an album's, an artist's, a playlist's, a genre's or a station's.
+   * The page on screen stays, and that tile says so, with its record broken
+   * in two, and is the way to try again. There is one at most, since the
+   * latest intention wins: whatever the listener does next forgets it. A
+   * page the catalog does not have is no such failure, and takes the screen
+   * to say so.
+   */
+  maybeFailedTile: Schema.Option(AppRoute),
+  /**
    * What the catalog said about every artist asked for since the app loaded,
    * kept as `albums` is. An artist is only ever chosen from a shelf, so their
    * tile says that they are opening.
@@ -273,6 +295,17 @@ export const Model = Schema.Struct({
    * catalog cannot be asked: a notice closed says nothing of the next one.
    */
   staleNotice: StaleNotice,
+  /**
+   * Whether the device has a connection, as the browser last said. Without
+   * one the notice says so at once, before anything has been asked of the
+   * catalog: what is on screen is what loaded earlier.
+   */
+  connection: Connection,
+  /**
+   * Why the notice last spoke: it goes on saying it while it goes, as it
+   * said it, since by then there is no reason left to say.
+   */
+  lastNoticeReason: NoticeReason,
   /**
    * Whether the screen is a desktop's, as the document last said. It decides
    * what the player is: on a compact screen it expands into a sheet, on a
@@ -499,8 +532,8 @@ const staleErrorOf = <A>(data: AsyncData.AsyncData<A, LoadError>): Option.Option
 /** What is read of whatever the page on screen holds, of whichever kind it is. */
 type ReadError = <A>(data: AsyncData.AsyncData<A, LoadError>) => Option.Option<LoadError>;
 
-const errorOnScreen = (model: Model, read: ReadError): Option.Option<LoadError> =>
-  AppRoute.match(model.route, {
+const errorOn = (model: Model, route: AppRoute, read: ReadError): Option.Option<LoadError> =>
+  AppRoute.match(route, {
     Home: () => read(model.home),
     New: () => read(model.newMusic),
     Genres: () => read(model.genreList),
@@ -520,14 +553,21 @@ const errorOnScreen = (model: Model, read: ReadError): Option.Option<LoadError> 
  * catalog has now, when that is the case: a refresh behind it failed.
  */
 export const maybeStaleError = (model: Model): Option.Option<LoadError> =>
-  errorOnScreen(model, staleErrorOf);
+  errorOn(model, model.route, staleErrorOf);
 
 /**
  * Why the page on screen could not be asked, when it could not: whether it
  * shows what it loaded earlier, or has nothing to show but that.
  */
 export const maybeLoadError = (model: Model): Option.Option<LoadError> =>
-  errorOnScreen(model, AsyncData.getError);
+  errorOn(model, model.route, AsyncData.getError);
+
+/**
+ * Why the page a tile was chosen for could not be asked, when one could not
+ * (`maybeFailedTile`): the page on screen stayed, and the tile says so.
+ */
+export const maybeFailedTileError = (model: Model): Option.Option<LoadError> =>
+  Option.flatMap(model.maybeFailedTile, (route) => errorOn(model, route, AsyncData.getError));
 
 /**
  * Whether the Model already holds what a route's page shows, so the page can

@@ -69,7 +69,6 @@ const more = (title: string) => role("button", { name: `More: ${title}` });
 const playRow = (title: string) => role("button", { name: new RegExp(`^Play: ${title}`) });
 const item = (name: string) => role("menuitem", { name });
 const items = all.role("menuitem");
-const tryAgain = role("button", { name: "Try again" });
 const tryAgainButtons = all.role("button", { name: /^Try again/ });
 const backControl = role("button", { name: "Back" });
 const homeControl = role("link", { name: "Home" });
@@ -78,6 +77,8 @@ const albumTile = role("link", { name: /Discovery/ });
 const spinners = all.selector("svg.animate-spin");
 /** A tile whose page is on its way: its record is out of its sleeve, and turns. */
 const records = all.selector("[data-opening]");
+/** A record broken in two: the tile's page could not be asked. */
+const brokenRecord = selector('[data-record="broken"]');
 const island = role("region", { name: "Player" });
 const placeholderBlocks = all.selector('[aria-busy="true"] [aria-hidden="true"] .animate-pulse');
 
@@ -353,34 +354,38 @@ describe("playlist tiles lead to the playlist's page", () => {
     );
   });
 
-  test("a failure is said on the playlist's page, with Try again: a tile has no room for it", () =>
+  test("a failure is said on the playlist's tile: its record breaks, the page stays, and the tile tries again", () =>
     scene(
       app,
       given(openingPlaylistFromTile),
       Subscription.emit(arrived(reply.playlistRefused(nextId(onHome)))),
+      inside(
+        onScreen,
+        see(pageTitle("Home")).toExist(),
+        see(playlistTile).toHaveAttr("aria-busy", "false"),
+        see(playlistTile).toContainText("Could not open. Activate to try again."),
+        inside(playlistTile, see(brokenRecord).toExist(), see(text("Couldn’t load")).toExist()),
+        expectAll(tryAgainButtons).toHaveCount(0),
+      ),
+      see(text("Playlist could not open. The music catalog is not answering right now.")).toExist(),
+      Subscription.emit(clickedLink(playlistPath(playlist.id))),
+      Command.expectExact(Catalog.PlaylistDetail),
+      inside(playlistTile, see(brokenRecord).toBeAbsent(), expectAll(records).toHaveCount(1)),
+      Command.resolve(Catalog.PlaylistDetail, reply.playlist("page:3")),
       Command.resolveAll(
         [NavigateInternal, Message.CompletedNavigateInternal()],
         [FocusPage, Message.CompletedFocusPage()],
       ),
-      inside(
-        onScreen,
-        see(pageTitle("Playlist")).toExist(),
-        see(role("alert")).toContainText("Playlist could not load."),
-        see(role("alert")).toContainText("The music catalog is not answering right now."),
-        see(tryAgain).toExist(),
-      ),
-      click(tryAgain),
-      Command.expectExact(Catalog.PlaylistDetail, FocusPage),
-      Command.resolve(FocusPage, Message.CompletedFocusPage()),
-      Command.resolve(Catalog.PlaylistDetail, reply.playlist("page:3")),
       inside(onScreen, see(pageTitle("French Touch")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 
   test("a lost connection is worded as one", () =>
     scene(
       app,
-      given(answered(openingPlaylistFromTile, reply.playlistLost, playlistPath(playlist.id))),
-      see(role("alert")).toContainText("Bafle could not be reached. Check your connection."),
+      given(answered(openingPlaylistFromTile, reply.playlistLost)),
+      see(
+        text("Playlist could not open. Bafle could not be reached. Check your connection."),
+      ).toExist(),
     ));
 
   test("a playlist the catalog does not have says so on its page for good, with no Try again", () =>

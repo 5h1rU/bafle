@@ -85,6 +85,10 @@ const otherStationTile = role("link", { name: "Club Classics" });
 const spinners = all.selector("svg.animate-spin");
 /** A tile whose page is on its way: its record is out of its sleeve, and turns. */
 const records = all.selector("[data-opening]");
+/** A record broken in two: the tile's page could not be asked. */
+const brokenRecord = selector('[data-record="broken"]');
+/** The station's tile once it says it could not open: its title, then that. */
+const failedStationTile = role("link", { name: /^French House/ });
 const island = role("region", { name: "Player" });
 const placeholders = all.selector('[aria-busy="true"] [aria-hidden="true"]');
 const placeholderBlocks = all.selector('[aria-busy="true"] [aria-hidden="true"] .animate-pulse');
@@ -350,26 +354,32 @@ describe("a station's tile leads to the station's page", () => {
     ).toEqual({ types: ["open-detail", name] });
   });
 
-  test("a failure is said on the station's page, with Try again: a tile has no room for it", () =>
+  test("a failure is said on the station's tile: its record breaks, the page stays, and the tile tries again", () =>
     scene(
       app,
       given(openingStationFromTile),
       Subscription.emit(arrived(reply.stationRefused(nextId(onRadio)))),
+      inside(
+        onScreen,
+        see(pageTitle("Radio")).toExist(),
+        see(failedStationTile).toHaveAttr("aria-busy", "false"),
+        see(failedStationTile).toContainText("Could not open. Activate to try again."),
+        inside(
+          failedStationTile,
+          see(brokenRecord).toExist(),
+          see(text("Couldn’t load")).toExist(),
+        ),
+        expectAll(tryAgainButtons).toHaveCount(0),
+      ),
+      see(text("Station could not open. The music catalog is not answering right now.")).toExist(),
+      Subscription.emit(clickedLink(stationPath(station.id))),
+      Command.expectExact(Catalog.StationDetail),
+      inside(failedStationTile, see(brokenRecord).toBeAbsent(), expectAll(records).toHaveCount(1)),
+      Command.resolve(Catalog.StationDetail, reply.station("page:3")),
       Command.resolveAll(
         [NavigateInternal, Message.CompletedNavigateInternal()],
         [FocusPage, Message.CompletedFocusPage()],
       ),
-      inside(
-        onScreen,
-        see(pageTitle("Station")).toExist(),
-        see(role("alert")).toContainText("Station could not load."),
-        see(role("alert")).toContainText("The music catalog is not answering right now."),
-        see(tryAgain).toExist(),
-      ),
-      click(tryAgain),
-      Command.expectExact(Catalog.StationDetail, FocusPage),
-      Command.resolve(FocusPage, Message.CompletedFocusPage()),
-      Command.resolve(Catalog.StationDetail, reply.station("page:3")),
       inside(onScreen, see(pageTitle("French House")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 

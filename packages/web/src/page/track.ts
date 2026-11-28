@@ -407,6 +407,7 @@ export const expandedDetailView = (track: TrackData, h: HtmlBuilder<Message>): H
             ),
         }),
         h,
+        "Face",
       ),
     ],
   );

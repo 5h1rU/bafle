@@ -1,9 +1,17 @@
+import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Match from "effect/Match";
 import { type Html, type HtmlBuilder, inertHtml as ih } from "foldkit/html";
 import type { LoadError } from "../catalog.ts";
+import type { NoticeReason } from "../model.ts";
 import { Message } from "../message.ts";
-import { type PillLook, iconButtonView, pillButtonView } from "./control.ts";
+import {
+  type PillLook,
+  iconButtonView,
+  iconControlClass,
+  pillButtonView,
+  pillClass,
+} from "./control.ts";
 import { closeIcon, retryIcon } from "./icon.ts";
 
 // VIEW
@@ -97,95 +105,182 @@ const lostSignalView = (): Html =>
   );
 
 /**
- * A page that could not load and has nothing to show: said where its content
- * would be, in the middle of the room the page has left under its head, over
- * the signal cut short. Only the words are the alert; the button stays an
- * ordinary control.
+ * Where a failure is said. A page says it as the whole of what it shows; the
+ * face of a song's details, in the expanded player, says it in a part of the
+ * sheet, under a low head and over the deck, where the page's way would not fit.
  */
-export const failureView = (what: string, error: LoadError, h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [
-      h.Class(
-        // NOTE: the room left is the screen's height less what stands over
-        // it (the page's top and its title's row) and the room at its foot
-        // (`--page-foot`). Search's field takes that row, so it is the same there.
-        "flex min-h-[calc(100dvh-var(--page-foot)-5rem)] flex-col items-center justify-center gap-6 py-8 text-center",
-      ),
-    ],
-    [
-      lostSignalView(),
+export type FailurePlace = "Page" | "Face";
+
+const tryAgainTallView = (h: HtmlBuilder<Message>): Html =>
+  pillButtonView(
+    {
+      look: "Filled",
+      size: "Tall",
+      content: [retryIcon("size-4.5"), "Try again"],
+      onClick: Message.ClickedTryAgain(),
+    },
+    h,
+  );
+
+/**
+ * A page that could not load and has nothing to show: said where its content
+ * would be. On a page, that is the middle of the room the page has left under
+ * its head, over the signal cut short. Only the words are the alert; the
+ * button stays an ordinary control.
+ */
+export const failureView = (
+  what: string,
+  error: LoadError,
+  place: FailurePlace,
+  h: HtmlBuilder<Message>,
+): Html =>
+  Match.value(place).pipe(
+    Match.when("Page", () =>
       h.div(
-        [h.Role("alert")],
         [
-          h.p(
-            [h.Class("text-3xl font-bold tracking-tight text-balance md:text-4xl")],
-            [`${what} could not load.`],
+          h.Class(
+            // NOTE: the room left is the screen's height less what stands over
+            // it (the page's top and its title's row) and the room at its foot
+            // (`--page-foot`). Search's field takes that row, so it is the same there.
+            "flex min-h-[calc(100dvh-var(--page-foot)-5rem)] flex-col items-center justify-center gap-6 py-8 text-center",
           ),
-          h.p([h.Class("mt-2 text-pretty text-muted")], [reason(error)]),
+        ],
+        [
+          lostSignalView(),
+          h.div(
+            [h.Role("alert")],
+            [
+              h.p(
+                [h.Class("text-3xl font-bold tracking-tight text-balance md:text-4xl")],
+                [`${what} could not load.`],
+              ),
+              h.p([h.Class("mt-2 text-pretty text-muted")], [reason(error)]),
+            ],
+          ),
+          tryAgainTallView(h),
         ],
       ),
-      pillButtonView(
-        {
-          look: "Filled",
-          size: "Tall",
-          content: [retryIcon("size-4.5"), "Try again"],
-          onClick: Message.ClickedTryAgain(),
-        },
-        h,
+    ),
+    Match.when("Face", () =>
+      h.div(
+        [h.Class("mt-8 max-w-md rounded-2xl border border-line bg-panel p-6")],
+        [
+          h.div(
+            [h.Role("alert")],
+            [
+              h.p([h.Class("font-semibold")], [`${what} could not load.`]),
+              h.p([h.Class("mt-1 text-sm text-muted")], [reason(error)]),
+            ],
+          ),
+          pillButtonView(
+            {
+              look: "Filled",
+              size: "Short",
+              content: ["Try again"],
+              onClick: Message.ClickedTryAgain(),
+              place: "mt-4",
+            },
+            h,
+          ),
+        ],
       ),
-    ],
+    ),
+    Match.exhaustive,
   );
 
 /** Why a page shows what it loaded earlier, in a few words: there is little room over a page. */
-const staleReason = (error: LoadError): string =>
-  Match.value(error).pipe(
+const staleReason = (reason: NoticeReason): string =>
+  Match.value(reason).pipe(
     Match.when("CatalogUnavailable", () => "The catalog is not answering."),
-    Match.when("Unreachable", () => "You are offline."),
+    Match.whenOr("Offline", "Unreachable", () => "You are offline."),
     Match.exhaustive,
   );
 
 /**
- * A refresh failed behind content that is still on screen. It is said over
- * the foot of the page, on a piece of its own that takes no room in the
- * page: what is on the page stays where it is when the notice comes, and
- * when the listener puts it away. It offers to try again, and to be put away.
+ * What the notice over the page says, and whether it is there to be read:
+ * why what is on screen may not be what the catalog has now, whether the
+ * page holds what loaded earlier, and whether asking again could work.
  */
-// NOTE: it stands at the foot and not at the top. The top of a page is
-// where a page keeps what stays as it scrolls, Search's field and the bar an
-// album's head draws back to, and a notice there lay over them. At the foot
-// it stands clear of the navigation and of the island, in the room every
-// page leaves for them (`pageAttributes`): over the island while that is
-// above the navigation's row, and lower once it has come down into it.
-export const staleBannerView = (error: LoadError, h: HtmlBuilder<Message>): Html =>
+export type Notice = Readonly<{
+  isShown: boolean;
+  reason: NoticeReason;
+  holdsEarlier: boolean;
+}>;
+
+/** Asking again needs a connection: without one the app asks by itself when it has one again. */
+const canTryAgain = (notice: Notice): boolean => notice.reason !== "Offline";
+
+/** What can be done from the notice: try again, while there is a connection to try with, and put it away. */
+const noticeControlsView = (notice: Notice, h: HtmlBuilder<Message>): ReadonlyArray<Html> => [
+  canTryAgain(notice) ? tryAgainView("Words", h) : h.empty,
+  iconButtonView(
+    {
+      look: "OnNotice",
+      label: "Dismiss",
+      content: [closeIcon("size-4")],
+      onClick: Message.ClickedDismissStaleNotice(),
+    },
+    h,
+  ),
+];
+
+/**
+ * The same, as the notice goes: drawn as they were, so that the notice keeps
+ * its width on its way out, and no longer controls, since nothing in it can
+ * be reached by then.
+ */
+const noticeControlsGoneView = (notice: Notice, h: HtmlBuilder<Message>): ReadonlyArray<Html> => [
+  canTryAgain(notice) ? h.span([h.Class(pillClass("Words", "Short"))], ["Try again"]) : h.empty,
+  h.span([h.Class(iconControlClass("OnNotice"))], [closeIcon("size-4")]),
+];
+
+const NOTICE_CLASS =
+  "flex max-w-full items-center gap-2 rounded-2xl border border-line bg-panel/90 py-1.5 pr-1.5 pl-4 text-sm shadow-lg backdrop-blur-xl transition-[translate,opacity] duration-300 ease-settle";
+
+// NOTE: gone, it goes back up out of sight and is clear, and not hidden: it
+// is seen to go, and comes down again from there. Under reduced motion it
+// only grows clear and comes back.
+const NOTICE_PLACES: Readonly<Record<"Shown" | "Gone", string>> = {
+  Shown: "pointer-events-auto translate-y-0 opacity-100",
+  Gone: "pointer-events-none -translate-y-[calc(100%+1.5rem)] opacity-0 motion-reduce:translate-y-0",
+};
+
+/**
+ * That the device has no connection, or that a refresh failed behind what
+ * is still on screen. It is said over the top of the page, on a piece of
+ * its own that takes no room in the page: what is on the page stays where
+ * it is when the notice comes and when it goes. It comes down as soon as
+ * there is something to say, and goes back up as soon as there is not,
+ * saying what it said as it goes. It offers to try again, while there is a
+ * connection to try with, and to be put away.
+ */
+// NOTE: it is always in the document, so that it can be seen to come and
+// go. Gone, nothing in it can be reached, and nothing in it is heard.
+export const noticeView = (notice: Notice, h: HtmlBuilder<Message>): Html =>
   h.div(
     [
       h.Class(
-        "pointer-events-none absolute right-3 bottom-[5.25rem] left-3 z-30 flex justify-center transition-[bottom] duration-300 group-data-player/shell:bottom-36 minimized:group-data-player/shell:bottom-[5.25rem] motion-reduce:transition-none md:right-6 md:bottom-6 md:left-6 md:group-data-player/shell:bottom-28",
+        "pointer-events-none absolute inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 flex justify-center md:inset-x-6 md:top-6",
       ),
     ],
     [
       h.div(
         [
-          h.DataAttribute("stale-notice", ""),
-          h.Class(
-            "pointer-events-auto flex max-w-full items-center gap-2 rounded-2xl border border-line bg-panel/90 py-1.5 pr-1.5 pl-4 text-sm shadow-lg backdrop-blur-xl",
-          ),
+          h.DataAttribute("stale-notice", notice.isShown ? "shown" : "gone"),
+          h.Inert(!notice.isShown),
+          h.AriaHidden(!notice.isShown),
+          h.Class(clsx(NOTICE_CLASS, NOTICE_PLACES[notice.isShown ? "Shown" : "Gone"])),
         ],
         [
           h.p(
             [h.Role("status"), h.Class("min-w-0 text-pretty")],
-            [`${staleReason(error)} Showing what loaded earlier.`],
+            [
+              notice.holdsEarlier
+                ? `${staleReason(notice.reason)} Showing what loaded earlier.`
+                : staleReason(notice.reason),
+            ],
           ),
-          tryAgainView("Words", h),
-          iconButtonView(
-            {
-              look: "OnNotice",
-              label: "Dismiss",
-              content: [closeIcon("size-4")],
-              onClick: Message.ClickedDismissStaleNotice(),
-            },
-            h,
-          ),
+          ...(notice.isShown ? noticeControlsView(notice, h) : noticeControlsGoneView(notice, h)),
         ],
       ),
     ],

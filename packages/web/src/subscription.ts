@@ -177,14 +177,28 @@ const dragsUnderSearchField = Stream.suspend(() =>
   }),
 );
 
-/** The device has a connection again, as the browser tells it. */
-const connectionsRegained = Stream.suspend(() =>
-  Dom.streamFromEventFilterMap({
-    target: window,
-    type: "online",
-    options: { passive: true },
-    filterMapEvent: () => Option.some(Message.RegainedConnection()),
-  }),
+/**
+ * Whether the device has a connection, as the browser tells it: that it has
+ * none as the app starts without one, and then each time it is lost or had again.
+ */
+const connectionChanges = Stream.suspend(() =>
+  Stream.merge(
+    navigator.onLine ? Stream.empty : Stream.make(Message.LostConnection()),
+    Stream.merge(
+      Dom.streamFromEventFilterMap({
+        target: window,
+        type: "offline",
+        options: { passive: true },
+        filterMapEvent: () => Option.some(Message.LostConnection()),
+      }),
+      Dom.streamFromEventFilterMap({
+        target: window,
+        type: "online",
+        options: { passive: true },
+        filterMapEvent: () => Option.some(Message.RegainedConnection()),
+      }),
+    ),
+  ),
 );
 
 /**
@@ -264,7 +278,7 @@ const navigationSubscriptions = Subscription.make<Model, Message>()((entry) => (
     {},
     {
       modelToDependencies: () => ({}),
-      dependenciesToStream: () => connectionsRegained,
+      dependenciesToStream: () => connectionChanges,
     },
   ),
   searchDrag: entry(

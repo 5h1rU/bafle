@@ -30,6 +30,8 @@ export const Message = defineMessageUnion({
   ClickedTryAgain: {},
   /** The browser says the device has a connection again. */
   RegainedConnection: {},
+  /** The browser says the device has no connection: as the app starts without one, or once it is lost. */
+  LostConnection: {},
   /** The control that puts away the notice over a page that could not be refreshed. */
   ClickedDismissStaleNotice: {},
   /** A track's own page asks for its track to be put in the queue. */

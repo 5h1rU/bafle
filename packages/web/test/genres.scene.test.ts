@@ -95,6 +95,10 @@ const playlistTile = role("link", { name: /French Touch/ });
 const spinners = all.selector("svg.animate-spin");
 /** A tile whose page is on its way: its record is out of its sleeve, and turns. */
 const records = all.selector("[data-opening]");
+/** A record broken in two: the tile's page could not be asked. */
+const brokenRecord = selector('[data-record="broken"]');
+/** The genre's tile once it says it could not open: its name, then that. */
+const failedGenreTile = role("link", { name: /^Electro/ });
 const island = role("region", { name: "Player" });
 const placeholders = all.selector('[aria-busy="true"] [aria-hidden="true"]');
 const placeholderBlocks = all.selector('[aria-busy="true"] [aria-hidden="true"] .animate-pulse');
@@ -399,26 +403,28 @@ describe("a genre's tile leads to the genre's page", () => {
     ).toBe(false);
   });
 
-  test("a failure is said on the genre's page, with Try again: a tile has no room for it", () =>
+  test("a failure is said on the genre's tile: its record breaks, the page stays, and the tile tries again", () =>
     scene(
       app,
       given(openingGenreFromTile),
       Subscription.emit(arrived(reply.genreRefused(nextId(onGenres)))),
+      inside(
+        onScreen,
+        see(pageTitle("Genres")).toExist(),
+        see(failedGenreTile).toHaveAttr("aria-busy", "false"),
+        see(failedGenreTile).toContainText("Could not open. Activate to try again."),
+        inside(failedGenreTile, see(brokenRecord).toExist(), see(text("Couldn’t load")).toExist()),
+        expectAll(tryAgainButtons).toHaveCount(0),
+      ),
+      see(text("Genre could not open. The music catalog is not answering right now.")).toExist(),
+      Subscription.emit(clickedLink(genrePath(genre.id))),
+      Command.expectExact(Catalog.GenreDetail),
+      inside(failedGenreTile, see(brokenRecord).toBeAbsent(), expectAll(records).toHaveCount(1)),
+      Command.resolve(Catalog.GenreDetail, reply.genre("page:3")),
       Command.resolveAll(
         [NavigateInternal, Message.CompletedNavigateInternal()],
         [FocusPage, Message.CompletedFocusPage()],
       ),
-      inside(
-        onScreen,
-        see(pageTitle("Genre")).toExist(),
-        see(role("alert")).toContainText("Genre could not load."),
-        see(role("alert")).toContainText("The music catalog is not answering right now."),
-        see(tryAgain).toExist(),
-      ),
-      click(tryAgain),
-      Command.expectExact(Catalog.GenreDetail, FocusPage),
-      Command.resolve(FocusPage, Message.CompletedFocusPage()),
-      Command.resolve(Catalog.GenreDetail, reply.genre("page:3")),
       inside(onScreen, see(pageTitle("Electro")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 

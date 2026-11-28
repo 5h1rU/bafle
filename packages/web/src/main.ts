@@ -98,6 +98,7 @@ import {
   isSearchFieldAtHead,
   maybeAlbumIdInDocument,
   maybeArtistIdInDocument,
+  maybeFailedTileError,
   maybeGenreIdInDocument,
   maybeHeadedFor,
   maybeLoadError,
@@ -534,6 +535,7 @@ const standDownEach = <Id, A>(
 const abandon = (model: Model): Model =>
   modifyFields(model, {
     awaiting: () => Awaiting.Nothing(),
+    maybeFailedTile: () => Option.none(),
     home: standDown,
     newMusic: standDown,
     genreList: standDown,
@@ -668,10 +670,10 @@ const commit =
  * with its content or with its failure, since a navigation item has no room
  * to state one. A track does so only with the track itself: one that failed
  * to open, or that the catalog does not have, says so on its row. So does an
- * album asked from a row's menu. One chosen from a shelf is as a section is:
- * a tile has no room to state a failure either, so its page takes the screen
- * with what there is to say. An artist, a playlist, a genre and a station
- * are only ever chosen from a tile, so theirs always does.
+ * album asked from a row's menu. One chosen from a shelf does so with what
+ * the catalog said of it, the album or that there is none: a failure to ask
+ * is its tile's to say, and the page on screen stays. An artist, a playlist,
+ * a genre and a station are only ever chosen from a tile, so theirs are too.
  */
 const canCommit = (model: Model, route: AppRoute): boolean =>
   AppRoute.matchOrElse(
@@ -681,9 +683,31 @@ const canCommit = (model: Model, route: AppRoute): boolean =>
       Album: ({ albumId }) =>
         HashMap.has(model.albumRows, albumId)
           ? isHeld(albumData(model, albumId))
-          : canShow(model, route),
+          : isLoaded(model, route),
+      Artist: () => isLoaded(model, route),
+      Playlist: () => isLoaded(model, route),
+      Genre: () => isLoaded(model, route),
+      Station: () => isLoaded(model, route),
     },
     () => canShow(model, route),
+  );
+
+/**
+ * Whether a page was chosen from a tile: an album's that no row asked for,
+ * or an artist's, a playlist's, a genre's or a station's, which only a tile
+ * leads to. A page asked from the island's menu is none (`onPage`).
+ */
+const isChosenFromTile = (model: Model, route: AppRoute): boolean =>
+  AppRoute.matchOrElse(
+    route,
+    {
+      Album: ({ albumId }) => !HashMap.has(model.albumRows, albumId),
+      Artist: () => true,
+      Playlist: () => true,
+      Genre: () => true,
+      Station: () => true,
+    },
+    () => false,
   );
 
 /**
@@ -798,6 +822,37 @@ const returnToScreen: Step = (model) => bringUrlToScreen(model.awaiting)(abandon
  * alone. Choosing it twice is still the latest choice, so a request already
  * out for it is abandoned for a new one.
  */
+/** What was not had for want of a connection: a failure with nothing held, since the catalog could not be reached. */
+const isOfflineFailure = <A>(data: PageData<A>): boolean =>
+  !AsyncData.hasData(data) && Option.contains(AsyncData.getError(data), "Unreachable");
+
+const forgetOffline = <Id, A>(
+  held: HashMap.HashMap<Id, PageData<A>>,
+  isOnScreen: (id: Id) => boolean,
+): HashMap.HashMap<Id, PageData<A>> =>
+  HashMap.filter(held, (data, id) => isOnScreen(id) || !isOfflineFailure(data));
+
+/**
+ * The connection is back: what could not be reached is forgotten, so that
+ * the rows and the tiles that said so are at rest again. The page on screen
+ * keeps what it says until it is asked again (`reload`).
+ */
+const forgetOfflineFailures = (model: Model): Model => {
+  const isShown = (route: AppRoute): boolean => isSameRoute(route, model.route);
+  return modifyFields(model, {
+    tracks: (held) => forgetOffline(held, (trackId) => isShown(AppRoute.Track({ trackId }))),
+    albums: (held) => forgetOffline(held, (albumId) => isShown(AppRoute.Album({ albumId }))),
+    artists: (held) => forgetOffline(held, (artistId) => isShown(AppRoute.Artist({ artistId }))),
+    playlists: (held) =>
+      forgetOffline(held, (playlistId) => isShown(AppRoute.Playlist({ playlistId }))),
+    genres: (held) => forgetOffline(held, (genreId) => isShown(AppRoute.Genre({ genreId }))),
+    stations: (held) =>
+      forgetOffline(held, (stationId) => isShown(AppRoute.Station({ stationId }))),
+    maybeFailedTile: (maybeFailedTile) =>
+      Option.contains(maybeFailedTileError(model), "Unreachable") ? Option.none() : maybeFailedTile,
+  });
+};
+
 const reload: Step = (model) =>
   Update.combine(model, [
     returnToScreen,
@@ -870,14 +925,18 @@ const focusTrackRow =
  * stops offering it, and what goes from a row's control can take the focus
  * with it: the row is given it back.
  */
-// NOTE: a page asked for from the island's menu has no row to stay behind
-// (`onPage`): it takes the screen with whatever there is to say of it, as a
-// page chosen from a tile does.
+// NOTE: a page asked for from the island's menu has no row or tile to stay
+// behind (`onPage`): it takes the screen with whatever there is to say of it.
+// A page chosen from a tile that could not be asked stays behind its tile,
+// which says so (`maybeFailedTile`), and the focus stays on it.
 const commitIfOpenable =
   (route: AppRoute, onPage: boolean): Step =>
   (model) => {
     if (canCommit(model, route) || (onPage && canShow(model, route))) {
       return commit(route, model.route)(model);
+    }
+    if (!onPage && isChosenFromTile(model, route) && canShow(model, route)) {
+      return { model: modifyFields(model, { maybeFailedTile: () => Option.some(route) }) };
     }
     return AppRoute.matchOrElse<UpdateReturn>(
       route,
@@ -915,6 +974,8 @@ const receive = <A>(
     // NOTE: a notice the listener put away was about an earlier failure.
     // The catalog failing to answer again is news, and is said again.
     staleNotice: (staleNotice) => (Result.isFailure(outcome) ? "Open" : staleNotice),
+    lastNoticeReason: (lastNoticeReason) =>
+      Result.isFailure(outcome) ? outcome.failure : lastNoticeReason,
   });
   return Awaiting.matchOrElse<UpdateReturn>(
     model.awaiting,
@@ -1596,7 +1657,7 @@ const openAlbumOfPlayer: Step = (model) =>
     onNone: () => ({ model }),
     onSome: (albumId) => {
       const route = AppRoute.Album({ albumId });
-      return Update.combine(model, [forgetAlbumRow(route), follow(route)]);
+      return Update.combine(model, [forgetAlbumRow(route), follow(route), sayOnPage(route)]);
     },
   });
 
@@ -1702,11 +1763,28 @@ const respond = (model: Model, message: Message) =>
     // Nothing is taken from the listener for it. The focus stays where it
     // is, and a page they have chosen and are waiting for is still waited
     // for: that one is asked of the same connection, and comes first.
-    RegainedConnection: () =>
-      Awaiting.guards.Nothing(model.awaiting) &&
-      Option.contains(maybeLoadError(model), "Unreachable")
-        ? reload(model)
-        : { model },
+    //
+    // What could not be asked for want of a connection, a song or an album
+    // from a row, a page from a tile, is no longer so: it is forgotten, and
+    // each row and tile is at rest again, to be asked when it is chosen.
+    RegainedConnection: () => {
+      const online = forgetOfflineFailures(
+        modifyFields(model, { connection: () => "Online" as const }),
+      );
+      return Awaiting.guards.Nothing(online.awaiting) &&
+        Option.contains(maybeLoadError(online), "Unreachable")
+        ? reload(online)
+        : { model: online };
+    },
+
+    // NOTE: news, as a failure to ask is: a notice put away is said again.
+    LostConnection: () => ({
+      model: modifyFields(model, {
+        connection: () => "Offline" as const,
+        staleNotice: () => "Open" as const,
+        lastNoticeReason: () => "Offline" as const,
+      }),
+    }),
 
     ClickedDismissStaleNotice: () => ({
       model: modifyFields(model, { staleNotice: () => "Dismissed" }),
@@ -1921,6 +1999,7 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       tracks: HashMap.empty(),
       albums: HashMap.empty(),
       albumRows: HashMap.empty(),
+      maybeFailedTile: Option.none(),
       artists: HashMap.empty(),
       playlists: HashMap.empty(),
       genres: HashMap.empty(),
@@ -1931,6 +2010,10 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       navigation: "Open",
       launch: "Launching",
       staleNotice: "Open",
+      // NOTE: a device with no connection says so as the app starts
+      // (`connection` in subscription.ts).
+      connection: "Online",
+      lastNoticeReason: "Offline",
       // NOTE: what the screen is, the document says as the app starts
       // (`screens` in subscription.ts). Until it has, nothing has been
       // played, and the two screens differ only in what the player is.

@@ -133,21 +133,33 @@ describe("an artist chosen from a shelf", () => {
     ]);
   });
 
-  test("a tile has no room to state a failure: the artist's page takes the screen and says it", () => {
+  test("one the catalog could not be asked for stays behind its tile, which says so", () => {
     const failing = update(
       openingArtistFromTile,
       arrived(reply.artistRefused(awaitedId(openingArtistFromTile))),
     );
 
-    expect(failing.model.route).toEqual(artistRoute);
+    expect(failing.model.route).toEqual(AppRoute.Home());
+    expect(failing.model.maybeFailedTile).toEqual(Option.some(artistRoute));
     expect(artistData(failing.model, artist.id)).toEqual(
       ArtistData.Failure({ error: "CatalogUnavailable" }),
     );
-    expect(names(failing)).toContain("NavigateInternal");
-    expect(wayBack(failing.model)).toEqual(Option.some(AppRoute.Home()));
+    expect(names(failing)).not.toContain("NavigateInternal");
+    expect(failing.model.trail).toEqual(openingArtistFromTile.trail);
   });
 
-  test("so does the page of an artist the catalog does not have", () => {
+  test("the tile is the way to try again", () => {
+    const failed = after(
+      openingArtistFromTile,
+      arrived(reply.artistRefused(awaitedId(openingArtistFromTile))),
+    );
+    const again = update(failed, clickedLink(routeToUrl(artistRoute)));
+
+    expect(again.model.maybeFailedTile).toEqual(Option.none());
+    expect(again.model.awaiting).toMatchObject({ _tag: "Intention", route: artistRoute });
+  });
+
+  test("the page of an artist the catalog does not have takes the screen and says so", () => {
     const missing = update(
       openingArtistFromTile,
       arrived(reply.artistMissing(awaitedId(openingArtistFromTile))),

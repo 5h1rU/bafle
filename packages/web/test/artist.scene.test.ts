@@ -71,7 +71,6 @@ const more = (title: string) => role("button", { name: `More: ${title}` });
 const playRow = (title: string) => role("button", { name: new RegExp(`^Play: ${title}`) });
 const item = (name: string) => role("menuitem", { name });
 const items = all.role("menuitem");
-const tryAgain = role("button", { name: "Try again" });
 const tryAgainButtons = all.role("button", { name: /^Try again/ });
 const backControl = role("button", { name: "Back" });
 const homeControl = role("link", { name: "Home" });
@@ -81,6 +80,8 @@ const albumTile = role("link", { name: /Discovery/ });
 const spinners = all.selector("svg.animate-spin");
 /** A tile whose page is on its way: its record is out of its sleeve, and turns. */
 const records = all.selector("[data-opening]");
+/** A record broken in two: the tile's page could not be asked. */
+const brokenRecord = selector('[data-record="broken"]');
 const island = role("region", { name: "Player" });
 const placeholderBlocks = all.selector('[aria-busy="true"] [aria-hidden="true"] .animate-pulse');
 
@@ -337,34 +338,38 @@ describe("artist tiles lead to the artist's page", () => {
     );
   });
 
-  test("a failure is said on the artist's page, with Try again: a tile has no room for it", () =>
+  test("a failure is said on the artist's tile: its record breaks, the page stays, and the tile tries again", () =>
     scene(
       app,
       given(openingArtistFromTile),
       Subscription.emit(arrived(reply.artistRefused(nextId(onHome)))),
+      inside(
+        onScreen,
+        see(pageTitle("Home")).toExist(),
+        see(artistTile).toHaveAttr("aria-busy", "false"),
+        see(artistTile).toContainText("Could not open. Activate to try again."),
+        inside(artistTile, see(brokenRecord).toExist(), see(text("Couldn’t load")).toExist()),
+        expectAll(tryAgainButtons).toHaveCount(0),
+      ),
+      see(text("Artist could not open. The music catalog is not answering right now.")).toExist(),
+      Subscription.emit(clickedLink(artistPath(artist.id))),
+      Command.expectExact(Catalog.ArtistDetail),
+      inside(artistTile, see(brokenRecord).toBeAbsent(), expectAll(records).toHaveCount(1)),
+      Command.resolve(Catalog.ArtistDetail, reply.artist("page:3")),
       Command.resolveAll(
         [NavigateInternal, Message.CompletedNavigateInternal()],
         [FocusPage, Message.CompletedFocusPage()],
       ),
-      inside(
-        onScreen,
-        see(pageTitle("Artist")).toExist(),
-        see(role("alert")).toContainText("Artist could not load."),
-        see(role("alert")).toContainText("The music catalog is not answering right now."),
-        see(tryAgain).toExist(),
-      ),
-      click(tryAgain),
-      Command.expectExact(Catalog.ArtistDetail, FocusPage),
-      Command.resolve(FocusPage, Message.CompletedFocusPage()),
-      Command.resolve(Catalog.ArtistDetail, reply.artist("page:3")),
       inside(onScreen, see(pageTitle("Daft Punk")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 
   test("a lost connection is worded as one", () =>
     scene(
       app,
-      given(answered(openingArtistFromTile, reply.artistLost, artistPath(artist.id))),
-      see(role("alert")).toContainText("Bafle could not be reached. Check your connection."),
+      given(answered(openingArtistFromTile, reply.artistLost)),
+      see(
+        text("Artist could not open. Bafle could not be reached. Check your connection."),
+      ).toExist(),
     ));
 
   test("an artist the catalog does not have says so on their page for good, with no Try again", () =>

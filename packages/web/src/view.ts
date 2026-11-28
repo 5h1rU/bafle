@@ -22,6 +22,7 @@ import { HoldDockMotion } from "./mount.ts";
 import {
   Awaiting,
   type Model,
+  type NoticeReason,
   albumData,
   albumDataIn,
   artistData,
@@ -29,12 +30,15 @@ import {
   canShow,
   genreData,
   genreDataIn,
+  isLoaded,
   isPlayerExpanded,
   isPlayersTrack,
   maybeAlbumIdInDocument,
   maybeArtistIdInDocument,
+  maybeFailedTileError,
   maybeGenreIdInDocument,
   maybeHeadedFor,
+  maybeLoadError,
   maybePlaylistIdInDocument,
   maybeStaleError,
   maybeStationIdInDocument,
@@ -67,6 +71,7 @@ import {
   circleSectionOf,
   genresRouter,
   homeRouter,
+  isSameRoute,
   newRouter,
   radioRouter,
   searchRouter,
@@ -75,7 +80,7 @@ import {
 } from "./route.ts";
 import { creditView } from "./view/about.ts";
 import { artworkFlightRules, routeArtwork } from "./view/artwork.ts";
-import { saidView, staleBannerView } from "./view/feedback.ts";
+import { type Notice, noticeView, reason, saidView } from "./view/feedback.ts";
 import {
   BREATHES_CLASS,
   genresIcon,
@@ -91,8 +96,9 @@ import {
   pagePlaceView,
   pageTitleIdOf,
 } from "./view/layout.ts";
-import type { IsAlbumOpening, TilesOpening } from "./view/shelf.ts";
+import type { AlbumTileState, TileState, TileStates } from "./view/shelf.ts";
 import type { TrackListContext } from "./view/trackList.ts";
+import type { LoadError } from "./catalog.ts";
 
 // VIEW
 
@@ -528,29 +534,58 @@ const listContext = (
 });
 
 /**
- * Whether an album chosen from a shelf is on its way: the catalog is being
- * asked for it for the first time, and no row asked. An album asked from a
- * row's menu is that row's to speak for.
+ * Where the page a tile leads to stands: on its way while the catalog is
+ * asked for it for the first time, failed when the tile asked for it and the
+ * catalog could not be asked, and otherwise at rest.
  */
-const isAlbumOpeningIn =
-  (albums: Model["albums"], albumRows: Model["albumRows"]): IsAlbumOpening =>
-  (albumId) =>
-    AsyncData.isLoading(albumDataIn(albums, albumId)) && !HashMap.has(albumRows, albumId);
+const tileStateOf = <A>(
+  data: AsyncData.AsyncData<A, LoadError>,
+  route: AppRoute,
+  maybeFailedTile: Model["maybeFailedTile"],
+): TileState => {
+  if (AsyncData.isLoading(data)) {
+    return "Opening";
+  }
+  return Option.exists(maybeFailedTile, (failed) => isSameRoute(failed, route))
+    ? "Failed"
+    : "Resting";
+};
 
 /**
- * Whether each kind of thing chosen from a shelf is on its way. An artist
- * and a playlist are only ever chosen from one, so each is opening whenever
- * the catalog is being asked for it for the first time.
+ * Where an album chosen from a shelf stands. An album asked from a row's
+ * menu is that row's to speak for, and its tiles are at rest.
  */
-const tilesOpeningIn = (
+const albumStateIn =
+  (
+    albums: Model["albums"],
+    albumRows: Model["albumRows"],
+    maybeFailedTile: Model["maybeFailedTile"],
+  ): AlbumTileState =>
+  (albumId) =>
+    HashMap.has(albumRows, albumId)
+      ? "Resting"
+      : tileStateOf(albumDataIn(albums, albumId), AppRoute.Album({ albumId }), maybeFailedTile);
+
+/**
+ * Where each kind of thing chosen from a shelf stands. An artist and a
+ * playlist are only ever chosen from one, so each is its tile's to speak for.
+ */
+const tileStatesIn = (
   albums: Model["albums"],
   albumRows: Model["albumRows"],
   artists: Model["artists"],
   playlists: Model["playlists"],
-): TilesOpening => ({
-  isAlbumOpening: isAlbumOpeningIn(albums, albumRows),
-  isArtistOpening: (artistId) => AsyncData.isLoading(artistDataIn(artists, artistId)),
-  isPlaylistOpening: (playlistId) => AsyncData.isLoading(playlistDataIn(playlists, playlistId)),
+  maybeFailedTile: Model["maybeFailedTile"],
+): TileStates => ({
+  albumState: albumStateIn(albums, albumRows, maybeFailedTile),
+  artistState: (artistId) =>
+    tileStateOf(artistDataIn(artists, artistId), AppRoute.Artist({ artistId }), maybeFailedTile),
+  playlistState: (playlistId) =>
+    tileStateOf(
+      playlistDataIn(playlists, playlistId),
+      AppRoute.Playlist({ playlistId }),
+      maybeFailedTile,
+    ),
 });
 
 /**
@@ -561,6 +596,7 @@ const genresPlaceView = (
   genreList: Model["genreList"],
   presence: Presence,
   genres: Model["genres"],
+  maybeFailedTile: Model["maybeFailedTile"],
   h: HtmlBuilder<Message>,
 ): Html =>
   pagePlaceView(
@@ -570,7 +606,12 @@ const genresPlaceView = (
           Genres.view(
             genreList,
             presence,
-            (genreId) => AsyncData.isLoading(genreDataIn(genres, genreId)),
+            (genreId) =>
+              tileStateOf(
+                genreDataIn(genres, genreId),
+                AppRoute.Genre({ genreId }),
+                maybeFailedTile,
+              ),
             h,
           ),
         ]
@@ -583,6 +624,7 @@ const radioPlaceView = (
   stationList: Model["stationList"],
   presence: Presence,
   stations: Model["stations"],
+  maybeFailedTile: Model["maybeFailedTile"],
   h: HtmlBuilder<Message>,
 ): Html =>
   pagePlaceView(
@@ -592,7 +634,12 @@ const radioPlaceView = (
           Radio.view(
             stationList,
             presence,
-            (stationId) => AsyncData.isLoading(stationDataIn(stations, stationId)),
+            (stationId) =>
+              tileStateOf(
+                stationDataIn(stations, stationId),
+                AppRoute.Station({ stationId }),
+                maybeFailedTile,
+              ),
             h,
           ),
         ]
@@ -608,12 +655,21 @@ const homePlaceView = (
   artists: Model["artists"],
   playlists: Model["playlists"],
   about: Model["about"],
+  maybeFailedTile: Model["maybeFailedTile"],
   h: HtmlBuilder<Message>,
 ): Html =>
   pagePlaceView(
     presence,
     isInDocument(presence, home)
-      ? [Home.view(home, presence, tilesOpeningIn(albums, albumRows, artists, playlists), about, h)]
+      ? [
+          Home.view(
+            home,
+            presence,
+            tileStatesIn(albums, albumRows, artists, playlists, maybeFailedTile),
+            about,
+            h,
+          ),
+        ]
       : [],
     h,
   );
@@ -627,6 +683,7 @@ const newPlaceView = (
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
   rows: Model["rows"],
+  maybeFailedTile: Model["maybeFailedTile"],
   h: HtmlBuilder<Message>,
 ): Html =>
   pagePlaceView(
@@ -642,7 +699,7 @@ const newPlaceView = (
               playingTrackId,
               playingStatus,
             ),
-            isAlbumOpeningIn(albums, albumRows),
+            albumStateIn(albums, albumRows, maybeFailedTile),
             h,
           ),
         ]
@@ -668,6 +725,7 @@ const searchPlaceView = (
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
   rows: Model["rows"],
+  maybeFailedTile: Model["maybeFailedTile"],
   h: HtmlBuilder<Message>,
 ): Html => {
   const context = listContext(
@@ -677,7 +735,7 @@ const searchPlaceView = (
     playingTrackId,
     playingStatus,
   );
-  const opening = tilesOpeningIn(albums, albumRows, artists, playlists);
+  const tileStates = tileStatesIn(albums, albumRows, artists, playlists, maybeFailedTile);
 
   return pagePlaceView(
     presence,
@@ -685,13 +743,13 @@ const searchPlaceView = (
       route,
       {
         Search: (shown) => [
-          Search.view(shown.maybeTerm, searchedTerm(shown), search, context, opening, h),
+          Search.view(shown.maybeTerm, searchedTerm(shown), search, context, tileStates, h),
         ],
       },
       () => {
         const left = AppRoute.Search({ maybeTerm: maybeSearchText });
         return AsyncData.hasData(search)
-          ? [Search.view(left.maybeTerm, searchedTerm(left), search, context, opening, h)]
+          ? [Search.view(left.maybeTerm, searchedTerm(left), search, context, tileStates, h)]
           : [];
       },
     ),
@@ -757,6 +815,7 @@ const artistPlaceView = (
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
   rows: Model["rows"],
+  maybeFailedTile: Model["maybeFailedTile"],
   h: HtmlBuilder<Message>,
 ): Html => {
   if (artistId === undefined) {
@@ -778,7 +837,7 @@ const artistPlaceView = (
               playingTrackId,
               playingStatus,
             ),
-            isAlbumOpeningIn(albums, albumRows),
+            albumStateIn(albums, albumRows, maybeFailedTile),
             h,
           ),
         ]
@@ -844,6 +903,7 @@ const genrePlaceView = (
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
   rows: Model["rows"],
+  maybeFailedTile: Model["maybeFailedTile"],
   h: HtmlBuilder<Message>,
 ): Html => {
   if (genreId === undefined) {
@@ -865,7 +925,7 @@ const genrePlaceView = (
               playingTrackId,
               playingStatus,
             ),
-            tilesOpeningIn(albums, albumRows, artists, playlists),
+            tileStatesIn(albums, albumRows, artists, playlists, maybeFailedTile),
             h,
           ),
         ]
@@ -981,6 +1041,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.artists,
       model.playlists,
       model.about,
+      model.maybeFailedTile,
       h,
     ]),
     lazyNewPlace(newPlaceView, [
@@ -992,6 +1053,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       playingTrackId,
       playingStatus,
       model.rows,
+      model.maybeFailedTile,
       h,
     ]),
     lazySearchPlace(searchPlaceView, [
@@ -1007,6 +1069,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       playingTrackId,
       playingStatus,
       model.rows,
+      model.maybeFailedTile,
       h,
     ]),
     // NOTE: an `Option` made on each draw would be a new object, so the
@@ -1032,6 +1095,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       playingTrackId,
       playingStatus,
       model.rows,
+      model.maybeFailedTile,
       h,
     ]),
     lazyPlaylistPlace(playlistPlaceView, [
@@ -1050,12 +1114,14 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.genreList,
       presenceOf(model, "Genres"),
       model.genres,
+      model.maybeFailedTile,
       h,
     ]),
     lazyRadioPlace(radioPlaceView, [
       model.stationList,
       presenceOf(model, "Radio"),
       model.stations,
+      model.maybeFailedTile,
       h,
     ]),
     lazyGenrePlace(genrePlaceView, [
@@ -1070,6 +1136,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       playingTrackId,
       playingStatus,
       model.rows,
+      model.maybeFailedTile,
       h,
     ]),
     lazyStationPlace(stationPlaceView, [
@@ -1237,14 +1304,53 @@ const maybeAnnouncedDestination = (model: Model): Option.Option<AppRoute> =>
  * Said to assistive technology, which sees neither the spinner nor the swap:
  * that the chosen destination is loading, then which page is on screen.
  */
+// NOTE: a tile whose page could not be asked says so here, since the focus
+// stays on the tile and nothing else changes: the page on screen is the same.
 const pageStatus = (model: Model): string =>
   Option.match(maybeAnnouncedDestination(model), {
     onSome: (route) => `Loading ${pageName(model, route)}`,
     onNone: () =>
-      canShow(model, model.route)
-        ? `Showing ${pageName(model, model.route)}`
-        : `Loading ${pageName(model, model.route)}`,
+      Option.match(
+        Option.zipWith(model.maybeFailedTile, maybeFailedTileError(model), (route, error) => ({
+          route,
+          error,
+        })),
+        {
+          onSome: ({ route, error }) =>
+            `${pageName(model, route)} could not open. ${reason(error)}`,
+          onNone: () =>
+            canShow(model, model.route)
+              ? `Showing ${pageName(model, model.route)}`
+              : `Loading ${pageName(model, model.route)}`,
+        },
+      ),
   });
+
+/**
+ * Why the notice over the page speaks, when it does. Without a connection it
+ * says so at once, whatever the page holds, unless the page says it itself,
+ * having nothing to show but that it could not be asked. With one, it says
+ * that a refresh behind what is on screen failed.
+ */
+const maybeNoticeReason = (model: Model): Option.Option<NoticeReason> => {
+  const saysItItself =
+    Option.isSome(maybeLoadError(model)) && Option.isNone(maybeStaleError(model));
+  return model.connection === "Offline" && !saysItItself
+    ? Option.some("Offline" as const)
+    : maybeStaleError(model);
+};
+
+/** The notice over the page. Under the expanded player there is no page to speak of. */
+const noticeOf = (model: Model): Notice => {
+  const maybeReason = maybeNoticeReason(model);
+  return {
+    isShown: model.staleNotice === "Open" && !isPlayerExpanded(model) && Option.isSome(maybeReason),
+    reason: Option.getOrElse(maybeReason, () => model.lastNoticeReason),
+    // A refresh that failed is behind what loaded earlier, Search's results
+    // for an earlier term among it.
+    holdsEarlier: Option.isSome(maybeStaleError(model)) || isLoaded(model, model.route),
+  };
+};
 
 /** The document is titled after the page on screen: a track's page, after its track. */
 export const documentTitle = (model: Model): string =>
@@ -1321,12 +1427,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
           // NOTE: over the page and no part of it: the page does not move
           // when this comes or is put away. Under the expanded player there
           // is no page to speak of.
-          model.staleNotice === "Open" && !isPlayerExpanded(model)
-            ? Option.match(maybeStaleError(model), {
-                onNone: () => h.empty,
-                onSome: (error) => staleBannerView(error, h),
-              })
-            : h.empty,
+          noticeView(noticeOf(model), h),
           // NOTE: expanded, the player is the page on screen and is drawn in
           // its place among the pages: there is no island under itself. The
           // island is drawn again as the player's sheet uncovers the page it

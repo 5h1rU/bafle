@@ -29,9 +29,11 @@ import {
 } from "../src/command.ts";
 import { update, viewTransition } from "../src/main.ts";
 import { Message } from "../src/message.ts";
+import { AppRoute } from "../src/route.ts";
 import { documentTitle, view } from "../src/view.ts";
 import {
   after,
+  album,
   answered,
   arrived,
   awaitedId,
@@ -50,6 +52,7 @@ import {
   onSearch,
   onTrack,
   opened,
+  openingAlbumFromTile,
   openingTrack,
   reply,
   scene,
@@ -93,6 +96,8 @@ const aboutEnters = Mount.resolveAll(
  * it is not this one.
  */
 const onScreen = selector('[role="region"]:not([inert])');
+/** The notice over the page, there to be read: gone, it stays in the document to be seen to go. */
+const noticeShown = selector('[data-stale-notice="shown"]');
 const pages = all.selector('[role="region"]');
 const keptPages = all.selector('[role="region"][inert]');
 /** What else can be done with a row's track: the control at the row's end, which opens its menu. */
@@ -444,7 +449,7 @@ describe("rule 5: failures are stated in place", () => {
       Command.resolve(FocusPage, Message.CompletedFocusPage()),
       inside(onScreen, see(text("Discovery")).toExist()),
       Command.resolve(Catalog.HomeFeed, reply.home(nextId(refreshingHome))),
-      see(text(/Showing what loaded earlier/)).toBeAbsent(),
+      see(noticeShown).toBeAbsent(),
     );
   });
 
@@ -457,7 +462,7 @@ describe("rule 5: failures are stated in place", () => {
       app,
       given(stale),
       click(role("button", { name: "Dismiss" })),
-      see(text(/Showing what loaded earlier/)).toBeAbsent(),
+      see(noticeShown).toBeAbsent(),
       // What is on the page is where it was.
       inside(onScreen, see(pageTitle("Home")).toExist(), see(text("Discovery")).toExist()),
     );
@@ -465,6 +470,87 @@ describe("rule 5: failures are stated in place", () => {
     // Asked again and failed again: that is news, and is said again.
     const again = answered(after(dismissed, Message.ClickedTryAgain()), reply.homeRefused);
     expect(again.staleNotice).toBe("Open");
+  });
+});
+
+describe("the connection, as the browser says it", () => {
+  const offline = Message.LostConnection();
+  const online = Message.RegainedConnection();
+  const firstLoad = opened("/");
+
+  test("lost, the notice says so at once at the top of the screen, and goes when it is had again", () =>
+    scene(
+      app,
+      given(onHome),
+      see(noticeShown).toBeAbsent(),
+      Subscription.emit(offline),
+      see(noticeShown).toExist(),
+      inside(noticeShown, see(text("You are offline. Showing what loaded earlier.")).toExist()),
+      // Asking again needs a connection: the app asks by itself when there is one.
+      inside(noticeShown, see(tryAgain).toBeAbsent()),
+      inside(onScreen, see(pageTitle("Home")).toExist(), see(text("Discovery")).toExist()),
+      Subscription.emit(online),
+      see(noticeShown).toBeAbsent(),
+      // Gone, it is still there to be seen going, saying what it said, and nothing in it can be pressed.
+      see(selector('[data-stale-notice="gone"]')).toExist(),
+      inside(
+        selector('[data-stale-notice="gone"]'),
+        see(text("You are offline. Showing what loaded earlier.")).toExist(),
+        see(text("Try again")).toBeAbsent(),
+      ),
+      expectAll(all.role("button", { name: "Dismiss" })).toHaveCount(0),
+    ));
+
+  test("a page that has nothing to show but that it could not be asked says it itself, with no notice over it", () =>
+    scene(
+      app,
+      given(after(firstLoad, arrived(reply.homeLost(awaitedId(firstLoad))), offline)),
+      see(text("Home could not load.")).toExist(),
+      see(noticeShown).toBeAbsent(),
+    ));
+
+  test("had again, what a row could not open for want of it is forgotten, and the row is at rest", () => {
+    const failedOffline = after(answered(openingTrack, reply.trackLost), offline);
+    const backOnline = after(failedOffline, online);
+
+    scene(
+      app,
+      given(failedOffline),
+      inside(topSongs, expectAll(all.selector("[data-amiss]")).toHaveCount(1)),
+    );
+    scene(
+      app,
+      given(backOnline),
+      inside(
+        topSongs,
+        expectAll(all.selector("[data-amiss]")).toHaveCount(0),
+        expectAll(all.selector('[data-record="broken"]')).toHaveCount(0),
+      ),
+    );
+  });
+
+  test("what the catalog itself would not answer is not the connection's, and stays", () => {
+    const refused = after(answered(openingTrack, reply.trackRefused), offline, online);
+
+    scene(
+      app,
+      given(refused),
+      inside(topSongs, expectAll(all.selector("[data-amiss]")).toHaveCount(1)),
+    );
+  });
+
+  test("had again, a tile that could not open for want of it is at rest again", () => {
+    const failedOffline = answered(openingAlbumFromTile, reply.albumLost);
+
+    expect(failedOffline.maybeFailedTile).toEqual(
+      Option.some(AppRoute.Album({ albumId: album.id })),
+    );
+    expect(after(failedOffline, online).maybeFailedTile).toEqual(Option.none());
+    // One the catalog would not answer is the tile's to say until the listener does something else.
+    const refused = answered(openingAlbumFromTile, reply.albumRefused);
+    expect(after(refused, online).maybeFailedTile).toEqual(
+      Option.some(AppRoute.Album({ albumId: album.id })),
+    );
   });
 });
 
@@ -930,6 +1016,9 @@ describe("A4: a row says that its track failed to open", () => {
           see(text(failure)).toHaveAttr("role", "status"),
           expectAll(all.selector("[data-amiss]")).toHaveCount(1),
           expectAll(tryAgainButtons).toHaveCount(0),
+          // Its thumbnail's record comes out and breaks; nothing else is laid over the row.
+          inside(rowOf(track.id), see(selector('[data-record="broken"]')).toExist()),
+          expectAll(all.selector('[data-record="broken"]')).toHaveCount(1),
           // The other row is as it was.
           see(trackRow(/Technologic/)).toHaveAttr("aria-busy", "false"),
           inside(rowOf(explicitTrack.id), see(text("4:05")).toExist()),

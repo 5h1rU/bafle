@@ -231,21 +231,33 @@ describe("a genre chosen from its tile", () => {
     ]);
   });
 
-  test("a tile has no room to state a failure: the genre's page takes the screen and says it", () => {
+  test("one the catalog could not be asked for stays behind its tile, which says so", () => {
     const failing = update(
       openingGenreFromTile,
       arrived(reply.genreRefused(awaitedId(openingGenreFromTile))),
     );
 
-    expect(failing.model.route).toEqual(genreRoute);
+    expect(failing.model.route).toEqual(genresRoute);
+    expect(failing.model.maybeFailedTile).toEqual(Option.some(genreRoute));
     expect(genreData(failing.model, genre.id)).toEqual(
       GenreData.Failure({ error: "CatalogUnavailable" }),
     );
-    expect(names(failing)).toContain("NavigateInternal");
-    expect(wayBack(failing.model)).toEqual(Option.some(genresRoute));
+    expect(names(failing)).not.toContain("NavigateInternal");
+    expect(failing.model.trail).toEqual(openingGenreFromTile.trail);
   });
 
-  test("so does the page of a genre the catalog does not have", () => {
+  test("the tile is the way to try again", () => {
+    const failed = after(
+      openingGenreFromTile,
+      arrived(reply.genreRefused(awaitedId(openingGenreFromTile))),
+    );
+    const again = update(failed, clickedLink(routeToUrl(genreRoute)));
+
+    expect(again.model.maybeFailedTile).toEqual(Option.none());
+    expect(again.model.awaiting).toMatchObject({ _tag: "Intention", route: genreRoute });
+  });
+
+  test("the page of a genre the catalog does not have takes the screen and says so", () => {
     const missing = update(
       openingGenreFromTile,
       arrived(reply.genreMissing(awaitedId(openingGenreFromTile))),

@@ -1660,7 +1660,9 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching("taps a row of the playlist to play")).toBeGreaterThan(WALKS / 100);
   expect(reaching("chooses Go to album on a row of the playlist")).toBeGreaterThan(WALKS / 100);
   expect(reaching("chooses Song details on a row of the playlist")).toBeGreaterThan(WALKS / 100);
-  expect(reaching("leaves the playlist's page by the browser's Back")).toBeGreaterThan(WALKS / 200);
+  // NOTE: fewer than the artist's: a playlist its tile could not ask for
+  // stays behind the tile, so a failure no longer puts a page there to leave.
+  expect(reaching("leaves the playlist's page by the browser's Back")).toBeGreaterThan(WALKS / 300);
   // Genres and Radio: chosen from the menu, found and failed; and the genres and stations their
   // tiles lead to: found, failed, missing, played from, gone on from to an album or a song, and left.
   expect(reaching("clicks link /genres")).toBeGreaterThan(WALKS / 20);

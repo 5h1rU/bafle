@@ -9,7 +9,7 @@ import { PAGE_IDS, PAGE_SECTIONS_CLASS, type Presence } from "../view/layout.ts"
 import { sectionPageView, sectionsView } from "../view/page.ts";
 import { shelfPlaceholderView } from "../view/placeholder.ts";
 import {
-  type TilesOpening,
+  type TileStates,
   albumTile,
   artistTile,
   maybeShelfView,
@@ -38,7 +38,7 @@ const placeholderView = (h: HtmlBuilder<Message>): Html =>
 const shelvesView = (
   featured: FeaturedMusic,
   presence: Presence,
-  { isAlbumOpening, isArtistOpening, isPlaylistOpening }: TilesOpening,
+  { albumState, artistState, playlistState }: TileStates,
   h: HtmlBuilder<Message>,
 ): Html =>
   sectionsView(
@@ -47,7 +47,7 @@ const shelvesView = (
         "home-editors-picks",
         EDITORS_PICKS,
         "Square",
-        Array.map(featured.albums, albumTile(isAlbumOpening, presence)),
+        Array.map(featured.albums, albumTile(albumState, presence)),
         h,
         "AtHead",
       ),
@@ -55,7 +55,7 @@ const shelvesView = (
         "home-top-playlists",
         TOP_PLAYLISTS,
         "Square",
-        Array.map(featured.playlists, playlistTile(isPlaylistOpening, presence)),
+        Array.map(featured.playlists, playlistTile(playlistState, presence)),
         h,
         "AtHead",
       ),
@@ -63,7 +63,7 @@ const shelvesView = (
         "home-top-artists",
         TOP_ARTISTS,
         "Round",
-        Array.map(featured.artists, artistTile(isArtistOpening, presence)),
+        Array.map(featured.artists, artistTile(artistState, presence)),
         h,
       ),
     ],
@@ -74,7 +74,7 @@ const shelvesView = (
 export const view = (
   home: HomeData,
   presence: Presence,
-  opening: TilesOpening,
+  tileStates: TileStates,
   about: Popover.Model,
   h: HtmlBuilder<Message>,
 ): Html =>
@@ -83,6 +83,6 @@ export const view = (
     // control at the far end of its title's row (`view/about.ts`).
     { pageId: PAGE_ID, title: TITLE, presence, data: home, beside: aboutView(about, h) },
     () => placeholderView(h),
-    (featured) => shelvesView(featured, presence, opening, h),
+    (featured) => shelvesView(featured, presence, tileStates, h),
     h,
   );

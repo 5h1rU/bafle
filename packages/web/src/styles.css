@@ -21,6 +21,7 @@
 @import "./player/island.css" layer(components);
 @import "./sheet/sheet.css" layer(components);
 @import "./page/album.css" layer(components);
+@import "./view/record.css" layer(components);
 
 /* Aubergine. One neutral scale that leans to it, and one accent taken from
    the mark: the deep aubergine of the speaker (#46203f) and the pale orchid
@@ -50,6 +51,17 @@
      on the light page and the dark one, as the design draws it. */
   --color-signal: #d48d9e;
   --color-signal-fade: #a67fa4;
+  /* A tile whose page could not be asked: the scratch across its record,
+     the colour of what went wrong over its picture, and what is said over
+     that. They stand over a picture, so they are the same on the light page
+     and the dark one. */
+  --color-record-scratch: #ffdfd2;
+  --color-failure-wash-from: rgb(179 38 30 / 32%);
+  --color-failure-wash-to: rgb(96 14 17 / 63%);
+  --color-failure-chip: rgb(40 10 18 / 78%);
+  --color-failure-pill: #fff9f8;
+  --color-on-failure-pill: #591b24;
+  --shadow-failure-pill: 0 2px 6px rgb(40 10 18 / 14%);
 
   /* What stands over a picture is the same on the light page and the dark
      one: the night a picture's veil ends in, the white of the words that
@@ -172,8 +184,21 @@
     }
   }
 
-  /* A record, turning for as long as its page takes. */
+  /* A record, turning for as long as its page takes, and held where it was
+     when it breaks. One is the other paused, so a record that breaks stops
+     where it stood instead of starting its turn again. */
   --animate-record-turns: record-turns 1400ms linear infinite;
+  --animate-record-held: record-turns 1400ms linear infinite paused;
+
+  /* What a tile whose page could not be asked says over its picture: it
+     comes at once, as the record breaks. */
+  --animate-failure-comes: failure-comes 170ms var(--ease-settle) both;
+
+  @keyframes failure-comes {
+    from {
+      opacity: 0;
+    }
+  }
 
   @keyframes record-turns {
     to {

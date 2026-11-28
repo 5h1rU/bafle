@@ -1,0 +1,105 @@
+/* A record breaking, when the page its sleeve leads to could not be asked.
+   Where each piece stands, and what it looks like, is said in its view
+   (`recordView` in view/shelf.ts): the record says it broke in
+   `data-record`, and each of its two parts carries where it is cut
+   (`--record-cut`) and where it goes (`--record-apart`). What is here is the
+   way there, several pieces at once, each with its own time, as the design
+   draws it (`design/motion/vinyl-errors`, "Corte"):
+
+   a scratch runs across the record from its edge to the sleeve, in 400 ms;
+   as it reaches the sleeve, at 210 ms, the record comes apart in two along
+   it, in 190 ms, and the sleeve takes the knock in the same time.
+
+   A thumbnail's record comes out only to break, so it breaks once it is out
+   (`--record-breaks-after`). Under reduced motion the record is broken at
+   once, and nothing runs across it or knocks. */
+
+[data-record="broken"] {
+  .record-scratch path {
+    stroke-dasharray: 1;
+    animation: record-scored 400ms linear var(--record-breaks-after, 0ms) both;
+  }
+
+  /* No backwards fill: until the scratch reaches the sleeve, the near part
+     is the whole record, and the far one is not seen. */
+  .record-part {
+    animation: record-breaks 190ms var(--ease-settle) calc(var(--record-breaks-after, 0ms) + 210ms)
+      forwards;
+  }
+}
+
+[data-record="broken"] ~ .record-sleeve {
+  animation: sleeve-knocked 190ms var(--ease-settle) calc(var(--record-breaks-after, 0ms) + 210ms);
+}
+
+@keyframes record-scored {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  37%,
+  52% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  72%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes record-breaks {
+  from {
+    clip-path: var(--record-cut);
+    transform: none;
+    opacity: 1;
+  }
+  to {
+    clip-path: var(--record-cut);
+    transform: var(--record-apart);
+    opacity: 1;
+  }
+}
+
+@keyframes sleeve-knocked {
+  0%,
+  100% {
+    transform: none;
+  }
+  22% {
+    transform: translate(-2.7%, -0.4%) rotate(-1deg);
+  }
+  58% {
+    transform: translateX(1.2%) rotate(0.5deg);
+  }
+  80% {
+    transform: translateX(-0.45%);
+  }
+}
+
+/* NOTE: the far part comes into sight by its opacity, never by `visibility`:
+   a part that said it was visible would be seen through a page kept hidden
+   behind the one on screen, as the same album's broken tile on Home was,
+   standing over New.
+
+   Under reduced motion it is broken at once by playing the way there in no
+   time, which leaves each part where the way ends and the scratch gone: a
+   sheet's own opacity would lose to the class list's, an animation's does
+   not. */
+@media (prefers-reduced-motion: reduce) {
+  [data-record="broken"] {
+    .record-scratch path,
+    .record-part {
+      animation-duration: 0s;
+      animation-delay: 0s;
+    }
+  }
+
+  [data-record="broken"] ~ .record-sleeve {
+    animation: none;
+  }
+}
