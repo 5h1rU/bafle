@@ -52,6 +52,7 @@ import {
   FocusTrackRow,
   LetGoOfSearchField,
   LoadExternal,
+  MeasureReturnedPage,
   NavigateBack,
   NavigateInternal,
   PaintSystemBar,
@@ -123,6 +124,7 @@ import {
 import { initialAbout } from "./about.ts";
 import * as Rows from "./rows/index.ts";
 import type { Screen } from "./screen.ts";
+import { TOP_WITHIN_PIXELS } from "./subscription.ts";
 import { CHOOSE_TRACK, coverTransitionName, routeArtwork } from "./view/artwork.ts";
 import { pageIdOf } from "./view/layout.ts";
 
@@ -551,6 +553,23 @@ const withNavigation =
     model.navigation === navigation ? model : modifyFields(model, { navigation: () => navigation });
 
 /**
+ * The navigation draws back as the page goes down. The expanded player has no
+ * navigation under it on a narrow screen, so scrolling it draws nothing back:
+ * the page behind it finds its navigation as it was left. And the menu draws
+ * back to make room, for the island to come down into the row it leaves:
+ * with nothing played there is no island, and a menu drawn back would leave
+ * that row empty for nothing, so it stays whole however far the page goes.
+ */
+const navigationDrawnBack = (model: Model): Model =>
+  isPlayerExpanded(model) || !Player.hasSession(model.player)
+    ? model
+    : withNavigation("Minimized")(model);
+
+/** The navigation comes out whole again, at the top of a page. */
+const navigationBroughtOut = (model: Model): Model =>
+  isPlayerExpanded(model) ? model : withNavigation("Open")(model);
+
+/**
  * How the navigation stands as a page takes the screen. A section the
  * listener chose shows it whole: they have just used it, and the page starts
  * at its top. A page they went back to finds it as they left it, and a
@@ -614,7 +633,10 @@ const showPage =
           model: navigationOnEntering(route, entrance)(
             withPlayerSheetAnew(withAboutClosed(withRowMenusClosed(shown))),
           ),
-          commands: focusOn(model, route, entrance),
+          commands: [
+            ...focusOn(model, route, entrance),
+            ...(entrance === "Returning" ? [MeasureReturnedPage({ pageId: pageIdOf(route) })] : []),
+          ],
         };
   };
 
@@ -1714,22 +1736,18 @@ const respond = (model: Model, message: Message) =>
 
     GotCatalogMessage: ({ message }) => receiveCatalogMessage(model, message),
 
-    // NOTE: the expanded player has no navigation under it on a narrow
-    // screen, so scrolling it draws nothing back: the page behind it finds
-    // its navigation as it was left.
-    // NOTE: the menu draws back to make room: the island comes down into
-    // the row it leaves. With nothing played there is no island, and a menu
-    // drawn back would leave that row empty for nothing, so it stays whole
-    // however far the page is scrolled.
-    ScrolledDown: () => ({
-      model:
-        isPlayerExpanded(model) || !Player.hasSession(model.player)
-          ? model
-          : withNavigation("Minimized")(model),
-    }),
+    ScrolledDown: () => ({ model: navigationDrawnBack(model) }),
 
-    ScrolledToTop: () => ({
-      model: isPlayerExpanded(model) ? model : withNavigation("Open")(model),
+    ScrolledToTop: () => ({ model: navigationBroughtOut(model) }),
+
+    // NOTE: a page gone back to is found as it was left, scrolled where the
+    // listener left it, and the navigation beside it is found the same way:
+    // drawn back over a page left below its top, whole over one left at it.
+    // How it stood on the pages between says nothing of this one: Forward
+    // to a section brought the menu out, and Back from there found it whole
+    // over a page left at its foot, with the island over the menu.
+    MeasuredReturnedPage: ({ top }) => ({
+      model: top <= TOP_WITHIN_PIXELS ? navigationBroughtOut(model) : navigationDrawnBack(model),
     }),
 
     // NOTE: on Search the circle shows a section the listener is not on,

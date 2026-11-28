@@ -22,6 +22,7 @@ import {
   FocusArtistTile,
   FocusPage,
   FocusTrackRow,
+  MeasureReturnedPage,
   NavigateInternal,
 } from "../src/command.ts";
 import { update, viewTransition } from "../src/main.ts";
@@ -431,6 +432,7 @@ describe("rule 9: the pages around an artist are found as they were left", () =>
       Subscription.emit(changedUrl("/")),
       Command.expectHas(FocusArtistTile),
       Command.resolve(FocusArtistTile, Message.CompletedFocusArtistTile()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.HomeFeed, reply.home(nextId(onArtist))),
       inside(onScreen, see(pageTitle("Home")).toExist()),
       see(selector("#artist-page")).toBeAbsent(),
@@ -462,6 +464,7 @@ describe("rule 9: the pages around an artist are found as they were left", () =>
       Subscription.emit(changedUrl(artistPath(artist.id))),
       Command.expectHas(FocusAlbumTile),
       Command.resolve(FocusAlbumTile, Message.CompletedFocusAlbumTile()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.ArtistDetail, reply.artist(nextId(onAlbumFromArtist))),
       inside(onScreen, see(pageTitle("Daft Punk")).toExist()),
       see(keptArtist).toBeAbsent(),
@@ -481,6 +484,7 @@ describe("rule 9: the pages around an artist are found as they were left", () =>
       inside(keptArtist, expectAll(all.selector("[data-track]")).toHaveCount(2)),
       Subscription.emit(changedUrl(artistPath(artist.id))),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.ArtistDetail, reply.artist(nextId(onSongFromArtist))),
       inside(onScreen, see(pageTitle("Daft Punk")).toExist()),
       see(selector("#track-page")).toBeAbsent(),

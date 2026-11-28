@@ -24,6 +24,7 @@ import {
   FocusNavigation,
   FocusPage,
   FocusTrackRow,
+  MeasureReturnedPage,
   NavigateBack,
   NavigateInternal,
   ReplaceTrackUrl,
@@ -711,6 +712,7 @@ describe("the player expanded: the page of the track it holds", () => {
       Command.resolveAll(
         [Catalog.NewMusic, reply.newMusic(nextId(expandedOnFirst))],
         [FocusTrackRow, Message.CompletedFocusTrackRow()],
+        [MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })],
       ),
       // The sheet goes with the player, and what followed it ends with it.
       Mount.expectEnded(Sheet.FollowSheet),
@@ -1813,6 +1815,7 @@ describe("the menu at the end of a row", () => {
       Command.resolveAll(
         [FocusNavigation, Message.CompletedFocusNavigation()],
         [Catalog.HomeFeed, reply.home(nextId(openOn(onNew, track.id)))],
+        [MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })],
       ),
       Mount.expectEnded(Menu.PortalMenuBackdrop, Menu.AnchorMenu),
       expectAll(items).toHaveCount(0),

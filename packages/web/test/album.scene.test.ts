@@ -21,6 +21,7 @@ import {
   FocusAlbumTile,
   FocusPage,
   FocusTrackRow,
+  MeasureReturnedPage,
   NavigateInternal,
 } from "../src/command.ts";
 import { update, viewTransition } from "../src/main.ts";
@@ -560,6 +561,7 @@ describe("rule 9: the lists around an album are found as they were left", () => 
       inside(selector("#new-page[inert]"), expectAll(all.role("listitem")).not.toHaveCount(0)),
       Subscription.emit(changedUrl("/new")),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.NewMusic, reply.newMusic(nextId(onAlbum))),
       inside(onScreen, see(pageTitle("New")).toExist()),
       see(selector("#album-page")).toBeAbsent(),
@@ -573,6 +575,7 @@ describe("rule 9: the lists around an album are found as they were left", () => 
       Subscription.emit(changedUrl("/")),
       Command.expectHas(FocusAlbumTile),
       Command.resolve(FocusAlbumTile, Message.CompletedFocusAlbumTile()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(
         Catalog.HomeFeed,
         reply.home(nextId(answered(openingAlbumFromTile, reply.album, albumPath(album.id)))),
@@ -594,6 +597,7 @@ describe("rule 9: the lists around an album are found as they were left", () => 
       // Back from the song, the album is the page on screen again, not built anew.
       Subscription.emit(changedUrl(albumPath(album.id))),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.AlbumDetail, reply.album(nextId(onSongFromAlbum))),
       inside(onScreen, see(pageTitle("Discovery")).toExist()),
       see(keptAlbum).toBeAbsent(),

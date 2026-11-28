@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import { flow, pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { Command, Dom } from "foldkit";
+import { Command, Dom, Render } from "foldkit";
 import { back, load, pushUrl, replaceUrl } from "foldkit/navigation";
 import { Catalog, type CatalogClient, REPLY_TIMEOUT, unanswered } from "./catalog.ts";
 import { Message } from "./message.ts";
@@ -215,6 +215,32 @@ export const FocusNavigation = Command.define("FocusNavigation", {
     Effect.ignore,
     Effect.as(Message.CompletedFocusNavigation()),
   ),
+});
+
+/**
+ * How far down the page gone back to stands, once it is drawn: it is the
+ * document that keeps a page scrolled as the listener left it, and the
+ * navigation has to stand as it stood beside it.
+ */
+// NOTE: after the paint, so that the page is the one on screen and the focus
+// given back to a row on it has brought that row into view.
+export const MeasureReturnedPage = Command.define("MeasureReturnedPage", {
+  args: { pageId: Schema.String },
+  messages: [Message.MeasuredReturnedPage],
+  execute: ({ pageId }) =>
+    Effect.gen(function* () {
+      yield* Render.afterPaint;
+      return yield* Effect.sync(() => {
+        const page = document.getElementById(pageId);
+        if (page === null) {
+          return Message.MeasuredReturnedPage({ top: 0 });
+        }
+        const furthest = Math.max(0, page.scrollHeight - page.clientHeight);
+        return Message.MeasuredReturnedPage({
+          top: Math.min(furthest, Math.max(0, page.scrollTop)),
+        });
+      });
+    }),
 });
 
 export const ScrollPageToTop = Command.define("ScrollPageToTop", {
