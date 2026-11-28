@@ -328,7 +328,6 @@
     --color-island-light-head: #fff0fb;
     --color-player-rail: #594753;
     --color-player-time: #d5c7d2;
-    --island-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
   }
 }
 
@@ -397,6 +396,15 @@
    arrows that turn a row. */
 :root {
   --island-shadow: 0 6px 16px rgb(70 32 63 / 0.18);
+}
+
+/* On the dark page, deeper: a dark figure on a dark page is told from it by
+   its shadow too. It comes after the light one, which would otherwise win
+   on both pages. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --island-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
+  }
 }
 
 /* Before the app has drawn anything, the page is already its own colour, not white. */
