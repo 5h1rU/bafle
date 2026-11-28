@@ -12,20 +12,21 @@ import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import { AsyncData } from "foldkit";
 import {
-  childAttributes,
-  createLazy,
   type Document,
   type Html,
   type HtmlBuilder,
+  childAttributes,
+  createLazy,
 } from "foldkit/html";
 import { Message, type PlayOrigin } from "./message.ts";
 import { HoldDockMotion } from "./mount.ts";
 import {
+  Awaiting,
+  type Model,
   albumData,
   albumDataIn,
   artistData,
   artistDataIn,
-  Awaiting,
   canShow,
   genreData,
   genreDataIn,
@@ -38,7 +39,6 @@ import {
   maybePlaylistIdInDocument,
   maybeStaleError,
   maybeStationIdInDocument,
-  type Model,
   playlistData,
   playlistDataIn,
   stationData,
@@ -64,19 +64,19 @@ import * as Station from "./page/station.ts";
 import * as Track from "./page/track.ts";
 import {
   AppRoute,
+  type MenuSection,
   circleSectionOf,
   genresRouter,
   homeRouter,
-  type MenuSection,
   newRouter,
   radioRouter,
-  searchedTerm,
   searchRouter,
+  searchedTerm,
   trackRouter,
 } from "./route.ts";
 import { creditView } from "./view/about.ts";
 import { artworkFlightRules, routeArtwork } from "./view/artwork.ts";
-import { staleBannerView, saidView } from "./view/feedback.ts";
+import { saidView, staleBannerView } from "./view/feedback.ts";
 import {
   BREATHES_CLASS,
   genresIcon,
@@ -88,9 +88,9 @@ import {
 import {
   NAVIGATION_ID,
   PAGE_IDS,
+  type Presence,
   pagePlaceView,
   pageTitleIdOf,
-  type Presence,
 } from "./view/layout.ts";
 import type { IsAlbumOpening, TilesOpening } from "./view/shelf.ts";
 import type { TrackListContext } from "./view/trackList.ts";
@@ -411,7 +411,6 @@ const showNavigationView = (model: Model, h: HtmlBuilder<Message>): Html =>
               "pointer-events-auto absolute top-1.5 left-1.5 hidden size-11 cursor-pointer touch-manipulation rounded-full focus-ring minimized:block",
             ),
           ],
-          [],
         ),
     },
     h,

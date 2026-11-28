@@ -4,7 +4,7 @@ import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { Submodel } from "foldkit";
-import { type ChildAttribute, childAttributes, type Html, type HtmlBuilder } from "foldkit/html";
+import { type ChildAttribute, type Html, type HtmlBuilder, childAttributes } from "foldkit/html";
 import type { Screen } from "../screen.ts";
 import {
   BREATHES_CLASS,
@@ -17,7 +17,7 @@ import {
   retryIcon,
   spinnerIcon,
 } from "../view/icon.ts";
-import { coverTransitionName, artworkFlightRules } from "../view/artwork.ts";
+import { artworkFlightRules, coverTransitionName } from "../view/artwork.ts";
 import { iconControlClass } from "../view/control.ts";
 import { saidView } from "../view/feedback.ts";
 import {
@@ -31,26 +31,26 @@ import { formatDuration } from "../view/time.ts";
 import { islandFigureView } from "./islandFigure.ts";
 import { Message } from "./message.ts";
 import {
-  hasEarlier,
-  hasLater,
-  isAwaitingFirstSound,
-  isShowingActivity,
-  isUnderWay,
   type Marquee,
   type Model,
   Playback,
   Seek,
   type Session,
+  hasEarlier,
+  hasLater,
+  isAwaitingFirstSound,
+  isShowingActivity,
+  isUnderWay,
   shownPositionSeconds,
   wantsToSound,
 } from "./model.ts";
 import {
+  ARTIST_MARKS,
   DrawIslandFigure,
   FollowIslandPress,
   ISLAND_CHIN_ATTRIBUTE,
   ISLAND_SURFACE_ATTRIBUTE,
   ISLAND_TAIL_ATTRIBUTE,
-  ARTIST_MARKS,
   type MarqueeMarks,
   MeasureArtist,
   MeasureTitle,
@@ -1310,7 +1310,6 @@ const faceHeadView = (
                       "absolute inset-0 cursor-pointer touch-manipulation focus-ring-inset-4 focus-visible:rounded-2xl",
                     ),
                   ],
-                  [],
                 ),
             },
             h,

@@ -1,18 +1,18 @@
 import type { TrendingMusic } from "@bafle/domain/Catalog/MusicCatalog.external";
 import * as Option from "effect/Option";
-import { Animation, Menu } from "@foldkit/ui";
+import { Menu } from "@foldkit/ui";
 import {
+  Command,
+  Mount,
+  Subscription,
   all,
   click,
-  Command,
-  expect as see,
   expectAll,
   given,
   inside,
-  Mount,
   role,
+  expect as see,
   selector,
-  Subscription,
   text,
 } from "foldkit/scene";
 import { describe, expect, test } from "vitest";
@@ -30,12 +30,12 @@ import { documentTitle, view } from "../src/view.ts";
 import {
   after,
   aheadUnanswered,
-  barPainted,
   album,
   albumOpener,
   albumPath,
   answered,
   arrived,
+  barPainted,
   changedUrl,
   chose,
   choseFromRow,
@@ -77,7 +77,6 @@ const amiss = all.selector("[data-amiss]");
 const items = all.role("menuitem");
 const tryAgain = role("button", { name: "Try again" });
 const tryAgainButtons = all.role("button", { name: /^Try again/ });
-const tryAgainOnAlbum = role("button", { name: "Try again: the album Discovery" });
 const backControl = role("button", { name: "Back" });
 const homeControl = role("link", { name: "Home" });
 const albumTile = role("link", { name: /Discovery/ });
@@ -93,20 +92,6 @@ const menuEnters = Mount.resolveAll(
   [Menu.PortalMenuBackdrop, Menu.Message.CompletedPortalMenuBackdrop()],
   [Menu.AnchorMenu, Menu.Message.CompletedAnchorMenu()],
 );
-
-/** A menu that something was chosen from closes, and is taken out of the document once it has faded. */
-// NOTE: a function, since a step that expects Mounts to have ended is used up by one scene.
-const menuLeaves = () => [
-  Command.resolve(Menu.FocusButton, Menu.Message.CompletedFocusButton()),
-  Command.resolve(Animation.WaitForPaint, Animation.Message.CompletedWaitForPaint({ generation: 2 })),
-  Command.resolve(
-    Menu.DetectMovementOrAnimationEnd,
-    Menu.Message.GotAnimationMessage({
-      message: Animation.Message.EndedAnimation({ generation: 2 }),
-    }),
-  ),
-  Mount.expectEnded(Menu.PortalMenuBackdrop, Menu.AnchorMenu),
-];
 
 /** New with two rows on the same album: the first has something to play, the second has not. */
 const sameAlbum: TrendingMusic = { tracks: [track, silentTrack], albums: [album] };

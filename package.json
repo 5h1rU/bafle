@@ -10,7 +10,8 @@
     "deploy": "alchemy deploy",
     "destroy": "alchemy destroy",
     "typecheck": "tsc -b",
-    "test": "pnpm -r --filter './packages/*' test"
+    "test": "pnpm -r --filter './packages/*' test",
+    "lint": "pnpm -r --filter './packages/*' --if-present lint"
   },
   "dependencies": {
     "@alchemy.run/cloudflare": "catalog:",
@@ -26,8 +27,10 @@
     "@cloudflare/workers-types": "catalog:",
     "@effect/platform-browser": "catalog:",
     "@effect/platform-node": "catalog:",
+    "@foldkit/oxlint-plugin": "catalog:",
     "@foldkit/vite-plugin": "catalog:",
     "foldkit": "catalog:",
+    "oxlint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   }

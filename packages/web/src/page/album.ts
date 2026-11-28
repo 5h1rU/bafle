@@ -8,24 +8,24 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message.ts";
 import type { AlbumData } from "../model.ts";
 import {
+  VEIL_CLASS,
   albumCoverView,
   albumHeadFlightAttributes,
   artworkView,
-  VEIL_CLASS,
 } from "../view/artwork.ts";
 import { PAGE_IDS, type Presence, SECTION_HEADING_CLASS, pageTitleIdOf } from "../view/layout.ts";
 import {
   type DetailKind,
+  GONE,
   detailPageView,
   detailTitleOf,
-  GONE,
   songCount,
 } from "../view/page.ts";
 import { BLOCK_CLASS } from "../view/placeholder.ts";
 import {
-  explicitMarkerView,
   type TrackList,
   type TrackListContext,
+  explicitMarkerView,
   trackListPlaceholderView,
   trackListView,
 } from "../view/trackList.ts";

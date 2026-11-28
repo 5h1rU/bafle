@@ -6,11 +6,11 @@ import { init, update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import {
   ArtistData,
-  artistData,
   Awaiting,
+  type Model,
+  artistData,
   maybeAlbumIdInDocument,
   maybeArtistIdInDocument,
-  type Model,
   wayBack,
 } from "../src/model.ts";
 import * as Player from "../src/player/index.ts";

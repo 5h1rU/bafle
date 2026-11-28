@@ -1,6 +1,7 @@
 import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
-import { Message, type Model, OutMessage } from "./model.ts";
+import { Message, OutMessage } from "./message.ts";
+import type { Model } from "./model.ts";
 import { SlideAway } from "./mount.ts";
 
 // UPDATE

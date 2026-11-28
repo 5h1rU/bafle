@@ -8,37 +8,37 @@ import { AsyncData } from "foldkit";
 import { type Html, type HtmlBuilder, inertHtml as ih } from "foldkit/html";
 import { SEARCH_FIELD_BOX_ATTRIBUTE, SEARCH_FIELD_ID } from "../command.ts";
 import { Message } from "../message.ts";
-import { hasSearchAnswer, type SearchAnswer, type SearchData } from "../model.ts";
+import { type SearchAnswer, type SearchData, hasSearchAnswer } from "../model.ts";
 import { artistRouter } from "../route.ts";
 import {
+  VEIL_CLASS,
   artworkFlightRules,
   flightAttributes,
   pictureFlightStyle,
-  VEIL_CLASS,
 } from "../view/artwork.ts";
 import { failureView } from "../view/feedback.ts";
 import { closeIcon, openIcon, searchIcon } from "../view/icon.ts";
 import {
-  TILE_ATTRIBUTES,
   PAGE_IDS,
   type Presence,
   SECTION_HEADING_CLASS,
+  TILE_ATTRIBUTES,
   pageAttributes,
   pageTitleIdOf,
 } from "../view/layout.ts";
 import {
+  type TilesOpening,
   albumTile,
   artistTile,
   maybeShelfView,
   playlistTile,
   recordView,
   sleeveClass,
-  type TilesOpening,
 } from "../view/shelf.ts";
 import {
-  maybeTrackSectionView,
   type TrackListContext,
   type TrackSection,
+  maybeTrackSectionView,
 } from "../view/trackList.ts";
 // VIEW
 

@@ -10,11 +10,11 @@ import {
   FocusPage,
   FocusSearchField,
   FocusTrackRow,
+  LetGoOfSearchField,
   NavigateBack,
   NavigateInternal,
   PaintSystemBar,
   ReplaceSearchTerm,
-  LetGoOfSearchField,
   ScrollPageToTop,
   ShowSearchFromTop,
   TurnRow,
@@ -23,15 +23,15 @@ import {
 import { init, update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import {
-  addressOf,
   Awaiting,
-  maybeHeadedFor,
-  maybeStaleError,
   HomeData,
   type Model,
   NewMusicData,
   SearchData,
   TrackData,
+  addressOf,
+  maybeHeadedFor,
+  maybeStaleError,
   trackData,
   wayBack,
 } from "../src/model.ts";
@@ -40,10 +40,10 @@ import { PAGE_IDS } from "../src/view/layout.ts";
 import {
   after,
   aheadUnanswered,
-  barPainted,
   answered,
   arrived,
   awaitedId,
+  barPainted,
   bareTrack,
   changedUrl,
   chose,
@@ -86,7 +86,7 @@ const historyMoves = (
   start: Model,
   ...messages: ReadonlyArray<Message>
 ): ReadonlyArray<ReadonlyArray<unknown>> =>
-  messages.reduce(
+  messages.reduce<Readonly<{ model: Model; moves: ReadonlyArray<ReadonlyArray<unknown>> }>>(
     (soFar, sent) => {
       const outcome = update(soFar.model, sent);
       return {
@@ -99,7 +99,7 @@ const historyMoves = (
         ],
       };
     },
-    { model: start, moves: [] as ReadonlyArray<ReadonlyArray<unknown>> },
+    { model: start, moves: [] },
   ).moves;
 
 describe("rule 4: the first paint is never blank", () => {

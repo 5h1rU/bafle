@@ -254,7 +254,7 @@ export const queueFrom = (
         positionSeconds: 0,
         maybeDurationSeconds: Option.none(),
         bufferedSeconds: 0,
-        seek: Seek.Settled({}),
+        seek: Seek.Settled(),
         seekSlider: initialSeekSlider,
         moreMenu: initialMoreMenu,
         queueDrag: initialQueueDrag,

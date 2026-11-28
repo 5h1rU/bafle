@@ -5,7 +5,8 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Command, Mount } from "foldkit";
 import { type Axis, Edge, type Swipe, swipeOf } from "./geometry.ts";
-import { Entrance, Message, type Reach } from "./model.ts";
+import { Message } from "./message.ts";
+import { Entrance, type Reach } from "./model.ts";
 
 // MOUNT
 

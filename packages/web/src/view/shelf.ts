@@ -19,10 +19,10 @@ import {
 } from "../route.ts";
 import {
   type ArtworkShape,
-  artworkView,
-  artworkFlightRules,
-  flightAttributes,
   type PictureLoading,
+  artworkFlightRules,
+  artworkView,
+  flightAttributes,
   pictureFlightStyle,
 } from "./artwork.ts";
 import {

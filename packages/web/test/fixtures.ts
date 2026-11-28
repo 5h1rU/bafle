@@ -28,7 +28,7 @@ import { Menu } from "@foldkit/ui";
 import * as Option from "effect/Option";
 import { UrlRequest } from "foldkit/navigation";
 import { Mount, type SceneStep, scene as foldkitScene } from "foldkit/scene";
-import { fromString, type Url } from "foldkit/url";
+import { type Url, fromString } from "foldkit/url";
 import { Catalog } from "../src/catalog.ts";
 import { init, update } from "../src/main.ts";
 import { PaintSystemBar } from "../src/command.ts";

@@ -4,17 +4,17 @@ import * as Layer from "effect/Layer";
 import { Runtime } from "foldkit";
 import {
   CLOSE_DETAIL,
-  init,
   ISLAND_APPEARS,
   OPEN_DETAIL,
   POP_PAGE,
   PUSH_PAGE,
   SWITCH_SECTION,
+  init,
   update,
   viewTransition,
 } from "./main.ts";
 import { Message } from "./message.ts";
-import { addressOf, Model } from "./model.ts";
+import { Model, addressOf } from "./model.ts";
 import * as HtmlAudioEngine from "./player/htmlAudioEngine.ts";
 import { subscriptions } from "./subscription.ts";
 import * as Timing from "./timing.ts";
@@ -22,7 +22,7 @@ import { view } from "./view.ts";
 import { isSameRoute } from "./route.ts";
 import { CHOOSE_TRACK } from "./view/artwork.ts";
 import { crashView } from "./view/crash.ts";
-import { isShownByBrowser, SHOWN_BY_BROWSER_ATTRIBUTE } from "./view/shownByBrowser.ts";
+import { SHOWN_BY_BROWSER_ATTRIBUTE, isShownByBrowser } from "./view/shownByBrowser.ts";
 
 /**
  * The Api client for the life of the app, over plain HTTP on the app's own
@@ -62,22 +62,29 @@ const canSelectCover = typeof ViewTransition !== "undefined" && "types" in ViewT
 // is shown by the app when it comes, since all the browser drew was the page
 // that was held. A drawing that never comes lets go by itself.
 const LETS_GO_AFTER_MS = 2000;
-let lettingGo: ReturnType<typeof setTimeout> | undefined;
-const letGo = (): void => {
-  clearTimeout(lettingGo);
-  document.documentElement.removeAttribute(SHOWN_BY_BROWSER_ATTRIBUTE);
+
+/** Says on the document that the browser drew a move itself, until `letGo` is called or its time runs out. */
+const holdWhatBrowserDrew = (): (() => void) => {
+  const timers = { lettingGo: 0 };
+  const letGo = (): void => {
+    window.clearTimeout(timers.lettingGo);
+    document.documentElement.removeAttribute(SHOWN_BY_BROWSER_ATTRIBUTE);
+  };
+  window.addEventListener(
+    "popstate",
+    (event) => {
+      if (event.hasUAVisualTransition) {
+        document.documentElement.setAttribute(SHOWN_BY_BROWSER_ATTRIBUTE, "");
+        window.clearTimeout(timers.lettingGo);
+        timers.lettingGo = window.setTimeout(letGo, LETS_GO_AFTER_MS);
+      }
+    },
+    { capture: true },
+  );
+  return letGo;
 };
-window.addEventListener(
-  "popstate",
-  (event) => {
-    if (event.hasUAVisualTransition) {
-      document.documentElement.setAttribute(SHOWN_BY_BROWSER_ATTRIBUTE, "");
-      clearTimeout(lettingGo);
-      lettingGo = setTimeout(letGo, LETS_GO_AFTER_MS);
-    }
-  },
-  { capture: true },
-);
+
+const letGo = holdWhatBrowserDrew();
 
 // NOTE: which pages came over their list from the side, by the name of the
 // picture they would have carried. Only the document knows whether a picture

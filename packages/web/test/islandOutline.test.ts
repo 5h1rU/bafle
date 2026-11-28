@@ -3,10 +3,10 @@ import {
   BODY_HEIGHT,
   CHIN_DEPTH,
   COVER_RADIUS,
-  islandOutline,
   SWELL_RADIUS,
   TAIL_HALF_HEIGHT,
   TAIL_WIDTH,
+  islandOutline,
 } from "../src/view/islandOutline.ts";
 
 const WIDTH = 335;

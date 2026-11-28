@@ -1,10 +1,10 @@
 import * as Option from "effect/Option";
 import { Submodel } from "foldkit";
-import { type ChildAttribute, childAttributes, type Html } from "foldkit/html";
+import { type ChildAttribute, type Html, childAttributes } from "foldkit/html";
 import {
+  type FollowsBetween,
   contentStyles,
   endMarkStyles,
-  type FollowsBetween,
   followsSwipeStyles,
   overlayStyles,
   scrollerStyles,
@@ -15,7 +15,8 @@ import {
   stopsStyles,
   swipeOf,
 } from "./geometry.ts";
-import { Message, type Model } from "./model.ts";
+import { Message } from "./message.ts";
+import type { Model } from "./model.ts";
 import {
   CONTENT_ATTRIBUTE,
   FollowSheet,
@@ -111,7 +112,7 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, view
           h.div(
             [h.Style(stopsStyles(edge, continuesPastEdge))],
             stops.map((shown) =>
-              h.div([h.DataAttribute(STOP_ATTRIBUTE, ""), h.Style(stopStyles(shown, swipe))], []),
+              h.div([h.DataAttribute(STOP_ATTRIBUTE, ""), h.Style(stopStyles(shown, swipe))]),
             ),
           ),
         ];
@@ -134,7 +135,6 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, view
           h.Class(backdropClassName),
           h.Style({ position: "absolute", inset: "0", ...follows(backdropFollows) }),
         ],
-        [],
       ),
       h.div(
         [
@@ -143,7 +143,7 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, view
           h.OnMount(FollowSheet({ initialEdge: edge, initialEntrance: entrance })),
         ],
         [
-          h.div([h.Style(startMarkStyles(swipe))], []),
+          h.div([h.Style(startMarkStyles(swipe))]),
           h.div(
             [h.Class(stageClassName), h.Style(stageStyles(edge))],
             [
@@ -161,7 +161,7 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, view
               }),
             ],
           ),
-          h.div([h.Style(endMarkStyles(swipe))], []),
+          h.div([h.Style(endMarkStyles(swipe))]),
         ],
       ),
     ],

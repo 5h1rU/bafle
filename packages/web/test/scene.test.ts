@@ -2,16 +2,16 @@ import { Popover } from "@foldkit/ui";
 import * as Option from "effect/Option";
 import {
   Command,
+  Mount,
+  Subscription,
+  all,
   click,
-  expect as see,
   expectAll,
   given,
-  all,
   inside,
-  Mount,
   role,
+  expect as see,
   selector,
-  Subscription,
   text,
   type,
 } from "foldkit/scene";
@@ -102,7 +102,6 @@ const playRow = (title: string) => role("button", { name: new RegExp(`^(Play|Pau
 /** A row whole: its control, its link and what they hold. */
 const rowOf = (trackId: string) => selector(`[data-track="${trackId}"]`);
 const tryAgainButtons = all.role("button", { name: /^Try again/ });
-const tryAgainOn = (title: string) => role("button", { name: `Try again: ${title}` });
 const topSongs = role("list", { name: "Top songs" });
 const backControl = role("button", { name: "Back" });
 const homeControl = role("link", { name: "Home" });

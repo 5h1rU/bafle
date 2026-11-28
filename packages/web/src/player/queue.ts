@@ -3,17 +3,17 @@ import { Button, DragAndDrop } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
-import { createLazy, type Html, type HtmlBuilder } from "foldkit/html";
+import { type Html, type HtmlBuilder, createLazy } from "foldkit/html";
 import { iconButtonView } from "../view/control.ts";
 import { closeIcon, gripDotsIcon, gripIcon, noteIcon, queueIcon } from "../view/icon.ts";
 import { formatDuration } from "../view/time.ts";
 import {
   ROW_PLAY_CLASS,
   ROW_TOUCH_CLASS,
+  type SurfaceGround,
   rowClass,
   rowPlayAttribute,
   rowSurfaceClass,
-  type SurfaceGround,
 } from "../view/trackRow.ts";
 import { Message } from "./message.ts";
 import {

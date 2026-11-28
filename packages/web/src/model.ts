@@ -28,10 +28,10 @@ import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "./catalog.ts";
 import { InputMethod, PlayOrigin } from "./message.ts";
 import {
-  followsSound,
-  maybeCurrentTrackId,
   Model as PlayerModel,
   QueuePlace,
+  followsSound,
+  maybeCurrentTrackId,
 } from "./player/model.ts";
 import { AppRoute, searchedTerm } from "./route.ts";
 import { Screen } from "./screen.ts";
@@ -389,12 +389,6 @@ export const stationData = (model: Model, stationId: StationId): StationData =>
 export const isKnownMissing = <A>(
   data: AsyncData.AsyncData<Option.Option<A>, LoadError>,
 ): boolean => Option.exists(AsyncData.getData(data), Option.isNone);
-
-/**
- * The pages that are lists of their own and no section: an album's, an
- * artist's, a playlist's, a genre's, a station's.
- */
-type ListPage = "Album" | "Artist" | "Playlist" | "Genre" | "Station";
 
 const maybeAlbumIdOf = (route: AppRoute): Option.Option<AlbumId> =>
   route._tag === "Album" ? Option.some(route.albumId) : Option.none();

@@ -7,7 +7,7 @@ import type { GenreListData } from "../model.ts";
 import { PAGE_IDS, type Presence, QUIET_LINE_CLASS, pageTitleIdOf } from "../view/layout.ts";
 import { sectionPageView } from "../view/page.ts";
 import { tileGridPlaceholderView } from "../view/placeholder.ts";
-import { genreTile, type IsGenreOpening, maybeTileGridView } from "../view/shelf.ts";
+import { type IsGenreOpening, genreTile, maybeTileGridView } from "../view/shelf.ts";
 
 // VIEW
 

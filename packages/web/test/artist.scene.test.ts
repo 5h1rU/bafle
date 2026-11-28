@@ -1,17 +1,17 @@
 import { Menu } from "@foldkit/ui";
 import * as Option from "effect/Option";
 import {
+  Command,
+  Mount,
+  Subscription,
   all,
   click,
-  Command,
-  expect as see,
   expectAll,
   given,
   inside,
-  Mount,
   role,
+  expect as see,
   selector,
-  Subscription,
   text,
 } from "foldkit/scene";
 import { describe, expect, test } from "vitest";
@@ -31,13 +31,13 @@ import { documentTitle, view } from "../src/view.ts";
 import {
   after,
   aheadUnanswered,
-  barPainted,
   album,
   albumPath,
   answered,
   arrived,
   artist,
   artistPath,
+  barPainted,
   changedUrl,
   chose,
   choseFromRow,

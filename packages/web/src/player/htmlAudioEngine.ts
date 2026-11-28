@@ -7,8 +7,8 @@ import {
   AudioEngine,
   type EnginePhase,
   type EngineReport,
-  isSameReport,
   type StartOutcome,
+  isSameReport,
 } from "./audioEngine.ts";
 
 // HTML AUDIO ENGINE

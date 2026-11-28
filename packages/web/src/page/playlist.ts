@@ -8,18 +8,18 @@ import { headPictureOf } from "../view/artwork.ts";
 import { PAGE_IDS, PAGE_SECTIONS_CLASS } from "../view/layout.ts";
 import {
   type DetailKind,
+  GONE,
   detailHeadPlaceholderView,
   detailHeadView,
   detailPageView,
   detailTitleOf,
-  GONE,
   sectionsView,
   songCount,
 } from "../view/page.ts";
 import {
-  maybeTrackSectionView,
   type TrackListContext,
   type TrackSection,
+  maybeTrackSectionView,
   trackSectionPlaceholderView,
 } from "../view/trackList.ts";
 

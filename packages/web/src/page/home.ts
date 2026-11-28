@@ -9,11 +9,11 @@ import { PAGE_IDS, PAGE_SECTIONS_CLASS, type Presence } from "../view/layout.ts"
 import { sectionPageView, sectionsView } from "../view/page.ts";
 import { shelfPlaceholderView } from "../view/placeholder.ts";
 import {
+  type TilesOpening,
   albumTile,
   artistTile,
   maybeShelfView,
   playlistTile,
-  type TilesOpening,
 } from "../view/shelf.ts";
 
 // VIEW

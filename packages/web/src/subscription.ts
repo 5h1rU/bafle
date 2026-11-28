@@ -7,7 +7,7 @@ import * as Stream from "effect/Stream";
 import { Dom, Subscription } from "foldkit";
 import { SEARCH_FIELD_BOX_ATTRIBUTE, SEARCH_FIELD_ID } from "./command.ts";
 import { type InputMethod, Message } from "./message.ts";
-import { drawsSoundProgress, type Model } from "./model.ts";
+import { type Model, drawsSoundProgress } from "./model.ts";
 import * as Player from "./player/index.ts";
 import { DESKTOP_QUERY } from "./screen.ts";
 import { isPageId, pageIdOf } from "./view/layout.ts";

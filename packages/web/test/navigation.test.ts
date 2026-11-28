@@ -1,13 +1,13 @@
 import {
   Command,
+  Mount,
+  Subscription,
   click,
-  expect as see,
   given,
   inside,
-  Mount,
   role,
+  expect as see,
   selector,
-  Subscription,
 } from "foldkit/scene";
 import * as Option from "effect/Option";
 import { describe, expect, test } from "vitest";
@@ -19,10 +19,10 @@ import * as Player from "../src/player/index.ts";
 import * as Sheet from "../src/sheet/index.ts";
 import {
   DRAWS_BACK_AFTER_PIXELS,
-  followDown,
-  isAtTop,
   type PagePosition,
   TOP_WITHIN_PIXELS,
+  followDown,
+  isAtTop,
 } from "../src/subscription.ts";
 import { view } from "../src/view.ts";
 import { PAGE_IDS } from "../src/view/layout.ts";

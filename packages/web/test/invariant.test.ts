@@ -15,18 +15,18 @@ import { expect, test } from "vitest";
 import { init, update } from "../src/main.ts";
 import { Message, type PlayOrigin } from "../src/message.ts";
 import {
+  Awaiting,
+  type Model,
+  type Row,
   addressOf,
   albumData,
   artistData,
-  Awaiting,
   canShow,
   genreData,
   isPlayerExpanded,
   isPlayersTrack,
   maybeHeadedFor,
-  type Model,
   playlistData,
-  type Row,
   stationData,
   trackData,
   wayBack,

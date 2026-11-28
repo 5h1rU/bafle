@@ -9,16 +9,6 @@ import * as Option from "effect/Option";
 import * as TestClock from "effect/testing/TestClock";
 import { Catalog, REPLY_TIMEOUT } from "../src/catalog.ts";
 import {
-  askAlbumDetail,
-  askArtistDetail,
-  askGenreDetail,
-  askGenreList,
-  askHomeFeed,
-  askPlaylistDetail,
-  askSectionAhead,
-  askStationDetail,
-  askStationList,
-  askTrackDetail,
   FocusAlbumTile,
   FocusArtistTile,
   FocusGenreTile,
@@ -30,6 +20,16 @@ import {
   ReplaceSearchTerm,
   TYPING_PAUSE,
   WaitForTypingPause,
+  askAlbumDetail,
+  askArtistDetail,
+  askGenreDetail,
+  askGenreList,
+  askHomeFeed,
+  askPlaylistDetail,
+  askSectionAhead,
+  askStationDetail,
+  askStationList,
+  askTrackDetail,
 } from "../src/command.ts";
 import { Message } from "../src/message.ts";
 import { PAGE_IDS } from "../src/view/layout.ts";

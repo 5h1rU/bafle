@@ -435,10 +435,14 @@ it.effect("letting go of the engine stops the sound and leaves nothing listening
     const listening = { count: 0 };
     const add = element.addEventListener.bind(element);
     const remove = element.removeEventListener.bind(element);
+    // NOTE: an element's way to listen is many signatures in one, and a
+    // function that counts and hands on is none of them to the compiler.
+    // oxlint-disable-next-line typescript/consistent-type-assertions
     element.addEventListener = ((...args: Parameters<typeof add>) => {
       listening.count += 1;
       add(...args);
     }) as typeof element.addEventListener;
+    // oxlint-disable-next-line typescript/consistent-type-assertions
     element.removeEventListener = ((...args: Parameters<typeof remove>) => {
       listening.count -= 1;
       remove(...args);

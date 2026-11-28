@@ -2,14 +2,14 @@ import { TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
 import { Menu, Slider } from "@foldkit/ui";
 import * as Option from "effect/Option";
 import {
-  click,
   Command,
-  expect as see,
+  Mount,
+  Subscription,
+  click,
   given,
   inside,
-  Mount,
   role,
-  Subscription,
+  expect as see,
   selector,
   text,
 } from "foldkit/scene";
@@ -24,7 +24,7 @@ import {
   viewTransition,
 } from "../src/main.ts";
 import { Message } from "../src/message.ts";
-import { Awaiting, isPlayerExpanded, maybeHeadedFor, type Model } from "../src/model.ts";
+import { Awaiting, type Model, isPlayerExpanded, maybeHeadedFor } from "../src/model.ts";
 import type { EnginePhase, EngineReport } from "../src/player/audioEngine.ts";
 import * as Player from "../src/player/index.ts";
 import { AppRoute } from "../src/route.ts";

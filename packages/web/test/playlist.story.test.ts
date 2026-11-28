@@ -6,10 +6,10 @@ import { init, update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import {
   Awaiting,
-  maybeAlbumIdInDocument,
-  maybePlaylistIdInDocument,
   type Model,
   PlaylistData,
+  maybeAlbumIdInDocument,
+  maybePlaylistIdInDocument,
   playlistData,
   wayBack,
 } from "../src/model.ts";

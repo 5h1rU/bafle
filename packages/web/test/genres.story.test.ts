@@ -7,12 +7,12 @@ import { Message } from "../src/message.ts";
 import {
   Awaiting,
   GenreData,
-  genreData,
   GenreListData,
+  type Model,
+  genreData,
   maybeAlbumIdInDocument,
   maybeArtistIdInDocument,
   maybeGenreIdInDocument,
-  type Model,
   wayBack,
 } from "../src/model.ts";
 import * as Player from "../src/player/index.ts";

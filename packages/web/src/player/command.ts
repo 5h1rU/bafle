@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 import { Command, Dom, Render } from "foldkit";
 import { Catalog, REPLY_TIMEOUT } from "../catalog.ts";
 import { AudioEngine } from "./audioEngine.ts";
-import { changePace, ISLAND_LIGHTS_ATTRIBUTE } from "./islandLight.ts";
+import { ISLAND_LIGHTS_ATTRIBUTE, changePace } from "./islandLight.ts";
 import { Message } from "./message.ts";
 import { QUEUE_CONTROL_ID } from "./model.ts";
 

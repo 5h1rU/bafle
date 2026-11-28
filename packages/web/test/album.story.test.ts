@@ -7,10 +7,10 @@ import { init, update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import {
   AlbumData,
-  albumData,
   Awaiting,
-  maybeAlbumIdInDocument,
   type Model,
+  albumData,
+  maybeAlbumIdInDocument,
   wayBack,
 } from "../src/model.ts";
 import * as Player from "../src/player/index.ts";

@@ -1,21 +1,21 @@
 import * as Option from "effect/Option";
 import {
+  Command,
+  Mount,
+  Subscription,
   all,
   click,
-  Command,
-  expect as see,
   expectAll,
   given,
   inside,
   keydown,
-  Mount,
   role,
+  expect as see,
   selector,
-  Subscription,
   tap,
   text,
 } from "foldkit/scene";
-import { DragAndDrop, Animation, Menu, Slider } from "@foldkit/ui";
+import { Animation, DragAndDrop, Menu, Slider } from "@foldkit/ui";
 import { Lazy } from "foldkit/test";
 import { describe, expect, test } from "vitest";
 import { Catalog } from "../src/catalog.ts";
@@ -39,11 +39,11 @@ import {
 } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import {
+  type Model,
   drawsSoundProgress,
   initialPlayerSheet,
   isPlayerExpanded,
   maybeHeadedFor,
-  type Model,
   wayBack,
 } from "../src/model.ts";
 import { AppRoute } from "../src/route.ts";

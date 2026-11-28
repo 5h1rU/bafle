@@ -11,7 +11,7 @@ import { AsyncData } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message.ts";
 import type { TrackData } from "../model.ts";
-import { isPlayable, type QueuePlace, type TrackStatus } from "../player/model.ts";
+import { type QueuePlace, type TrackStatus, isPlayable } from "../player/model.ts";
 import { type AppRoute, homeRouter } from "../route.ts";
 import { artworkView, coverView } from "../view/artwork.ts";
 import { pillButtonView } from "../view/control.ts";
@@ -27,9 +27,9 @@ import { saidView } from "../view/feedback.ts";
 import { ACTION_LOOKS, type ActionLook } from "../view/menu.ts";
 import {
   type DetailKind,
+  GONE,
   detailPageView,
   detailTitleOf,
-  GONE,
   pageDataView,
 } from "../view/page.ts";
 import { BLOCK_CLASS } from "../view/placeholder.ts";

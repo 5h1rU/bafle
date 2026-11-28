@@ -2,7 +2,7 @@ import * as Match from "effect/Match";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { LoadError } from "../catalog.ts";
 import { Message } from "../message.ts";
-import { iconButtonView, pillButtonView, type PillLook } from "./control.ts";
+import { type PillLook, iconButtonView, pillButtonView } from "./control.ts";
 import { closeIcon } from "./icon.ts";
 
 // VIEW

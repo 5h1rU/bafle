@@ -9,25 +9,25 @@ import { headPictureOf } from "../view/artwork.ts";
 import { PAGE_IDS, PAGE_SECTIONS_CLASS } from "../view/layout.ts";
 import {
   type DetailKind,
+  GONE,
   detailHeadPlaceholderView,
   detailHeadView,
   detailPageView,
   detailTitleOf,
-  GONE,
   sectionsView,
 } from "../view/page.ts";
 import { shelfPlaceholderView } from "../view/placeholder.ts";
 import {
+  type TilesOpening,
   albumTile,
   artistTile,
   maybeShelfView,
   playlistTile,
-  type TilesOpening,
 } from "../view/shelf.ts";
 import {
-  maybeTrackSectionView,
   type TrackListContext,
   type TrackSection,
+  maybeTrackSectionView,
   trackSectionPlaceholderView,
 } from "../view/trackList.ts";
 

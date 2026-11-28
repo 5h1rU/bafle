@@ -17,12 +17,12 @@ import { AppRoute } from "../src/route.ts";
 import {
   after,
   aheadUnanswered,
-  barPainted,
   allGenres,
   allStations,
   answered,
   arrived,
   awaitedId,
+  barPainted,
   chose,
   clickedLink,
   featured,

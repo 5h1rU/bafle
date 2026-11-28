@@ -16,11 +16,11 @@ import {
   sectionsView,
 } from "../view/page.ts";
 import { shelfPlaceholderView } from "../view/placeholder.ts";
-import { albumTile, type IsAlbumOpening, maybeShelfView } from "../view/shelf.ts";
+import { type IsAlbumOpening, albumTile, maybeShelfView } from "../view/shelf.ts";
 import {
-  maybeTrackSectionView,
   type TrackListContext,
   type TrackSection,
+  maybeTrackSectionView,
   trackSectionPlaceholderView,
 } from "../view/trackList.ts";
 

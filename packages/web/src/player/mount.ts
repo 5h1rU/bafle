@@ -60,13 +60,13 @@ const followIslandPress = (surface: Element): (() => void) => {
     pointer = undefined;
     surface.removeAttribute("data-pressed");
   };
-  const press = () => {
+  const press = (at: number) => {
     window.clearTimeout(releaseTimer);
-    pressedAt = performance.now();
+    pressedAt = at;
     surface.setAttribute("data-pressed", "");
   };
-  const release = () => {
-    releaseTimer = window.setTimeout(clear, Math.max(0, 100 - (performance.now() - pressedAt)));
+  const release = (at: number) => {
+    releaseTimer = window.setTimeout(clear, Math.max(0, 100 - (at - pressedAt)));
   };
   const isControl = (target: EventTarget | null) =>
     target instanceof Element && target.closest('a, button:not([aria-disabled="true"])') !== null;
@@ -74,14 +74,18 @@ const followIslandPress = (surface: Element): (() => void) => {
   surface.addEventListener("pointerdown", (event) => {
     if (event instanceof PointerEvent && event.isPrimary && event.button === 0 && isControl(event.target)) {
       pointer = event.pointerId;
-      press();
+      press(event.timeStamp);
     }
   }, options);
   window.addEventListener("pointerup", (event) => {
-    if (event.pointerId === pointer) release();
+    if (event.pointerId === pointer) {
+      release(event.timeStamp);
+    }
   }, options);
   window.addEventListener("pointercancel", (event) => {
-    if (event.pointerId === pointer) clear();
+    if (event.pointerId === pointer) {
+      clear();
+    }
   }, options);
   window.addEventListener("blur", clear, options);
   return () => {

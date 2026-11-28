@@ -8,7 +8,7 @@ import { Catalog } from "./catalog.ts";
 import { Message as PlayerMessage } from "./player/message.ts";
 import { QueuePlace } from "./player/model.ts";
 import { Screen } from "./screen.ts";
-import { Message as SheetMessage } from "./sheet/model.ts";
+import { Message as SheetMessage } from "./sheet/message.ts";
 import { TurnWay } from "./turn.ts";
 
 // MESSAGE

@@ -6,18 +6,18 @@ import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import { AsyncData } from "foldkit";
-import { childAttributes, type Html, type HtmlBuilder } from "foldkit/html";
+import { type Html, type HtmlBuilder, childAttributes } from "foldkit/html";
 import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "../catalog.ts";
 import { Message, type PlayOrigin } from "../message.ts";
-import { type AlbumData, isKnownMissing, type TrackData } from "../model.ts";
-import { isPlayable, type QueuePlace, type TrackStatus } from "../player/model.ts";
+import { type AlbumData, type TrackData, isKnownMissing } from "../model.ts";
+import { type QueuePlace, type TrackStatus, isPlayable } from "../player/model.ts";
 import { type RowAction, RowMenu, rowMenuId } from "../rowMenu.ts";
 import {
+  type PictureLoading,
   artworkView,
   coverTransitionStyle,
   flightAttributes,
-  type PictureLoading,
 } from "./artwork.ts";
 import { iconControlClass } from "./control.ts";
 import { reason, saidView } from "./feedback.ts";

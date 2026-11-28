@@ -4,7 +4,7 @@ import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
-import { artworkFlightRules, coverTransitionName, type PictureLoading } from "./artwork.ts";
+import { type PictureLoading, artworkFlightRules, coverTransitionName } from "./artwork.ts";
 import { COLUMN_ROWS_AT_ONCE, ROWS_AT_ONCE } from "./firstPictures.ts";
 import { SECTION_HEADING_CLASS } from "./layout.ts";
 import {

@@ -30,6 +30,37 @@ export const REPLY_TIMEOUT = Duration.seconds(10);
 export const LoadError = Schema.Literals(["CatalogUnavailable", "Unreachable"]);
 export type LoadError = typeof LoadError.Type;
 
+/** The failure of a query that nobody answered: what a lost reply is reported as. */
+const UNANSWERED: Readonly<{ _tag: "Unknown" }> = { _tag: "Unknown" };
+
+/**
+ * What each query settles as when nobody answers it in time. It is the
+ * catalog's own reply for it, a failure, so nothing waits for ever on a
+ * server that hangs: only the catalog says what its replies are.
+ */
+export const unanswered = {
+  HomeFeed: (requestId: string) => Catalog.Message.FailedHomeFeed({ requestId, failure: UNANSWERED }),
+  NewMusic: (requestId: string) => Catalog.Message.FailedNewMusic({ requestId, failure: UNANSWERED }),
+  GenreList: (requestId: string) =>
+    Catalog.Message.FailedGenreList({ requestId, failure: UNANSWERED }),
+  StationList: (requestId: string) =>
+    Catalog.Message.FailedStationList({ requestId, failure: UNANSWERED }),
+  CatalogSearch: (requestId: string) =>
+    Catalog.Message.FailedCatalogSearch({ requestId, failure: UNANSWERED }),
+  TrackDetail: (requestId: string) =>
+    Catalog.Message.FailedTrackDetail({ requestId, failure: UNANSWERED }),
+  AlbumDetail: (requestId: string) =>
+    Catalog.Message.FailedAlbumDetail({ requestId, failure: UNANSWERED }),
+  ArtistDetail: (requestId: string) =>
+    Catalog.Message.FailedArtistDetail({ requestId, failure: UNANSWERED }),
+  PlaylistDetail: (requestId: string) =>
+    Catalog.Message.FailedPlaylistDetail({ requestId, failure: UNANSWERED }),
+  GenreDetail: (requestId: string) =>
+    Catalog.Message.FailedGenreDetail({ requestId, failure: UNANSWERED }),
+  StationDetail: (requestId: string) =>
+    Catalog.Message.FailedStationDetail({ requestId, failure: UNANSWERED }),
+};
+
 /** How a query for a list page can fail, as its reply Message carries it: they all fail alike. */
 type ListFailure = (typeof Catalog.Message.FailedHomeFeed.Type)["failure"];
 

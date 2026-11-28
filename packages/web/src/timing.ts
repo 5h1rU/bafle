@@ -56,6 +56,9 @@ const detailOf = (span: Tracer.Span) => ({
  * browser's own clock for measures, since a span's times are the wall's.
  */
 class WaitSpan extends Tracer.NativeSpan {
+  // NOTE: a span is made and ended by the runtime as a Command runs, never
+  // by `update` or a view: the clock is read where the work is done.
+  // oxlint-disable-next-line foldkit/no-impure-call-at-decision-time
   private readonly beganAt = performance.now();
 
   override end(endTime: bigint, exit: Exit.Exit<unknown, unknown>): void {
@@ -70,6 +73,7 @@ class WaitSpan extends Tracer.NativeSpan {
     try {
       performance.measure(nameOf(this), {
         start: this.beganAt,
+        // oxlint-disable-next-line foldkit/no-impure-call-at-decision-time
         end: performance.now(),
         detail: detailOf(this),
       });

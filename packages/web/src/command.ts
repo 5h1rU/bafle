@@ -12,19 +12,19 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Dom } from "foldkit";
 import { back, load, pushUrl, replaceUrl } from "foldkit/navigation";
-import { Catalog, type CatalogClient, REPLY_TIMEOUT } from "./catalog.ts";
+import { Catalog, type CatalogClient, REPLY_TIMEOUT, unanswered } from "./catalog.ts";
 import { Message } from "./message.ts";
 import type { ListedSection } from "./model.ts";
 import { searchRouter, trackRouter } from "./route.ts";
 import { asWait } from "./timing.ts";
-import { type Span, turnedFrom, TurnWay } from "./turn.ts";
+import { type Span, TurnWay, turnedFrom } from "./turn.ts";
 import { firstPicturesOf } from "./view/firstPictures.ts";
 import {
   NAVIGATION_ID,
   PAGE_IDS,
-  pageTitleIdOf,
   TILE_ATTRIBUTES,
   TRACK_ROW_ATTRIBUTE,
+  pageTitleIdOf,
 } from "./view/layout.ts";
 
 // COMMAND
@@ -337,9 +337,6 @@ type CatalogMessage = typeof Catalog.Message.Type;
 
 const toMessage = (message: CatalogMessage): Message => Message.GotCatalogMessage({ message });
 
-/** No answer in time is all the app can say of it: the same failure as a reply lost on the way. */
-const UNANSWERED: Readonly<{ _tag: "Unknown" }> = { _tag: "Unknown" };
-
 /**
  * How long a reply is held back for the pictures its page opens with. A
  * picture that takes longer is drawn when it comes, as any other picture.
@@ -419,19 +416,19 @@ type Asked = readonly [Command.Command<CatalogMessage, never, CatalogClient>, Ca
 const sectionQueries: Readonly<Record<ListedSection, (requestId: string) => Asked>> = {
   Home: (requestId) => [
     Catalog.HomeFeed({ input: {}, requestId }),
-    Catalog.Message.FailedHomeFeed({ requestId, failure: UNANSWERED }),
+    unanswered.HomeFeed(requestId),
   ],
   New: (requestId) => [
     Catalog.NewMusic({ input: {}, requestId }),
-    Catalog.Message.FailedNewMusic({ requestId, failure: UNANSWERED }),
+    unanswered.NewMusic(requestId),
   ],
   Genres: (requestId) => [
     Catalog.GenreList({ input: {}, requestId }),
-    Catalog.Message.FailedGenreList({ requestId, failure: UNANSWERED }),
+    unanswered.GenreList(requestId),
   ],
   Radio: (requestId) => [
     Catalog.StationList({ input: {}, requestId }),
-    Catalog.Message.FailedStationList({ requestId, failure: UNANSWERED }),
+    unanswered.StationList(requestId),
   ],
 };
 
@@ -449,10 +446,18 @@ export const askNewMusic: Request = askSection("New");
  * can. Only some browsers say, and one that does not is taken to have no
  * such wish.
  */
-const isSavingData = (): boolean =>
-  typeof navigator !== "undefined" &&
-  (navigator as Navigator & { readonly connection?: { readonly saveData?: boolean } }).connection
-    ?.saveData === true;
+const isSavingData = (): boolean => {
+  if (typeof navigator === "undefined" || !("connection" in navigator)) {
+    return false;
+  }
+  const connection: unknown = navigator.connection;
+  return (
+    typeof connection === "object" &&
+    connection !== null &&
+    "saveData" in connection &&
+    connection.saveData === true
+  );
+};
 
 /**
  * A section asked for ahead of the listener, so that it is held by the time
@@ -484,7 +489,7 @@ export const askCatalogSearch =
   (requestId) =>
     asking(
       Catalog.CatalogSearch({ input: { term }, requestId }),
-      Catalog.Message.FailedCatalogSearch({ requestId, failure: UNANSWERED }),
+      unanswered.CatalogSearch(requestId),
     );
 
 export const askTrackDetail =
@@ -492,7 +497,7 @@ export const askTrackDetail =
   (requestId) =>
     asking(
       Catalog.TrackDetail({ input: { trackId }, requestId }),
-      Catalog.Message.FailedTrackDetail({ requestId, failure: UNANSWERED }),
+      unanswered.TrackDetail(requestId),
     );
 
 export const askAlbumDetail =
@@ -500,7 +505,7 @@ export const askAlbumDetail =
   (requestId) =>
     asking(
       Catalog.AlbumDetail({ input: { albumId }, requestId }),
-      Catalog.Message.FailedAlbumDetail({ requestId, failure: UNANSWERED }),
+      unanswered.AlbumDetail(requestId),
     );
 
 export const askArtistDetail =
@@ -508,7 +513,7 @@ export const askArtistDetail =
   (requestId) =>
     asking(
       Catalog.ArtistDetail({ input: { artistId }, requestId }),
-      Catalog.Message.FailedArtistDetail({ requestId, failure: UNANSWERED }),
+      unanswered.ArtistDetail(requestId),
     );
 
 export const askPlaylistDetail =
@@ -516,7 +521,7 @@ export const askPlaylistDetail =
   (requestId) =>
     asking(
       Catalog.PlaylistDetail({ input: { playlistId }, requestId }),
-      Catalog.Message.FailedPlaylistDetail({ requestId, failure: UNANSWERED }),
+      unanswered.PlaylistDetail(requestId),
     );
 
 export const askGenreList: Request = askSection("Genres");
@@ -526,7 +531,7 @@ export const askGenreDetail =
   (requestId) =>
     asking(
       Catalog.GenreDetail({ input: { genreId }, requestId }),
-      Catalog.Message.FailedGenreDetail({ requestId, failure: UNANSWERED }),
+      unanswered.GenreDetail(requestId),
     );
 
 export const askStationList: Request = askSection("Radio");
@@ -536,5 +541,5 @@ export const askStationDetail =
   (requestId) =>
     asking(
       Catalog.StationDetail({ input: { stationId }, requestId }),
-      Catalog.Message.FailedStationDetail({ requestId, failure: UNANSWERED }),
+      unanswered.StationDetail(requestId),
     );

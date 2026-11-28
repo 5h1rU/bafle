@@ -11,8 +11,8 @@ import { SHELVES_AT_HEAD } from "../view/firstPictures.ts";
 import { untitledShelfPlaceholderView } from "../view/placeholder.ts";
 import {
   type IsStationOpening,
-  maybeShelfView,
   type ShelfPlace,
+  maybeShelfView,
   stationTile,
 } from "../view/shelf.ts";
 

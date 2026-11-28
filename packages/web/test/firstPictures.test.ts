@@ -5,7 +5,7 @@ import * as Fiber from "effect/Fiber";
 import * as TestClock from "effect/testing/TestClock";
 import { afterEach, vi } from "vitest";
 import { PICTURE_WAIT, preparePictures } from "../src/command.ts";
-import { firstPicturesOf, ROWS_AT_ONCE } from "../src/view/firstPictures.ts";
+import { ROWS_AT_ONCE, firstPicturesOf } from "../src/view/firstPictures.ts";
 import { album, artist, featured, fullAlbum, fullGenre, otherGenre, playlist, reply, track, trending } from "./fixtures.ts";
 
 // A page takes the screen with the pictures it opens with already painted: the reply for it is
