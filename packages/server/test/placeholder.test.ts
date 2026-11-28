@@ -124,6 +124,149 @@ it.effect("a PNG with an opacity of its own keeps it", () =>
   }),
 );
 
+/**
+ * A PNG written byte by byte: its header, the chunks given before its image
+ * data (`PLTE`, `tRNS`), and each row as the bytes it is written with, after
+ * its filter's byte (none, unless `filters` says which).
+ */
+const pngOf = async ({
+  width,
+  height,
+  colourType,
+  bitDepth,
+  rows,
+  chunks = [],
+  filters = [],
+  interlace = 0,
+}: {
+  width: number;
+  height: number;
+  colourType: number;
+  bitDepth: number;
+  rows: ReadonlyArray<ReadonlyArray<number>>;
+  chunks?: ReadonlyArray<readonly [string, ReadonlyArray<number>]>;
+  filters?: ReadonlyArray<Filter>;
+  interlace?: number;
+}): Promise<Uint8Array> => {
+  const header = new Uint8Array(13);
+  new DataView(header.buffer).setUint32(0, width);
+  new DataView(header.buffer).setUint32(4, height);
+  header.set([bitDepth, colourType, 0, 0, interlace], 8);
+  const data = Uint8Array.from(rows.flatMap((row, index) => [filters[index] ?? 0, ...row]));
+  const parts = [
+    new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", header),
+    ...chunks.map(([type, body]) => chunk(type, Uint8Array.from(body))),
+    chunk("IDAT", await deflate(data)),
+    chunk("IEND", new Uint8Array()),
+  ];
+  const png = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  parts.reduce((offset, part) => (png.set(part, offset), offset + part.length), 0);
+  return png;
+};
+
+/** The pixels of a PNG, four values each. */
+const pixelsOf = (png: Uint8Array) =>
+  decodePng(png).pipe(
+    Effect.map(({ width, height, rgba }) => ({
+      width,
+      height,
+      pixels: Array.from({ length: width * height }, (_, at) =>
+        Array.from(rgba.subarray(at * 4, at * 4 + 4)),
+      ),
+    })),
+  );
+
+it.effect("a grey PNG is read as grey, at any depth, and a grey tRNS names is clear", () =>
+  Effect.gen(function* () {
+    const eight = yield* Effect.promise(() =>
+      pngOf({
+        width: 3,
+        height: 1,
+        colourType: 0,
+        bitDepth: 8,
+        rows: [[0, 128, 255]],
+        chunks: [["tRNS", [0, 128]]],
+      }),
+    );
+    expect((yield* pixelsOf(eight)).pixels).toEqual([
+      [0, 0, 0, 255],
+      [128, 128, 128, 0],
+      [255, 255, 255, 255],
+    ]);
+
+    // Four greys of 2 bits in one byte, 0b00_01_10_11, brought to the whole range.
+    const two = yield* Effect.promise(() =>
+      pngOf({ width: 4, height: 1, colourType: 0, bitDepth: 2, rows: [[0b00011011]] }),
+    );
+    expect((yield* pixelsOf(two)).pixels).toEqual([
+      [0, 0, 0, 255],
+      [85, 85, 85, 255],
+      [170, 170, 170, 255],
+      [255, 255, 255, 255],
+    ]);
+
+    const withOpacity = yield* Effect.promise(() =>
+      pngOf({ width: 2, height: 1, colourType: 4, bitDepth: 8, rows: [[40, 200, 90, 10]] }),
+    );
+    expect((yield* pixelsOf(withOpacity)).pixels).toEqual([
+      [40, 40, 40, 200],
+      [90, 90, 90, 10],
+    ]);
+  }),
+);
+
+it.effect("a palette PNG takes each colour from its palette, and its opacity from tRNS", () =>
+  Effect.gen(function* () {
+    const palette = [
+      ["PLTE", [255, 0, 0, 0, 255, 0, 0, 0, 255]],
+      // The third colour says nothing of its opacity: it is whole.
+      ["tRNS", [255, 64]],
+    ] as const;
+    const eight = yield* Effect.promise(() =>
+      pngOf({
+        width: 3,
+        height: 1,
+        colourType: 3,
+        bitDepth: 8,
+        rows: [[2, 1, 0]],
+        chunks: palette,
+      }),
+    );
+    expect((yield* pixelsOf(eight)).pixels).toEqual([
+      [0, 0, 255, 255],
+      [0, 255, 0, 64],
+      [255, 0, 0, 255],
+    ]);
+
+    // A bit an index, nine to a row, so two bytes with seven bits left over.
+    // The second row is written with the filter that takes each byte from the
+    // one to its left, which is a whole byte back when a pixel is less than
+    // one: its second byte is written as what it differs by from the first.
+    const second = [0b01000000, 0b00000000];
+    const one = yield* Effect.promise(() =>
+      pngOf({
+        width: 9,
+        height: 2,
+        colourType: 3,
+        bitDepth: 1,
+        rows: [
+          [0b10100000, 0b10000000],
+          [second[0]!, (second[1]! - second[0]!) & 0xff],
+        ],
+        filters: [0, 1],
+        chunks: [["PLTE", [0, 0, 0, 255, 255, 255]]],
+      }),
+    );
+    const read = yield* pixelsOf(one);
+    expect([read.width, read.height]).toEqual([9, 2]);
+    expect(read.pixels.map(([red]) => (red === 255 ? 1 : 0))).toEqual([
+      ...[1, 0, 1, 0, 0, 0, 0, 0, 1],
+      ...[0, 1, 0, 0, 0, 0, 0, 0, 0],
+    ]);
+  }),
+);
+
 it.effect("bytes that are no PNG, or a PNG of another kind, cannot be read, and say why", () =>
   Effect.gen(function* () {
     const reasonOf = (bytes: Uint8Array) =>
@@ -133,8 +276,30 @@ it.effect("bytes that are no PNG, or a PNG of another kind, cannot be read, and 
       );
     expect(yield* reasonOf(new Uint8Array([1, 2, 3]))).toBe("NotPng");
 
-    const palette = yield* Effect.promise(() => writePng(2, 2, 3, gradient, () => 0, 3));
-    expect(yield* reasonOf(palette)).toBe("Unsupported");
+    const deep = yield* Effect.promise(() =>
+      pngOf({ width: 1, height: 1, colourType: 2, bitDepth: 16, rows: [[0, 0, 0, 0, 0, 0]] }),
+    );
+    expect(yield* reasonOf(deep)).toBe("Unsupported");
+    const interlaced = yield* Effect.promise(() =>
+      pngOf({ width: 1, height: 1, colourType: 0, bitDepth: 8, rows: [[0]], interlace: 1 }),
+    );
+    expect(yield* reasonOf(interlaced)).toBe("Unsupported");
+
+    const noPalette = yield* Effect.promise(() =>
+      pngOf({ width: 1, height: 1, colourType: 3, bitDepth: 8, rows: [[0]] }),
+    );
+    expect(yield* reasonOf(noPalette)).toBe("Corrupt");
+    const pastThePalette = yield* Effect.promise(() =>
+      pngOf({
+        width: 1,
+        height: 1,
+        colourType: 3,
+        bitDepth: 8,
+        rows: [[1]],
+        chunks: [["PLTE", [10, 20, 30]]],
+      }),
+    );
+    expect(yield* reasonOf(pastThePalette)).toBe("Corrupt");
 
     const whole = yield* Effect.promise(() => writePng(4, 4, 3, gradient, () => 0));
     expect(yield* reasonOf(whole.subarray(0, 40))).toBe("Truncated");

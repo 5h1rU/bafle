@@ -6,19 +6,58 @@ export type Pixels = Readonly<{ width: number; height: number; rgba: Uint8Array 
 
 /**
  * Why a PNG could not be read. `Unsupported` is a PNG of a kind this does not
- * read (another depth, palette or grey, interlaced); the others are bytes that
- * are no whole PNG.
+ * read (16 bits a channel, or interlaced); the others are bytes that are no
+ * whole PNG.
  */
 export class PngUnreadable extends Schema.TaggedError<PngUnreadable>()("PngUnreadable", {
   reason: Schema.Literals(["NotPng", "Unsupported", "Truncated", "Corrupt"]),
 }) {}
 
-type Header = Readonly<{ width: number; height: number; channels: 3 | 4 }>;
+/**
+ * How a PNG writes its pixels: in grey, grey with opacity, red green and
+ * blue, those with opacity, or as indices into a palette of colours.
+ */
+const GREY = 0;
+const RGB = 2;
+const PALETTE = 3;
+const GREY_ALPHA = 4;
+const RGBA = 6;
+
+/** The values a channel is written in, of each kind: how many, and how many bits each. */
+const CHANNELS: Readonly<Record<number, number>> = {
+  [GREY]: 1,
+  [RGB]: 3,
+  [PALETTE]: 1,
+  [GREY_ALPHA]: 2,
+  [RGBA]: 4,
+};
+
+/** The depths each kind may be written at that are read here: every one PNG has but 16 bits. */
+const DEPTHS: Readonly<Record<number, ReadonlyArray<number>>> = {
+  [GREY]: [1, 2, 4, 8],
+  [RGB]: [8],
+  [PALETTE]: [1, 2, 4, 8],
+  [GREY_ALPHA]: [8],
+  [RGBA]: [8],
+};
+
+type Header = Readonly<{
+  width: number;
+  height: number;
+  colourType: number;
+  bitDepth: number;
+  channels: number;
+}>;
+
+/**
+ * What a PNG says of its colours besides its pixels: the palette its indices
+ * name (`PLTE`, red green and blue each), and which colours are not whole
+ * (`tRNS`: an opacity for each of the palette's, or the one grey that is
+ * clear).
+ */
+type Colours = Readonly<{ palette: Uint8Array | null; transparency: Uint8Array | null }>;
 
 const SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
-
-const RGB = 2;
-const RGBA = 6;
 
 /**
  * The PNG's header and its image data, still compressed: the chunks a
@@ -30,6 +69,8 @@ const readChunks = Effect.fn("readChunks")(function* (bytes: Uint8Array) {
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let header: Header | undefined;
+  let palette: Uint8Array | null = null;
+  let transparency: Uint8Array | null = null;
   const parts: Array<Uint8Array> = [];
   for (let at = SIGNATURE.length; at + 8 <= bytes.length;) {
     const length = view.getUint32(at);
@@ -37,15 +78,22 @@ const readChunks = Effect.fn("readChunks")(function* (bytes: Uint8Array) {
     if (at + 12 + length > bytes.length) return yield* new PngUnreadable({ reason: "Truncated" });
     const body = bytes.subarray(at + 8, at + 8 + length);
     if (type === "IHDR") {
-      const [bitDepth, colourType, , , interlace] = body.subarray(8, 13);
-      if (bitDepth !== 8 || interlace !== 0 || (colourType !== RGB && colourType !== RGBA)) {
+      const [bitDepth = 0, colourType = -1, , , interlace] = body.subarray(8, 13);
+      const channels = CHANNELS[colourType];
+      if (channels === undefined || !DEPTHS[colourType]?.includes(bitDepth) || interlace !== 0) {
         return yield* new PngUnreadable({ reason: "Unsupported" });
       }
       header = {
         width: view.getUint32(at + 8),
         height: view.getUint32(at + 12),
-        channels: colourType === RGB ? 3 : 4,
+        colourType,
+        bitDepth,
+        channels,
       };
+    } else if (type === "PLTE") {
+      palette = body;
+    } else if (type === "tRNS") {
+      transparency = body;
     } else if (type === "IDAT") {
       parts.push(body);
     } else if (type === "IEND") {
@@ -56,10 +104,25 @@ const readChunks = Effect.fn("readChunks")(function* (bytes: Uint8Array) {
   if (header === undefined || header.width === 0 || header.height === 0 || parts.length === 0) {
     return yield* new PngUnreadable({ reason: "Truncated" });
   }
+  if (header.colourType === PALETTE && palette === null) {
+    return yield* new PngUnreadable({ reason: "Corrupt" });
+  }
   const data = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
   parts.reduce((offset, part) => (data.set(part, offset), offset + part.length), 0);
-  return { header, data };
+  const colours: Colours = { palette, transparency };
+  return { header, colours, data };
 });
+
+/** How many bytes one row of pixels takes, its filter's byte aside. */
+const strideOf = ({ width, channels, bitDepth }: Header): number =>
+  Math.ceil((width * channels * bitDepth) / 8);
+
+/**
+ * How many bytes back a filter looks for the pixel to the left: a whole
+ * pixel's, or one byte where a pixel is less than a byte.
+ */
+const pixelBytesOf = ({ channels, bitDepth }: Header): number =>
+  Math.max(1, (channels * bitDepth) / 8);
 
 /** The image data uncompressed, by the platform's own zlib (`DecompressionStream`), as Workers and Node both have it. */
 const inflate = (data: Uint8Array<ArrayBuffer>): Effect.Effect<Uint8Array, PngUnreadable> =>
@@ -88,8 +151,10 @@ const paeth = (left: number, up: number, upLeft: number): number => {
  */
 // NOTE: arithmetic on bytes, one at a time and each from those before it:
 // it is written as a loop over typed arrays, and kept pure.
-const unfilter = (filtered: Uint8Array, { width, height, channels }: Header): Uint8Array | null => {
-  const stride = width * channels;
+const unfilter = (filtered: Uint8Array, header: Header): Uint8Array | null => {
+  const { height } = header;
+  const stride = strideOf(header);
+  const channels = pixelBytesOf(header);
   const raw = new Uint8Array(height * stride);
   for (let row = 0; row < height; row++) {
     const filter = filtered[row * (stride + 1)];
@@ -118,29 +183,75 @@ const unfilter = (filtered: Uint8Array, { width, height, channels }: Header): Ui
   return raw;
 };
 
-/** The pixels with an opacity of their own, which an RGB picture has whole everywhere. */
-const toRgba = (raw: Uint8Array, { width, height, channels }: Header): Uint8Array => {
-  if (channels === 4) return raw;
+/**
+ * One value of a row as it is written: a byte, or a few bits of one when the
+ * picture is written at less than a byte a value, the first in the highest.
+ */
+const sampleAt = (raw: Uint8Array, rowStart: number, index: number, bitDepth: number): number => {
+  if (bitDepth === 8) return raw[rowStart + index] ?? 0;
+  const bit = index * bitDepth;
+  const byte = raw[rowStart + (bit >> 3)] ?? 0;
+  return (byte >> (8 - bitDepth - (bit & 7))) & ((1 << bitDepth) - 1);
+};
+
+/**
+ * The pixels as red, green, blue and opacity, a byte each, whatever kind the
+ * PNG wrote them in: a grey written at fewer bits is brought to the whole
+ * range, an index takes its colour from the palette (and its opacity from
+ * `tRNS`, whole where that says nothing), and a grey `tRNS` names is clear.
+ */
+const toRgba = (raw: Uint8Array, header: Header, colours: Colours): Uint8Array | null => {
+  const { width, height, colourType, bitDepth, channels } = header;
+  const stride = strideOf(header);
+  const greyScale = 255 / ((1 << bitDepth) - 1);
+  const clearGrey =
+    colourType === GREY && colours.transparency !== null && colours.transparency.length >= 2
+      ? (colours.transparency[0]! << 8) | colours.transparency[1]!
+      : -1;
   const rgba = new Uint8Array(width * height * 4);
-  for (let pixel = 0; pixel < width * height; pixel++) {
-    rgba.set(raw.subarray(pixel * 3, pixel * 3 + 3), pixel * 4);
-    rgba[pixel * 4 + 3] = 255;
+  for (let row = 0; row < height; row++) {
+    for (let column = 0; column < width; column++) {
+      const values = Array.from({ length: channels }, (_, channel) =>
+        sampleAt(raw, row * stride, column * channels + channel, bitDepth),
+      );
+      const at = (row * width + column) * 4;
+      if (colourType === PALETTE) {
+        const index = values[0] ?? 0;
+        const palette = colours.palette!;
+        if (index * 3 + 2 >= palette.length) return null;
+        rgba.set(palette.subarray(index * 3, index * 3 + 3), at);
+        rgba[at + 3] = colours.transparency?.[index] ?? 255;
+      } else if (colourType === GREY || colourType === GREY_ALPHA) {
+        const grey = Math.round((values[0] ?? 0) * greyScale);
+        rgba.set([grey, grey, grey], at);
+        rgba[at + 3] =
+          colourType === GREY_ALPHA ? (values[1] ?? 255) : values[0] === clearGrey ? 0 : 255;
+      } else {
+        rgba.set(values.slice(0, 3), at);
+        rgba[at + 3] = colourType === RGBA ? (values[3] ?? 255) : 255;
+      }
+    }
   }
   return rgba;
 };
 
 /**
- * The pixels of a PNG of the one kind a likeness is worked out from: 8 bits
- * a channel, RGB or RGBA, not interlaced. Any other kind, or bytes that are
- * no whole PNG, fail with `PngUnreadable`.
+ * The pixels of a PNG a likeness is worked out from, of any kind a picture
+ * drawn small comes in: grey, grey with opacity, RGB, RGBA or a palette, at
+ * up to 8 bits a channel, not interlaced. Cloudflare Images writes a picture
+ * with no colour as grey and one with few colours as a palette, so all of
+ * them are read. A PNG of 16 bits a channel, an interlaced one, or bytes that
+ * are no whole PNG, fail with `PngUnreadable`.
  */
 export const decodePng = Effect.fn("decodePng")(function* (bytes: Uint8Array) {
-  const { header, data } = yield* readChunks(bytes);
+  const { header, colours, data } = yield* readChunks(bytes);
   const filtered = yield* inflate(data);
-  if (filtered.length < header.height * (header.width * header.channels + 1)) {
+  if (filtered.length < header.height * (strideOf(header) + 1)) {
     return yield* new PngUnreadable({ reason: "Truncated" });
   }
   const raw = unfilter(filtered, header);
   if (raw === null) return yield* new PngUnreadable({ reason: "Corrupt" });
-  return { width: header.width, height: header.height, rgba: toRgba(raw, header) } satisfies Pixels;
+  const rgba = toRgba(raw, header, colours);
+  if (rgba === null) return yield* new PngUnreadable({ reason: "Corrupt" });
+  return { width: header.width, height: header.height, rgba } satisfies Pixels;
 });
