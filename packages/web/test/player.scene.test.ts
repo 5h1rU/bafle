@@ -27,8 +27,8 @@ import {
   NavigateBack,
   NavigateInternal,
   ReplaceTrackUrl,
-  WaitToClearRowDone,
 } from "../src/command.ts";
+import * as Rows from "../src/rows/index.ts";
 import {
   PLAYER_CLOSES,
   PLAYER_FACE_CLOSES,
@@ -1172,7 +1172,7 @@ describe("a track's own page puts its track in the queue", () => {
       islandEnters,
       inside(selector("#track-page"), see(playNext).toExist(), see(addToQueue).toExist()),
       click(playNext),
-      Command.resolve(WaitToClearRowDone, Message.CompletedWaitToClearRowDone({ turn: 1 })),
+      Command.resolve(Rows.WaitToClearDone, Rows.Message.CompletedWaitToClearDone({ turn: 1 })),
     ));
 
   test("pressed, the track is next in the queue and the control says so for a moment", () => {
@@ -1851,7 +1851,7 @@ describe("the menu at the end of a row", () => {
       menuEnters,
       see(text("Plays next.")).toBeAbsent(),
       click(item("Play next")),
-      Command.expectHas(WaitToClearRowDone({ turn: 1 })),
+      Command.expectHas(Rows.WaitToClearDone({ turn: 1 })),
       ...menuLeaves(),
       see(more("Technologic")).toHaveAttr("aria-expanded", "false"),
       expectAll(items).toHaveCount(0),
@@ -1861,7 +1861,7 @@ describe("the menu at the end of a row", () => {
       see(text("Plays next.")).toHaveClass("sr-only"),
       // Nothing sounds differently for it.
       inside(islandLayout, see(text(TITLE)).toExist(), see(control("Pause")).toExist()),
-      Command.resolve(WaitToClearRowDone, Message.CompletedWaitToClearRowDone({ turn: 1 })),
+      Command.resolve(Rows.WaitToClearDone, Rows.Message.CompletedWaitToClearDone({ turn: 1 })),
       inside(more("Technologic"), expectAll(all.selector("svg.text-accent")).toHaveCount(0)),
       see(text("Plays next.")).toBeAbsent(),
     ));

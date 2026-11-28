@@ -331,7 +331,7 @@ describe("playing from the station's page", () => {
     );
 
     expect(session(queued).later.map((waiting) => waiting.id)).toEqual([explicitTrack.id]);
-    expect(queued.rowDone.maybeRow).toEqual(
+    expect(queued.rows.done.maybeRow).toEqual(
       Option.some({ from: "Station", trackId: explicitTrack.id, place: "Last" }),
     );
   });

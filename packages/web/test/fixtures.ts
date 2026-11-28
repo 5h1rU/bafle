@@ -37,7 +37,8 @@ import { Awaiting, type ListedSection, type Model } from "../src/model.ts";
 import { HoldDockMotion } from "../src/mount.ts";
 import * as Player from "../src/player/index.ts";
 import type { PlayerAction } from "../src/player/moreMenu.ts";
-import type { RowAction } from "../src/rowMenu.ts";
+import * as Rows from "../src/rows/index.ts";
+import type { RowAction } from "../src/rows/index.ts";
 
 // CATALOG
 
@@ -269,14 +270,20 @@ export const clickedLink = (path: string): Message =>
 
 /** The listener pressed the control at the end of a row: its menu opens, or closes. */
 export const pressedMore = (from: PlayOrigin, trackId: TrackId): Message =>
-  Message.GotRowMenuMessage({ from, trackId, message: Menu.Message.ClickedButton() });
+  Message.GotRowsMessage({
+    message: Rows.Message.GotMenuMessage({
+      rowId: { from, trackId },
+      message: Menu.Message.ClickedButton(),
+    }),
+  });
 
 /** The listener chose one of the things a row's menu offers. */
 export const choseFromRow = (from: PlayOrigin, trackId: TrackId, action: RowAction): Message =>
-  Message.GotRowMenuMessage({
-    from,
-    trackId,
-    message: Menu.Message.SelectedItem({ index: 0, item: action }),
+  Message.GotRowsMessage({
+    message: Rows.Message.GotMenuMessage({
+      rowId: { from, trackId },
+      message: Menu.Message.SelectedItem({ index: 0, item: action }),
+    }),
   });
 
 /** The listener chose one of the things the expanded player's menu offers. */

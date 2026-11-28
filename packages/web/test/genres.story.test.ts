@@ -318,7 +318,7 @@ describe("playing from the genre's page", () => {
       choseFromRow("Genre", explicitTrack.id, "PlayNext"),
     );
 
-    expect(queued.rowDone.maybeRow).toEqual(
+    expect(queued.rows.done.maybeRow).toEqual(
       Option.some({ from: "Genre", trackId: explicitTrack.id, place: "Next" }),
     );
   });

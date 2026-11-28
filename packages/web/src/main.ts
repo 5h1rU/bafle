@@ -23,7 +23,7 @@ import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as String from "effect/String";
-import { Menu, Popover } from "@foldkit/ui";
+import { Popover } from "@foldkit/ui";
 import { AsyncData, type Runtime, Update } from "foldkit";
 import { UrlRequest } from "foldkit/navigation";
 import { modifyFields } from "foldkit/struct";
@@ -62,7 +62,6 @@ import {
   ShowSearchFromTop,
   TurnRow,
   WaitForTypingPause,
-  WaitToClearRowDone,
   askAlbumDetail,
   askArtistDetail,
   askCatalogSearch,
@@ -122,7 +121,7 @@ import {
   urlToAppRoute,
 } from "./route.ts";
 import { initialAbout } from "./about.ts";
-import { type RowAction, RowMenu, type RowRef, rowMenuId, rowMenuIn } from "./rowMenu.ts";
+import * as Rows from "./rows/index.ts";
 import type { Screen } from "./screen.ts";
 import { CHOOSE_TRACK, coverTransitionName, routeArtwork } from "./view/artwork.ts";
 import { pageIdOf } from "./view/layout.ts";
@@ -568,8 +567,10 @@ const navigationOnEntering =
  * a menu a page was chosen from stays open until the page arrives. It goes
  * with the page it was on, so there is nothing to give the focus back to.
  */
-const withRowMenusClosed = (model: Model): Model =>
-  HashMap.isEmpty(model.rowMenus) ? model : modifyFields(model, { rowMenus: () => HashMap.empty() });
+const withRowMenusClosed = (model: Model): Model => {
+  const rows = Rows.withMenusClosed(model.rows);
+  return rows === model.rows ? model : modifyFields(model, { rows: () => rows });
+};
 
 /**
  * What Home's control opened is closed. It is Home's, and goes with it when
@@ -1453,28 +1454,38 @@ const keepUpWithPlayer =
 
 // ROW MENU
 
+const readRows = (model: Model) => Option.some(model.rows);
+
+const writeRows = (model: Model, nextRows: Rows.Model): Model =>
+  nextRows === model.rows ? model : modifyFields(model, { rows: () => nextRows });
+
+const toGotRowsMessage = (message: Rows.Message): Message => Message.GotRowsMessage({ message });
+
+const foldRowsQueued = Update.foldChild({
+  update: Rows.showQueued,
+  read: readRows,
+  write: writeRows,
+  toParentMessage: toGotRowsMessage,
+});
+
+const foldRowsInputMethod = Update.foldChild({
+  update: Rows.informInputMethod,
+  read: readRows,
+  write: writeRows,
+  toParentMessage: toGotRowsMessage,
+});
+
 /**
- * A row's control shows that its track was queued, for as long as
- * `WaitToClearRowDone` waits. A player that is as it was queued nothing, and
- * nothing is shown.
+ * A row's control shows that its track was queued (`Rows.showQueued`). A
+ * player that is as it was queued nothing, and nothing is shown.
  */
 const showQueued =
-  (before: Player.Model, row: RowRef, place: Player.QueuePlace): Step =>
-  (model) => {
-    if (model.player === before) {
-      return { model };
-    }
-    const turn = model.rowDone.turn + 1;
-    return {
-      model: modifyFields(model, {
-        rowDone: () => ({ turn, maybeRow: Option.some({ ...row, place }) }),
-      }),
-      commands: [WaitToClearRowDone({ turn })],
-    };
-  };
+  (before: Player.Model, rowId: Rows.RowId, place: Player.QueuePlace): Step =>
+  (model) =>
+    model.player === before ? { model } : foldRowsQueued(model, { rowId, place });
 
 /** The track of a row, as the page it is listed on holds it. */
-const maybeTrackOfRow = (model: Model, row: RowRef): Option.Option<TrackSummary> =>
+const maybeTrackOfRow = (model: Model, row: Rows.RowId): Option.Option<TrackSummary> =>
   Array.findFirst(
     listPlayedFrom(model, row.from, row.trackId),
     (track) => track.id === row.trackId,
@@ -1482,7 +1493,7 @@ const maybeTrackOfRow = (model: Model, row: RowRef): Option.Option<TrackSummary>
 
 /** The track of a row goes into the queue. */
 const queueFromRow =
-  (row: RowRef, place: Player.QueuePlace): Step =>
+  (row: Rows.RowId, place: Player.QueuePlace): Step =>
   (model) =>
     Option.match(maybeTrackOfRow(model, row), {
       onNone: () => ({ model }),
@@ -1501,7 +1512,7 @@ const queueFromRow =
  * longer something to open, so asking for it changes nothing.
  */
 const openAlbumFromRow =
-  (row: RowRef): Step =>
+  (row: Rows.RowId): Step =>
   (model) =>
     Option.match(maybeTrackOfRow(model, row), {
       onNone: () => ({ model }),
@@ -1532,7 +1543,7 @@ const forgetAlbumRow =
  * followed as a link to the page would be, so the page on screen is held and
  * the row says that it is opening.
  */
-const chooseFromRow = (row: RowRef, action: RowAction): Step =>
+const chooseFromRow = (row: Rows.RowId, action: Rows.RowAction): Step =>
   Match.value(action).pipe(
     Match.withReturnType<Step>(),
     Match.when("PlayNext", () => queueFromRow(row, "Next")),
@@ -1542,24 +1553,18 @@ const chooseFromRow = (row: RowRef, action: RowAction): Step =>
     Match.exhaustive,
   );
 
-/** The page a Message of a row's menu chooses, when it chooses one: the song's, or its album's. */
-const maybePageChosen = (message: Menu.Message): Option.Option<"OpenSong" | "OpenAlbum"> =>
-  message._tag === "SelectedItem" && (message.item === "OpenSong" || message.item === "OpenAlbum")
-    ? Option.some(message.item)
-    : Option.none();
-
-const foldRowMenu = Update.foldChildAt({
-  update: RowMenu.update,
-  readAt: (model: Model, row: RowRef) => {
-    const menu = rowMenuIn(model.rowMenus, row);
-    return Option.some(modifyFields(menu, { isAnimated: () => model.inputMethod === "Pointer" }));
-  },
-  writeAt: (model: Model, row: RowRef, nextMenu: Menu.Model) =>
-    modifyFields(model, { rowMenus: HashMap.set(rowMenuId(row), nextMenu) }),
-  toParentMessage: (row: RowRef, message: Menu.Message): Message =>
-    Message.GotRowMenuMessage({ ...row, message }),
-  foldOutMessage: (row: RowRef) => (chosen: Menu.OutMessage<RowAction>) =>
-    chooseFromRow(row, chosen.value),
+/**
+ * What the rows say, and what the app does about it: something was chosen
+ * from a row's menu. The rows know no player and no pages.
+ */
+const foldRows = Update.foldChild({
+  update: Rows.update,
+  read: readRows,
+  write: writeRows,
+  toParentMessage: toGotRowsMessage,
+  foldOutMessage: Rows.OutMessage.match<Step>({
+    Chose: ({ rowId, action }) => chooseFromRow(rowId, action),
+  }),
 });
 
 /** The page of the album the track the player holds is on, followed as a link to it would be. */
@@ -1643,9 +1648,11 @@ const changeScreen =
 
 const respond = (model: Model, message: Message) =>
   Message.match<UpdateReturn>(message, {
-    ChangedInputMethod: ({ method }) => ({
-      model: modifyFields(model, { inputMethod: () => method }),
-    }),
+    ChangedInputMethod: ({ method }) =>
+      foldRowsInputMethod(
+        modifyFields(model, { inputMethod: () => method }),
+        method === "Pointer",
+      ),
 
     ChangedScreen: ({ screen }) => changeScreen(screen)(model),
 
@@ -1756,25 +1763,9 @@ const respond = (model: Model, message: Message) =>
     GotPlayerSheetMessage: ({ message }) =>
       isPlayerExpanded(model) ? foldPlayerSheet(model, message) : { model },
 
-    // NOTE: choosing a page from a row's menu is heard here and not by the
-    // menu, which would close on it. The menu stays open while the page is on
-    // its way: the item that was chosen says so, and says it if the page
-    // fails to open, where a second press tries again. It closes when the
-    // page takes the screen.
-    GotRowMenuMessage: ({ from, trackId, message }) =>
-      Option.match(maybePageChosen(message), {
-        onNone: () => foldRowMenu(model, { from, trackId }, message),
-        onSome: (action) => chooseFromRow({ from, trackId }, action)(model),
-      }),
+    GotRowsMessage: ({ message }) => foldRows(model, message),
 
     GotAboutMessage: ({ message }) => foldAbout(model, message),
-
-    CompletedWaitToClearRowDone: ({ turn }) => ({
-      model:
-        model.rowDone.turn === turn && Option.isSome(model.rowDone.maybeRow)
-          ? modifyFields(model, { rowDone: () => ({ turn, maybeRow: Option.none() }) })
-          : model,
-    }),
 
     CompletedNavigateInternal: () => ({ model }),
     CompletedNavigateBack: () => ({ model }),
@@ -1928,8 +1919,7 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services
       // played, and the two screens differ only in what the player is.
       screen: "Compact",
       inputMethod: "Pointer",
-      rowMenus: HashMap.empty(),
-      rowDone: { turn: 0, maybeRow: Option.none() },
+      rows: Rows.init(),
       player: Player.init(),
       about: initialAbout,
       playerSheet: initialPlayerSheet,

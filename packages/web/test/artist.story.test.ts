@@ -245,7 +245,7 @@ describe("playing from the artist's page", () => {
     );
 
     expect(session(queued).later.map((waiting) => waiting.id)).toEqual([track.id]);
-    expect(queued.rowDone.maybeRow).toEqual(
+    expect(queued.rows.done.maybeRow).toEqual(
       Option.some({ from: "Artist", trackId: track.id, place: "Last" }),
     );
   });

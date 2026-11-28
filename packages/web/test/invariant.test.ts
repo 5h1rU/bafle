@@ -12,12 +12,12 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { AsyncData } from "foldkit";
 import { expect, test } from "vitest";
+import type { RowId } from "../src/rows/index.ts";
 import { init, update } from "../src/main.ts";
 import { Message, type PlayOrigin } from "../src/message.ts";
 import {
   Awaiting,
   type Model,
-  type Row,
   addressOf,
   albumData,
   artistData,
@@ -766,7 +766,7 @@ const listsStation = (model: Model): boolean =>
   Option.exists(AsyncData.getData(stationData(model, model.route.stationId)), Option.isSome);
 
 /** The rows of the list on screen that offer Try again for their album: it failed to open from them. */
-const failedAlbumRows = (model: Model): ReadonlyArray<Row> =>
+const failedAlbumRows = (model: Model): ReadonlyArray<RowId> =>
   pipe(
     HashMap.toEntries(model.albumRows),
     Array.filter(

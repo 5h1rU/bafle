@@ -6,7 +6,7 @@ import { update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import { Awaiting, type Model, trackData } from "../src/model.ts";
 import * as Player from "../src/player/index.ts";
-import { rowMenuId, rowMenuIn } from "../src/rowMenu.ts";
+import * as Rows from "../src/rows/index.ts";
 import {
   after,
   awaitedId,
@@ -94,19 +94,19 @@ describe("a row's menu", () => {
   const row = { from: "New", trackId: track.id } as const;
 
   test("a menu that was never touched is closed, and is not kept", () => {
-    expect(HashMap.size(onNew.rowMenus)).toBe(0);
-    expect(rowMenuIn(onNew.rowMenus, row).isOpen).toBe(false);
-    expect(rowMenuIn(onNew.rowMenus, row).id).toBe(rowMenuId(row));
+    expect(HashMap.size(onNew.rows.menus)).toBe(0);
+    expect(Rows.menuOf(onNew.rows, row).isOpen).toBe(false);
+    expect(Rows.menuOf(onNew.rows, row).id).toBe(Rows.rowMenuId(row));
   });
 
   test("pressing a row's last control opens that row's menu, and no other", () => {
     const opened = after(onNew, pressedMore("New", track.id));
-    expect(rowMenuIn(opened.rowMenus, row).isOpen).toBe(true);
+    expect(Rows.menuOf(opened.rows, row).isOpen).toBe(true);
     expect(
-      rowMenuIn(opened.rowMenus, { from: "New", trackId: explicitTrack.id }).isOpen,
+      Rows.menuOf(opened.rows, { from: "New", trackId: explicitTrack.id }).isOpen,
     ).toBe(false);
     // The same track listed on another page has a menu of its own.
-    expect(rowMenuIn(opened.rowMenus, { from: "Search", trackId: track.id }).isOpen).toBe(false);
+    expect(Rows.menuOf(opened.rows, { from: "Search", trackId: track.id }).isOpen).toBe(false);
   });
 
   test("Song details is followed as a link to the track's page is: held until it arrives", () => {
@@ -115,7 +115,7 @@ describe("a row's menu", () => {
     const byLink = update(onNew, clickedLink(trackPath(track.id)));
 
     // The menu stays open while the page is on its way: its item says so.
-    expect(rowMenuIn(chosen.model.rowMenus, row).isOpen).toBe(true);
+    expect(Rows.menuOf(chosen.model.rows, row).isOpen).toBe(true);
     // The page on screen stays, the URL stays, and the row's track is loading.
     expect(chosen.model.route).toEqual(byLink.model.route);
     expect(chosen.model.awaiting).toEqual(byLink.model.awaiting);
@@ -134,7 +134,7 @@ describe("a row's menu", () => {
     );
 
     expect(arrived.model.route._tag).toBe("Track");
-    expect(HashMap.size(arrived.model.rowMenus)).toBe(0);
+    expect(HashMap.size(arrived.model.rows.menus)).toBe(0);
   });
 
   test("Back to the page before takes the menu with the page it was on", () => {
@@ -143,11 +143,11 @@ describe("a row's menu", () => {
     const back = update(opened, changedUrl("/"));
 
     expect(back.model.route._tag).toBe("Home");
-    expect(HashMap.size(back.model.rowMenus)).toBe(0);
+    expect(HashMap.size(back.model.rows.menus)).toBe(0);
     // Forward again finds New as any visit does: its menus closed.
     const forward = after(back.model, changedUrl("/new"));
     expect(forward.route._tag).toBe("New");
-    expect(rowMenuIn(forward.rowMenus, row).isOpen).toBe(false);
+    expect(Rows.menuOf(forward.rows, row).isOpen).toBe(false);
   });
 
   test("a page that failed to open is asked for again by a second press of its item", () => {
@@ -159,7 +159,7 @@ describe("a row's menu", () => {
     );
     // Still on the list, with the menu open on the item that failed.
     expect(failed.route._tag).toBe("New");
-    expect(rowMenuIn(failed.rowMenus, row).isOpen).toBe(true);
+    expect(Rows.menuOf(failed.rows, row).isOpen).toBe(true);
 
     const again = update(failed, choseFromRow("New", track.id, "OpenSong"));
     expect(names(again)).toContain("TrackDetail");
@@ -171,11 +171,11 @@ describe("a row's menu", () => {
 
     expect(ids(session(queued.model.player).later)).toEqual([track.id]);
     expect(session(queued.model.player).current.id).toBe(explicitTrack.id);
-    expect(queued.model.rowDone).toEqual({
+    expect(queued.model.rows.done).toEqual({
       turn: 1,
       maybeRow: Option.some({ from: "New", trackId: track.id, place: "Next" }),
     });
-    expect(names(queued)).toContain("WaitToClearRowDone");
+    expect(names(queued)).toContain("WaitToClearDone");
     // Queueing is no navigation: the page, the URL and what is awaited are as they were.
     expect(queued.model.route).toEqual(playing.route);
     expect(queued.model.awaiting).toEqual(playing.awaiting);
@@ -185,7 +185,7 @@ describe("a row's menu", () => {
     const first = after(playing, choseFromRow("New", track.id, "PlayNext"));
     const again = update(first, choseFromRow("New", track.id, "AddToQueue"));
     expect(ids(session(again.model.player).later)).toEqual([track.id]);
-    expect(again.model.rowDone).toEqual({
+    expect(again.model.rows.done).toEqual({
       turn: 2,
       maybeRow: Option.some({ from: "New", trackId: track.id, place: "Last" }),
     });
@@ -195,23 +195,23 @@ describe("a row's menu", () => {
     const first = after(playing, choseFromRow("New", track.id, "PlayNext"));
     const second = after(first, choseFromRow("New", track.id, "AddToQueue"));
 
-    const stale = update(second, Message.CompletedWaitToClearRowDone({ turn: 1 }));
+    const stale = update(second, Message.GotRowsMessage({ message: Rows.Message.CompletedWaitToClearDone({ turn: 1 }) }));
     expect(stale.model).toBe(second);
 
-    const ended = update(second, Message.CompletedWaitToClearRowDone({ turn: 2 }));
-    expect(ended.model.rowDone).toEqual({ turn: 2, maybeRow: Option.none() });
+    const ended = update(second, Message.GotRowsMessage({ message: Rows.Message.CompletedWaitToClearDone({ turn: 2 }) }));
+    expect(ended.model.rows.done).toEqual({ turn: 2, maybeRow: Option.none() });
   });
 
   test("with nothing playing there is no queue to put a track in: nothing is queued, and nothing is shown", () => {
     const chosen = update(onNew, choseFromRow("New", track.id, "PlayNext"));
     expect(chosen.model.player).toBe(onNew.player);
-    expect(chosen.model.rowDone).toEqual(onNew.rowDone);
-    expect(names(chosen)).not.toContain("WaitToClearRowDone");
+    expect(chosen.model.rows.done).toEqual(onNew.rows.done);
+    expect(names(chosen)).not.toContain("WaitToClearDone");
   });
 
   test("the track the player holds is not queued behind itself", () => {
     const chosen = update(playing, choseFromRow("New", explicitTrack.id, "PlayNext"));
     expect(chosen.model.player).toBe(playing.player);
-    expect(chosen.model.rowDone).toEqual(playing.rowDone);
+    expect(chosen.model.rows.done).toEqual(playing.rows.done);
   });
 });

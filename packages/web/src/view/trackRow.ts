@@ -1,7 +1,7 @@
 import type { ArtistId } from "@bafle/domain/Catalog/Artist";
 import type { AlbumId } from "@bafle/domain/Catalog/Album";
 import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
-import { Button, type Menu } from "@foldkit/ui";
+import { Button } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
@@ -12,7 +12,8 @@ import { LoadError } from "../catalog.ts";
 import { Message, type PlayOrigin } from "../message.ts";
 import { type AlbumData, type TrackData, isKnownMissing } from "../model.ts";
 import { type QueuePlace, type TrackStatus, isPlayable } from "../player/model.ts";
-import { type RowAction, RowMenu, rowMenuId } from "../rowMenu.ts";
+import * as Rows from "../rows/index.ts";
+import type { RowAction } from "../rows/index.ts";
 import {
   type PictureLoading,
   artworkView,
@@ -196,8 +197,8 @@ export type TrackListContext = Readonly<{
   isAlbumAskedFrom: (track: TrackSummary) => boolean;
   statusOf: (trackId: TrackId) => TrackStatus;
   isPlayerHolding: boolean;
-  menuOf: (trackId: TrackId) => Menu.Model;
-  queuedOf: (trackId: TrackId) => Option.Option<QueuePlace>;
+  /** The rows' own: the menus at their ends, and which of them shows that something was done. */
+  rows: Rows.Model;
 }>;
 
 const isInPlayer = (status: TrackStatus): boolean => status !== "Elsewhere";
@@ -638,6 +639,12 @@ const menuItemView = (action: RowAction, pages: RowPages, h: HtmlBuilder<Message
   });
 };
 
+/** A row, by what tells it from every other: the page its list is on, and its track. */
+const rowIdOf = (track: TrackSummary, context: TrackListContext): Rows.RowId => ({
+  from: context.from,
+  trackId: track.id,
+});
+
 /**
  * The row's last control: what else can be done with its track. It is where
  * the row keeps the focus, so it carries the mark the focus is given back by.
@@ -650,10 +657,11 @@ const rowMenuView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.submodel({
-    slotId: rowMenuId({ from: context.from, trackId: track.id }),
-    model: context.menuOf(track.id),
-    view: RowMenu.view,
+    slotId: Rows.rowMenuId(rowIdOf(track, context)),
+    model: context.rows,
+    view: Rows.menuView,
     viewInputs: {
+      rowId: rowIdOf(track, context),
       items: actions,
       itemToConfig: (action) => ({
         className: MENU_ITEM_CLASS,
@@ -664,8 +672,8 @@ const rowMenuView = (
       ariaLabel: `More: ${track.title}`,
       buttonContent: moreContentView(
         pages,
-        context.queuedOf(track.id),
-        context.menuOf(track.id).isOpen,
+        Rows.maybeQueuedPlace(context.rows, rowIdOf(track, context)),
+        Rows.menuOf(context.rows, rowIdOf(track, context)).isOpen,
       ),
       buttonClassName: iconControlClass("OnPage"),
       buttonAttributes: childAttributes([
@@ -677,8 +685,7 @@ const rowMenuView = (
       backdropClassName: MENU_BACKDROP_CLASS,
       anchor: { placement: "bottom-end", gap: 4, padding: 12 },
     },
-    toParentMessage: (message) =>
-      Message.GotRowMenuMessage({ from: context.from, trackId: track.id, message }),
+    toParentMessage: (message) => Message.GotRowsMessage({ message }),
   });
 
 /**
@@ -726,7 +733,7 @@ const noticeView = (
   context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): Html =>
-  saidView(Array.join(sentences(track, pages, status, context.queuedOf(track.id)), " "), h);
+  saidView(Array.join(sentences(track, pages, status, Rows.maybeQueuedPlace(context.rows, rowIdOf(track, context))), " "), h);
 
 /**
  * A row: its surface, with the control that plays and the control that

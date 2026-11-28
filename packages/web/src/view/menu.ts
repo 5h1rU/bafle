@@ -1,6 +1,6 @@
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { PlayerAction } from "../player/moreMenu.ts";
-import type { RowAction } from "../rowMenu.ts";
+import type { RowAction } from "../rows/model.ts";
 import { albumIcon, detailsIcon, playLastIcon, playNextIcon } from "./icon.ts";
 
 // MENUS

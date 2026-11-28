@@ -15,7 +15,7 @@ import {
 } from "../src/model.ts";
 import * as Player from "../src/player/index.ts";
 import { AppRoute, isSamePage, routeToUrl, urlToAppRoute } from "../src/route.ts";
-import { rowMenuIn } from "../src/rowMenu.ts";
+import * as Rows from "../src/rows/index.ts";
 import { PAGE_IDS } from "../src/view/layout.ts";
 import {
   after,
@@ -120,7 +120,7 @@ describe("Go to album, from a row's menu", () => {
     );
 
     // The menu stays open while the album is on its way: its item says so.
-    expect(rowMenuIn(chosen.model.rowMenus, row).isOpen).toBe(true);
+    expect(Rows.menuOf(chosen.model.rows, row).isOpen).toBe(true);
     expect(chosen.model.route).toEqual(AppRoute.New());
     expect(chosen.model.awaiting).toMatchObject({ _tag: "Intention", route: albumRoute });
     expect(albumData(chosen.model, album.id)).toEqual(AlbumData.Loading());
@@ -331,7 +331,7 @@ describe("playing from the album's page", () => {
     );
 
     expect(session(queued).later.map((waiting) => waiting.id)).toEqual([albumOpener.id]);
-    expect(queued.rowDone.maybeRow).toEqual(
+    expect(queued.rows.done.maybeRow).toEqual(
       Option.some({ from: "Album", trackId: albumOpener.id, place: "Last" }),
     );
   });

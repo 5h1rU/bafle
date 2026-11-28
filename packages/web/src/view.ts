@@ -7,7 +7,6 @@ import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
 import { Button, Nav } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
-import { pipe } from "effect/Function";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import { AsyncData } from "foldkit";
@@ -49,7 +48,7 @@ import {
 } from "./model.ts";
 import * as Player from "./player/index.ts";
 import * as Sheet from "./sheet/index.ts";
-import { rowMenuIn } from "./rowMenu.ts";
+import * as Rows from "./rows/index.ts";
 import * as Album from "./page/album.ts";
 import * as Artist from "./page/artist.ts";
 import * as Genre from "./page/genre.ts";
@@ -503,15 +502,14 @@ type Listed = Readonly<{
   tracks: Model["tracks"];
   albums: Model["albums"];
   albumRows: Model["albumRows"];
-  rowMenus: Model["rowMenus"];
-  rowDone: Model["rowDone"];
+  rows: Model["rows"];
 }>;
 
 /** What a list reads of the Model. */
 const listContext = (
   presence: Presence,
   from: PlayOrigin,
-  { tracks, albums, albumRows, rowMenus, rowDone }: Listed,
+  { tracks, albums, albumRows, rows }: Listed,
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
 ): TrackListContext => ({
@@ -526,13 +524,7 @@ const listContext = (
     ),
   statusOf: (trackId) => Player.statusFor(playingTrackId, playingStatus, trackId),
   isPlayerHolding: playingTrackId !== undefined,
-  menuOf: (trackId) => rowMenuIn(rowMenus, { from, trackId }),
-  queuedOf: (trackId) =>
-    pipe(
-      rowDone.maybeRow,
-      Option.filter((row) => row.from === from && row.trackId === trackId),
-      Option.map((row) => row.place),
-    ),
+  rows,
 });
 
 /**
@@ -634,8 +626,7 @@ const newPlaceView = (
   albumRows: Model["albumRows"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
-  rowMenus: Model["rowMenus"],
-  rowDone: Model["rowDone"],
+  rows: Model["rows"],
   h: HtmlBuilder<Message>,
 ): Html =>
   pagePlaceView(
@@ -647,7 +638,7 @@ const newPlaceView = (
             listContext(
               presence,
               "New",
-              { tracks, albums, albumRows, rowMenus, rowDone },
+              { tracks, albums, albumRows, rows },
               playingTrackId,
               playingStatus,
             ),
@@ -676,14 +667,13 @@ const searchPlaceView = (
   playlists: Model["playlists"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
-  rowMenus: Model["rowMenus"],
-  rowDone: Model["rowDone"],
+  rows: Model["rows"],
   h: HtmlBuilder<Message>,
 ): Html => {
   const context = listContext(
     presence,
     "Search",
-    { tracks, albums, albumRows, rowMenus, rowDone },
+    { tracks, albums, albumRows, rows },
     playingTrackId,
     playingStatus,
   );
@@ -722,8 +712,7 @@ const albumPlaceView = (
   albumRows: Model["albumRows"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
-  rowMenus: Model["rowMenus"],
-  rowDone: Model["rowDone"],
+  rows: Model["rows"],
   h: HtmlBuilder<Message>,
 ): Html => {
   if (albumId === undefined) {
@@ -741,7 +730,7 @@ const albumPlaceView = (
             listContext(
               presence,
               "Album",
-              { tracks, albums, albumRows, rowMenus, rowDone },
+              { tracks, albums, albumRows, rows },
               playingTrackId,
               playingStatus,
             ),
@@ -767,8 +756,7 @@ const artistPlaceView = (
   albumRows: Model["albumRows"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
-  rowMenus: Model["rowMenus"],
-  rowDone: Model["rowDone"],
+  rows: Model["rows"],
   h: HtmlBuilder<Message>,
 ): Html => {
   if (artistId === undefined) {
@@ -786,7 +774,7 @@ const artistPlaceView = (
             listContext(
               presence,
               "Artist",
-              { tracks, albums, albumRows, rowMenus, rowDone },
+              { tracks, albums, albumRows, rows },
               playingTrackId,
               playingStatus,
             ),
@@ -809,8 +797,7 @@ const playlistPlaceView = (
   albumRows: Model["albumRows"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
-  rowMenus: Model["rowMenus"],
-  rowDone: Model["rowDone"],
+  rows: Model["rows"],
   h: HtmlBuilder<Message>,
 ): Html => {
   if (playlistId === undefined) {
@@ -828,7 +815,7 @@ const playlistPlaceView = (
             listContext(
               presence,
               "Playlist",
-              { tracks, albums, albumRows, rowMenus, rowDone },
+              { tracks, albums, albumRows, rows },
               playingTrackId,
               playingStatus,
             ),
@@ -856,8 +843,7 @@ const genrePlaceView = (
   playlists: Model["playlists"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
-  rowMenus: Model["rowMenus"],
-  rowDone: Model["rowDone"],
+  rows: Model["rows"],
   h: HtmlBuilder<Message>,
 ): Html => {
   if (genreId === undefined) {
@@ -875,7 +861,7 @@ const genrePlaceView = (
             listContext(
               presence,
               "Genre",
-              { tracks, albums, albumRows, rowMenus, rowDone },
+              { tracks, albums, albumRows, rows },
               playingTrackId,
               playingStatus,
             ),
@@ -898,8 +884,7 @@ const stationPlaceView = (
   albumRows: Model["albumRows"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
-  rowMenus: Model["rowMenus"],
-  rowDone: Model["rowDone"],
+  rows: Model["rows"],
   h: HtmlBuilder<Message>,
 ): Html => {
   if (stationId === undefined) {
@@ -917,7 +902,7 @@ const stationPlaceView = (
             listContext(
               presence,
               "Station",
-              { tracks, albums, albumRows, rowMenus, rowDone },
+              { tracks, albums, albumRows, rows },
               playingTrackId,
               playingStatus,
             ),
@@ -935,7 +920,7 @@ const passingPlaceView = (
   tracks: Model["tracks"],
   playingTrackId: TrackId | undefined,
   playingStatus: Player.TrackStatus,
-  rowDone: Model["rowDone"],
+  rows: Model["rows"],
   h: HtmlBuilder<Message>,
 ): Html =>
   AppRoute.matchOrElse(
@@ -952,11 +937,7 @@ const passingPlaceView = (
               {
                 // A queue is what comes after a track: there is one once something plays.
                 isOffered: playingTrackId !== undefined,
-                maybeQueued: pipe(
-                  rowDone.maybeRow,
-                  Option.filter((row) => row.from === "Track" && row.trackId === trackId),
-                  Option.map((row) => row.place),
-                ),
+                maybeQueued: Rows.maybeQueuedPlace(rows, { from: "Track", trackId }),
               },
               h,
             ),
@@ -1010,8 +991,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.albumRows,
       playingTrackId,
       playingStatus,
-      model.rowMenus,
-      model.rowDone,
+      model.rows,
       h,
     ]),
     lazySearchPlace(searchPlaceView, [
@@ -1026,8 +1006,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.playlists,
       playingTrackId,
       playingStatus,
-      model.rowMenus,
-      model.rowDone,
+      model.rows,
       h,
     ]),
     // NOTE: an `Option` made on each draw would be a new object, so the
@@ -1040,8 +1019,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.albumRows,
       playingTrackId,
       playingStatus,
-      model.rowMenus,
-      model.rowDone,
+      model.rows,
       h,
     ]),
     lazyArtistPlace(artistPlaceView, [
@@ -1053,8 +1031,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.albumRows,
       playingTrackId,
       playingStatus,
-      model.rowMenus,
-      model.rowDone,
+      model.rows,
       h,
     ]),
     lazyPlaylistPlace(playlistPlaceView, [
@@ -1066,8 +1043,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.albumRows,
       playingTrackId,
       playingStatus,
-      model.rowMenus,
-      model.rowDone,
+      model.rows,
       h,
     ]),
     lazyGenresPlace(genresPlaceView, [
@@ -1093,8 +1069,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.playlists,
       playingTrackId,
       playingStatus,
-      model.rowMenus,
-      model.rowDone,
+      model.rows,
       h,
     ]),
     lazyStationPlace(stationPlaceView, [
@@ -1106,8 +1081,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
       model.albumRows,
       playingTrackId,
       playingStatus,
-      model.rowMenus,
-      model.rowDone,
+      model.rows,
       h,
     ]),
     // NOTE: the expanded player is drawn from the player itself, which
@@ -1119,7 +1093,7 @@ const pagesView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
           model.tracks,
           playingTrackId,
           playingStatus,
-          model.rowDone,
+          model.rows,
           h,
         ]),
   ];

@@ -243,7 +243,7 @@ describe("playing from the playlist's page", () => {
     );
 
     expect(session(queued).later.map((waiting) => waiting.id)).toEqual([explicitTrack.id]);
-    expect(queued.rowDone.maybeRow).toEqual(
+    expect(queued.rows.done.maybeRow).toEqual(
       Option.some({ from: "Playlist", trackId: explicitTrack.id, place: "Last" }),
     );
   });

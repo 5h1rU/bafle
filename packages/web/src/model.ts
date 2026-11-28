@@ -17,7 +17,7 @@ import {
 import { PlaylistId } from "@bafle/domain/Catalog/Playlist";
 import { StationId } from "@bafle/domain/Catalog/Station";
 import { Track, TrackId } from "@bafle/domain/Catalog/Track";
-import { Menu, Popover } from "@foldkit/ui";
+import { Popover } from "@foldkit/ui";
 import * as Array from "effect/Array";
 import { pipe } from "effect/Function";
 import * as HashMap from "effect/HashMap";
@@ -26,10 +26,10 @@ import * as Schema from "effect/Schema";
 import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "./catalog.ts";
-import { InputMethod, PlayOrigin } from "./message.ts";
+import { InputMethod } from "./message.ts";
+import * as Rows from "./rows/model.ts";
 import {
   Model as PlayerModel,
-  QueuePlace,
   followsSound,
   maybeCurrentTrackId,
 } from "./player/model.ts";
@@ -165,23 +165,6 @@ export const Ahead = Schema.Struct({
 export type Ahead = typeof Ahead.Type;
 
 /**
- * The row whose control shows, for a moment, that what was chosen from its
- * menu is done: its track was put in the queue, and where. Each one takes
- * the next turn, so the moment that ends for an earlier one clears nothing.
- */
-export const RowDone = Schema.Struct({
-  turn: Schema.Int,
-  maybeRow: Schema.Option(
-    Schema.Struct({ from: PlayOrigin, trackId: TrackId, place: QueuePlace }),
-  ),
-});
-export type RowDone = typeof RowDone.Type;
-
-/** A row, as the Model names it: the page it is on and its track. */
-export const Row = Schema.Struct({ from: PlayOrigin, trackId: TrackId });
-export type Row = typeof Row.Type;
-
-/**
  * The notice over a page that shows what it held because it could not be
  * refreshed: there to be read, or put away by the listener.
  */
@@ -238,7 +221,7 @@ export const Model = Schema.Struct({
    * opening, or how that ended. An album chosen from a shelf has no entry,
    * and its tile says that it is opening.
    */
-  albumRows: Schema.HashMap(AlbumId, Row),
+  albumRows: Schema.HashMap(AlbumId, Rows.RowId),
   /**
    * What the catalog said about every artist asked for since the app loaded,
    * kept as `albums` is. An artist is only ever chosen from a shelf, so their
@@ -299,11 +282,10 @@ export const Model = Schema.Struct({
   screen: Screen,
   inputMethod: InputMethod,
   /**
-   * The menus at the end of the rows, each under its row's id: those that
-   * have been touched. Any other is a closed menu, and is not kept.
+   * The rows of every list, between them: the menus at their ends, and
+   * which of them shows that something was done (`rows/`).
    */
-  rowMenus: Schema.HashMap(Schema.String, Menu.Model),
-  rowDone: RowDone,
+  rows: Rows.Model,
   /**
    * What Home's control opens on a narrow screen: who made the app
    * (`about.ts`). It is Home's, and is closed when another page takes the

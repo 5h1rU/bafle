@@ -1,30 +1,21 @@
 import { TrackId } from "@bafle/domain/Catalog/Track";
-import { Menu, Popover } from "@foldkit/ui";
+import { Popover } from "@foldkit/ui";
 import * as Schema from "effect/Schema";
 import { defineMessageUnion } from "foldkit/message";
 import { UrlRequest } from "foldkit/navigation";
 import { Url } from "foldkit/url";
 import { Catalog } from "./catalog.ts";
+import { PlayOrigin } from "./playOrigin.ts";
 import { Message as PlayerMessage } from "./player/message.ts";
 import { QueuePlace } from "./player/model.ts";
+import { Message as RowsMessage } from "./rows/message.ts";
 import { Screen } from "./screen.ts";
 import { Message as SheetMessage } from "./sheet/message.ts";
 import { TurnWay } from "./turn.ts";
 
 // MESSAGE
 
-/** The page a track was played from: its list there is what plays after it. */
-export const PlayOrigin = Schema.Literals([
-  "New",
-  "Search",
-  "Track",
-  "Album",
-  "Artist",
-  "Playlist",
-  "Genre",
-  "Station",
-]);
-export type PlayOrigin = typeof PlayOrigin.Type;
+export { PlayOrigin } from "./playOrigin.ts";
 
 export const InputMethod = Schema.Literals(["Keyboard", "Pointer"]);
 export type InputMethod = typeof InputMethod.Type;
@@ -49,7 +40,8 @@ export const Message = defineMessageUnion({
   /** Escape in Search's field, with something typed in it: it empties the field too. */
   PressedEscapeInSearch: {},
   ClickedPlayTrack: { trackId: TrackId, from: PlayOrigin },
-  GotRowMenuMessage: { from: PlayOrigin, trackId: TrackId, message: Menu.Message },
+  /** The rows of every list: the menus at their ends, and what they show was done. */
+  GotRowsMessage: { message: RowsMessage },
   /** Home's control that says who made the app, and what it opens. */
   GotAboutMessage: { message: Popover.Message },
   ScrolledDown: {},
@@ -83,6 +75,5 @@ export const Message = defineMessageUnion({
   CompletedScrollPageToTop: {},
   CompletedPaintSystemBar: {},
   CompletedHoldDockMotion: {},
-  CompletedWaitToClearRowDone: { turn: Schema.Int },
 });
 export type Message = typeof Message.Type;
