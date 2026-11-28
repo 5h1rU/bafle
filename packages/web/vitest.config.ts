@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig, mergeConfig } from "vitest/config";
 import app from "./vite.config.ts";
@@ -29,10 +30,34 @@ export default mergeConfig(
         // another way (a share of a token in place of `rgb()`) is drawn a
         // level or two apart in a letter's edge, and nothing a listener
         // could see is as near as that. No pixel may be further off.
+        //
+        // The pictures kept are CI's, drawn in GitHub Actions, beside each
+        // test. Any other machine draws the same page a few levels of colour
+        // apart, so it compares with pictures of its own, in a folder git
+        // leaves out (`local`): a Linux machine's would otherwise bear the
+        // very names of CI's and be drawn over them.
         expect: {
           toMatchScreenshot: {
             comparatorName: "pixelmatch",
             comparatorOptions: { threshold: 0.01, allowedMismatchedPixels: 0 },
+            resolveScreenshotPath: ({
+              arg,
+              ext,
+              root,
+              testFileDirectory,
+              screenshotDirectory,
+              testFileName,
+              browserName,
+              platform,
+            }) =>
+              resolve(
+                root,
+                testFileDirectory,
+                screenshotDirectory,
+                process.env.GITHUB_ACTIONS === "true" ? "" : "local",
+                testFileName,
+                `${arg}-${browserName}-${platform}${ext}`,
+              ),
           },
         },
       },
