@@ -33,6 +33,8 @@ const world = () => {
           return Option.fromNullishOr(texts.get(name));
         }),
       write: (name, text) => Effect.sync(() => void texts.set(name, text)),
+      // NOTE: the test runs the work itself, later, and needs nothing of what it needs.
+      // oxlint-disable-next-line typescript/consistent-type-assertions
       behind: (work) => Effect.sync(() => void waiting.push(work as Effect.Effect<void>)),
     });
   return {

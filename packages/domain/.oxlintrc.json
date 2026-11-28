@@ -1,0 +1,12 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "extends": [
+    "../../.oxlintrc.base.json"
+  ],
+  "ignorePatterns": [
+    "dist/",
+    "node_modules/",
+    "**/*.d.ts",
+    "vitest.config.ts"
+  ]
+}

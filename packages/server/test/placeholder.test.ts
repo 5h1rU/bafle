@@ -6,8 +6,8 @@ import { DeezerMusicCatalog } from "../src/Deezer/DeezerMusicCatalog.ts";
 import { likenessSourceOf, toArtwork } from "../src/Deezer/translate.ts";
 import { KeptRepliesInMemory } from "../src/Kept/KeptReplies.ts";
 import { artworksIn, withPlaceholders } from "../src/Placeholder/artworks.ts";
-import { likenessOf, type Picture, PicturePlaceholders } from "../src/Placeholder/PicturePlaceholders.ts";
-import { decodePng, PngUnreadable } from "../src/Placeholder/png.ts";
+import { type Picture, PicturePlaceholders, likenessOf } from "../src/Placeholder/PicturePlaceholders.ts";
+import { PngUnreadable, decodePng } from "../src/Placeholder/png.ts";
 import { MusicCatalog } from "@bafle/domain/Catalog/MusicCatalog.external";
 import { fakeDeezer, stocked } from "./deezer.ts";
 
@@ -15,6 +15,8 @@ import { fakeDeezer, stocked } from "./deezer.ts";
 // checked against pixels it did not write.
 
 type Filter = 0 | 1 | 2 | 3 | 4;
+
+const FILTERS: ReadonlyArray<Filter> = [0, 1, 2, 3, 4];
 
 const paeth = (left: number, up: number, upLeft: number): number => {
   const estimate = left + up - upLeft;
@@ -80,7 +82,7 @@ const gradient = (x: number, y: number) => [x * 7, y * 5, (x * y) % 256];
 
 it.effect("a PNG is read whatever filters its rows were written with", () =>
   Effect.gen(function* () {
-    const png = yield* Effect.promise(() => writePng(9, 10, 3, gradient, (row) => (row % 5) as Filter));
+    const png = yield* Effect.promise(() => writePng(9, 10, 3, gradient, (row) => FILTERS[row % 5] ?? 0));
     const pixels = yield* decodePng(png);
     expect([pixels.width, pixels.height]).toEqual([9, 10]);
     expect(Array.from(pixels.rgba.subarray(0, 4))).toEqual([0, 0, 0, 255]);

@@ -294,7 +294,7 @@ const moveInQueue = (session: Session, from: number, to: number): Step => {
   const later = [...session.later];
   later.splice(from, 1);
   later.splice(Math.max(0, Math.min(to, later.length)), 0, track);
-  return settle({ ...session, later });
+  return settle(modifyFields(session, { later: () => later }));
 };
 
 /**
@@ -575,7 +575,7 @@ const foldSeekSlider = (wasDragging: boolean) =>
 const turnTo =
   (session: Session, pane: Session["pane"]): Step =>
   (model) => ({
-    model: withSession(model, { ...session, pane }),
+    model: withSession(model, modifyFields(session, { pane: () => pane })),
     commands: [ShowFaceFromTop()],
   });
 

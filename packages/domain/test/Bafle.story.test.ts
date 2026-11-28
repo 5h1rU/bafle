@@ -9,7 +9,7 @@ import { AlbumNotFound } from "../src/Catalog/AlbumNotFound.rejection.ts";
 import { ArtistId } from "../src/Catalog/Artist.ts";
 import { ArtistDetail, TOP_TRACKS } from "../src/Catalog/ArtistDetail.query.ts";
 import { ArtistNotFound } from "../src/Catalog/ArtistNotFound.rejection.ts";
-import { CatalogSearch, noResults, SEARCH_LIMIT } from "../src/Catalog/CatalogSearch.query.ts";
+import { CatalogSearch, SEARCH_LIMIT, noResults } from "../src/Catalog/CatalogSearch.query.ts";
 import { CatalogUnavailable } from "../src/Catalog/CatalogUnavailable.rejection.ts";
 import { GenreId } from "../src/Catalog/Genre.ts";
 import { GENRE_TOP_TRACKS, GenreDetail } from "../src/Catalog/GenreDetail.query.ts";

@@ -264,7 +264,7 @@
 /* THE QUEUE'S COLUMN COMING AND GOING
 
    On a desktop's screen the queue opens in a column past the page
-   (player/queue.ts). The column comes in from the side it stands on and
+   (player/queue/view.ts). The column comes in from the side it stands on and
    goes back off it. The page beside it has its new width in the one frame:
    a width that changed little by little would lay every shelf out again on
    every frame of the way. The island stands in the middle of the page's

@@ -39,5 +39,9 @@ export const withPlaceholders = <A>(value: A, likenesses: ReadonlyMap<string, st
     }
     return part;
   };
+  // NOTE: what is rebuilt has the shape of what it was built from, with only
+  // a field added to each picture: that is known here and not to the compiler,
+  // which sees a value walked as `unknown`.
+  // oxlint-disable-next-line typescript/consistent-type-assertions
   return likenesses.size === 0 ? value : (rebuild(value) as A);
 };

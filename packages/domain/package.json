@@ -8,6 +8,7 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
+    "lint": "oxlint src test",
     "test": "vitest run"
   },
   "dependencies": {

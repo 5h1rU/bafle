@@ -1,5 +1,5 @@
 import { AlbumId, type AlbumSummary } from "@bafle/domain/Catalog/Album";
-import { ArtistId, type ArtistCredit, type ArtistSummary } from "@bafle/domain/Catalog/Artist";
+import { type ArtistCredit, ArtistId, type ArtistSummary } from "@bafle/domain/Catalog/Artist";
 import type { Artwork } from "@bafle/domain/Catalog/Artwork";
 import { PlaylistId, type PlaylistSummary } from "@bafle/domain/Catalog/Playlist";
 import type { Album } from "@bafle/domain/Catalog/FullAlbum";

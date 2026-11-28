@@ -12,8 +12,8 @@ import * as Layer from "effect/Layer";
 import * as TestClock from "effect/testing/TestClock";
 import {
   ARTIST_ALBUMS,
-  DeezerMusicCatalog,
   AUDIO_ADDRESS_LASTS,
+  DeezerMusicCatalog,
   LISTS_FRESH_FOR,
   SHELF_SIZE,
   TRENDING_FRESH_FOR,

@@ -9,7 +9,7 @@ import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { rgbaToThumbHash } from "thumbhash";
-import { decodePng, PngUnreadable } from "./png.ts";
+import { PngUnreadable, decodePng } from "./png.ts";
 
 /**
  * A picture whose likeness is wanted: what it is known by (one of its
@@ -157,12 +157,13 @@ export const PicturePlaceholdersKV = Layer.effect(
           yield* execution === Cloudflare.deferredExecutionContext ? work : execution.waitUntil(work);
         }
       }
-      return new Map(
+      const found: ReadonlyMap<string, string> = new Map(
         wanted.flatMap((picture) => {
           const likeness = known.get(picture.key);
           return likeness === undefined ? [] : [[picture.key, likeness] as const];
         }),
-      ) as ReadonlyMap<string, string>;
+      );
+      return found;
     });
 
     // NOTE: KV's client names the host's RuntimeContext in its type, and an
