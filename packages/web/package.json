@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint src test",
-    "test": "vitest run"
+    "test": "vitest run",
+    "draw-pictures": "vitest run test/visual --update"
   },
   "dependencies": {
     "@alchemy.run/domain": "catalog:",

@@ -12,6 +12,7 @@
     "typecheck": "tsc -b",
     "build": "pnpm -r --filter './packages/*' --if-present build",
     "test": "pnpm -r --filter './packages/*' test",
+    "draw-pictures": "pnpm --filter @bafle/web draw-pictures",
     "lint": "pnpm -r --filter './packages/*' --if-present lint",
     "format": "oxfmt packages alchemy.run.ts",
     "format:check": "oxfmt --check packages alchemy.run.ts"
