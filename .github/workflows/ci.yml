@@ -1,5 +1,5 @@
-# Every push to main and every pull request is formatted, linted, typed and
-# tested here.
+# Every push to main and every pull request is formatted, linted, typed, built
+# and tested here.
 #
 # The tests run in Playwright's own image, at the release the catalog pins
 # (`playwright` in pnpm-workspace.yaml), with Inter as the system's type
@@ -63,6 +63,11 @@ jobs:
       - run: pnpm lint
 
       - run: pnpm typecheck
+
+      # The app as the deploy builds it. The Workers are bundled by Alchemy
+      # as it deploys, which asks for the account; their types are checked
+      # above.
+      - run: pnpm build
 
       - if: ${{ !inputs.draw-pictures }}
         run: pnpm test

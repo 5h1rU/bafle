@@ -23,6 +23,7 @@ pnpm install
 pnpm test          # every package's tests
 pnpm typecheck     # tsc -b over the whole monorepo
 pnpm lint          # oxlint, with Foldkit's rules for the app
+pnpm build         # the app, built with Vite as the deploy builds it
 pnpm dev           # alchemy dev: Workers in local workerd, the app on Vite
 ```
 
@@ -34,7 +35,7 @@ The app's tests run in a real browser (Vitest's browser mode, on Playwright's Ch
 
 Three kinds, all under `packages/web/test`. Stories drive `update` and scenes drive the view, as Foldkit's own do. The tests under `test/visual` look at the app: each hands a Model to the app's own view, draws it on a phone's screen or a desktop's with the style sheet the app ships (`looksAs` in `test/visual/draw.ts`), and compares what is seen with a picture kept beside the test (`toMatchScreenshot`, in `__screenshots__`). A change that is not meant to be seen leaves every picture as it was; one that is meant to be seen is looked at and then kept. The pictures are drawn in CI and nowhere else (`.github/workflows/ci.yml`): in Playwright's image at the release the catalog pins, with Inter as the system's type (`test/visual/fonts.conf`), since the app's type is the system's and the comparison allows no pixel off. To keep a change that is meant to be seen, run that workflow by hand with "Draw the pictures again" on the branch: it draws them (`vitest run test/visual --update`) and commits them there, and they are looked at in the commit. A run on a Mac draws pictures of its own (`-chromium-darwin`), which are that machine's and are not kept (`.gitignore`).
 
-Every push to main and every pull request is formatted (`pnpm format:check`, oxfmt), linted, typed and tested by that workflow. `pnpm format` lays the code out.
+Every push to main and every pull request is formatted (`pnpm format:check`, oxfmt), linted, typed, built (`pnpm build`) and tested by that workflow. `pnpm format` lays the code out.
 
 ## Where the provider is chosen
 
