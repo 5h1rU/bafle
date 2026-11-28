@@ -1,9 +1,9 @@
 import { clsx } from "clsx";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
-import { ISLAND_LIGHTS_ATTRIBUTE, LIGHT_LENGTH } from "./islandLight.ts";
+import { ISLAND_LIGHTS_ATTRIBUTE, LIGHT_LENGTH } from "./light.ts";
 import type { Message } from "./message.ts";
-import type { IslandLight } from "./model.ts";
-import { ISLAND_LAYER_ATTRIBUTE, ISLAND_OUTLINE_ATTRIBUTE, StartIslandLight } from "./mount.ts";
+import type { Light } from "./model.ts";
+import { ISLAND_LAYER_ATTRIBUTE, ISLAND_OUTLINE_ATTRIBUTE, StartLight } from "./mount.ts";
 
 // VIEW
 
@@ -16,7 +16,7 @@ import { ISLAND_LAYER_ATTRIBUTE, ISLAND_OUTLINE_ATTRIBUTE, StartIslandLight } fr
 //
 // None of the paths here says where it goes. The outline depends on how wide
 // the island is in the document at that moment, so the Mount
-// `DrawIslandFigure` writes it to every path marked as an outline, in the
+// `DrawFigure` writes it to every path marked as an outline, in the
 // frame the width changes. How the layers look, and how the light travels,
 // is drawn here; the names its shadow and its light travel under in a view
 // transition are in island.css.
@@ -71,7 +71,7 @@ const GLOW: ReadonlyArray<Stroke> = [
 
 const round = (value: number): string => String(Math.round(value * 1000) / 1000);
 
-/** A path along the island's outline. Where it goes is written to it by `DrawIslandFigure`. */
+/** A path along the island's outline. Where it goes is written to it by `DrawFigure`. */
 const outlineView = (className: string, h: HtmlBuilder<Message>): Html =>
   h.path([h.DataAttribute(ISLAND_OUTLINE_ATTRIBUTE, ""), h.Class(className)]);
 
@@ -210,7 +210,7 @@ const figureView = (maybeCover: string | undefined, h: HtmlBuilder<Message>): Ht
   );
 
 /** How bright the light is: dark until there has been sound, bright while it travels, an ember at rest. */
-const LIGHTS: Readonly<Record<IslandLight, string>> = {
+const LIGHTS: Readonly<Record<Light, string>> = {
   Dark: "opacity-0",
   Resting: "opacity-30",
   Travelling: "opacity-100",
@@ -219,9 +219,9 @@ const LIGHTS: Readonly<Record<IslandLight, string>> = {
 /**
  * The light. What it does is the Model's to say, and shows as how bright it
  * is; its animations are set going or held, as it enters the document, by
- * the Mount `StartIslandLight`.
+ * the Mount `StartLight`.
  */
-const lightsView = (light: IslandLight, h: HtmlBuilder<Message>): Html =>
+const lightsView = (light: Light, h: HtmlBuilder<Message>): Html =>
   h.div(
     [
       h.DataAttribute(ISLAND_LIGHTS_ATTRIBUTE, ""),
@@ -234,7 +234,7 @@ const lightsView = (light: IslandLight, h: HtmlBuilder<Message>): Html =>
           LIGHTS[light],
         ),
       ),
-      h.OnMount(StartIslandLight({ initialLight: light })),
+      h.OnMount(StartLight({ initialLight: light })),
     ],
     [
       // The glow is blurred as a whole, so it has no edge.
@@ -254,6 +254,6 @@ const lightsView = (light: IslandLight, h: HtmlBuilder<Message>): Html =>
 /** The three layers the island's pieces stand on and under. */
 export const islandFigureView = (
   maybeCover: string | undefined,
-  light: IslandLight,
+  light: Light,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => [shadowView(h), figureView(maybeCover, h), lightsView(light, h)];

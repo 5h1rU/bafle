@@ -159,7 +159,7 @@
   /* The island's light, going once round its edge. Each stroke of it is a
      stretch of the outline that sets out from its own place (`--sets-out`,
      in hundredths of the outline). It is held from the start: what sets it
-     going, and at what pace, is the Model's to say (`player/islandLight.ts`). */
+     going, and at what pace, is the Model's to say (`player/island/light.ts`). */
   --animate-island-light-travel: island-light-travel 10s linear infinite paused;
 
   @keyframes island-light-travel {

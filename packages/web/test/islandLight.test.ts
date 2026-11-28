@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { type Place, lengthNearest, wayRound } from "../src/player/islandLight.ts";
+import { type Place, lengthNearest, wayRound } from "../src/player/island/light.ts";
 
 /** A box walked clockwise from its top left corner: `wide` across and 40 down. */
 const box =

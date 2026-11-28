@@ -7,7 +7,6 @@ import * as Schema from "effect/Schema";
 import { Command, Dom, Render } from "foldkit";
 import { Catalog, REPLY_TIMEOUT } from "../catalog.ts";
 import { AudioEngine } from "./audioEngine.ts";
-import { ISLAND_LIGHTS_ATTRIBUTE, changePace } from "./islandLight.ts";
 import { Message } from "./message.ts";
 import { QUEUE_CONTROL_ID } from "./model.ts";
 
@@ -79,97 +78,6 @@ export const WaitBeforeShowingActivity = Command.define("WaitBeforeShowingActivi
     ),
 });
 
-// The title's times and speed were read off the app the island is modelled
-// on, frame by frame: a title starts to move about three and a half seconds
-// after its place last changed, and crosses it at about 45 points a second.
-// The wait between two passes is five seconds.
-
-/** How long the title stands before its first pass, counted from when its place last changed. */
-export const TITLE_STARTS_AFTER = Duration.millis(3500);
-
-/** How long the title stands between one pass and the next. */
-export const TITLE_RESTS_FOR = Duration.seconds(5);
-
-export const TITLE_PIXELS_PER_SECOND = 45;
-
-/** How long one pass takes: the way it goes, at the title's speed. */
-export const titlePassDuration = (travelPixels: number): Duration.Duration =>
-  Duration.millis((travelPixels / TITLE_PIXELS_PER_SECOND) * 1000);
-
-/** The title stands for a while before it travels: before its first pass, and between passes. */
-export const WaitToTravelTitle = Command.define("WaitToTravelTitle", {
-  args: { run: Schema.Int, milliseconds: Schema.Number },
-  messages: [Message.CompletedWaitToTravelTitle],
-  execute: ({ run, milliseconds }) =>
-    Effect.sleep(Duration.millis(milliseconds)).pipe(
-      Effect.as(Message.CompletedWaitToTravelTitle({ run })),
-    ),
-});
-
-/**
- * One pass of the title. The view moves it, with a transition as long as
- * this; the Command is the clock that says when the pass is over.
- */
-export const TravelTitle = Command.define("TravelTitle", {
-  args: { run: Schema.Int, milliseconds: Schema.Number },
-  messages: [Message.CompletedTravelTitle],
-  execute: ({ run, milliseconds }) =>
-    Effect.sleep(Duration.millis(milliseconds)).pipe(
-      Effect.as(Message.CompletedTravelTitle({ run })),
-    ),
-});
-
-// NOTE: who the track is by is a line of its own under the title, with its
-// own waits and passes at the title's times and speed. They are Commands of
-// their own, and not the title's given a second purpose: the two lines wait
-// and travel at once, and what ends for one must not be taken for the other.
-
-/** The artist's line stands for a while before it travels, as the title does. */
-export const WaitToTravelArtist = Command.define("WaitToTravelArtist", {
-  args: { run: Schema.Int, milliseconds: Schema.Number },
-  messages: [Message.CompletedWaitToTravelArtist],
-  execute: ({ run, milliseconds }) =>
-    Effect.sleep(Duration.millis(milliseconds)).pipe(
-      Effect.as(Message.CompletedWaitToTravelArtist({ run })),
-    ),
-});
-
-/** One pass of the artist's line: the clock that says when it is over. */
-export const TravelArtist = Command.define("TravelArtist", {
-  args: { run: Schema.Int, milliseconds: Schema.Number },
-  messages: [Message.CompletedTravelArtist],
-  execute: ({ run, milliseconds }) =>
-    Effect.sleep(Duration.millis(milliseconds)).pipe(
-      Effect.as(Message.CompletedTravelArtist({ run })),
-    ),
-});
-
-/**
- * The light gathers speed, or loses it and comes to rest: the document's
- * side of a change in what the Model says the light is doing. The light's
- * animations are the document's, so this is done to the document, to the
- * island that is in it; with no island there, the player being the whole
- * screen, there is nothing to do, and the island sets its own pace when it
- * comes back (the Mount `StartIslandLight`). A change that overtakes one
- * under way carries on from the pace the light had reached.
- */
-export const ChangeIslandLightPace = Command.define("ChangeIslandLightPace", {
-  args: { pace: Schema.Number },
-  messages: [Message.CompletedChangeIslandLightPace],
-  execute: ({ pace }) =>
-    Effect.suspend(() =>
-      Option.match(
-        Option.fromNullishOr(document.querySelector(`[data-${ISLAND_LIGHTS_ATTRIBUTE}]`)),
-        { onNone: () => Effect.void, onSome: (lights) => changePace(lights, pace) },
-      ),
-    ).pipe(Effect.as(Message.CompletedChangeIslandLightPace())),
-});
-
-/**
- * Ask the catalog for the track again: the source a list gave can have gone
- * stale since the list loaded, and the catalog's answer carries a fresh one.
- * No answer in time is a failure like any other.
- */
 export const RefreshSource = Command.define("RefreshSource", {
   args: { order: Schema.Int, trackId: TrackId },
   messages: [Message.SucceededRefreshSource, Message.FailedRefreshSource],

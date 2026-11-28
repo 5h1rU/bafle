@@ -3,6 +3,7 @@ import { DragAndDrop, Menu, Slider } from "@foldkit/ui";
 import * as Schema from "effect/Schema";
 import { defineMessageUnion } from "foldkit/message";
 import { EngineReport, StartOutcome } from "./audioEngine.ts";
+import * as Island from "./island/index.ts";
 
 // MESSAGE
 
@@ -30,6 +31,8 @@ export const Message = defineMessageUnion({
   GotSeekSliderMessage: { message: Slider.Message },
   GotMoreMenuMessage: { message: Menu.Message },
   GotQueueDragMessage: { message: DragAndDrop.Message },
+  /** The island: its figure, its light and its words. */
+  GotIslandMessage: { message: Island.Message },
   /** The engine's word. Everything the interface says of the sound comes from here. */
   UpdatedEngineStatus: { report: EngineReport },
   CompletedStartPlayback: { order: Schema.Int, outcome: StartOutcome },
@@ -40,21 +43,6 @@ export const Message = defineMessageUnion({
   SucceededRefreshSource: { order: Schema.Int, track: Track },
   FailedRefreshSource: { order: Schema.Int },
   CompletedPublishNowPlaying: {},
-  /**
-   * The island's title as it lies in the document: how wide its place is,
-   * and how far one pass takes it, or nothing when it fits.
-   */
-  MeasuredTitle: { placePixels: Schema.Number, maybeTravelPixels: Schema.Option(Schema.Number) },
-  CompletedWaitToTravelTitle: { run: Schema.Int },
-  CompletedTravelTitle: { run: Schema.Int },
-  /** The line under the title, who the track is by, as it lies in the document: measured as the title is. */
-  MeasuredArtist: { placePixels: Schema.Number, maybeTravelPixels: Schema.Option(Schema.Number) },
-  CompletedWaitToTravelArtist: { run: Schema.Int },
-  CompletedTravelArtist: { run: Schema.Int },
-  CompletedDrawIslandFigure: {},
-  CompletedFollowIslandPress: {},
-  CompletedChangeIslandLightPace: {},
-  CompletedStartIslandLight: {},
   CompletedShowFaceFromTop: {},
   CompletedFocusQueueControl: {},
 });

@@ -1,7 +1,6 @@
 import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
 import { DragAndDrop, Menu, Slider } from "@foldkit/ui";
 import * as Array from "effect/Array";
-import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
 import { pipe } from "effect/Function";
 import * as Match from "effect/Match";
@@ -12,7 +11,6 @@ import { modifyFields } from "foldkit/struct";
 import type { CatalogClient } from "../catalog.ts";
 import type { AudioEngine, EngineReport } from "./audioEngine.ts";
 import {
-  ChangeIslandLightPace,
   FocusQueueControl,
   PausePlayback,
   PublishNowPlaying,
@@ -21,33 +19,25 @@ import {
   SeekPlayback,
   ShowFaceFromTop,
   StartPlayback,
-  TITLE_RESTS_FOR,
-  TITLE_STARTS_AFTER,
-  TravelArtist,
-  TravelTitle,
   WaitBeforeShowingActivity,
-  WaitToTravelArtist,
-  WaitToTravelTitle,
-  titlePassDuration,
 } from "./command.ts";
+import * as Island from "./island/index.ts";
 import { type MediaKey, Message, OutMessage } from "./message.ts";
 import {
   type Cue,
-  type Marquee,
   type Model,
   Playback,
   type QueuePlace,
   Seek,
   type Session,
-  initialMarquee,
   initialSeekSlider,
   isAwaitingFirstSound,
   isPlayable,
   isUnderWay,
-  lightAfter,
   maybeCurrentTrackId,
   playableSource,
   queueFrom,
+  soundOf,
   toQueued,
   wantsToSound,
 } from "./model.ts";
@@ -67,9 +57,7 @@ export const RESTART_AFTER_SECONDS = 3;
 export const init = (): Model => ({
   lastOrder: 0,
   maybeSession: Option.none(),
-  light: "Dark",
-  title: initialMarquee,
-  artist: initialMarquee,
+  island: Island.init(),
   queueColumn: "Closed",
 });
 
@@ -728,173 +716,58 @@ const gotSeekSliderMessage = (model: Model, message: Slider.Message): UpdateRetu
   ]);
 };
 
-// THE ISLAND'S WORDS
+// THE ISLAND
 
-/**
- * One of the island's two lines of words, each a marquee of its own: where
- * the Model keeps it, and the Commands that keep its time.
- */
-type Line = Readonly<{
-  of: (model: Model) => Marquee;
-  put: (model: Model, next: Marquee) => Model;
-  wait: typeof WaitToTravelTitle | typeof WaitToTravelArtist;
-  travel: typeof TravelTitle | typeof TravelArtist;
-}>;
+const readIsland = (model: Model) => Option.some(model.island);
 
-const TITLE_LINE: Line = {
-  of: (model) => model.title,
-  put: (model, next) => modifyFields(model, { title: () => next }),
-  wait: WaitToTravelTitle,
-  travel: TravelTitle,
-};
+/** An island left as it was leaves the player as it was. */
+const writeIsland = (model: Model, nextIsland: Island.Model): Model =>
+  nextIsland === model.island ? model : modifyFields(model, { island: () => nextIsland });
 
-const ARTIST_LINE: Line = {
-  of: (model) => model.artist,
-  put: (model, next) => modifyFields(model, { artist: () => next }),
-  wait: WaitToTravelArtist,
-  travel: TravelArtist,
-};
+const toGotIslandMessage = (message: Island.Message): Message =>
+  Message.GotIslandMessage({ message });
 
-/** The line as it is held, or the very same Model when nothing of it changes. */
-const withLine = (line: Line, model: Model, next: Marquee): Model =>
-  Equal.equals(line.of(model), next) ? model : line.put(model, next);
+const foldIsland = Update.foldChild({
+  update: Island.update,
+  read: readIsland,
+  write: writeIsland,
+  toParentMessage: toGotIslandMessage,
+});
 
-/**
- * A line was measured again. What follows depends on what changed.
- *
- * Only its place: the island grew or narrowed under it. A pass goes as far
- * as the line is long, whatever the width of its place, so whatever is
- * under way, a wait or a pass, goes on undisturbed.
- *
- * It fits now, in the middle of a pass: it ends that pass, and stands for
- * good when it is over. Stopping it where it is would be a jump.
- *
- * Anything else, a line of another length or one that has started or
- * stopped fitting while it stood: it stands, and if it does not fit, the
- * wait before its first pass starts over.
- */
-const measuredLine =
-  (line: Line, placePixels: number, maybeTravelPixels: Option.Option<number>): Step =>
-  (model) => {
-    const marquee = line.of(model);
-    const isMidPass = marquee.phase !== "Standing";
+const foldIslandSound = Update.foldChild({
+  update: Island.informSound,
+  read: readIsland,
+  write: writeIsland,
+  toParentMessage: toGotIslandMessage,
+});
 
-    if (Option.isNone(maybeTravelPixels) && isMidPass) {
-      return { model: withLine(line, model, { ...marquee, placePixels, phase: "Finishing" }) };
-    }
-    if (Equal.equals(marquee.maybeTravelPixels, maybeTravelPixels)) {
-      return {
-        model: withLine(line, model, {
-          ...marquee,
-          placePixels,
-          phase: marquee.phase === "Finishing" ? "Travelling" : marquee.phase,
-        }),
-      };
-    }
-    const run = marquee.run + 1;
-    return {
-      model: line.put(model, { run, placePixels, maybeTravelPixels, phase: "Standing" }),
-      commands: Option.match(maybeTravelPixels, {
-        onNone: () => [],
-        onSome: () => [
-          line.wait({ run, milliseconds: Duration.toMillis(TITLE_STARTS_AFTER) }),
-        ],
-      }),
-    };
-  };
-
-/** A wait or a pass of a line counts only for the run it was started for. */
-const forLineRun =
-  (line: Line, run: number, act: (line: Line, travelPixels: number) => Step): Step =>
-  (model) =>
-    run === line.of(model).run
-      ? Option.match(line.of(model).maybeTravelPixels, {
-          onNone: () => ({ model }),
-          onSome: (travelPixels) => act(line, travelPixels)(model),
-        })
-      : { model };
-
-const startLinePass =
-  (line: Line, travelPixels: number): Step =>
-  (model) => ({
-    model: line.put(model, { ...line.of(model), phase: "Travelling" }),
-    commands: [
-      line.travel({
-        run: line.of(model).run,
-        milliseconds: Duration.toMillis(titlePassDuration(travelPixels)),
-      }),
-    ],
-  });
-
-/**
- * A pass is over. The line stands and waits for the next; one that came to
- * fit while it travelled has made its last, and stands unmeasured against
- * no wait: the run is closed.
- */
-const restLine =
-  (line: Line): Step =>
-  (model) => {
-    const marquee = line.of(model);
-
-    return marquee.phase === "Finishing"
-      ? {
-          model: line.put(model, {
-            run: marquee.run + 1,
-            placePixels: marquee.placePixels,
-            maybeTravelPixels: Option.none(),
-            phase: "Standing",
-          }),
-        }
-      : {
-          model: line.put(model, { ...marquee, phase: "Standing" }),
-          commands: [
-            line.wait({ run: marquee.run, milliseconds: Duration.toMillis(TITLE_RESTS_FOR) }),
-          ],
-        };
-  };
+const foldIslandTrackChanged = Update.foldChildStep({
+  update: Island.informTrackChanged,
+  read: readIsland,
+  write: writeIsland,
+  toParentMessage: toGotIslandMessage,
+});
 
 // WHAT FOLLOWS FROM THE REST
 
 /**
  * Two things follow from whatever a Message did, and are settled in one
- * place instead of in every handler: what the island's light does, which
- * follows the playback; and its words' standing still again, when another
- * track has become the current one and its words are other words.
+ * place instead of in every handler. Both are the island's, which is told:
+ * what the sound is doing, which its light follows; and that another track
+ * has become the current one, whose words are other words.
  */
-const withWhatFollows =
-  (previous: Model) =>
-  (result: UpdateReturn): UpdateReturn => {
-    const light = Option.match(result.model.maybeSession, {
-      onNone: () => result.model.light,
-      onSome: (session) => lightAfter(result.model.light, session.playback),
-    });
-    const isAnotherTrack = !Equal.equals(
-      maybeCurrentTrackId(previous),
-      maybeCurrentTrackId(result.model),
-    );
-    if (light === result.model.light && !isAnotherTrack) {
-      return result;
-    }
-    return {
-      model: modifyFields(result.model, {
-        light: () => light,
-        title: (title) =>
-          isAnotherTrack ? modifyFields(initialMarquee, { run: () => title.run + 1 }) : title,
-        artist: (artist) =>
-          isAnotherTrack ? modifyFields(initialMarquee, { run: () => artist.run + 1 }) : artist,
+const informIsland =
+  (previous: Model): Step =>
+  (model) =>
+    Update.combine(model, [
+      Option.match(model.maybeSession, {
+        onNone: () => unchanged,
+        onSome: (session) => foldIslandSound(soundOf(session.playback)),
       }),
-      // NOTE: the light's change of pace is the document's side of the
-      // Model's change of mind, so it is a Command given here, where the
-      // Model changes, and not a Subscription watching the Model for it.
-      commands:
-        light === result.model.light
-          ? (result.commands ?? [])
-          : [
-              ...(result.commands ?? []),
-              ChangeIslandLightPace({ pace: light === "Travelling" ? 1 : 0 }),
-            ],
-    };
-  };
+      Equal.equals(maybeCurrentTrackId(previous), maybeCurrentTrackId(model))
+        ? unchanged
+        : foldIslandTrackChanged,
+    ]);
 
 /**
  * That another track has become the current one is said to whoever holds
@@ -918,7 +791,10 @@ const maybeChangeOfTrack = (previous: Model, next: Model): OutMessage | undefine
  * does one or the other, never both.
  */
 const told = (previous: Model, result: UpdateReturnWithOutMessage): UpdateReturnWithOutMessage => {
-  const followed = withWhatFollows(previous)({ model: result.model, commands: result.commands });
+  const followed = Update.combine(result.model, [
+    (handled) => ({ model: handled, commands: result.commands }),
+    informIsland(previous),
+  ]);
   return Update.withOutMessage(
     followed,
     result.outMessage ?? maybeChangeOfTrack(previous, followed.model),
@@ -971,22 +847,11 @@ const handle = (model: Model, message: Message) =>
     SucceededRefreshSource: ({ order, track }) => retryWithFreshSource(order, track)(model),
     FailedRefreshSource: ({ order }) => giveUpOnSource(order)(model),
 
-    MeasuredTitle: ({ placePixels, maybeTravelPixels }) =>
-      measuredLine(TITLE_LINE, placePixels, maybeTravelPixels)(model),
-    CompletedWaitToTravelTitle: ({ run }) => forLineRun(TITLE_LINE, run, startLinePass)(model),
-    CompletedTravelTitle: ({ run }) => forLineRun(TITLE_LINE, run, restLine)(model),
-    MeasuredArtist: ({ placePixels, maybeTravelPixels }) =>
-      measuredLine(ARTIST_LINE, placePixels, maybeTravelPixels)(model),
-    CompletedWaitToTravelArtist: ({ run }) => forLineRun(ARTIST_LINE, run, startLinePass)(model),
-    CompletedTravelArtist: ({ run }) => forLineRun(ARTIST_LINE, run, restLine)(model),
+    GotIslandMessage: ({ message }) => foldIsland(model, message),
 
     CompletedPausePlayback: () => ({ model }),
     CompletedSeekPlayback: () => ({ model }),
     CompletedPublishNowPlaying: () => ({ model }),
-    CompletedDrawIslandFigure: () => ({ model }),
-    CompletedFollowIslandPress: () => ({ model }),
-    CompletedStartIslandLight: () => ({ model }),
-    CompletedChangeIslandLightPace: () => ({ model }),
     CompletedShowFaceFromTop: () => ({ model }),
     CompletedFocusQueueControl: () => ({ model }),
   });

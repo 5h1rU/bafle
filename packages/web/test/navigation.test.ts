@@ -11,6 +11,7 @@ import {
 } from "foldkit/scene";
 import * as Option from "effect/Option";
 import { describe, expect, test } from "vitest";
+import * as Marquee from "../src/marquee/index.ts";
 import { FocusNavigation } from "../src/command.ts";
 import { update } from "../src/main.ts";
 import { Message } from "../src/message.ts";
@@ -72,16 +73,16 @@ const expanded: Model = after(
 // Mounts it is given out of its own list as it finds them.
 const islandEnters = () =>
   Mount.resolveAll(
-    [Player.DrawIslandFigure, Player.Message.CompletedDrawIslandFigure()],
-    [Player.FollowIslandPress, Player.Message.CompletedFollowIslandPress()],
-    [Player.StartIslandLight, Player.Message.CompletedStartIslandLight()],
+    [Player.Island.DrawFigure, Player.Island.Message.CompletedDrawFigure()],
+    [Player.Island.FollowPress, Player.Island.Message.CompletedFollowPress()],
+    [Player.Island.StartLight, Player.Island.Message.CompletedStartLight()],
     [
-      Player.MeasureTitle,
-      Player.Message.MeasuredTitle({ placePixels: 0, maybeTravelPixels: Option.none() }),
+      Marquee.Measure,
+      Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
     ],
     [
-      Player.MeasureArtist,
-      Player.Message.MeasuredArtist({ placePixels: 0, maybeTravelPixels: Option.none() }),
+      Marquee.Measure,
+      Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
     ],
   );
 

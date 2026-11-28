@@ -1,24 +1,20 @@
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
-import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
-import * as Queue from "effect/Queue";
-import * as Stream from "effect/Stream";
 import { Mount } from "foldkit";
-import { islandOutline } from "../view/islandOutline.ts";
-import { startWhenSeen } from "../view/seenStart.ts";
-import { isShownByBrowser } from "../view/shownByBrowser.ts";
-import { ISLAND_LIGHTS_ATTRIBUTE, lightPlace, putLightNear, setPace } from "./islandLight.ts";
+import { islandOutline } from "../../view/islandOutline.ts";
+import { startWhenSeen } from "../../view/seenStart.ts";
+import { isShownByBrowser } from "../../view/shownByBrowser.ts";
+import { ISLAND_LIGHTS_ATTRIBUTE, lightPlace, putLightNear, setPace } from "./light.ts";
 import { Message } from "./message.ts";
-import { IslandLight } from "./model.ts";
+import { Light } from "./model.ts";
 
 // MOUNT
 
 // What the island needs of the document itself, once its pieces are in it:
-// how wide the title and its place are, the outline of the figure for the
-// width the island has at this moment, and the light's animations set to
-// what the Model says. Each is bound to the element it concerns and ends
-// with it.
+// the outline of the figure for the width the island has at this moment,
+// the light's animations set to what the Model says, and a press held long
+// enough to be seen. Each is bound to the element it concerns and ends with
+// it.
 
 /** Marks the piece of the island whose width is how far the tail reaches. */
 export const ISLAND_TAIL_ATTRIBUTE = "island-tail";
@@ -34,18 +30,6 @@ export const ISLAND_SURFACE_ATTRIBUTE = "island-surface";
 
 /** The data attribute that marks each of the layers the island's figure is drawn on. */
 export const ISLAND_LAYER_ATTRIBUTE = "island-layer";
-
-/**
- * What marks the pieces of a line of words that may travel, within its
- * place: the words themselves, and the line that is moved.
- */
-export type MarqueeMarks = Readonly<{ words: string; line: string }>;
-
-export const TITLE_MARKS: MarqueeMarks = { words: "title-words", line: "title-line" };
-export const ARTIST_MARKS: MarqueeMarks = { words: "artist-words", line: "artist-line" };
-
-/** A line fits when it is no wider than its place, give or take the rounding of a layout. */
-const FITS_WITHIN_PIXELS = 0.5;
 
 /** A quick tap can begin and end between two paints in iOS Safari. Hold
  * its visual feedback through the attack, independently of the click. */
@@ -94,99 +78,22 @@ const followIslandPress = (surface: Element): (() => void) => {
   };
 };
 
-export const FollowIslandPress = Mount.define("FollowIslandPress", {
-  messages: [Message.CompletedFollowIslandPress],
+export const FollowPress = Mount.define("FollowPress", {
+  messages: [Message.CompletedFollowPress],
   execute: ({ element }) => Effect.gen(function* () {
     yield* Effect.acquireRelease(
       Effect.sync(() => followIslandPress(element)),
       (stop) => Effect.sync(stop),
     );
-    return Message.CompletedFollowIslandPress();
+    return Message.CompletedFollowPress();
   }),
 });
-
-/** A place still changing width is not measured until it has stood this long. */
-const MEASURES_AFTER = Duration.millis(120);
 
 const pixels = (length: string): number => {
   const parsed = Number.parseFloat(length);
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-type Measure = Readonly<{ placePixels: number; maybeTravelPixels: Option.Option<number> }>;
-
-/**
- * A line of words as it lies in its place: the place's width, and how far
- * one pass takes the line when it does not fit. A pass ends with the line's
- * copy standing where the line began, so it goes the words' own width and
- * the gap between the two.
- */
-const measureLine = (place: Element, marks: MarqueeMarks): Option.Option<Measure> =>
-  Option.gen(function* () {
-    const words = yield* Option.fromNullishOr(place.querySelector(`[data-${marks.words}]`));
-    const line = yield* Option.fromNullishOr(place.querySelector(`[data-${marks.line}]`));
-    const placeStyle = getComputedStyle(place);
-    const placePixels =
-      place.clientWidth - pixels(placeStyle.paddingLeft) - pixels(placeStyle.paddingRight);
-    const wordsPixels = pixels(getComputedStyle(words).width);
-    const gapPixels = pixels(getComputedStyle(line).columnGap);
-
-    return {
-      placePixels: Math.round(placePixels),
-      maybeTravelPixels:
-        wordsPixels > placePixels + FITS_WITHIN_PIXELS
-          ? Option.some(Math.round(wordsPixels + gapPixels))
-          : Option.none(),
-    };
-  });
-
-/**
- * How a line lies in its place, said again whenever either changes width:
- * the place with the island, the words with the track. While the island is
- * on its way between its two places the width changes on every frame, and
- * nothing is said until it has settled.
- */
-const measuresOf = <Measured>(
-  element: Element,
-  marks: MarqueeMarks,
-  toMessage: (measure: Measure) => Measured,
-): Stream.Stream<Measured> =>
-  Stream.callback<void>((queue) =>
-    Effect.gen(function* () {
-      yield* Effect.acquireRelease(
-        Effect.sync(() => {
-          const sizes = new ResizeObserver(() => Queue.offerUnsafe(queue, undefined));
-          sizes.observe(element);
-          Option.match(Option.fromNullishOr(element.querySelector(`[data-${marks.words}]`)), {
-            onNone: () => undefined,
-            onSome: (words) => sizes.observe(words),
-          });
-          return sizes;
-        }),
-        (sizes) => Effect.sync(() => sizes.disconnect()),
-      );
-      return yield* Effect.never;
-    }),
-  ).pipe(
-    Stream.debounce(MEASURES_AFTER),
-    Stream.map(() => Option.toArray(Option.map(measureLine(element, marks), toMessage))),
-    Stream.flattenIterable,
-    Stream.changesWith<Measured>(Equal.equals),
-  );
-
-/** Tells the Model how the title lies in its place. */
-export const MeasureTitle = Mount.defineStream("MeasureTitle", {
-  messages: [Message.MeasuredTitle],
-  execute: ({ element }) => measuresOf(element, TITLE_MARKS, Message.MeasuredTitle),
-});
-
-/** Tells the Model how the line under the title, who the track is by, lies in its place. */
-export const MeasureArtist = Mount.defineStream("MeasureArtist", {
-  messages: [Message.MeasuredArtist],
-  execute: ({ element }) => measuresOf(element, ARTIST_MARKS, Message.MeasuredArtist),
-});
-
-/** The light on an island, and one of the paths that have its outline to measure it by. */
 const lightOn = (
   island: Element,
 ): Option.Option<Readonly<{ lights: Element; path: SVGGeometryElement }>> =>
@@ -307,8 +214,8 @@ const dockResizeMotion = (island: Element) => {
  * shrinks would carry it along the edge. In that same callback it is put
  * back where the listener saw it.
  */
-export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
-  messages: [Message.CompletedDrawIslandFigure],
+export const DrawFigure = Mount.define("DrawFigure", {
+  messages: [Message.CompletedDrawFigure],
   execute: ({ element }) =>
     Effect.gen(function* () {
       yield* Effect.acquireRelease(
@@ -374,21 +281,21 @@ export const DrawIslandFigure = Mount.define("DrawIslandFigure", {
         }),
         (sizes) => Effect.sync(() => sizes.disconnect()),
       );
-      return Message.CompletedDrawIslandFigure();
+      return Message.CompletedDrawFigure();
     }),
 });
 
 /**
  * Sets the light's animations, as the island enters the document, to what
  * the Model says the light is doing: travelling, or held where it is drawn.
- * From then on the Command `ChangeIslandLightPace` follows the Model.
+ * From then on the Command `ChangeLightPace` follows the Model.
  */
-export const StartIslandLight = Mount.define("StartIslandLight", {
-  args: { initialLight: IslandLight },
-  messages: [Message.CompletedStartIslandLight],
+export const StartLight = Mount.define("StartLight", {
+  args: { initialLight: Light },
+  messages: [Message.CompletedStartLight],
   execute: ({ element, initialLight }) =>
     Effect.sync(() => {
       setPace(element, initialLight === "Travelling" ? 1 : 0);
-      return Message.CompletedStartIslandLight();
+      return Message.CompletedStartLight();
     }),
 });

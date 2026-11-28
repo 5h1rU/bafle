@@ -6,6 +6,7 @@ import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { defineTaggedUnion } from "foldkit/schema";
+import * as Island from "./island/index.ts";
 import { initialMoreMenu } from "./moreMenu.ts";
 
 // SOURCE
@@ -122,39 +123,6 @@ export const Session = Schema.Struct({
 export type Session = typeof Session.Type;
 
 /**
- * The light that travels the island's edge. It is dark until there has been
- * sound. From then on it travels while there is sound and rests, dimmed,
- * where it stopped when there is not.
- */
-export const IslandLight = Schema.Literals(["Dark", "Travelling", "Resting"]);
-export type IslandLight = typeof IslandLight.Type;
-
-/**
- * A line of the island's words, when it is too long for its place: it
- * stands, travels across once, and stands again. The island has two such
- * lines, the track's title and, under it, who it is by, and each is a
- * marquee of its own: either may fit while the other does not, and one
- * longer than the other takes longer to pass. `maybeTravelPixels` is how far
- * one pass takes the line, as measured in the document, and nothing when it
- * fits. Each time the line changes length, or starts or stops fitting while
- * it stands, the run takes the next number, and a wait or a pass that ends
- * for an earlier run is dropped.
- *
- * The island changes width as the navigation comes and goes, and that alone
- * is no reason to start over: a pass goes as far as the line is long,
- * whatever the width of its place, so the wait or the pass under way goes
- * on. A line that comes to fit in the middle of a pass is `Finishing`: it
- * ends the pass it is on, and then stands for good.
- */
-export const Marquee = Schema.Struct({
-  run: Schema.Int,
-  placePixels: Schema.Number,
-  maybeTravelPixels: Schema.Option(Schema.Number),
-  phase: Schema.Literals(["Standing", "Travelling", "Finishing"]),
-});
-export type Marquee = typeof Marquee.Type;
-
-/**
  * Whether the queue stands open beside the page, on a screen with room for a
  * column of its own (`screen.ts`). It is the player's and no session's: a
  * queue left open stays open when another list is played.
@@ -171,38 +139,15 @@ export const Model = Schema.Struct({
   lastOrder: Schema.Int,
   /** Nothing until the first track is played; from then on, for the life of the page. */
   maybeSession: Schema.Option(Session),
-  light: IslandLight,
-  title: Marquee,
-  artist: Marquee,
+  /**
+   * The island: its light, and where its two lines of words are in their
+   * waits and passes. It is the island's own (`island/`), told by the player
+   * what the sound is doing and when its track changes.
+   */
+  island: Island.Model,
   queueColumn: QueueColumn,
 });
 export type Model = typeof Model.Type;
-
-export const initialMarquee: Marquee = {
-  run: 0,
-  placePixels: 0,
-  maybeTravelPixels: Option.none(),
-  phase: "Standing",
-};
-
-/**
- * What the light does once the playback is `playback`. Only the engine's
- * word that there is sound sets it going, and a tap is only a wish: until it
- * is answered it changes nothing, however long the start takes, so going on
- * to another track does not halt the light and a first track does not light
- * it. Anything else puts a light that has travelled to rest: a pause, a
- * stop, a failure, sound that had started and ran out of data.
- */
-export const lightAfter = (light: IslandLight, playback: Playback): IslandLight =>
-  Playback.matchOrElse<IslandLight>(
-    playback,
-    {
-      Sounding: () => "Travelling",
-      Acknowledged: () => light,
-      Starting: () => light,
-    },
-    () => (light === "Dark" ? "Dark" : "Resting"),
-  );
 
 export const SEEK_SLIDER_ID = "player-seek";
 
@@ -328,6 +273,24 @@ export const maybeTurnedFace = (
   );
 
 /** Wanting to sound: every state a press of the main control would answer with silence. */
+/**
+ * What the island is told of a playback. Only the engine's word that there
+ * is sound is sound heard, and a tap is only a wish: until it is answered
+ * the sound is awaited, however long the start takes. Anything else is
+ * silence: a pause, a stop, a failure, sound that had started and ran out of
+ * data.
+ */
+export const soundOf = (playback: Playback): Island.Sound =>
+  Playback.matchOrElse<Island.Sound>(
+    playback,
+    {
+      Sounding: () => "Heard",
+      Acknowledged: () => "Awaited",
+      Starting: () => "Awaited",
+    },
+    () => "Silent",
+  );
+
 export const wantsToSound = Playback.isAnyOf([
   "Acknowledged",
   "Starting",

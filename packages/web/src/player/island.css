@@ -1,6 +1,6 @@
 /* THE ISLAND IN A VIEW TRANSITION
 
-   The island's figure is drawn by its view (player/islandFigure.ts), which
+   The island's figure is drawn by its view (player/island/figure.ts), which
    also says the names its shadow and its light travel under. What is here is
    what a class list cannot say: the pictures a view transition makes of
    them. */

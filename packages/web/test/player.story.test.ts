@@ -22,7 +22,7 @@ const list: ReadonlyArray<TrackSummary> = [track, explicitTrack, thirdTrack];
 type Outcome = ReturnType<typeof Player.update>;
 
 /** The Command that takes the island's light to another pace. Its own tests are with the island's. */
-const LIGHT_PACE = Player.ChangeIslandLightPace({ pace: 0 }).name;
+const LIGHT_PACE = Player.Island.ChangeLightPace({ pace: 0 }).name;
 
 /**
  * What a result asks the runtime to do, as name and args. The light's pace
@@ -35,7 +35,10 @@ const asked = (outcome: Outcome) =>
 
 /** The light is told to travel, or to come to rest, and that is done. */
 const lightChangesPace = () =>
-  Command.resolve(Player.ChangeIslandLightPace, Message.CompletedChangeIslandLightPace());
+  Command.resolve(
+    Player.Island.ChangeLightPace,
+    Player.Island.Message.CompletedChangeLightPace(),
+  );
 
 /** The Model after these Messages, Commands unrun: an order given and never answered. */
 const after = (start: Player.Model, ...messages: ReadonlyArray<Player.Message>): Player.Model =>
@@ -262,7 +265,7 @@ describe("paused by the listener, stopped by the system", () => {
       // The light comes to rest with the wish: it does not wait for the engine's word.
       Command.expectExact(
         Player.PausePlayback({ order: 2 }),
-        Player.ChangeIslandLightPace({ pace: 0 }),
+        Player.Island.ChangeLightPace({ pace: 0 }),
       ),
       Command.resolve(Player.PausePlayback, Message.CompletedPausePlayback()),
       lightChangesPace(),
@@ -376,7 +379,7 @@ describe("seeking", () => {
       }),
       Command.expectExact(
         Player.SeekPlayback({ order: 2, positionSeconds: 22 }),
-        Player.ChangeIslandLightPace({ pace: 0 }),
+        Player.Island.ChangeLightPace({ pace: 0 }),
       ),
       Command.resolve(Player.SeekPlayback, Message.CompletedSeekPlayback()),
       lightChangesPace(),
@@ -527,7 +530,7 @@ describe("a source that cannot be loaded", () => {
       }),
       Command.expectExact(
         Player.RefreshSource({ order: 1, trackId: track.id }),
-        Player.ChangeIslandLightPace({ pace: 0 }),
+        Player.Island.ChangeLightPace({ pace: 0 }),
       ),
       lightChangesPace(),
       Command.resolve(

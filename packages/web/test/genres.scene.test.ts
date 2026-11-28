@@ -17,6 +17,7 @@ import {
   text,
 } from "foldkit/scene";
 import { describe, expect, test } from "vitest";
+import * as Marquee from "../src/marquee/index.ts";
 import { Catalog } from "../src/catalog.ts";
 import {
   FocusAlbumTile,
@@ -115,16 +116,16 @@ const resolveStart = (order: number) =>
  * what the Model says, and its title measured and found to fit.
  */
 const islandEnters = Mount.resolveAll(
-  [Player.DrawIslandFigure, Player.Message.CompletedDrawIslandFigure()],
-  [Player.FollowIslandPress, Player.Message.CompletedFollowIslandPress()],
-  [Player.StartIslandLight, Player.Message.CompletedStartIslandLight()],
+  [Player.Island.DrawFigure, Player.Island.Message.CompletedDrawFigure()],
+  [Player.Island.FollowPress, Player.Island.Message.CompletedFollowPress()],
+  [Player.Island.StartLight, Player.Island.Message.CompletedStartLight()],
   [
-    Player.MeasureTitle,
-    Player.Message.MeasuredTitle({ placePixels: 0, maybeTravelPixels: Option.none() }),
+    Marquee.Measure,
+    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
   ],
   [
-    Player.MeasureArtist,
-    Player.Message.MeasuredArtist({ placePixels: 0, maybeTravelPixels: Option.none() }),
+    Marquee.Measure,
+    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
   ],
 );
 

@@ -2,7 +2,7 @@ export { AudioEngine, EngineReport } from "./audioEngine.ts";
 export * from "./command.ts";
 export { Message, OutMessage } from "./message.ts";
 export * from "./model.ts";
-export * from "./mount.ts";
+export * as Island from "./island/index.ts";
 export { soundPlaces, subscriptions } from "./subscription.ts";
 export {
   choose,

@@ -28,10 +28,9 @@ import {
   menuItemContentView,
 } from "../view/menu.ts";
 import { formatDuration } from "../view/time.ts";
-import { islandFigureView } from "./islandFigure.ts";
+import * as Island from "./island/index.ts";
 import { Message } from "./message.ts";
 import {
-  type Marquee,
   type Model,
   Playback,
   Seek,
@@ -44,19 +43,6 @@ import {
   shownPositionSeconds,
   wantsToSound,
 } from "./model.ts";
-import {
-  ARTIST_MARKS,
-  DrawIslandFigure,
-  FollowIslandPress,
-  ISLAND_CHIN_ATTRIBUTE,
-  ISLAND_SURFACE_ATTRIBUTE,
-  ISLAND_TAIL_ATTRIBUTE,
-  type MarqueeMarks,
-  MeasureArtist,
-  MeasureTitle,
-  TITLE_MARKS,
-} from "./mount.ts";
-import { TITLE_PIXELS_PER_SECOND } from "./command.ts";
 import { MoreMenu, type PlayerAction } from "./moreMenu.ts";
 import {
   FACE_BODY_CLASS,
@@ -369,143 +355,6 @@ const maybeShortNotice = (playback: Playback): Option.Option<string> =>
     },
     () => Option.none(),
   );
-
-/**
- * Where a line of words is, and how it gets there. Standing, it is where it
- * begins, at once. Travelling, it goes one pass's way at the title's speed:
- * the transition is as long as the Command that says when the pass is over.
- */
-const marqueeLineStyle = (marquee: Marquee): Record<string, string> =>
-  Option.match(marquee.phase === "Standing" ? Option.none() : marquee.maybeTravelPixels, {
-    onNone: () => ({ transform: "translateX(0)", transition: "none" }),
-    onSome: (travelPixels) => ({
-      transform: `translateX(${-travelPixels}px)`,
-      transition: `transform ${Math.round((travelPixels / TITLE_PIXELS_PER_SECOND) * 1000)}ms linear`,
-    }),
-  });
-
-/**
- * One of the island's two lines of words as the view draws it: what marks
- * it in the document, the attribute its phase is said in, how it looks, and
- * the Mount that measures it.
- */
-type LineLook = Readonly<{
-  marks: MarqueeMarks;
-  phase: string;
-  className: string;
-  measure: typeof MeasureTitle | typeof MeasureArtist;
-}>;
-
-const TITLE_LOOK: LineLook = {
-  marks: TITLE_MARKS,
-  phase: "title",
-  className: "text-15 leading-tight font-bold",
-  measure: MeasureTitle,
-};
-
-const ARTIST_LOOK: LineLook = {
-  marks: ARTIST_MARKS,
-  phase: "artist",
-  className: "mt-0.5 text-xs leading-tight tracking-wide text-island-muted",
-  measure: MeasureArtist,
-};
-
-/**
- * A line of the island's words: the track's title, or who it is by. One
- * that fits is just its words. One that does not waits, then travels across
- * its place once, its copy following it in, until the copy stands where the
- * words began; then it waits again. The words that reach an end of the
- * place fade there.
- *
- * Whether it fits is a matter of pixels, known only in the document: the
- * line's Mount tells the Model, and from there the waits and the passes are
- * the Model's (`title`, `artist`), kept in time by Commands.
- */
-// NOTE: a line of the island's words comes in from under the cover's edge
-// and fades there, so its place reaches a little under the cover; a line
-// that does not fit fades at the far end too. Under reduced motion the line
-// keeps still, whatever the view says of where it is.
-const MARQUEE_CLASS = "-ml-2 overflow-hidden pl-2 whitespace-nowrap";
-
-const MARQUEE_EDGES = {
-  Lead: "mask-[linear-gradient(to_right,transparent,black_0.5rem)]",
-  Both: "mask-[linear-gradient(to_right,transparent,black_0.5rem,black_calc(100%-1rem),transparent)]",
-} as const;
-
-const marqueeView = (
-  words: string,
-  marquee: Marquee,
-  look: LineLook,
-  h: HtmlBuilder<Message>,
-): Html => {
-  const isOverflowing = Option.isSome(marquee.maybeTravelPixels);
-
-  return h.div(
-    [
-      h.DataAttribute(look.phase, marquee.phase),
-      ...(isOverflowing ? [h.DataAttribute("overflowing", "")] : []),
-      h.Class(clsx(MARQUEE_CLASS, isOverflowing ? MARQUEE_EDGES.Both : MARQUEE_EDGES.Lead, look.className)),
-      h.OnMount(look.measure()),
-    ],
-    [
-      h.div(
-        [
-          h.DataAttribute(look.marks.line, ""),
-          h.Class(
-            "inline-flex gap-10 will-change-transform motion-reduce:transform-none! motion-reduce:transition-none!",
-          ),
-          h.Style(marqueeLineStyle(marquee)),
-        ],
-        [
-          h.span([h.DataAttribute(look.marks.words, "")], [words]),
-          ...(isOverflowing ? [h.span([h.AriaHidden(true)], [words])] : []),
-        ],
-      ),
-    ],
-  );
-};
-
-/**
- * The words arrive with a short fade when the track changes; the island
- * itself stays where it is. Under the title stands the artist, or what
- * happened to the sound when that needs saying.
- */
-const trackWordsView = (
-  session: Session,
-  title: Marquee,
-  artist: Marquee,
-  h: HtmlBuilder<Message>,
-): ReadonlyArray<Html> => {
-  const track = session.current;
-
-  return [
-    // NOTE: keyed by the track, so another track's words are another
-    // element; and not by the track's id alone, which is the key of the
-    // cover beside them.
-    h.keyed("span")(
-      `${track.id}/words`,
-      [
-        h.Class(
-          "island-words block min-w-0 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none keyboard:transition-none!",
-        ),
-      ],
-      [
-        marqueeView(track.title, title, TITLE_LOOK, h),
-        Option.match(maybeShortNotice(session.playback), {
-          onNone: () => marqueeView(track.artist.name, artist, ARTIST_LOOK, h),
-          onSome: (notice) =>
-            h.span(
-              [
-                h.DataAttribute("notice", ""),
-                h.Class("mt-0.5 block truncate text-xs leading-tight text-island-light"),
-              ],
-              [notice],
-            ),
-        }),
-      ],
-    ),
-  ];
-};
 
 // NOTE: a time has a box of a fixed size that lays out nothing outside
 // itself (`contain`). The elapsed time changes once a second while there is
@@ -841,23 +690,7 @@ const stepsView = (session: Session, className: string, h: HtmlBuilder<Message>)
 // from under it the same way. The island's own right edge moves with the
 // tail (see `islandView`), so the control itself stays where it is while
 // this happens. The tail's width is the one thing the island's shape reads
-// from the document besides the island's own: see `DrawIslandFigure` in `mount.ts`.
-/**
- * Where the island stands: over the navigation, and in its row, between the
- * circle and Search, once the navigation has drawn back. `dock-island` is
- * what the style sheet times its way by (view/dock.css).
- */
-const ISLAND_PLACE_CLASS =
-  "dock-island absolute right-5 left-5 z-30 flex text-on-island max-md:w-[calc(100%-2.5rem)] minimized:w-[calc(100%-9.75rem)] minimized:transform-[translate(3.625rem,3.875rem)] md:right-6 md:left-6 md:mx-auto md:max-w-2xl";
-
-/**
- * The island's surface: what its layers and its pieces stand in. A press
- * swells all of it a little, quickly, and it comes back on the island's own
- * spring, whatever the dock is doing (`data-pressed`, from `FollowIslandPress`).
- */
-const ISLAND_SURFACE_CLASS =
-  "relative isolate flex w-full items-center motion-safe:transition-[scale] motion-safe:duration-[280ms] motion-safe:ease-(--ease-island-out) motion-safe:data-pressed:scale-[1.025_1.055] motion-safe:data-pressed:duration-[85ms] motion-safe:data-pressed:ease-[ease-out] keyboard:transition-none!";
-
+// from the document besides the island's own: see `DrawFigure` in `island/mount.ts`.
 const TAIL_CLASS =
   "dock-island-next flex h-9 w-[2.125rem] shrink-0 items-center justify-end minimized:pointer-events-none minimized:w-0";
 
@@ -900,7 +733,7 @@ const islandControlsView = (
         : h.empty,
       h.div([h.Class(SWELL_CLASS)], [mainControlView(session, "size-12", ON_ISLAND, h)]),
       h.div(
-        [h.DataAttribute(ISLAND_TAIL_ATTRIBUTE, ""), h.Class(TAIL_CLASS)],
+        [h.DataAttribute(Island.ISLAND_TAIL_ATTRIBUTE, ""), h.Class(TAIL_CLASS)],
         [
           stepControlView(
             nextLabel(session),
@@ -1072,20 +905,11 @@ const islandExtrasView = (
   );
 
 /**
- * The island's box. On a compact screen it is as high as its body and stands
- * over the navigation. On a desktop's it is taller by the chin under its
- * body, where the progress of the sound lies (design/desktop.pen): the body,
- * with the cover, the words and the controls, is the top of that box, and
- * the chin hangs below where the island's foot was. The box is as high as
- * the two together so that a picture of it taken for a view transition has
- * all of it.
+ * The island, as the player has it drawn: the island's own are its figure,
+ * its light and its words (`island/`). What stands before the words, the
+ * cover, and after them, the controls, are the player's, and so is where
+ * the words lead.
  */
-const ISLAND_BOX_CLASS: Readonly<Record<Screen, string>> = {
-  Compact:
-    "bottom-[5.125rem] h-11 items-center md:bottom-[max(1rem,env(safe-area-inset-bottom))]",
-  Desktop: "bottom-[max(0.6875rem,env(safe-area-inset-bottom))] h-17.25 items-start",
-};
-
 const islandView = (
   model: Model,
   session: Session,
@@ -1095,69 +919,54 @@ const islandView = (
   const { current, playback } = session;
   const { isUnderSheet } = viewInputs;
   const isDesktop = viewInputs.screen === "Desktop";
-  const words = [
-    coverView(
-      current,
-      "relative -my-[3px] size-[3.125rem] shrink-0 rounded-full",
-      "small",
-      h,
-      !isUnderSheet,
-    ),
-    ...trackWordsView(session, model.title, model.artist, h),
-  ];
 
-  // NOTE: under the sheet the island gives up its id and its names: the
-  // player on the sheet has them, and two pieces by one name end a view
-  // transition before it starts. `data-under-sheet` takes the names of its
-  // light and its shadow too (island.css).
-  return h.section(
-    [
-      ...(isUnderSheet ? [h.DataAttribute("under-sheet", "")] : [h.Id(PLAYER_ID)]),
-      h.AriaLabel("Player"),
-      h.Inert(isUnderSheet),
-      h.DataAttribute("layout", "island"),
-      h.DataAttribute("playback", playback._tag),
-      // The figure has a chin on a desktop's screen: read as it is drawn.
-      ...(isDesktop ? [h.DataAttribute(ISLAND_CHIN_ATTRIBUTE, "")] : []),
-      h.OnMount(DrawIslandFigure()),
-      h.Class(
-        clsx(
-          ISLAND_PLACE_CLASS,
-          ISLAND_BOX_CLASS[viewInputs.screen],
-        ),
-      ),
-    ],
-    [
-      h.div(
-        [
-          h.OnMount(FollowIslandPress()),
-          h.DataAttribute(ISLAND_SURFACE_ATTRIBUTE, ""),
-          h.Class(
-            clsx(ISLAND_SURFACE_CLASS, {
-              "h-full": !isDesktop,
-              "h-11": isDesktop,
-            }),
+  return h.submodel({
+    slotId: "island",
+    model: model.island,
+    view: Island.view,
+    viewInputs: {
+      id: PLAYER_ID,
+      label: "Player",
+      screen: viewInputs.screen,
+      isUnderSheet,
+      sound: playback._tag,
+      maybeCover: current.album.cover?.small,
+      trackId: current.id,
+      title: current.title,
+      artist: current.artist.name,
+      maybeNotice: maybeShortNotice(playback),
+      // NOTE: on a compact screen the words are the way to the expanded
+      // player. On a desktop's there is no expanded player to lead to, and
+      // they are only words: the track's page is in the island's menu.
+      toBody: (words) => {
+        const body = [
+          coverView(
+            current,
+            "relative -my-[3px] size-[3.125rem] shrink-0 rounded-full",
+            "small",
+            h,
+            !isUnderSheet,
           ),
-        ],
-        [
-          ...islandFigureView(current.album.cover?.small, model.light, h),
-          // NOTE: on a compact screen the words are the way to the expanded
-          // player. On a desktop's there is no expanded player to lead to, and
-          // they are only words: the track's page is in the island's menu.
-          isDesktop
-            ? h.div([h.Class(ISLAND_WORDS_CLASS)], words)
-            : viewInputs.toTrackPageLink(current, words),
-          isDesktop ? islandExtrasView(model, session, viewInputs, h) : h.empty,
-          islandControlsView(session, isDesktop, h),
-        ],
-      ),
+          ...words,
+        ];
+        return isDesktop
+          ? h.div([h.Class(ISLAND_WORDS_CLASS)], body)
+          : viewInputs.toTrackPageLink(current, body);
+      },
+      toControls: () => [
+        isDesktop ? islandExtrasView(model, session, viewInputs, h) : h.empty,
+        islandControlsView(session, isDesktop, h),
+      ],
       // NOTE: under the island's body, in the chin of its figure, and no
       // part of the surface a press swells.
-      isDesktop ? islandProgressView(session, h) : h.empty,
-      announcementView(session, h),
-      artworkFlightRules([coverTransitionName(current.id)], h),
-    ],
-  );
+      toFoot: () => [
+        isDesktop ? islandProgressView(session, h) : h.empty,
+        announcementView(session, h),
+        artworkFlightRules([coverTransitionName(current.id)], h),
+      ],
+    },
+    toParentMessage: (message) => Message.GotIslandMessage({ message }),
+  });
 };
 
 /** Nothing until something is played: the island is no empty frame waiting for a track. */

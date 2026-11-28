@@ -17,7 +17,7 @@ export const NAVIGATION_ATTRIBUTE = "data-navigation";
  * has set off until the frame after.
  *
  * The island's own figure is moved from the document as well, by
- * `DrawIslandFigure`, which holds what it starts in the same way: both are
+ * `DrawFigure`, which holds what it starts in the same way: both are
  * let go in the same frame.
  */
 export const HoldDockMotion = Mount.define("HoldDockMotion", {
