@@ -11,6 +11,9 @@ export default mergeConfig(
   app,
   defineConfig({
     test: {
+      // NOTE: the name heads this package's report in the summary of a CI
+      // run, where every package's tests write one.
+      name: "web",
       include: ["test/**/*.test.ts"],
       setupFiles: ["./test/vitest-setup.ts"],
       browser: {
