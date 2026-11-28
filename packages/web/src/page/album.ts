@@ -52,22 +52,27 @@ export const titleOf = (album: AlbumData): string =>
 
 /**
  * The head: the cover from edge to edge, with the album's words over its
- * foot. `album-hero` is what the style sheet follows the scroll by and draws
- * back to the bar (album.css).
+ * foot.
  */
 // NOTE: over every scroll timeline the head is under the bar from the start,
 // and the bar is clear until the head has drawn back to it. Without them the
 // cover slides over the bar and uncovers it as it leaves.
 const HERO_CLASS =
-  "album-hero relative isolate grid min-h-[clamp(19rem,103.5vw,35rem)] items-end overflow-hidden md:min-h-[clamp(20rem,46svh,34rem)] not-scroll-timelines:z-3";
+  "relative isolate grid min-h-[clamp(19rem,103.5vw,35rem)] items-end overflow-hidden md:min-h-[clamp(20rem,46svh,34rem)] not-scroll-timelines:z-3";
 
 /**
  * What the head stands on. Found, it is the night the veil ends in, in both
  * themes: the cover draws back over it as the page is scrolled, and the white
- * words stand on it.
+ * words stand on it. Waiting, it is the panel, with nothing to draw back.
  */
+// NOTE: `album-hero` is what the style sheet follows the scroll by and draws
+// back to the bar (album.css), and it is the found head's alone. That sheet
+// turns the head's ground from the night to the bar's colour along the way,
+// by an animation that holds its first frame before the scroll starts it: on
+// the head that waits, it put the night over the panel for as long as the
+// page waited, wherever motion was allowed.
 const HERO_GROUNDS = {
-  Found: "bg-night text-on-night",
+  Found: "album-hero bg-night text-on-night",
   Waiting: "bg-panel text-on-night",
 } as const;
 
