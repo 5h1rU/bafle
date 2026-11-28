@@ -1375,7 +1375,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
       // page beside it is the page on screen: nothing of the route changes.
       model.screen === "Desktop"
         ? h.submodel({
-            slotId: Player.QUEUE_COLUMN_ID,
+            slotId: Player.Queue.COLUMN_ID,
             model: model.player,
             view: Player.queueColumnView,
             toParentMessage: (message) => Message.GotPlayerMessage({ message }),

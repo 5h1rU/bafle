@@ -3,10 +3,11 @@ import { Button, DragAndDrop } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
+import { Submodel } from "foldkit";
 import { type Html, type HtmlBuilder, createLazy } from "foldkit/html";
-import { iconButtonView } from "../view/control.ts";
-import { closeIcon, gripDotsIcon, gripIcon, noteIcon, queueIcon } from "../view/icon.ts";
-import { formatDuration } from "../view/time.ts";
+import { iconButtonView } from "../../view/control.ts";
+import { closeIcon, gripDotsIcon, gripIcon, noteIcon, queueIcon } from "../../view/icon.ts";
+import { formatDuration } from "../../view/time.ts";
 import {
   ROW_PLAY_CLASS,
   ROW_TOUCH_CLASS,
@@ -14,15 +15,9 @@ import {
   rowClass,
   rowPlayAttribute,
   rowSurfaceClass,
-} from "../view/trackRow.ts";
+} from "../../view/trackRow.ts";
 import { Message } from "./message.ts";
-import {
-  type Model,
-  QUEUE_COLUMN_ID,
-  QUEUE_CONTAINER_ID,
-  QUEUE_CONTROL_ID,
-  type Session,
-} from "./model.ts";
+import { COLUMN_ID, CONTAINER_ID, CONTROL_ID, type Model } from "./model.ts";
 
 // THE QUEUE
 
@@ -37,7 +32,7 @@ import {
 // BESIDE THE PAGE`, below). It is the same queue, moved the same way: one of
 // the two is in the document at a time, never both.
 
-const PANEL_ID = "player-queue";
+export const PANEL_ID = "player-queue";
 
 /**
  * What a face of the expanded player lists takes the room between the head
@@ -47,42 +42,30 @@ export const FACE_BODY_CLASS = "order-1 grow shrink-0 basis-auto";
 
 /** What a face of the expanded player lists is named once, at its head. */
 export const FACE_HEADING_CLASS = "text-[1.625rem] leading-[1.2] font-bold tracking-[-0.04em]";
-const NEXT_ID = "player-queue-next";
+/** The songs to come, as whoever holds the queue's order has them. */
+type Later = ReadonlyArray<TrackSummary>;
+
+/**
+ * What a list of the queue is drawn with: the songs to come, and the place
+ * the first of them has in all that is played. The order is not the
+ * queue's: it is whoever plays the songs that holds it.
+ */
+export type ListInputs = Readonly<{ later: Later; firstPlace: number }>;
+
+/**
+ * The queue as a face of the expanded player: whether it is the face shown,
+ * and whether the face shown is the song's, under which it takes no room.
+ */
+export type PanelInputs = ListInputs & Readonly<{ isOpen: boolean; isUnderSong: boolean }>;
+
+export const NEXT_ID = "player-queue-next";
 
 /** What plays next, in a line: the song and who it is by, or that there is none. */
-const nextLine = (session: Session): string =>
-  Option.match(Array.head(session.later), {
+export const nextLine = (later: Later): string =>
+  Option.match(Array.head(later), {
     onNone: () => "No upcoming songs",
     onSome: (track) => `${track.title} · ${track.artist.name}`,
   });
-
-/**
- * The way to the queue and back from it: a control under the player's
- * controls, on every face. On the queue's it is lit, and leads back to the
- * song; on any other it leads to the queue. What plays next is said to
- * assistive technology, where a row once showed it.
- */
-export const queueButtonView = (session: Session, h: HtmlBuilder<Message>): Html => {
-  const isOpen = session.pane === "Queue";
-  return iconButtonView(
-    {
-      look: "OnSheet",
-      label: "Playing Next",
-      content: [
-        queueIcon("size-6"),
-        h.span([h.Id(NEXT_ID), h.Class("sr-only")], [nextLine(session)]),
-      ],
-      onClick: Message.ClickedQueue(),
-      attributes: [
-        h.AriaDescribedBy(NEXT_ID),
-        h.AriaExpanded(isOpen),
-        h.AriaControls(PANEL_ID),
-        ...(isOpen ? [h.DataAttribute("lit", "")] : []),
-      ],
-    },
-    h,
-  );
-};
 
 /** A song's place in all that is played: the current one's, and on from there. */
 const placeLabel = (place: number): string => String(place).padStart(2, "0");
@@ -92,7 +75,7 @@ type QueueRow = Readonly<{ track: TrackSummary; index: number; itemId: string }>
 
 // NOTE: a playlist may repeat a song, so a row is known by its song and by
 // which of that song's turns it is: its identity holds across a reordering.
-const rowsOf = (later: Session["later"]): ReadonlyArray<QueueRow> => {
+const rowsOf = (later: Later): ReadonlyArray<QueueRow> => {
   const occurrences = new Map<string, number>();
   return later.map((track, index) => {
     const occurrence = occurrences.get(track.id) ?? 0;
@@ -191,9 +174,9 @@ const gripView = (
       ...DragAndDrop.draggable(
         {
           model: drag,
-          toParentMessage: (message) => Message.GotQueueDragMessage({ message }),
+          toParentMessage: (message) => Message.GotDragMessage({ message }),
           itemId: row.itemId,
-          containerId: QUEUE_CONTAINER_ID,
+          containerId: CONTAINER_ID,
           index: row.index,
         },
         h,
@@ -217,7 +200,7 @@ const playView = (
 ): Html =>
   Button.view(
     {
-      onClick: Message.ClickedQueueItem({ trackId: track.id, index }),
+      onClick: Message.ClickedItem({ trackId: track.id, index }),
       toView: (attributes) =>
         h.button(
           [
@@ -323,7 +306,7 @@ const queueRowView = (
 };
 
 const rowsView = (
-  later: Session["later"],
+  later: Later,
   firstPlace: number,
   drag: DragAndDrop.Model,
   h: HtmlBuilder<Message>,
@@ -331,7 +314,7 @@ const rowsView = (
   h.ol(
     [
       h.AriaLabel("Upcoming songs"),
-      h.DataAttribute("droppable-id", QUEUE_CONTAINER_ID),
+      h.DataAttribute("droppable-id", CONTAINER_ID),
       h.Class("mt-2"),
     ],
     rowsOf(later).map((row) =>
@@ -346,24 +329,24 @@ const lazyRows = createLazy();
  * handle it is moved by. Kept in the document on the other faces too, empty
  * and hidden: the control that opens it names it as what it opens.
  */
-export const queuePanelView = (session: Session, h: HtmlBuilder<Message>): Html => {
-  const open = session.pane === "Queue";
-  return h.div(
-    [
-      h.Id(PANEL_ID),
-      h.Class(clsx("px-6 pt-1 pb-6", session.pane === "Artwork" ? "flex-none" : FACE_BODY_CLASS)),
-      h.Hidden(!open),
-    ],
-    open
-      ? [
-          h.h2([h.Class(FACE_HEADING_CLASS)], ["Up next"]),
-          session.later.length > 0
-            ? lazyRows(rowsView, [session.later, session.earlier.length + 2, session.queueDrag, h])
-            : h.p([h.Class("mt-3 text-sm text-muted")], ["No upcoming songs."]),
-        ]
-      : [],
-  );
-};
+export const panelView = Submodel.defineView<Model, Message, PanelInputs>(
+  (model, viewInputs, h) =>
+    h.div(
+      [
+        h.Id(PANEL_ID),
+        h.Class(clsx("px-6 pt-1 pb-6", viewInputs.isUnderSong ? "flex-none" : FACE_BODY_CLASS)),
+        h.Hidden(!viewInputs.isOpen),
+      ],
+      viewInputs.isOpen
+        ? [
+            h.h2([h.Class(FACE_HEADING_CLASS)], ["Up next"]),
+            Array.isReadonlyArrayNonEmpty(viewInputs.later)
+              ? lazyRows(rowsView, [viewInputs.later, viewInputs.firstPlace, model.drag, h])
+              : h.p([h.Class("mt-3 text-sm text-muted")], ["No upcoming songs."]),
+          ]
+        : [],
+    ),
+);
 
 /**
  * The song being carried, drawn at the height of the finger that carries
@@ -375,17 +358,21 @@ export const queuePanelView = (session: Session, h: HtmlBuilder<Message>): Html 
  * that followed it sideways looked like one being taken out of the list.
  * Across, it stands where the list stands.
  */
-export const queueGhostView = <M>(model: Model, isBeside: boolean, h: HtmlBuilder<M>): Html =>
-  Option.match(
-    Option.flatMap(model.maybeSession, (session) => {
-      const { dragState } = session.queueDrag;
-      return dragState._tag === "Dragging"
-        ? Option.map(
-            Array.findFirst(rowsOf(session.later), (row) => row.itemId === dragState.itemId),
-            (row) => ({ row, clientY: dragState.current.clientY }),
-          )
-        : Option.none();
-    }),
+export const ghostView = <M>(
+  model: Model,
+  later: Later,
+  isBeside: boolean,
+  h: HtmlBuilder<M>,
+): Html => {
+  const { dragState } = model.drag;
+
+  return Option.match(
+    dragState._tag === "Dragging"
+      ? Option.map(
+          Array.findFirst(rowsOf(later), (row) => row.itemId === dragState.itemId),
+          (row) => ({ row, clientY: dragState.current.clientY }),
+        )
+      : Option.none(),
     {
       onNone: () => h.empty,
       onSome: ({ row, clientY }) =>
@@ -416,6 +403,7 @@ export const queueGhostView = <M>(model: Model, isBeside: boolean, h: HtmlBuilde
         ),
     },
   );
+};
 
 // THE QUEUE BESIDE THE PAGE
 
@@ -427,33 +415,32 @@ const COLUMN_TITLE_ID = "player-queue-column-title";
  * queue beside the page and closes it again, and is lit while the queue is
  * there. What plays next is said to assistive technology here too.
  */
-export const islandQueueButtonView = (
-  model: Model,
-  session: Session,
-  h: HtmlBuilder<Message>,
-): Html => {
-  const isOpen = model.queueColumn === "Open";
-  return iconButtonView(
-    {
-      look: "OnIsland",
-      label: "Queue",
-      content: [
-        queueIcon("size-5"),
-        h.span([h.Id(NEXT_IN_ISLAND_ID), h.Class("sr-only")], [nextLine(session)]),
-      ],
-      onClick: Message.ClickedIslandQueue(),
-      attributes: [
-        h.Id(QUEUE_CONTROL_ID),
-        h.AriaDescribedBy(NEXT_IN_ISLAND_ID),
-        h.AriaExpanded(isOpen),
-        // NOTE: the column is in the document only while it is open, and a
-        // control must not name what is not there.
-        ...(isOpen ? [h.AriaControls(QUEUE_COLUMN_ID), h.DataAttribute("lit", "")] : []),
-      ],
-    },
-    h,
-  );
-};
+export const columnControlView = Submodel.defineView<Model, Message, ListInputs>(
+  (model, viewInputs, h) => {
+    const isOpen = model.column === "Open";
+
+    return iconButtonView(
+      {
+        look: "OnIsland",
+        label: "Queue",
+        content: [
+          queueIcon("size-5"),
+          h.span([h.Id(NEXT_IN_ISLAND_ID), h.Class("sr-only")], [nextLine(viewInputs.later)]),
+        ],
+        onClick: Message.ClickedColumnControl(),
+        attributes: [
+          h.Id(CONTROL_ID),
+          h.AriaDescribedBy(NEXT_IN_ISLAND_ID),
+          h.AriaExpanded(isOpen),
+          // NOTE: the column is in the document only while it is open, and a
+          // control must not name what is not there.
+          ...(isOpen ? [h.AriaControls(COLUMN_ID), h.DataAttribute("lit", "")] : []),
+        ],
+      },
+      h,
+    );
+  },
+);
 
 /**
  * The song that plays next, set apart at the head of the column on a card of
@@ -533,13 +520,13 @@ const songCount = (count: number): string => `${String(count)} ${count === 1 ? "
  * within the list.
  */
 const columnBodyView = (
-  later: Session["later"],
+  later: Later,
   firstPlace: number,
   drag: DragAndDrop.Model,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
-    [h.DataAttribute("droppable-id", QUEUE_CONTAINER_ID), h.Class("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5.5 pt-5 pb-8")],
+    [h.DataAttribute("droppable-id", CONTAINER_ID), h.Class("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5.5 pt-5 pb-8")],
     Array.match(rowsOf(later), {
       onEmpty: () => [h.p([h.Class("text-sm text-muted")], ["No upcoming songs."])],
       onNonEmpty: (rows) => {
@@ -576,9 +563,9 @@ const lazyColumnBody = createLazy();
  * and under them what it lists, which scrolls by itself. The page beside it
  * and the navigation each scroll by themselves too.
  */
-export const queueColumnView = (session: Session, h: HtmlBuilder<Message>): Html =>
+export const columnView = Submodel.defineView<Model, Message, ListInputs>((model, viewInputs, h) =>
   h.aside(
-    [h.Id(QUEUE_COLUMN_ID), h.AriaLabelledBy(COLUMN_TITLE_ID), h.Class(
+    [h.Id(COLUMN_ID), h.AriaLabelledBy(COLUMN_TITLE_ID), h.Class(
         "flex min-h-0 w-(--queue-column) flex-none flex-col border-l border-line bg-panel text-ink [view-transition-name:queue-column]",
       ),
     ],
@@ -592,12 +579,13 @@ export const queueColumnView = (session: Session, h: HtmlBuilder<Message>): Html
               look: "OnPanel",
               label: "Close the queue",
               content: [closeIcon("size-4")],
-              onClick: Message.ClickedCloseQueue(),
+              onClick: Message.ClickedCloseColumn(),
             },
             h,
           ),
         ],
       ),
-      lazyColumnBody(columnBodyView, [session.later, session.earlier.length + 2, session.queueDrag, h]),
+      lazyColumnBody(columnBodyView, [viewInputs.later, viewInputs.firstPlace, model.drag, h]),
     ],
-  );
+  ),
+);

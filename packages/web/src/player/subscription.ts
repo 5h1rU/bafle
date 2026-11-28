@@ -1,4 +1,4 @@
-import { DragAndDrop, Slider } from "@foldkit/ui";
+import { Slider } from "@foldkit/ui";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -9,6 +9,7 @@ import { Subscription } from "foldkit";
 import { AudioEngine, isSameReport } from "./audioEngine.ts";
 import { type MediaKey, Message } from "./message.ts";
 import type { Model } from "./model.ts";
+import * as PlayerQueue from "./queue/index.ts";
 
 // SUBSCRIPTION
 
@@ -163,17 +164,14 @@ const seekSliderSubscriptions = Subscription.lift({
   toParentMessage: (message) => Message.GotSeekSliderMessage({ message }),
 });
 
-/**
- * A song of the queue taken up by its handle is carried over the whole
- * document, and one moved with the keys is moved by keys heard there.
- */
-const queueDragSubscriptions = Subscription.lift(DragAndDrop.subscriptions)<Model, Message>({
-  read: (model) => Option.map(model.maybeSession, (session) => session.queueDrag),
-  toParentMessage: (message) => Message.GotQueueDragMessage({ message }),
+/** The queue's own, for as long as there is a queue to draw: something has been played. */
+const queueSubscriptions = Subscription.lift(PlayerQueue.subscriptions)<Model, Message>({
+  read: (model) => Option.map(model.maybeSession, () => model.queue),
+  toParentMessage: (message) => Message.GotQueueMessage({ message }),
 });
 
 export const subscriptions = Subscription.aggregate(
   engineSubscriptions,
   seekSliderSubscriptions,
-  queueDragSubscriptions,
+  queueSubscriptions,
 );

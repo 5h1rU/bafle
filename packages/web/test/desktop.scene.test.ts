@@ -126,7 +126,7 @@ const withLongQueue: Model = modifyFields(onDesktop, {
         trackId: track.id,
         list: [track, explicitTrack, thirdTrack, fourthTrack],
       }).model,
-      Player.Message.ClickedIslandQueue(),
+      Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() }),
     ).model,
 });
 
@@ -343,34 +343,34 @@ describe("Song details, from the island's menu", () => {
 
 describe("the queue beside the page", () => {
   test("the island's control opens it and closes it, and nothing of the route or the history moves", () => {
-    const opened = update(onDesktop, player(Player.Message.ClickedIslandQueue()));
+    const opened = update(onDesktop, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })));
 
     expect(Player.isQueueColumnOpen(opened.model.player)).toBe(true);
     expect(opened.model.route).toEqual(onDesktop.route);
     expect(opened.model.trail).toEqual(onDesktop.trail);
     expect(opened.commands ?? []).toEqual([]);
 
-    const closed = update(opened.model, player(Player.Message.ClickedIslandQueue()));
+    const closed = update(opened.model, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })));
     expect(Player.isQueueColumnOpen(closed.model.player)).toBe(false);
     expect(closed.commands ?? []).toEqual([]);
   });
 
   test("it comes in from its side and goes back off it, each by its own name", () => {
-    const opened = after(onDesktop, player(Player.Message.ClickedIslandQueue()));
+    const opened = after(onDesktop, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })));
 
-    expect(transition(onDesktop, player(Player.Message.ClickedIslandQueue()))).toEqual({
+    expect(transition(onDesktop, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })))).toEqual({
       types: [QUEUE_COLUMN_OPENS],
     });
-    expect(transition(opened, player(Player.Message.ClickedIslandQueue()))).toEqual({
+    expect(transition(opened, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })))).toEqual({
       types: [QUEUE_COLUMN_CLOSES],
     });
-    expect(transition(opened, player(Player.Message.ClickedCloseQueue()))).toEqual({
+    expect(transition(opened, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedCloseColumn() })))).toEqual({
       types: [QUEUE_COLUMN_CLOSES],
     });
   });
 
   test("it stays open while the listener goes to other pages and plays other lists", () => {
-    const opened = after(onDesktop, player(Player.Message.ClickedIslandQueue()));
+    const opened = after(onDesktop, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })));
     const elsewhere = after(
       opened,
       clickedLink("/"),
@@ -382,12 +382,12 @@ describe("the queue beside the page", () => {
   });
 
   test("its own control closes it and hands the focus back to the island's", () => {
-    const opened = after(onDesktop, player(Player.Message.ClickedIslandQueue()));
-    const closed = update(opened, player(Player.Message.ClickedCloseQueue()));
+    const opened = after(onDesktop, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })));
+    const closed = update(opened, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedCloseColumn() })));
 
     expect(Player.isQueueColumnOpen(closed.model.player)).toBe(false);
     expect((closed.commands ?? []).map((command) => command.name)).toEqual([
-      Player.FocusQueueControl().name,
+      Player.Queue.FocusControl().name,
     ]);
   });
 
@@ -455,7 +455,7 @@ describe("the queue beside the page", () => {
       given(withLongQueue),
       islandEnters,
       inside(queueColumn, click(role("button", { name: "Close the queue" }))),
-      Command.resolve(Player.FocusQueueControl, Player.Message.CompletedFocusQueueControl()),
+      Command.resolve(Player.Queue.FocusControl, Player.Queue.Message.CompletedFocusControl()),
       see(queueColumn).toBeAbsent(),
       inside(island, see(queueControl).toHaveAttr("aria-expanded", "false")),
     ));
@@ -469,7 +469,7 @@ describe("the queue beside the page", () => {
             Player.update(
               Player.choose(onDesktop.player, { trackId: explicitTrack.id, list: [track, explicitTrack] })
                 .model,
-              Player.Message.ClickedIslandQueue(),
+              Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() }),
             ).model,
         }),
       ),

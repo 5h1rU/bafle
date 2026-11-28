@@ -171,7 +171,7 @@ export const expandedDetails = after(expanded, choseFromPlayer("SongDetails"));
 export const queueBeside = after(
   sounding,
   Message.ChangedScreen({ screen: "Desktop" }),
-  player(Player.Message.ClickedIslandQueue()),
+  player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })),
 );
 
 // THE CATALOG NOT ANSWERING

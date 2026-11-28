@@ -1,13 +1,14 @@
 import type { AlbumId } from "@bafle/domain/Catalog/Album";
 import { type Track, type TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
-import { DragAndDrop, Menu, Slider } from "@foldkit/ui";
+import { Menu, Slider } from "@foldkit/ui";
 import * as Array from "effect/Array";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { defineTaggedUnion } from "foldkit/schema";
-import * as Island from "./island/index.ts";
+import * as Island from "./island/model.ts";
 import { initialMoreMenu } from "./moreMenu.ts";
+import * as Queue from "./queue/model.ts";
 
 // SOURCE
 
@@ -108,7 +109,6 @@ export const Session = Schema.Struct({
    * A song of the queue being moved to another place in it: taken up by its
    * handle and carried, or moved with the keys (Foldkit UI's `DragAndDrop`).
    */
-  queueDrag: DragAndDrop.Model,
   cue: Cue,
   playback: Playback,
   sourceRefresh: SourceRefresh,
@@ -121,14 +121,6 @@ export const Session = Schema.Struct({
   seekSlider: Slider.Model,
 });
 export type Session = typeof Session.Type;
-
-/**
- * Whether the queue stands open beside the page, on a screen with room for a
- * column of its own (`screen.ts`). It is the player's and no session's: a
- * queue left open stays open when another list is played.
- */
-export const QueueColumn = Schema.Literals(["Closed", "Open"]);
-export type QueueColumn = typeof QueueColumn.Type;
 
 export const Model = Schema.Struct({
   /**
@@ -145,7 +137,13 @@ export const Model = Schema.Struct({
    * what the sound is doing and when its track changes.
    */
   island: Island.Model,
-  queueColumn: QueueColumn,
+  /**
+   * The queue as a thing on screen: the song of it being moved, and whether
+   * its column is open. It is the queue's own (`queue/`). The order of the
+   * songs is the session's, which the queue tells of what the listener does
+   * to it.
+   */
+  queue: Queue.Model,
 });
 export type Model = typeof Model.Type;
 
@@ -153,16 +151,6 @@ export const SEEK_SLIDER_ID = "player-seek";
 
 /** The slider steps by whole seconds: an arrow key moves one, Page Up and Down ten. */
 export const SEEK_STEP_SECONDS = 1;
-
-/** The island's control for the queue, on a desktop's screen, and the column it opens. */
-export const QUEUE_CONTROL_ID = "player-queue-control";
-export const QUEUE_COLUMN_ID = "player-queue-column";
-
-/** The id the queue's list goes by, to what moves its songs. */
-export const QUEUE_CONTAINER_ID = "player-queue-list";
-
-/** Nothing of the queue is being moved. */
-export const initialQueueDrag: DragAndDrop.Model = DragAndDrop.init({ id: "player-queue-drag" });
 
 export const initialSeekSlider: Slider.Model = Slider.init({
   id: SEEK_SLIDER_ID,
@@ -202,7 +190,6 @@ export const queueFrom = (
         seek: Seek.Settled(),
         seekSlider: initialSeekSlider,
         moreMenu: initialMoreMenu,
-        queueDrag: initialQueueDrag,
       }),
   });
 };
@@ -230,7 +217,7 @@ export const isOnSongFace = (model: Model): boolean =>
 
 /** Whether the queue's column is there to draw: it was opened, and something has been played. */
 export const isQueueColumnOpen = (model: Model): boolean =>
-  model.queueColumn === "Open" && hasSession(model);
+  Queue.isColumnOpen(model.queue) && hasSession(model);
 
 /** Whether the player's menu is open: under the expanded player's controls, or on the island of a desktop's screen. */
 export const isMoreMenuOpen = (model: Model): boolean =>

@@ -1,9 +1,10 @@
 import { Track, TrackId } from "@bafle/domain/Catalog/Track";
-import { DragAndDrop, Menu, Slider } from "@foldkit/ui";
+import { Menu, Slider } from "@foldkit/ui";
 import * as Schema from "effect/Schema";
 import { defineMessageUnion } from "foldkit/message";
 import { EngineReport, StartOutcome } from "./audioEngine.ts";
-import * as Island from "./island/index.ts";
+import { Message as IslandMessage } from "./island/message.ts";
+import { Message as QueueMessage } from "./queue/message.ts";
 
 // MESSAGE
 
@@ -17,22 +18,18 @@ export const Message = defineMessageUnion({
   ClickedNext: {},
   ClickedPrevious: {},
   ClickedQueue: {},
-  /** The island's own way to the queue, on a desktop's screen: it opens the queue beside the page, and closes it. */
-  ClickedIslandQueue: {},
-  /** The control at the head of the queue's column. */
-  ClickedCloseQueue: {},
   /** The name at the head of the face that says what the catalog knows of the track: it leads back to the song. */
   ClickedDetails: {},
-  ClickedQueueItem: { index: Schema.Int, trackId: TrackId },
   ClickedTryAgain: {},
   PressedMediaKey: { key: MediaKey },
   /** The system's own bar for the sound, on a lock screen or a headset's display, was moved to another place. */
   MovedMediaPosition: { positionSeconds: Schema.Number },
   GotSeekSliderMessage: { message: Slider.Message },
   GotMoreMenuMessage: { message: Menu.Message },
-  GotQueueDragMessage: { message: DragAndDrop.Message },
+  /** The queue: its lists, the song of it being moved, and its column beside the page. */
+  GotQueueMessage: { message: QueueMessage },
   /** The island: its figure, its light and its words. */
-  GotIslandMessage: { message: Island.Message },
+  GotIslandMessage: { message: IslandMessage },
   /** The engine's word. Everything the interface says of the sound comes from here. */
   UpdatedEngineStatus: { report: EngineReport },
   CompletedStartPlayback: { order: Schema.Int, outcome: StartOutcome },
@@ -44,7 +41,6 @@ export const Message = defineMessageUnion({
   FailedRefreshSource: { order: Schema.Int },
   CompletedPublishNowPlaying: {},
   CompletedShowFaceFromTop: {},
-  CompletedFocusQueueControl: {},
 });
 export type Message = typeof Message.Type;
 

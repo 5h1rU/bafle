@@ -14,12 +14,13 @@ export {
   showDetails,
   update,
 } from "./update.ts";
-export { queueGhostView } from "./queue.ts";
+export * as Queue from "./queue/index.ts";
 export {
   type ExpandedViewInputs,
   expandedView,
   PLAYER_ID,
   queueColumnView,
+  queueGhostView,
   view,
   type ViewInputs,
 } from "./view.ts";

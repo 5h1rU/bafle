@@ -850,14 +850,16 @@ describe("the player expanded: the page of the track it holds", () => {
       transition(
         onQueue,
         player(
-          Player.Message.GotQueueDragMessage({
+          Player.Message.GotQueueMessage({
+            message: Player.Queue.Message.GotDragMessage({
             message: DragAndDrop.Message.PressedDraggable({
               itemId: `${explicitTrack.id}/0`,
-              containerId: Player.QUEUE_CONTAINER_ID,
+              containerId: Player.Queue.CONTAINER_ID,
               index: 0,
               screenX: 0,
               screenY: 0,
             }),
+          }),
           }),
         ),
       ),

@@ -14,11 +14,12 @@ import {
   pauseIcon,
   playIcon,
   previousIcon,
+  queueIcon,
   retryIcon,
   spinnerIcon,
 } from "../view/icon.ts";
 import { artworkFlightRules, coverTransitionName } from "../view/artwork.ts";
-import { iconControlClass } from "../view/control.ts";
+import { iconButtonView, iconControlClass } from "../view/control.ts";
 import { saidView } from "../view/feedback.ts";
 import {
   ACTION_LOOKS,
@@ -44,14 +45,7 @@ import {
   wantsToSound,
 } from "./model.ts";
 import { MoreMenu, type PlayerAction } from "./moreMenu.ts";
-import {
-  FACE_BODY_CLASS,
-  FACE_HEADING_CLASS,
-  islandQueueButtonView,
-  queueButtonView,
-  queueColumnView as queueColumnOf,
-  queuePanelView,
-} from "./queue.ts";
+import * as Queue from "./queue/index.ts";
 // VIEW
 
 /**
@@ -355,6 +349,40 @@ const maybeShortNotice = (playback: Playback): Option.Option<string> =>
     },
     () => Option.none(),
   );
+
+/** What a list of the queue is drawn with: the songs to come, and the place the first of them has in all that is played. */
+const queueListOf = (session: Session): Queue.ListInputs => ({
+  later: session.later,
+  firstPlace: session.earlier.length + 2,
+});
+
+/**
+ * The way to the queue and back from it: a control under the player's
+ * controls, on every face. On the queue's it is lit, and leads back to the
+ * song; on any other it leads to the queue. What plays next is said to
+ * assistive technology, where a row once showed it.
+ */
+const queueButtonView = (session: Session, h: HtmlBuilder<Message>): Html => {
+  const isOpen = session.pane === "Queue";
+  return iconButtonView(
+    {
+      look: "OnSheet",
+      label: "Playing Next",
+      content: [
+        queueIcon("size-6"),
+        h.span([h.Id(Queue.NEXT_ID), h.Class("sr-only")], [Queue.nextLine(session.later)]),
+      ],
+      onClick: Message.ClickedQueue(),
+      attributes: [
+        h.AriaDescribedBy(Queue.NEXT_ID),
+        h.AriaExpanded(isOpen),
+        h.AriaControls(Queue.PANEL_ID),
+        ...(isOpen ? [h.DataAttribute("lit", "")] : []),
+      ],
+    },
+    h,
+  );
+};
 
 // NOTE: a time has a box of a fixed size that lays out nothing outside
 // itself (`contain`). The elapsed time changes once a second while there is
@@ -894,7 +922,13 @@ const islandExtrasView = (
   h.div(
     [h.Class("mr-2.5 flex flex-none items-center gap-1")],
     [
-      islandQueueButtonView(model, session, h),
+      h.submodel({
+        slotId: "queue-control",
+        model: model.queue,
+        view: Queue.columnControlView,
+        viewInputs: queueListOf(session),
+        toParentMessage: (message) => Message.GotQueueMessage({ message }),
+      }),
       moreMenuView(
         session,
         "OnIsland",
@@ -1276,6 +1310,7 @@ const TITLE_SIZES: Readonly<Record<ReturnType<typeof titleSize>, string>> = {
 };
 
 const sheetView = (
+  model: Model,
   session: Session,
   viewInputs: ExpandedViewInputs,
   h: HtmlBuilder<Message>,
@@ -1339,14 +1374,24 @@ const sheetView = (
               ),
               session.pane === "Details"
                 ? h.div(
-                    [h.Class(clsx(FACE_BODY_CLASS, "px-6 pt-3 pb-6"))],
+                    [h.Class(clsx(Queue.FACE_BODY_CLASS, "px-6 pt-3 pb-6"))],
                     [
-                      h.h2([h.Class(clsx(FACE_HEADING_CLASS, "mb-3.5"))], ["Song details"]),
+                      h.h2([h.Class(clsx(Queue.FACE_HEADING_CLASS, "mb-3.5"))], ["Song details"]),
                       viewInputs.toDetail(current),
                     ],
                   )
                 : h.empty,
-              queuePanelView(session, h),
+              h.submodel({
+                slotId: "queue-panel",
+                model: model.queue,
+                view: Queue.panelView,
+                viewInputs: {
+                  ...queueListOf(session),
+                  isOpen: session.pane === "Queue",
+                  isUnderSong: session.pane === "Artwork",
+                },
+                toParentMessage: (message) => Message.GotQueueMessage({ message }),
+              }),
               announcementView(session, h),
             ],
           ),
@@ -1361,7 +1406,7 @@ export const expandedView = Submodel.defineView<Model, Message, ExpandedViewInpu
   (model, viewInputs, h) =>
     Option.match(model.maybeSession, {
       onNone: () => h.empty,
-      onSome: (session) => sheetView(session, viewInputs, h),
+      onSome: (session) => sheetView(model, session, viewInputs, h),
     }),
 );
 
@@ -1371,8 +1416,25 @@ export const expandedView = Submodel.defineView<Model, Message, ExpandedViewInpu
  * is opened, and nothing while nothing has been played.
  */
 export const queueColumnView = Submodel.defineView<Model, Message>((model, h) =>
-  Option.match(Option.filter(model.maybeSession, () => model.queueColumn === "Open"), {
+  Option.match(Option.filter(model.maybeSession, () => Queue.isColumnOpen(model.queue)), {
     onNone: () => h.empty,
-    onSome: (session) => queueColumnOf(session, h),
+    onSome: (session) =>
+      h.submodel({
+        slotId: "queue-column",
+        model: model.queue,
+        view: Queue.columnView,
+        viewInputs: queueListOf(session),
+        toParentMessage: (message) => Message.GotQueueMessage({ message }),
+      }),
   }),
 );
+
+/**
+ * The song of the queue being carried, drawn by the shell and not in the
+ * player's sheet (`Queue.ghostView`): nothing, until something is played.
+ */
+export const queueGhostView = <M>(model: Model, isBeside: boolean, h: HtmlBuilder<M>): Html =>
+  Option.match(model.maybeSession, {
+    onNone: () => h.empty,
+    onSome: (session) => Queue.ghostView(model.queue, session.later, isBeside, h),
+  });

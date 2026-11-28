@@ -1,5 +1,5 @@
 import type { TrackId, TrackSummary } from "@bafle/domain/Catalog/Track";
-import { DragAndDrop, Menu, Slider } from "@foldkit/ui";
+import { Menu, Slider } from "@foldkit/ui";
 import * as Array from "effect/Array";
 import * as Equal from "effect/Equal";
 import { pipe } from "effect/Function";
@@ -11,7 +11,6 @@ import { modifyFields } from "foldkit/struct";
 import type { CatalogClient } from "../catalog.ts";
 import type { AudioEngine, EngineReport } from "./audioEngine.ts";
 import {
-  FocusQueueControl,
   PausePlayback,
   PublishNowPlaying,
   RefreshSource,
@@ -22,6 +21,7 @@ import {
   WaitBeforeShowingActivity,
 } from "./command.ts";
 import * as Island from "./island/index.ts";
+import * as Queue from "./queue/index.ts";
 import { type MediaKey, Message, OutMessage } from "./message.ts";
 import {
   type Cue,
@@ -58,7 +58,7 @@ export const init = (): Model => ({
   lastOrder: 0,
   maybeSession: Option.none(),
   island: Island.init(),
-  queueColumn: "Closed",
+  queue: Queue.init(),
 });
 
 // UPDATE
@@ -579,27 +579,34 @@ const turnTo =
     commands: [ShowFaceFromTop()],
   });
 
-// THE QUEUE BESIDE THE PAGE
+// THE QUEUE
 
-/** The island's control for the queue, on a desktop's screen: it opens the column, and closes it. */
-const toggleQueueColumn: Step = (model) => ({
-  model: modifyFields(model, {
-    queueColumn: (queueColumn) => (queueColumn === "Open" ? "Closed" : "Open"),
+/**
+ * What the queue says, and what the player does about it: the queue draws
+ * the songs to come and lets the listener choose one or carry one elsewhere,
+ * and the order they are in is the session's.
+ */
+const foldQueue = Update.foldChild({
+  update: Queue.update,
+  read: (model: Model) => Option.some(model.queue),
+  write: (model: Model, nextQueue: Queue.Model): Model =>
+    nextQueue === model.queue ? model : modifyFields(model, { queue: () => nextQueue }),
+  toParentMessage: (message: Queue.Message): Message => Message.GotQueueMessage({ message }),
+  foldOutMessage: Queue.OutMessage.match<Step>({
+    ChoseItem: ({ index, trackId }) =>
+      onSession((session) => playFromQueue(session, index, trackId)),
+    MovedItem: ({ fromIndex, toIndex }) =>
+      onSession((session) => moveInQueue(session, fromIndex, toIndex)),
   }),
 });
 
-/**
- * The column's own control closes it. What held the focus goes with the
- * column, so the control that opens it takes it: the listener is left where
- * they would open it again.
- */
-const closeQueueColumn: Step = (model) =>
-  model.queueColumn === "Closed"
-    ? { model }
-    : {
-        model: modifyFields(model, { queueColumn: () => "Closed" }),
-        commands: [FocusQueueControl()],
-      };
+const foldQueueNewList = Update.foldChildStep({
+  update: Queue.informNewList,
+  read: (model: Model) => Option.some(model.queue),
+  write: (model: Model, nextQueue: Queue.Model): Model =>
+    nextQueue === model.queue ? model : modifyFields(model, { queue: () => nextQueue }),
+  toParentMessage: (message: Queue.Message): Message => Message.GotQueueMessage({ message }),
+});
 
 /**
  * The player is its island again. The face it had turned to was the
@@ -669,42 +676,6 @@ export const closeMenu = (model: Model): UpdateReturn => foldMoreMenuClose(model
 /** The face that says what the catalog knows of the track, turned to by whoever holds the player. */
 export const showDetails = (model: Model): UpdateReturn =>
   onSession((session) => turnTo(session, "Details"))(model);
-
-// MOVING A SONG OF THE QUEUE
-
-// NOTE: the component tells where a song was put down in two ways. Carried
-// by its handle, the place is counted among all the rows of the list, the
-// row carried among them, since that row is still in the list while it is
-// carried. Moved with the keys, it is counted among the others only. The
-// queue wants the second, so the first is brought to it here.
-const foldQueueDrag = (wasCarried: boolean) =>
-  Update.foldChild({
-    update: DragAndDrop.update,
-    read: (model: Model) => Option.map(model.maybeSession, (session) => session.queueDrag),
-    write: (model: Model, nextDrag: DragAndDrop.Model) =>
-      modifyFields(model, {
-        maybeSession: Option.map((session) =>
-          session.queueDrag === nextDrag ? session : modifyFields(session, { queueDrag: () => nextDrag }),
-        ),
-      }),
-    toParentMessage: (message: DragAndDrop.Message): Message =>
-      Message.GotQueueDragMessage({ message }),
-    foldOutMessage: DragAndDrop.OutMessage.match<Step>({
-      Reordered: ({ fromIndex, toIndex }) =>
-        onSession((session) =>
-          moveInQueue(session, fromIndex, wasCarried && toIndex > fromIndex ? toIndex - 1 : toIndex),
-        ),
-      Cancelled: () => unchanged,
-    }),
-  });
-
-const gotQueueDragMessage = (model: Model, message: DragAndDrop.Message): UpdateReturn => {
-  const wasCarried = Option.exists(
-    model.maybeSession,
-    (session) => session.queueDrag.dragState._tag === "Dragging",
-  );
-  return foldQueueDrag(wasCarried)(model, message);
-};
 
 const gotSeekSliderMessage = (model: Model, message: Slider.Message): UpdateReturn => {
   const wasDragging = Option.exists(model.maybeSession, (session) =>
@@ -816,12 +787,8 @@ const handle = (model: Model, message: Message) =>
       onSession((session) =>
         turnTo(session, session.pane === "Queue" ? "Artwork" : "Queue"),
       )(model),
-    ClickedIslandQueue: () => toggleQueueColumn(model),
-    ClickedCloseQueue: () => closeQueueColumn(model),
     ClickedDetails: () =>
       onSession((session) => (session.pane === "Details" ? turnTo(session, "Artwork") : unchanged))(model),
-    ClickedQueueItem: ({ index, trackId }) =>
-      onSession((session) => playFromQueue(session, index, trackId))(model),
     ClickedTryAgain: () => onSession(play)(model),
     PressedMediaKey: ({ key }) => onSession((session) => pressedMediaKey(session, key))(model),
     MovedMediaPosition: ({ positionSeconds }) =>
@@ -829,7 +796,7 @@ const handle = (model: Model, message: Message) =>
 
     GotSeekSliderMessage: ({ message }) => gotSeekSliderMessage(model, message),
     GotMoreMenuMessage: ({ message }) => foldMoreMenu(model, message),
-    GotQueueDragMessage: ({ message }) => gotQueueDragMessage(model, message),
+    GotQueueMessage: ({ message }) => foldQueue(model, message),
 
     UpdatedEngineStatus: ({ report }) =>
       forLatestOrder(
@@ -853,7 +820,6 @@ const handle = (model: Model, message: Message) =>
     CompletedSeekPlayback: () => ({ model }),
     CompletedPublishNowPlaying: () => ({ model }),
     CompletedShowFaceFromTop: () => ({ model }),
-    CompletedFocusQueueControl: () => ({ model }),
   });
 
 // ENTRY
@@ -878,7 +844,8 @@ export const choose = (
       ? onSession(toggle)(model)
       : Option.match(queueFrom(choice.list, choice.trackId), {
           onNone: () => ({ model }),
-          onSome: (session) => startTrack(session, "Chosen")(model),
+          onSome: (session) =>
+            Update.combine(model, [startTrack(session, "Chosen"), foldQueueNewList]),
         }),
   );
 

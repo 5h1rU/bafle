@@ -689,7 +689,9 @@ describe("what must not strand the player while a source is replaced", () => {
 describe("the queue", () => {
   test("choosing a later song starts it once and keeps its place for Previous and Next", () => {
     const open = after(sounding, Message.ClickedQueue());
-    const jump = Player.update(open, Message.ClickedQueueItem({ index: 1, trackId: thirdTrack.id }));
+    const jump = Player.update(open, Message.GotQueueMessage({
+        message: Player.Queue.Message.ClickedItem({ index: 1, trackId: thirdTrack.id }),
+      }));
     expect(asked(jump)[0]).toEqual(["StartPlayback", {
       order: 2, source: thirdTrack.previewUrl, positionSeconds: 0,
     }]);
@@ -701,9 +703,11 @@ describe("the queue", () => {
 
   test("a song of the queue carried to another place: the order changes, and nothing sounds differently", () => {
     const drag = (dragMessage: DragAndDrop.Message) =>
-      Message.GotQueueDragMessage({ message: dragMessage });
+      Message.GotQueueMessage({
+        message: Player.Queue.Message.GotDragMessage({ message: dragMessage }),
+      });
     const put = (index: number) =>
-      Option.some({ containerId: Player.QUEUE_CONTAINER_ID, index });
+      Option.some({ containerId: Player.Queue.CONTAINER_ID, index });
     const open = after(sounding, Message.ClickedQueue());
     expect(session(open).later).toEqual([explicitTrack, thirdTrack]);
 
@@ -711,7 +715,7 @@ describe("the queue", () => {
     const carriedUp = after(
       open,
       drag(DragAndDrop.Message.PressedDraggable({
-        itemId: `${thirdTrack.id}/0`, containerId: Player.QUEUE_CONTAINER_ID, index: 1, screenX: 0, screenY: 100,
+        itemId: `${thirdTrack.id}/0`, containerId: Player.Queue.CONTAINER_ID, index: 1, screenX: 0, screenY: 100,
       })),
       drag(DragAndDrop.Message.MovedPointer({
         screenX: 0, screenY: 40, clientX: 0, clientY: 40, maybeDropTarget: put(0),
@@ -725,7 +729,7 @@ describe("the queue", () => {
     const carriedDown = after(
       droppedUp.model,
       drag(DragAndDrop.Message.PressedDraggable({
-        itemId: `${thirdTrack.id}/0`, containerId: Player.QUEUE_CONTAINER_ID, index: 0, screenX: 0, screenY: 40,
+        itemId: `${thirdTrack.id}/0`, containerId: Player.Queue.CONTAINER_ID, index: 0, screenX: 0, screenY: 40,
       })),
       drag(DragAndDrop.Message.MovedPointer({
         screenX: 0, screenY: 160, clientX: 0, clientY: 160, maybeDropTarget: put(2),
@@ -738,7 +742,7 @@ describe("the queue", () => {
     const letGo = after(
       carriedDown,
       drag(DragAndDrop.Message.PressedDraggable({
-        itemId: `${explicitTrack.id}/0`, containerId: Player.QUEUE_CONTAINER_ID, index: 0, screenX: 0, screenY: 40,
+        itemId: `${explicitTrack.id}/0`, containerId: Player.Queue.CONTAINER_ID, index: 0, screenX: 0, screenY: 40,
       })),
       drag(DragAndDrop.Message.MovedPointer({
         screenX: 0, screenY: 400, clientX: 0, clientY: 400, maybeDropTarget: Option.none(),
@@ -751,15 +755,17 @@ describe("the queue", () => {
 
   test("a song of the queue moved with the keys: its place is counted among the others", () => {
     const drag = (dragMessage: DragAndDrop.Message) =>
-      Message.GotQueueDragMessage({ message: dragMessage });
+      Message.GotQueueMessage({
+        message: Player.Queue.Message.GotDragMessage({ message: dragMessage }),
+      });
     const open = after(sounding, Message.ClickedQueue());
     const moved = after(
       open,
       drag(DragAndDrop.Message.ActivatedKeyboardDrag({
-        itemId: `${explicitTrack.id}/0`, containerId: Player.QUEUE_CONTAINER_ID, index: 0,
+        itemId: `${explicitTrack.id}/0`, containerId: Player.Queue.CONTAINER_ID, index: 0,
       })),
       drag(DragAndDrop.Message.CompletedResolveKeyboardMove({
-        targetContainerId: Player.QUEUE_CONTAINER_ID, targetIndex: 1,
+        targetContainerId: Player.Queue.CONTAINER_ID, targetIndex: 1,
       })),
       drag(DragAndDrop.Message.ConfirmedKeyboardDrop()),
     );
