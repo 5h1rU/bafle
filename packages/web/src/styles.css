@@ -45,6 +45,11 @@
   --color-danger: #b3261e;
   /* The record that comes out of a tile's sleeve while its page is fetched. */
   --color-record: #150e13;
+  /* The signal cut short, over a page that could not reach the catalog: the
+     burst that still sounds, and what fades on either side of it. The same
+     on the light page and the dark one, as the design draws it. */
+  --color-signal: #d48d9e;
+  --color-signal-fade: #a67fa4;
 
   /* What stands over a picture is the same on the light page and the dark
      one: the night a picture's veil ends in, the white of the words that
