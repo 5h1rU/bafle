@@ -13,3 +13,9 @@ design/
 # Research material for the article: screen-recording frames that show an
 # account name. Kept locally, never published.
 apple-music-cuadros/
+
+# The pictures the visual tests compare with are drawn on Linux, in CI's
+# image (`.github/workflows/ci.yml`). A run on another system draws its own
+# beside them, which are that machine's and are not kept.
+*-chromium-darwin.png
+*-chromium-win32.png

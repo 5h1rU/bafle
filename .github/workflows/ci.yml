@@ -1,0 +1,88 @@
+# Every push to main and every pull request is formatted, linted, typed and
+# tested here.
+#
+# The tests run in Playwright's own image, at the release the catalog pins
+# (`playwright` in pnpm-workspace.yaml), with Inter as the system's type
+# (`packages/web/test/visual/fonts.conf`): the visual tests compare the app
+# with pictures kept beside them, pixel by pixel, and the pictures hold only
+# on the system they were drawn on. This image is that system, and the
+# pictures are drawn here and nowhere else: run this workflow by hand with
+# "Draw the pictures again" and it draws them, and commits them to the branch
+# it ran on. Bump the image's tag with the catalog's Playwright, and draw the
+# pictures again.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      draw-pictures:
+        description: Draw the pictures again
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Make Inter the system's type
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq fonts-inter
+          cp packages/web/test/visual/fonts.conf /etc/fonts/conf.d/99-bafle.conf
+          fc-cache -f
+          fc-match system-ui
+
+      # The version is the one `packageManager` in package.json names.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm format:check
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - if: ${{ !inputs.draw-pictures }}
+        run: pnpm test
+
+      - name: Draw the pictures again
+        if: ${{ inputs.draw-pictures }}
+        run: |
+          pnpm --filter @bafle/web exec vitest run test/visual --update
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/web/test/visual/__screenshots__
+          git diff --cached --quiet || git commit -m "Draw the visual tests' pictures again in CI's image"
+          git push
+
+      # What a failed comparison of pictures leaves: what was seen, and how
+      # it differs from the picture kept.
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-differences
+          path: packages/web/.vitest/
+          if-no-files-found: ignore
