@@ -18,7 +18,11 @@ export const TrackSummary = Schema.Struct({
     cover: Schema.NullOr(Artwork),
   }),
   durationSeconds: Schema.Int,
-  /** A short excerpt anyone may play, when the catalog offers one. It can expire: ask again before playing. */
+  /**
+   * What anyone may play of it, when the catalog offers anything: a short
+   * excerpt, or the whole track, as the catalog allows. It can expire: ask
+   * again before playing.
+   */
   previewUrl: Schema.NullOr(Schema.String),
   explicit: Schema.Boolean,
 });

@@ -56,8 +56,8 @@ export type RadioStations = typeof RadioStations.Type;
 
 /**
  * The music catalog Bafle reads from. Bafle says what it wants in its own
- * words and never names a provider: an adapter turns each call into Deezer's,
- * Apple Music's or Spotify's API, and their answers back into these shapes.
+ * words and never names a provider: an adapter turns each call into Audius's,
+ * Deezer's or Apple Music's API, and their answers back into these shapes.
  */
 export class MusicCatalog extends Domain.ExternalSystem(
   "MusicCatalog",

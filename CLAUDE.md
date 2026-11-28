@@ -1,6 +1,6 @@
 # Bafle
 
-A music player whose music provider sits behind an Effect service, so the provider (Deezer today) can be swapped without touching the model or the app.
+A music player whose music provider sits behind an Effect service, so the provider (Audius today) can be swapped without touching the model or the app.
 
 ## Stack
 
@@ -42,9 +42,19 @@ Every push to main and every pull request is formatted (`pnpm format:check`, oxf
 
 ## Where the provider is chosen
 
-`packages/domain/src/Catalog/MusicCatalog.external.ts` declares what Bafle asks of a catalog, in its own words. `packages/server/src/Deezer/` is the only code that knows Deezer, down to where a picture's likeness is worked out from (`likenessSourceOf`). `packages/server/src/BafleWorker.ts` names the adapter in use: to change provider, write another `MusicCatalog.toLayer(...)` and name it there.
+`packages/domain/src/Catalog/MusicCatalog.external.ts` declares what Bafle asks of a catalog, in its own words. Each adapter is the only code that knows its provider: `packages/server/src/Audius/`, the one in use, and `packages/server/src/Deezer/`, kept since Deezer stopped letting its audio be played outside its own apps. `packages/server/src/BafleWorker.ts` names the adapter in use: to change provider, write another `MusicCatalog.toLayer(...)` and name it there.
 
-The lists that are the same for every listener (what Home recommends, what is played most, the genres, the stations) are kept in Workers KV once the provider has answered (`packages/server/src/Kept/`, `KeptReplies`), with the isolate's memory in front of it: a visit is answered from what is kept, and when that is no longer fresh the provider is asked behind the reply (`waitUntil`), so no visit waits for it but the first. How long each is kept is the adapter's to say, since only it knows what its replies carry: Deezer signs the address of a song's audio to expire after a quarter of an hour, so what is played most is kept for minutes (`TRENDING_KEPT_FOR`) and the lists with no audio for a day (`LISTS_KEPT_FOR`). A page of one thing (a track, an album, a search) is asked of the provider every time.
+What a provider lacks, its adapter makes out of what it has, so that the app never knows. Audius plays the whole track, from an address of its own that never runs out (`audioOf` in `Audius/translate.ts`), and has no editors, no stations and no genre pictures:
+
+- An album is one of Audius's playlists that it calls one. A track on no album is a single, the album of that one track, under the track's id (`single-…`), so every track's row can lead to an album.
+- Genres are Audius's upload genres that are music (`AUDIUS_GENRES`), the 24 with the most filed under them (`GENRES_SHOWN`), each under a slug of its name, with the cover of what is played most in it this week.
+- Each genre has three stations, what is played most in it this week, this month and of all time (`WINDOWS`), each dealt afresh from the top hundred of that window when it is asked for (`week-electronic`, `stationOf`).
+- Audius names another of its nodes for a picture in every answer, so every picture is drawn from its own node (`AUDIUS_PICTURES`) and is the same address wherever it is listed.
+- Every question to Audius carries the bearer token of Bafle's app on Audius (`AUDIUS_BEARER_TOKEN`, read from `.env` and bound to the Worker as a secret), which Audius answers ten times a second. A list with a question for each genre asks two at a time, to stay under that.
+
+Audius draws its pictures as JPEG only, and the server works a likeness out of a PNG alone, so none of Audius's pictures has a likeness yet (Deezer's adapter works out where one comes from in `likenessSourceOf`).
+
+The lists that are the same for every listener (what Home recommends, what is played most, the genres, the stations) are kept in Workers KV once the provider has answered (`packages/server/src/Kept/`, `KeptReplies`), with the isolate's memory in front of it: a visit is answered from what is kept, and when that is no longer fresh the provider is asked behind the reply (`waitUntil`), so no visit waits for it but the first. How long each is kept is the adapter's to say, since only it knows what its replies carry: Deezer signs the address of a song's audio to expire after a quarter of an hour, so it keeps what is played most for minutes (`TRENDING_KEPT_FOR`) and the lists with no audio for a day (`LISTS_KEPT_FOR`); Audius's addresses never run out, so it keeps every list for a day, and what is played most is fresh for ten minutes (`TRENDING_FRESH_FOR`). Audius's lists are kept under names of their own (`audius:featured`), so it never hands over what Deezer's kept. A page of one thing (a track, an album, a search) is asked of the provider every time.
 
 ## How the app is put together
 

@@ -7,15 +7,20 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { HttpServerRequest } from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import * as Layer from "effect/Layer";
-import { DeezerMusicCatalog } from "./Deezer/DeezerMusicCatalog.ts";
+import { AudiusMusicCatalog } from "./Audius/AudiusMusicCatalog.ts";
 import { KeptRepliesKV } from "./Kept/KeptReplies.ts";
 import { PicturePlaceholdersKV } from "./Placeholder/PicturePlaceholders.ts";
 
 /**
  * Which provider the catalog is read from. To change provider, write another
  * `MusicCatalog.toLayer(...)` and name it here: nothing else changes.
+ * (`DeezerMusicCatalog` is the other one there is: Deezer stopped letting its
+ * audio be played outside its own apps.)
  */
-const Catalog = DeezerMusicCatalog.pipe(
+// NOTE: Audius's pictures have no likeness yet (`toArtwork` in
+// `Audius/translate.ts`), so its catalog asks nothing of
+// `PicturePlaceholdersKV`. It stays provided for an adapter that does.
+const Catalog = AudiusMusicCatalog.pipe(
   Layer.provide(Layer.mergeAll(PicturePlaceholdersKV, KeptRepliesKV)),
   Layer.provide(Layer.mergeAll(FetchHttpClient.layer, Cloudflare.KV.ReadWriteNamespaceBinding)),
 );
