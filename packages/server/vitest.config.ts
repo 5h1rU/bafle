@@ -1,3 +1,7 @@
 import { defineConfig } from "vitest/config";
 
-export default defineConfig({ test: { include: ["test/**/*.test.ts"], testTimeout: 30_000 } });
+// NOTE: the name heads this package's report in the summary of a CI run, where
+// every package's tests write one.
+export default defineConfig({
+  test: { name: "server", include: ["test/**/*.test.ts"], testTimeout: 30_000 },
+});
