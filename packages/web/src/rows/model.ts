@@ -34,9 +34,7 @@ export const rowMenuId = ({ from, trackId }: RowId): string =>
  */
 export const Done = Schema.Struct({
   turn: Schema.Int,
-  maybeRow: Schema.Option(
-    Schema.Struct({ from: PlayOrigin, trackId: TrackId, place: QueuePlace }),
-  ),
+  maybeRow: Schema.Option(Schema.Struct({ from: PlayOrigin, trackId: TrackId, place: QueuePlace })),
 });
 export type Done = typeof Done.Type;
 

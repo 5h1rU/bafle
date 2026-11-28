@@ -23,9 +23,10 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       const next = modifyFields(model, { reach: () => reach });
       return reach === "Gone" ? { model: next, outMessage: OutMessage.Left() } : { model: next };
     },
-    PressedEscape: () => model.dismissedByKeyboard
-      ? { model }
-      : askToClose(modifyFields(model, { dismissedByKeyboard: () => true })),
+    PressedEscape: () =>
+      model.dismissedByKeyboard
+        ? { model }
+        : askToClose(modifyFields(model, { dismissedByKeyboard: () => true })),
     ClickedClose: () => askToClose(model),
     CompletedSlideAway: () => ({ model }),
   });

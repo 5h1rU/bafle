@@ -89,7 +89,7 @@ export const lengthNearest = (
   place: Place,
   seed = 0,
 ): number => {
-  const wrap = (length: number) => (length % total + total) % total;
+  const wrap = (length: number) => ((length % total) + total) % total;
   let best = wrap(seed);
   let distance = apart(placeAt(best), place);
   const tryLength = (length: number) => {

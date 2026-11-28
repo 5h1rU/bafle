@@ -16,10 +16,7 @@ export const view = (path: string, h: HtmlBuilder<Message>): Html =>
     pageTitleView(PAGE_ID, TITLE, h),
     h.p([h.Class("mt-4 break-all text-muted")], [`Nothing lives at ${path}.`]),
     h.a(
-      [
-        h.Href(homeRouter()),
-        h.Class(clsx("mt-6 inline-block", pillClass("Filled", "Short"))),
-      ],
+      [h.Href(homeRouter()), h.Class(clsx("mt-6 inline-block", pillClass("Filled", "Short")))],
       ["Go to Home"],
     ),
   ]);

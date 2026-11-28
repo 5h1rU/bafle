@@ -39,8 +39,9 @@ describe("a row turned by its arrows", () => {
   });
 
   test("a list in columns turns by its columns: every row of one starts where it does", () => {
-    const columns = Array.flatMap(Array.makeBy(4, (column) => column * 500), (from) =>
-      Array.makeBy(5, (): Span => ({ from, to: from + 460 })),
+    const columns = Array.flatMap(
+      Array.makeBy(4, (column) => column * 500),
+      (from) => Array.makeBy(5, (): Span => ({ from, to: from + 460 })),
     );
 
     // Two columns whole and the edge of the third.

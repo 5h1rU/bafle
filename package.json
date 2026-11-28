@@ -11,7 +11,9 @@
     "destroy": "alchemy destroy",
     "typecheck": "tsc -b",
     "test": "pnpm -r --filter './packages/*' test",
-    "lint": "pnpm -r --filter './packages/*' --if-present lint"
+    "lint": "pnpm -r --filter './packages/*' --if-present lint",
+    "format": "oxfmt packages alchemy.run.ts",
+    "format:check": "oxfmt --check packages alchemy.run.ts"
   },
   "dependencies": {
     "@alchemy.run/cloudflare": "catalog:",
@@ -30,6 +32,7 @@
     "@foldkit/oxlint-plugin": "catalog:",
     "@foldkit/vite-plugin": "catalog:",
     "foldkit": "catalog:",
+    "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"

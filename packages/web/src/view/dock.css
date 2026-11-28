@@ -35,24 +35,136 @@
 @supports (transition-timing-function: linear(0, 1)) {
   :root {
     --ease-island-out: linear(
-      0, 0.0541, 0.1807, 0.3379, 0.4975, 0.6428, 0.765, 0.8613, 0.9325, 0.9817, 1.0128,
-      1.0301, 1.0374, 1.038, 1.0346, 1.0291, 1.0229, 1.017, 1.0117, 1.0074, 1.0041, 1.0017,
-      1.0002, 0.9992, 0.9987, 0.9985, 0.9986, 0.9987, 0.999, 0.9992, 1
+      0,
+      0.0541,
+      0.1807,
+      0.3379,
+      0.4975,
+      0.6428,
+      0.765,
+      0.8613,
+      0.9325,
+      0.9817,
+      1.0128,
+      1.0301,
+      1.0374,
+      1.038,
+      1.0346,
+      1.0291,
+      1.0229,
+      1.017,
+      1.0117,
+      1.0074,
+      1.0041,
+      1.0017,
+      1.0002,
+      0.9992,
+      0.9987,
+      0.9985,
+      0.9986,
+      0.9987,
+      0.999,
+      0.9992,
+      1
     );
     --ease-island-back: linear(
-      0, 0.044, 0.1488, 0.2823, 0.4225, 0.5554, 0.6731, 0.7718, 0.8508, 0.9114, 0.9557,
-      0.9865, 1.0064, 1.0181, 1.0238, 1.0254, 1.0243, 1.0216, 1.0182, 1.0147, 1.0113,
-      1.0083, 1.0058, 1.0038, 1.0022, 1.0011, 1.0003, 0.9998, 0.9995, 0.9994, 1
+      0,
+      0.044,
+      0.1488,
+      0.2823,
+      0.4225,
+      0.5554,
+      0.6731,
+      0.7718,
+      0.8508,
+      0.9114,
+      0.9557,
+      0.9865,
+      1.0064,
+      1.0181,
+      1.0238,
+      1.0254,
+      1.0243,
+      1.0216,
+      1.0182,
+      1.0147,
+      1.0113,
+      1.0083,
+      1.0058,
+      1.0038,
+      1.0022,
+      1.0011,
+      1.0003,
+      0.9998,
+      0.9995,
+      0.9994,
+      1
     );
     --ease-menu-out: linear(
-      0, 0.0611, 0.1978, 0.3601, 0.5182, 0.6566, 0.7689, 0.8549, 0.9172, 0.9599, 0.9873,
-      1.0034, 1.0117, 1.0148, 1.0149, 1.0133, 1.0109, 1.0085, 1.0062, 1.0043, 1.0028,
-      1.0017, 1.0009, 1.0004, 1.0001, 0.9999, 0.9998, 0.9998, 0.9998, 0.9998, 1
+      0,
+      0.0611,
+      0.1978,
+      0.3601,
+      0.5182,
+      0.6566,
+      0.7689,
+      0.8549,
+      0.9172,
+      0.9599,
+      0.9873,
+      1.0034,
+      1.0117,
+      1.0148,
+      1.0149,
+      1.0133,
+      1.0109,
+      1.0085,
+      1.0062,
+      1.0043,
+      1.0028,
+      1.0017,
+      1.0009,
+      1.0004,
+      1.0001,
+      0.9999,
+      0.9998,
+      0.9998,
+      0.9998,
+      0.9998,
+      1
     );
     --ease-menu-back: linear(
-      0, 0.0631, 0.2014, 0.3624, 0.5165, 0.6498, 0.7573, 0.8395, 0.8995, 0.9415, 0.9694,
-      0.9871, 0.9976, 1.0032, 1.0057, 1.0063, 1.0059, 1.005, 1.004, 1.003, 1.0022, 1.0015,
-      1.001, 1.0006, 1.0004, 1.0002, 1.0001, 1, 1, 1, 1
+      0,
+      0.0631,
+      0.2014,
+      0.3624,
+      0.5165,
+      0.6498,
+      0.7573,
+      0.8395,
+      0.8995,
+      0.9415,
+      0.9694,
+      0.9871,
+      0.9976,
+      1.0032,
+      1.0057,
+      1.0063,
+      1.0059,
+      1.005,
+      1.004,
+      1.003,
+      1.0022,
+      1.0015,
+      1.001,
+      1.0006,
+      1.0004,
+      1.0002,
+      1.0001,
+      1,
+      1,
+      1,
+      1
     );
   }
 }
@@ -65,25 +177,57 @@
    it stands at once. */
 @variant max-md:motion-safe {
   [data-input="Pointer"] {
-    .dock-surface { transition: clip-path var(--dock-out) var(--ease-menu-out), opacity 180ms ease-out; }
-    .dock-circle, .dock-name, .dock-item:not(.dock-current) { transition: opacity 180ms ease-out; }
-    .dock-current, .dock-current svg, .dock-search, .dock-search svg {
+    .dock-surface {
+      transition:
+        clip-path var(--dock-out) var(--ease-menu-out),
+        opacity 180ms ease-out;
+    }
+    .dock-circle,
+    .dock-name,
+    .dock-item:not(.dock-current) {
+      transition: opacity 180ms ease-out;
+    }
+    .dock-current,
+    .dock-current svg,
+    .dock-search,
+    .dock-search svg {
       transition: transform var(--dock-out) var(--ease-menu-out);
     }
     /* The mark goes to the item chosen on the menu's own spring, given
        longer since it can have three places to cross. */
-    .dock-mark { transition: transform 340ms var(--ease-menu-out), opacity 140ms ease-out; }
-    .dock-island { transition: transform var(--dock-out) var(--ease-island-out) 30ms; }
+    .dock-mark {
+      transition:
+        transform 340ms var(--ease-menu-out),
+        opacity 140ms ease-out;
+    }
+    .dock-island {
+      transition: transform var(--dock-out) var(--ease-island-out) 30ms;
+    }
     /* Next has its place in the tail from the first frame, and the tail
        is not there yet: it comes in once the island has widened to it. */
-    .dock-island-next > * { transition: opacity 140ms ease-out 110ms; }
+    .dock-island-next > * {
+      transition: opacity 140ms ease-out 110ms;
+    }
   }
   [data-input="Pointer"][data-navigation="minimized"] {
-    .dock-surface { transition: clip-path var(--dock-back) var(--ease-menu-back), opacity 120ms ease-out 200ms; }
-    .dock-item:not(.dock-current) { transition: opacity 140ms ease-out, visibility 0s 140ms; }
-    .dock-current, .dock-current svg, .dock-search, .dock-search svg {
+    .dock-surface {
+      transition:
+        clip-path var(--dock-back) var(--ease-menu-back),
+        opacity 120ms ease-out 200ms;
+    }
+    .dock-item:not(.dock-current) {
+      transition:
+        opacity 140ms ease-out,
+        visibility 0s 140ms;
+    }
+    .dock-current,
+    .dock-current svg,
+    .dock-search,
+    .dock-search svg {
       transition: transform var(--dock-back) var(--ease-menu-back);
     }
-    .dock-island { transition: transform var(--dock-back) var(--ease-island-back) 50ms; }
+    .dock-island {
+      transition: transform var(--dock-back) var(--ease-island-back) 50ms;
+    }
   }
 }

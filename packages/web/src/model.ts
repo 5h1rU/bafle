@@ -28,11 +28,7 @@ import { defineTaggedUnion } from "foldkit/schema";
 import { LoadError } from "./catalog.ts";
 import { InputMethod } from "./message.ts";
 import * as Rows from "./rows/model.ts";
-import {
-  Model as PlayerModel,
-  followsSound,
-  maybeCurrentTrackId,
-} from "./player/model.ts";
+import { Model as PlayerModel, followsSound, maybeCurrentTrackId } from "./player/model.ts";
 import { AppRoute, searchedTerm } from "./route.ts";
 import { Screen } from "./screen.ts";
 import * as Sheet from "./sheet/index.ts";
@@ -122,7 +118,12 @@ export const Awaiting = defineTaggedUnion({
    * Forward. The page on screen is held until it comes, and how the listener
    * got there is kept for then: it decides where the focus goes.
    */
-  Arrival: { requestId: Schema.String, route: AppRoute, entrance: Entrance, viaKeyboard: Schema.optionalKey(Schema.Literal(true)) },
+  Arrival: {
+    requestId: Schema.String,
+    route: AppRoute,
+    entrance: Entrance,
+    viaKeyboard: Schema.optionalKey(Schema.Literal(true)),
+  },
 });
 export type Awaiting = typeof Awaiting.Type;
 
@@ -157,9 +158,7 @@ export type ListedSection = typeof ListedSection.Type;
  * failure is said nowhere, and whatever the listener does goes before it.
  */
 export const Ahead = Schema.Struct({
-  maybeAsked: Schema.Option(
-    Schema.Struct({ requestId: Schema.String, section: ListedSection }),
-  ),
+  maybeAsked: Schema.Option(Schema.Struct({ requestId: Schema.String, section: ListedSection })),
   toAsk: Schema.Array(ListedSection),
 });
 export type Ahead = typeof Ahead.Type;

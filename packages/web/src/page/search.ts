@@ -433,7 +433,10 @@ const foundView = (
     songSectionsView(tracks, Option.isSome(maybeTopArtist), context, h),
     1,
   );
-  const place = (className: string) => (shelf: Html): Html => h.div([h.Class(className)], [shelf]);
+  const place =
+    (className: string) =>
+    (shelf: Html): Html =>
+      h.div([h.Class(className)], [shelf]);
 
   return h.div(
     [h.Class(FOUND_CLASS)],
@@ -598,10 +601,13 @@ export const view = (
             [h.Role("status"), h.DataAttribute("search-outcome", ""), h.Class("sr-only")],
             [outcome(search)],
           ),
-          Option.match(Option.filter(maybeSearchedTerm, () => place === "Docked"), {
-            onNone: () => h.empty,
-            onSome: (searchedTerm) => resultsView(search, searchedTerm, context, opening, h),
-          }),
+          Option.match(
+            Option.filter(maybeSearchedTerm, () => place === "Docked"),
+            {
+              onNone: () => h.empty,
+              onSome: (searchedTerm) => resultsView(search, searchedTerm, context, opening, h),
+            },
+          ),
         ],
       ),
     ],

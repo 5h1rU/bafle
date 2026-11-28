@@ -192,7 +192,10 @@ export const trackListView = (
   return [
     // A row's cover travels to its track's page and to the player; a row that leads with a number has none.
     context.presence === "OnScreen" && lead === "Cover"
-      ? artworkFlightRules(tracks.map((track) => coverTransitionName(track.id)), h)
+      ? artworkFlightRules(
+          tracks.map((track) => coverTransitionName(track.id)),
+          h,
+        )
       : h.empty,
     // NOTE: a list in columns goes on sideways, so where there is a pointer
     // it is turned by its two arrows, as a shelf is.

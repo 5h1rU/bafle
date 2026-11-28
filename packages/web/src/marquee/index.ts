@@ -1,4 +1,11 @@
-export { PIXELS_PER_SECOND, RESTS_FOR, STARTS_AFTER, Travel, WaitToTravel, passDuration } from "./command.ts";
+export {
+  PIXELS_PER_SECOND,
+  RESTS_FOR,
+  STARTS_AFTER,
+  Travel,
+  WaitToTravel,
+  passDuration,
+} from "./command.ts";
 export { Message } from "./message.ts";
 export { Model, init } from "./model.ts";
 export { Measure } from "./mount.ts";

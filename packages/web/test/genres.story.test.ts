@@ -459,8 +459,6 @@ describe("the genre's page behind a page reached from it", () => {
       (id) => reply.genre(id, { ...fullGenre, id: otherGenreId }),
       genrePath(otherGenreId),
     );
-    expect(maybeGenreIdInDocument(onOther.route, onOther.trail)).toEqual(
-      Option.some(otherGenreId),
-    );
+    expect(maybeGenreIdInDocument(onOther.route, onOther.trail)).toEqual(Option.some(otherGenreId));
   });
 });

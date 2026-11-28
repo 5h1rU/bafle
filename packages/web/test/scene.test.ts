@@ -569,10 +569,7 @@ describe("rule 6: search keeps its results while it loads", () => {
       // Still the answer on screen, not the term being typed.
       see(searchOutcome).toHaveText("Results for “daft”"),
       Command.resolveAll(
-        [
-          WaitForTypingPause,
-          Message.CompletedWaitForTypingPause({ pauseId: nextId(onSearch) }),
-        ],
+        [WaitForTypingPause, Message.CompletedWaitForTypingPause({ pauseId: nextId(onSearch) })],
         [
           Catalog.CatalogSearch,
           reply.search(nextId(after(onSearch, changedUrl("/search?q=daft+punk"))), foundMore),
@@ -682,10 +679,16 @@ describe("rule 7: the swap is seen to happen", () => {
   });
 
   test("a keyboard navigation stays immediate when the pointer is used while its reply is pending", () => {
-    const waiting = after(onHome, Message.ChangedInputMethod({ method: "Keyboard" }), clickedLink("/new"));
+    const waiting = after(
+      onHome,
+      Message.ChangedInputMethod({ method: "Keyboard" }),
+      clickedLink("/new"),
+    );
     const pointer = after(waiting, Message.ChangedInputMethod({ method: "Pointer" }));
     const message = arrived(reply.newMusic(awaitedId(pointer)));
-    expect(viewTransition({ previousModel: pointer, model: after(pointer, message), message })).toBe(false);
+    expect(
+      viewTransition({ previousModel: pointer, model: after(pointer, message), message }),
+    ).toBe(false);
   });
 
   test("and not while the page is held, refreshed, or typed into", () => {
@@ -849,7 +852,11 @@ describe("A1: the row shows that its track is loading", () => {
 
   test("a kept list reads the same Model: its row for the track says the same", () => {
     // New was left for a search that found the same track; the track is opened from Search.
-    const onSearchAfterNew = answered(chose(onNew, "/search?q=daft"), reply.search, "/search?q=daft");
+    const onSearchAfterNew = answered(
+      chose(onNew, "/search?q=daft"),
+      reply.search,
+      "/search?q=daft",
+    );
 
     scene(
       app,
@@ -960,11 +967,7 @@ describe("A4: a row says that its track failed to open", () => {
     ));
 
   test("the row is the height it was: what it has to say takes no room", () =>
-    scene(
-      app,
-      given(failedToOpen),
-      inside(topSongs, see(text(failure)).toHaveClass("sr-only")),
-    ));
+    scene(app, given(failedToOpen), inside(topSongs, see(text(failure)).toHaveClass("sr-only"))));
 
   test("the failure stays on its row while another row is opened", () =>
     scene(
@@ -1159,10 +1162,7 @@ describe("B: a track reached through the browser's history fails in its own page
     scene(
       app,
       given(answered(heldForTrack, reply.trackMissing)),
-      inside(
-        onScreen,
-        see(pageTitle("This song is not available")).toExist(),
-      ),
+      inside(onScreen, see(pageTitle("This song is not available")).toExist()),
       see(tryAgain).toBeAbsent(),
       see(role("alert")).toBeAbsent(),
     ));
@@ -1307,11 +1307,7 @@ describe("rule f: the pages behind the one on screen are kept, and hidden", () =
       given(answered(chose(onSearch, trackPath(track.id)), reply.track, trackPath(track.id))),
       see(selector("#search-page[inert]")).toExist(),
       see(searchField).toHaveValue("daft"),
-      inside(
-        results,
-        see(sectionTitle("Songs")).toExist(),
-        see(sectionTitle("Albums")).toExist(),
-      ),
+      inside(results, see(sectionTitle("Songs")).toExist(), see(sectionTitle("Albums")).toExist()),
       // As it was left, not dimmed as if a new term were loading.
       see(results).not.toHaveClass("opacity-60"),
       see(results).toHaveAttr("aria-busy", "false"),
@@ -1411,7 +1407,10 @@ describe("rule g: the cover is one element on its way between the row and the pa
       ),
       inside(
         rowOf(explicitTrack.id),
-        see(selector("[data-cover]")).toHaveStyle("view-transition-name", `track-cover-${explicitTrack.id}`),
+        see(selector("[data-cover]")).toHaveStyle(
+          "view-transition-name",
+          `track-cover-${explicitTrack.id}`,
+        ),
       ),
     ));
 
@@ -1425,7 +1424,10 @@ describe("rule g: the cover is one element on its way between the row and the pa
       ),
       inside(
         selector("#new-page"),
-        inside(rowOf(track.id), see(selector("[data-cover]")).not.toHaveStyle("view-transition-name")),
+        inside(
+          rowOf(track.id),
+          see(selector("[data-cover]")).not.toHaveStyle("view-transition-name"),
+        ),
         inside(
           rowOf(explicitTrack.id),
           see(selector("[data-cover]")).not.toHaveStyle("view-transition-name"),

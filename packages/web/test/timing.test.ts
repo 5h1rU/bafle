@@ -35,29 +35,31 @@ const picturesThat = (decode: () => Promise<void>) =>
     },
   );
 
-it.effect("a wait is written as it ends, after the Command it was part of, with what was said of it", () =>
-  Effect.gen(function* () {
-    yield* pipe(
-      Effect.annotateCurrentSpan({ reply: "SucceededAlbumDetail" }),
-      Timing.asWait("catalog"),
-      Effect.withSpan("AlbumDetail"),
-      Effect.provide(Timing.layer),
-    );
+it.effect(
+  "a wait is written as it ends, after the Command it was part of, with what was said of it",
+  () =>
+    Effect.gen(function* () {
+      yield* pipe(
+        Effect.annotateCurrentSpan({ reply: "SucceededAlbumDetail" }),
+        Timing.asWait("catalog"),
+        Effect.withSpan("AlbumDetail"),
+        Effect.provide(Timing.layer),
+      );
 
-    expect(written()).toEqual([
-      [
-        "AlbumDetail: catalog",
-        {
-          reply: "SucceededAlbumDetail",
-          devtools: {
-            dataType: "track-entry",
-            track: "Bafle",
-            properties: [["reply", "SucceededAlbumDetail"]],
+      expect(written()).toEqual([
+        [
+          "AlbumDetail: catalog",
+          {
+            reply: "SucceededAlbumDetail",
+            devtools: {
+              dataType: "track-entry",
+              track: "Bafle",
+              properties: [["reply", "SucceededAlbumDetail"]],
+            },
           },
-        },
-      ],
-    ]);
-  }),
+        ],
+      ]);
+    }),
 );
 
 it.effect("only waits are written: a Command's own span, and any other, is not", () =>
@@ -76,17 +78,19 @@ it.effect("under another Tracer a wait is a span like any other, and nothing is 
   }),
 );
 
-it.effect("the wait for a page's first pictures says how many they were and that they were ready", () =>
-  Effect.gen(function* () {
-    picturesThat(() => Promise.resolve());
+it.effect(
+  "the wait for a page's first pictures says how many they were and that they were ready",
+  () =>
+    Effect.gen(function* () {
+      picturesThat(() => Promise.resolve());
 
-    yield* pipe(
-      preparePictures(["https://img.test/a", "https://img.test/b"]),
-      Effect.provide(Timing.layer),
-    );
+      yield* pipe(
+        preparePictures(["https://img.test/a", "https://img.test/b"]),
+        Effect.provide(Timing.layer),
+      );
 
-    expect(written()).toMatchObject([["pictures", { pictures: 2, ended: "Ready" }]]);
-  }),
+      expect(written()).toMatchObject([["pictures", { pictures: 2, ended: "Ready" }]]);
+    }),
 );
 
 it.effect("a wait for pictures that ran out says so", () =>

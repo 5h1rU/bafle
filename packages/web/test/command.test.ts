@@ -141,11 +141,13 @@ it.effect("a shelf that no longer has the tile gives the focus to its page", () 
   }),
 );
 
-it.effect("the tile of an artist or of a playlist is found by its kind, whatever id an album's tile has", () =>
-  Effect.gen(function* () {
-    // The catalog's ids are told apart within a kind only: here all three tiles share one.
-    const shared = artist.id;
-    document.body.innerHTML = `
+it.effect(
+  "the tile of an artist or of a playlist is found by its kind, whatever id an album's tile has",
+  () =>
+    Effect.gen(function* () {
+      // The catalog's ids are told apart within a kind only: here all three tiles share one.
+      const shared = artist.id;
+      document.body.innerHTML = `
       <div id="${PAGE_IDS.Search}" tabindex="0">
         <a href="${artistPath(artist.id)}" data-artist-tile="${shared}">The artist</a>
         <a href="/album/${shared}" data-album-tile="${shared}">The album</a>
@@ -153,16 +155,16 @@ it.effect("the tile of an artist or of a playlist is found by its kind, whatever
         <a href="${playlistPath(playlist.id)}" data-playlist-tile="${playlist.id}">The one</a>
       </div>`;
 
-    expect(
-      yield* FocusArtistTile({ pageId: PAGE_IDS.Search, artistId: artist.id }).effect,
-    ).toEqual(Message.CompletedFocusArtistTile());
-    expect(document.activeElement?.textContent).toBe("The artist");
+      expect(
+        yield* FocusArtistTile({ pageId: PAGE_IDS.Search, artistId: artist.id }).effect,
+      ).toEqual(Message.CompletedFocusArtistTile());
+      expect(document.activeElement?.textContent).toBe("The artist");
 
-    expect(
-      yield* FocusPlaylistTile({ pageId: PAGE_IDS.Search, playlistId: playlist.id }).effect,
-    ).toEqual(Message.CompletedFocusPlaylistTile());
-    expect(document.activeElement?.textContent).toBe("The one");
-  }),
+      expect(
+        yield* FocusPlaylistTile({ pageId: PAGE_IDS.Search, playlistId: playlist.id }).effect,
+      ).toEqual(Message.CompletedFocusPlaylistTile());
+      expect(document.activeElement?.textContent).toBe("The one");
+    }),
 );
 
 it.effect("a shelf that no longer has the artist or the playlist gives the focus to its page", () =>
@@ -179,9 +181,11 @@ it.effect("a shelf that no longer has the artist or the playlist gives the focus
   }),
 );
 
-it.effect("the tile of a genre or of a station is found by its kind too, and a page without it takes the focus itself", () =>
-  Effect.gen(function* () {
-    document.body.innerHTML = `
+it.effect(
+  "the tile of a genre or of a station is found by its kind too, and a page without it takes the focus itself",
+  () =>
+    Effect.gen(function* () {
+      document.body.innerHTML = `
       <div id="${PAGE_IDS.Genres}" tabindex="0">
         <a href="/genre/other" data-genre-tile="other">Another</a>
         <a href="${genrePath(genre.id)}" data-genre-tile="${genre.id}">The genre</a>
@@ -191,22 +195,22 @@ it.effect("the tile of a genre or of a station is found by its kind too, and a p
         <a href="${stationPath(station.id)}" data-station-tile="${station.id}">The station</a>
       </div>`;
 
-    expect(yield* FocusGenreTile({ pageId: PAGE_IDS.Genres, genreId: genre.id }).effect).toEqual(
-      Message.CompletedFocusGenreTile(),
-    );
-    expect(document.activeElement?.textContent).toBe("The genre");
+      expect(yield* FocusGenreTile({ pageId: PAGE_IDS.Genres, genreId: genre.id }).effect).toEqual(
+        Message.CompletedFocusGenreTile(),
+      );
+      expect(document.activeElement?.textContent).toBe("The genre");
 
-    expect(
-      yield* FocusStationTile({ pageId: PAGE_IDS.Radio, stationId: station.id }).effect,
-    ).toEqual(Message.CompletedFocusStationTile());
-    expect(document.activeElement?.textContent).toBe("The station");
+      expect(
+        yield* FocusStationTile({ pageId: PAGE_IDS.Radio, stationId: station.id }).effect,
+      ).toEqual(Message.CompletedFocusStationTile());
+      expect(document.activeElement?.textContent).toBe("The station");
 
-    // Radio has no tile for the genre, and Genres none for the station.
-    yield* FocusGenreTile({ pageId: PAGE_IDS.Radio, genreId: genre.id }).effect;
-    expect(document.activeElement?.id).toBe(PAGE_IDS.Radio);
-    yield* FocusStationTile({ pageId: PAGE_IDS.Genres, stationId: station.id }).effect;
-    expect(document.activeElement?.id).toBe(PAGE_IDS.Genres);
-  }),
+      // Radio has no tile for the genre, and Genres none for the station.
+      yield* FocusGenreTile({ pageId: PAGE_IDS.Radio, genreId: genre.id }).effect;
+      expect(document.activeElement?.id).toBe(PAGE_IDS.Radio);
+      yield* FocusStationTile({ pageId: PAGE_IDS.Genres, stationId: station.id }).effect;
+      expect(document.activeElement?.id).toBe(PAGE_IDS.Genres);
+    }),
 );
 
 /** The app's client over a network that takes every request and never answers one. */
@@ -266,33 +270,39 @@ it.effect("a section asked for ahead is the section's own query, with the same l
     yield* TestClock.adjust(REPLY_TIMEOUT);
     expect(yield* Fiber.join(asking)).toEqual(
       Message.GotCatalogMessage({
-        message: Catalog.Message.FailedNewMusic({ requestId: "page:3", failure: { _tag: "Unknown" } }),
+        message: Catalog.Message.FailedNewMusic({
+          requestId: "page:3",
+          failure: { _tag: "Unknown" },
+        }),
       }),
     );
     expect(server.signals.length).toBeGreaterThan(0);
   }).pipe(Effect.provide(server.layer));
 });
 
-it.effect("nothing is asked ahead for a listener who is saving data: it settles as a query nobody answered", () => {
-  const server = hungServer();
+it.effect(
+  "nothing is asked ahead for a listener who is saving data: it settles as a query nobody answered",
+  () => {
+    const server = hungServer();
 
-  return Effect.gen(function* () {
-    saysSavingData(true);
-    expect(yield* askSectionAhead("Radio")("page:4").effect).toEqual(
-      Message.GotCatalogMessage({
-        message: Catalog.Message.FailedStationList({
-          requestId: "page:4",
-          failure: { _tag: "Unknown" },
+    return Effect.gen(function* () {
+      saysSavingData(true);
+      expect(yield* askSectionAhead("Radio")("page:4").effect).toEqual(
+        Message.GotCatalogMessage({
+          message: Catalog.Message.FailedStationList({
+            requestId: "page:4",
+            failure: { _tag: "Unknown" },
+          }),
         }),
-      }),
+      );
+      // No request left the app.
+      expect(server.signals).toEqual([]);
+    }).pipe(
+      Effect.ensuring(Effect.sync(() => saysSavingData(undefined))),
+      Effect.provide(server.layer),
     );
-    // No request left the app.
-    expect(server.signals).toEqual([]);
-  }).pipe(
-    Effect.ensuring(Effect.sync(() => saysSavingData(undefined))),
-    Effect.provide(server.layer),
-  );
-});
+  },
+);
 
 it.effect("every query has the same limit, and reports it as its own failure", () => {
   const server = hungServer();
@@ -302,7 +312,10 @@ it.effect("every query has the same limit, and reports it as its own failure", (
     yield* TestClock.adjust(REPLY_TIMEOUT);
     expect(yield* Fiber.join(asking)).toEqual(
       Message.GotCatalogMessage({
-        message: Catalog.Message.FailedHomeFeed({ requestId: "page:0", failure: { _tag: "Unknown" } }),
+        message: Catalog.Message.FailedHomeFeed({
+          requestId: "page:0",
+          failure: { _tag: "Unknown" },
+        }),
       }),
     );
 
@@ -328,9 +341,7 @@ it.effect("every query has the same limit, and reports it as its own failure", (
       }),
     );
 
-    const askingPlaylist = yield* Effect.forkChild(
-      askPlaylistDetail(playlist.id)("page:3").effect,
-    );
+    const askingPlaylist = yield* Effect.forkChild(askPlaylistDetail(playlist.id)("page:3").effect);
     yield* TestClock.adjust(REPLY_TIMEOUT);
     expect(yield* Fiber.join(askingPlaylist)).toEqual(
       Message.GotCatalogMessage({
@@ -345,7 +356,10 @@ it.effect("every query has the same limit, and reports it as its own failure", (
     yield* TestClock.adjust(REPLY_TIMEOUT);
     expect(yield* Fiber.join(askingGenres)).toEqual(
       Message.GotCatalogMessage({
-        message: Catalog.Message.FailedGenreList({ requestId: "page:4", failure: { _tag: "Unknown" } }),
+        message: Catalog.Message.FailedGenreList({
+          requestId: "page:4",
+          failure: { _tag: "Unknown" },
+        }),
       }),
     );
 

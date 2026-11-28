@@ -128,149 +128,161 @@ it.effect("whoever starts listening hears where things stand, not only what chan
   }),
 );
 
-it.effect("an order is carried out the moment it is taken: the sound is asked for with nothing awaited first", () =>
-  Effect.gen(function* () {
-    const { element, stub } = stubElement();
-    const engine = HtmlAudioEngine.make(element);
+it.effect(
+  "an order is carried out the moment it is taken: the sound is asked for with nothing awaited first",
+  () =>
+    Effect.gen(function* () {
+      const { element, stub } = stubElement();
+      const engine = HtmlAudioEngine.make(element);
 
-    const starting = yield* Effect.forkChild(
-      engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 }),
-      { startImmediately: true },
-    );
-    // Before anything else has had a turn: this is what keeps the sound inside the listener's tap.
-    expect(stub.played).toBe(1);
-    expect(element.src).toBe("https://audio.test/a.mp3");
-    expect(yield* Fiber.join(starting)).toBe("Sounding");
-  }),
+      const starting = yield* Effect.forkChild(
+        engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 }),
+        { startImmediately: true },
+      );
+      // Before anything else has had a turn: this is what keeps the sound inside the listener's tap.
+      expect(stub.played).toBe(1);
+      expect(element.src).toBe("https://audio.test/a.mp3");
+      expect(yield* Fiber.join(starting)).toBe("Sounding");
+    }),
 );
 
-it.effect("what it reports is stamped with the last order it took, and is what is true of the element", () =>
-  Effect.gen(function* () {
-    const { element, stub, fire } = stubElement();
-    const engine = HtmlAudioEngine.make(element);
-    const heard = yield* listening(engine);
+it.effect(
+  "what it reports is stamped with the last order it took, and is what is true of the element",
+  () =>
+    Effect.gen(function* () {
+      const { element, stub, fire } = stubElement();
+      const engine = HtmlAudioEngine.make(element);
+      const heard = yield* listening(engine);
 
-    yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
-    stub.readyState = 4;
-    stub.duration = 30.4;
-    stub.bufferedEnd = 12.9;
-    fire("playing");
-    yield* engine.pause(2);
-    yield* Effect.yieldNow;
+      yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
+      stub.readyState = 4;
+      stub.duration = 30.4;
+      stub.bufferedEnd = 12.9;
+      fire("playing");
+      yield* engine.pause(2);
+      yield* Effect.yieldNow;
 
-    // Anything the element said while the first order was being carried out carries the number
-    // before it, and the player drops it: an order's own number is only on what answers it.
-    const answers = heard.filter((report) => report.order > 0);
-    expect(phases(answers)).toEqual(["1:Waiting", "1:Sounding", "2:Paused"]);
-    expect(answers[1]).toEqual({
-      order: 1,
-      phase: "Sounding",
-      positionSeconds: 0,
-      maybeDurationSeconds: Option.some(30.4),
-      bufferedSeconds: 12,
-      isSeeking: false,
-    });
-  }),
+      // Anything the element said while the first order was being carried out carries the number
+      // before it, and the player drops it: an order's own number is only on what answers it.
+      const answers = heard.filter((report) => report.order > 0);
+      expect(phases(answers)).toEqual(["1:Waiting", "1:Sounding", "2:Paused"]);
+      expect(answers[1]).toEqual({
+        order: 1,
+        phase: "Sounding",
+        positionSeconds: 0,
+        maybeDurationSeconds: Option.some(30.4),
+        bufferedSeconds: 12,
+        isSeeking: false,
+      });
+    }),
 );
 
-it.effect("an event is a prompt to look, not a fact: a late `pause` after play is not reported as paused", () =>
-  Effect.gen(function* () {
-    const { element, stub, fire } = stubElement();
-    const engine = HtmlAudioEngine.make(element);
-    yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
-    stub.readyState = 4;
-    const heard = yield* listening(engine);
+it.effect(
+  "an event is a prompt to look, not a fact: a late `pause` after play is not reported as paused",
+  () =>
+    Effect.gen(function* () {
+      const { element, stub, fire } = stubElement();
+      const engine = HtmlAudioEngine.make(element);
+      yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
+      stub.readyState = 4;
+      const heard = yield* listening(engine);
 
-    yield* engine.pause(2);
-    // The listener presses play before the element's `pause` event has been delivered.
-    yield* engine.resume(3);
-    fire("pause");
-    fire("playing");
-    yield* Effect.yieldNow;
+      yield* engine.pause(2);
+      // The listener presses play before the element's `pause` event has been delivered.
+      yield* engine.resume(3);
+      fire("pause");
+      fire("playing");
+      yield* Effect.yieldNow;
 
-    expect(phases(heard)).toEqual(["1:Sounding", "2:Paused", "3:Sounding"]);
-  }),
+      expect(phases(heard)).toEqual(["1:Sounding", "2:Paused", "3:Sounding"]);
+    }),
 );
 
-it.effect("progress is reported when the second changes, not each time the clock runs, and says the fraction it was at", () =>
-  Effect.gen(function* () {
-    const { element, stub, fire } = stubElement();
-    const engine = HtmlAudioEngine.make(element);
-    yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
-    stub.readyState = 4;
-    fire("playing");
-    const heard = yield* listening(engine);
+it.effect(
+  "progress is reported when the second changes, not each time the clock runs, and says the fraction it was at",
+  () =>
+    Effect.gen(function* () {
+      const { element, stub, fire } = stubElement();
+      const engine = HtmlAudioEngine.make(element);
+      yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
+      stub.readyState = 4;
+      fire("playing");
+      const heard = yield* listening(engine);
 
-    // The clock runs when it will, never on the second.
-    [0.3, 0.6, 0.9, 1.2, 1.5, 1.8, 2.1].forEach((time) => {
-      stub.currentTime = time;
-      stub.seeking = false;
-      fire("timeupdate");
-    });
-    yield* Effect.yieldNow;
+      // The clock runs when it will, never on the second.
+      [0.3, 0.6, 0.9, 1.2, 1.5, 1.8, 2.1].forEach((time) => {
+        stub.currentTime = time;
+        stub.seeking = false;
+        fire("timeupdate");
+      });
+      yield* Effect.yieldNow;
 
-    expect(heard.map((report) => report.positionSeconds)).toEqual([0, 1.2, 2.1]);
-  }),
+      expect(heard.map((report) => report.positionSeconds)).toEqual([0, 1.2, 2.1]);
+    }),
 );
 
-it.effect("asked, the engine says where the sound is at that moment, and being asked is no report", () =>
-  Effect.gen(function* () {
-    const { element, stub, fire } = stubElement();
-    const engine = HtmlAudioEngine.make(element);
-    yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
-    stub.readyState = 4;
-    fire("playing");
-    const heard = yield* listening(engine);
+it.effect(
+  "asked, the engine says where the sound is at that moment, and being asked is no report",
+  () =>
+    Effect.gen(function* () {
+      const { element, stub, fire } = stubElement();
+      const engine = HtmlAudioEngine.make(element);
+      yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
+      stub.readyState = 4;
+      fire("playing");
+      const heard = yield* listening(engine);
 
-    stub.currentTime = 0.4;
-    expect((yield* engine.now).positionSeconds).toBe(0.4);
-    stub.currentTime = 0.65;
-    const now = yield* engine.now;
-    expect(now.positionSeconds).toBe(0.65);
-    expect(`${now.order}:${now.phase}`).toBe("1:Sounding");
-    yield* Effect.yieldNow;
+      stub.currentTime = 0.4;
+      expect((yield* engine.now).positionSeconds).toBe(0.4);
+      stub.currentTime = 0.65;
+      const now = yield* engine.now;
+      expect(now.positionSeconds).toBe(0.65);
+      expect(`${now.order}:${now.phase}`).toBe("1:Sounding");
+      yield* Effect.yieldNow;
 
-    expect(heard.map((report) => report.positionSeconds)).toEqual([0]);
-  }),
+      expect(heard.map((report) => report.positionSeconds)).toEqual([0]);
+    }),
 );
 
 // THE SOUND'S PLACE, ASKED AT AN EVEN PACE
 
-it.effect("while it is listened to the engine is asked where the sound is at once and four times a second, and says nothing when nothing is new", () =>
-  Effect.gen(function* () {
-    const { element, stub, fire } = stubElement();
-    const engine = HtmlAudioEngine.make(element);
-    yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
-    stub.readyState = 4;
-    fire("playing");
-    stub.currentTime = 12.31;
+it.effect(
+  "while it is listened to the engine is asked where the sound is at once and four times a second, and says nothing when nothing is new",
+  () =>
+    Effect.gen(function* () {
+      const { element, stub, fire } = stubElement();
+      const engine = HtmlAudioEngine.make(element);
+      yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 });
+      stub.readyState = 4;
+      fire("playing");
+      stub.currentTime = 12.31;
 
-    const heard: Array<Player.Message> = [];
-    const following = yield* Effect.forkChild(
-      Stream.runForEach(Player.soundPlaces, (message) => Effect.sync(() => heard.push(message))).pipe(
-        Effect.provideService(AudioEngine, engine),
-      ),
-    );
-    yield* Effect.yieldNow;
+      const heard: Array<Player.Message> = [];
+      const following = yield* Effect.forkChild(
+        Stream.runForEach(Player.soundPlaces, (message) =>
+          Effect.sync(() => heard.push(message)),
+        ).pipe(Effect.provideService(AudioEngine, engine)),
+      );
+      yield* Effect.yieldNow;
 
-    // The clock is read each time it is asked: it stood still for the third.
-    for (const time of [12.56, 12.56, 12.81]) {
-      stub.currentTime = time;
+      // The clock is read each time it is asked: it stood still for the third.
+      for (const time of [12.56, 12.56, 12.81]) {
+        stub.currentTime = time;
+        yield* TestClock.adjust(SOUND_PLACE_EVERY);
+      }
+
+      expect(
+        heard.map((message) =>
+          message._tag === "UpdatedEngineStatus" ? message.report.positionSeconds : message._tag,
+        ),
+      ).toEqual([12.31, 12.56, 12.81]);
+
+      // No longer listened to, it asks no more.
+      yield* Fiber.interrupt(following);
+      stub.currentTime = 13.06;
       yield* TestClock.adjust(SOUND_PLACE_EVERY);
-    }
-
-    expect(
-      heard.map((message) =>
-        message._tag === "UpdatedEngineStatus" ? message.report.positionSeconds : message._tag,
-      ),
-    ).toEqual([12.31, 12.56, 12.81]);
-
-    // No longer listened to, it asks no more.
-    yield* Fiber.interrupt(following);
-    stub.currentTime = 13.06;
-    yield* TestClock.adjust(SOUND_PLACE_EVERY);
-    expect(heard).toHaveLength(3);
-  }),
+      expect(heard).toHaveLength(3);
+    }),
 );
 
 it.effect("audio held to its end, and sound that has ended, are the audio's whole length", () =>
@@ -293,7 +305,9 @@ it.effect("audio held to its end, and sound that has ended, are the audio's whol
 
     // Whole seconds of a length that is not whole never add up to it: the
     // bar would stop short of its end under audio that is all there.
-    expect(heard.map((report) => [report.phase, report.positionSeconds, report.bufferedSeconds])).toEqual([
+    expect(
+      heard.map((report) => [report.phase, report.positionSeconds, report.bufferedSeconds]),
+    ).toEqual([
       ["Sounding", 0, 29.98],
       ["Ended", 29.98, 29.98],
     ]);
@@ -321,30 +335,30 @@ it.effect("the end, a failure and a move to another position are read from the e
     fire("error");
     yield* Effect.yieldNow;
 
-    expect(heard.map((report) => `${report.phase}@${report.positionSeconds}${report.isSeeking ? "~" : ""}`)).toEqual([
-      "Sounding@0",
-      "Waiting@20~",
-      "Sounding@20",
-      "Ended@20",
-      "Failed@20",
-    ]);
+    expect(
+      heard.map(
+        (report) => `${report.phase}@${report.positionSeconds}${report.isSeeking ? "~" : ""}`,
+      ),
+    ).toEqual(["Sounding@0", "Waiting@20~", "Sounding@20", "Ended@20", "Failed@20"]);
   }),
 );
 
-it.effect("the system's refusal, a newer order and a source that will not play are told apart", () =>
-  Effect.gen(function* () {
-    const { element, stub } = stubElement();
-    const engine = HtmlAudioEngine.make(element);
+it.effect(
+  "the system's refusal, a newer order and a source that will not play are told apart",
+  () =>
+    Effect.gen(function* () {
+      const { element, stub } = stubElement();
+      const engine = HtmlAudioEngine.make(element);
 
-    stub.playResult = refusing;
-    expect(yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 })).toBe(
-      "Refused",
-    );
-    stub.playResult = () => Promise.reject(named("AbortError"));
-    expect(yield* engine.resume(2)).toBe("Superseded");
-    stub.playResult = () => Promise.reject(named("NotSupportedError"));
-    expect(yield* engine.resume(3)).toBe("Unplayable");
-  }),
+      stub.playResult = refusing;
+      expect(
+        yield* engine.start({ order: 1, source: "https://audio.test/a.mp3", positionSeconds: 0 }),
+      ).toBe("Refused");
+      stub.playResult = () => Promise.reject(named("AbortError"));
+      expect(yield* engine.resume(2)).toBe("Superseded");
+      stub.playResult = () => Promise.reject(named("NotSupportedError"));
+      expect(yield* engine.resume(3)).toBe("Unplayable");
+    }),
 );
 
 it.effect("a start from a position puts the element there before it sounds", () =>
@@ -366,36 +380,45 @@ const recordingEngine = (outcome: "Sounding" | "Refused" = "Sounding") => {
     start: (order) => Effect.sync(() => (orders.push(["start", order]), outcome)),
     resume: (order) => Effect.sync(() => (orders.push(["resume", order]), outcome)),
     pause: (order) => Effect.sync(() => void orders.push(["pause", order])),
-    seek: (order, positionSeconds) => Effect.sync(() => void orders.push(["seek", order, positionSeconds])),
+    seek: (order, positionSeconds) =>
+      Effect.sync(() => void orders.push(["seek", order, positionSeconds])),
     reports: Stream.never,
     now: Effect.never,
   });
   return { orders, layer };
 };
 
-it.effect("each order reaches the engine with its number, and brings back what the engine said", () => {
-  const engine = recordingEngine("Refused");
+it.effect(
+  "each order reaches the engine with its number, and brings back what the engine said",
+  () => {
+    const engine = recordingEngine("Refused");
 
-  return Effect.gen(function* () {
-    expect(
-      yield* Player.StartPlayback({ order: 4, source: "https://audio.test/a.mp3", positionSeconds: 0 })
-        .effect,
-    ).toEqual(Message.CompletedStartPlayback({ order: 4, outcome: "Refused" }));
-    expect(yield* Player.ResumePlayback({ order: 5 }).effect).toEqual(
-      Message.CompletedResumePlayback({ order: 5, outcome: "Refused" }),
-    );
-    expect(yield* Player.PausePlayback({ order: 6 }).effect).toEqual(Message.CompletedPausePlayback());
-    expect(yield* Player.SeekPlayback({ order: 7, positionSeconds: 21 }).effect).toEqual(
-      Message.CompletedSeekPlayback(),
-    );
-    expect(engine.orders).toEqual([
-      ["start", { order: 4, source: "https://audio.test/a.mp3", positionSeconds: 0 }],
-      ["resume", 5],
-      ["pause", 6],
-      ["seek", 7, 21],
-    ]);
-  }).pipe(Effect.provide(engine.layer));
-});
+    return Effect.gen(function* () {
+      expect(
+        yield* Player.StartPlayback({
+          order: 4,
+          source: "https://audio.test/a.mp3",
+          positionSeconds: 0,
+        }).effect,
+      ).toEqual(Message.CompletedStartPlayback({ order: 4, outcome: "Refused" }));
+      expect(yield* Player.ResumePlayback({ order: 5 }).effect).toEqual(
+        Message.CompletedResumePlayback({ order: 5, outcome: "Refused" }),
+      );
+      expect(yield* Player.PausePlayback({ order: 6 }).effect).toEqual(
+        Message.CompletedPausePlayback(),
+      );
+      expect(yield* Player.SeekPlayback({ order: 7, positionSeconds: 21 }).effect).toEqual(
+        Message.CompletedSeekPlayback(),
+      );
+      expect(engine.orders).toEqual([
+        ["start", { order: 4, source: "https://audio.test/a.mp3", positionSeconds: 0 }],
+        ["resume", 5],
+        ["pause", 6],
+        ["seek", 7, 21],
+      ]);
+    }).pipe(Effect.provide(engine.layer));
+  },
+);
 
 it.effect("activity is shown after 400 ms of waiting, and not a moment sooner", () =>
   Effect.gen(function* () {
@@ -412,49 +435,52 @@ it.effect("activity is shown after 400 ms of waiting, and not a moment sooner", 
   }),
 );
 
-it.effect("asking the catalog for a fresh source gives up like any other query, as a failure", () => {
-  const hung = ListenerApi.layerClientHttp("https://bafle.test/api").pipe(
-    Layer.provide(FetchHttpClient.layer),
-    Layer.provide(
-      Layer.succeed(FetchHttpClient.Fetch, () => new Promise<Response>(() => {})),
-    ),
-  );
-
-  return Effect.gen(function* () {
-    const asking = yield* Effect.forkChild(
-      Player.RefreshSource({ order: 2, trackId: track.id }).effect,
+it.effect(
+  "asking the catalog for a fresh source gives up like any other query, as a failure",
+  () => {
+    const hung = ListenerApi.layerClientHttp("https://bafle.test/api").pipe(
+      Layer.provide(FetchHttpClient.layer),
+      Layer.provide(Layer.succeed(FetchHttpClient.Fetch, () => new Promise<Response>(() => {}))),
     );
-    yield* TestClock.adjust(REPLY_TIMEOUT);
-    expect(yield* Fiber.join(asking)).toEqual(Message.FailedRefreshSource({ order: 2 }));
-  }).pipe(Effect.provide(hung));
-});
 
-it.effect("letting go of the engine stops the sound and leaves nothing listening to the element", () =>
-  Effect.gen(function* () {
-    const { element, stub } = stubElement();
-    const listening = { count: 0 };
-    const add = element.addEventListener.bind(element);
-    const remove = element.removeEventListener.bind(element);
-    // NOTE: an element's way to listen is many signatures in one, and a
-    // function that counts and hands on is none of them to the compiler.
-    // oxlint-disable-next-line typescript/consistent-type-assertions
-    element.addEventListener = ((...args: Parameters<typeof add>) => {
-      listening.count += 1;
-      add(...args);
-    }) as typeof element.addEventListener;
-    // oxlint-disable-next-line typescript/consistent-type-assertions
-    element.removeEventListener = ((...args: Parameters<typeof remove>) => {
-      listening.count -= 1;
-      remove(...args);
-    }) as typeof element.removeEventListener;
+    return Effect.gen(function* () {
+      const asking = yield* Effect.forkChild(
+        Player.RefreshSource({ order: 2, trackId: track.id }).effect,
+      );
+      yield* TestClock.adjust(REPLY_TIMEOUT);
+      expect(yield* Fiber.join(asking)).toEqual(Message.FailedRefreshSource({ order: 2 }));
+    }).pipe(Effect.provide(hung));
+  },
+);
 
-    const { engine, release } = HtmlAudioEngine.makeWithRelease(element);
-    expect(listening.count).toBeGreaterThan(0);
-    yield* engine.start({ order: 1, source: "https://audio.test/tr-1.mp3", positionSeconds: 0 });
-    expect(stub.paused).toBe(false);
+it.effect(
+  "letting go of the engine stops the sound and leaves nothing listening to the element",
+  () =>
+    Effect.gen(function* () {
+      const { element, stub } = stubElement();
+      const listening = { count: 0 };
+      const add = element.addEventListener.bind(element);
+      const remove = element.removeEventListener.bind(element);
+      // NOTE: an element's way to listen is many signatures in one, and a
+      // function that counts and hands on is none of them to the compiler.
+      // oxlint-disable-next-line typescript/consistent-type-assertions
+      element.addEventListener = ((...args: Parameters<typeof add>) => {
+        listening.count += 1;
+        add(...args);
+      }) as typeof element.addEventListener;
+      // oxlint-disable-next-line typescript/consistent-type-assertions
+      element.removeEventListener = ((...args: Parameters<typeof remove>) => {
+        listening.count -= 1;
+        remove(...args);
+      }) as typeof element.removeEventListener;
 
-    yield* release;
-    expect(stub.paused).toBe(true);
-    expect(listening.count).toBe(0);
-  }),
+      const { engine, release } = HtmlAudioEngine.makeWithRelease(element);
+      expect(listening.count).toBeGreaterThan(0);
+      yield* engine.start({ order: 1, source: "https://audio.test/tr-1.mp3", positionSeconds: 0 });
+      expect(stub.paused).toBe(false);
+
+      yield* release;
+      expect(stub.paused).toBe(true);
+      expect(listening.count).toBe(0);
+    }),
 );

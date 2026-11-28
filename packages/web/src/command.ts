@@ -117,7 +117,9 @@ export const FocusTrackRow = Command.define("FocusTrackRow", {
   messages: [Message.CompletedFocusTrackRow],
   execute: ({ pageId, trackId }) =>
     // A page lists a track once.
-    Dom.focus(`#${pageId} [data-${TRACK_ROW_ATTRIBUTE}="${trackId}"]`, { preventScroll: true }).pipe(
+    Dom.focus(`#${pageId} [data-${TRACK_ROW_ATTRIBUTE}="${trackId}"]`, {
+      preventScroll: true,
+    }).pipe(
       Effect.catch(() => Dom.focus(`#${pageId}`, { preventScroll: true })),
       Effect.ignore,
       Effect.as(Message.CompletedFocusTrackRow()),
@@ -366,7 +368,9 @@ const decodePicture = (url: string): Promise<void> => {
   image.src = url;
   // NOTE: a picture that fails to load is no reason to hold the page: it
   // will be drawn as a failed picture is, wherever the page puts it.
-  return typeof image.decode === "function" ? image.decode().catch(() => undefined) : Promise.resolve();
+  return typeof image.decode === "function"
+    ? image.decode().catch(() => undefined)
+    : Promise.resolve();
 };
 
 /**
@@ -428,14 +432,8 @@ const asking = (
 type Asked = readonly [Command.Command<CatalogMessage, never, CatalogClient>, CatalogMessage];
 
 const sectionQueries: Readonly<Record<ListedSection, (requestId: string) => Asked>> = {
-  Home: (requestId) => [
-    Catalog.HomeFeed({ input: {}, requestId }),
-    unanswered.HomeFeed(requestId),
-  ],
-  New: (requestId) => [
-    Catalog.NewMusic({ input: {}, requestId }),
-    unanswered.NewMusic(requestId),
-  ],
+  Home: (requestId) => [Catalog.HomeFeed({ input: {}, requestId }), unanswered.HomeFeed(requestId)],
+  New: (requestId) => [Catalog.NewMusic({ input: {}, requestId }), unanswered.NewMusic(requestId)],
   Genres: (requestId) => [
     Catalog.GenreList({ input: {}, requestId }),
     unanswered.GenreList(requestId),

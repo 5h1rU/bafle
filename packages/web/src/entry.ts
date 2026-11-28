@@ -44,7 +44,9 @@ const resources = Layer.mergeAll(CatalogConnection, HtmlAudioEngine.layer, Timin
 
 // Older browsers can snapshot a page without supporting transition types.
 // Shared artwork needs types so both snapshots can opt in the same picture.
-const canSelectCover = typeof ViewTransition !== "undefined" && "types" in ViewTransition.prototype &&
+const canSelectCover =
+  typeof ViewTransition !== "undefined" &&
+  "types" in ViewTransition.prototype &&
   CSS.supports("selector(:active-view-transition-type(choose-track))");
 
 // NOTE: a move through the history that the browser drew itself says so on
@@ -137,7 +139,10 @@ const application = Runtime.makeApplication({
     if (action === OPEN_DETAIL && !hasPicture) {
       return { types: [PUSH_PAGE] };
     }
-    if (action === CLOSE_DETAIL && (!hasPicture || (artwork !== undefined && cameOver.has(artwork)))) {
+    if (
+      action === CLOSE_DETAIL &&
+      (!hasPicture || (artwork !== undefined && cameOver.has(artwork)))
+    ) {
       return { types: [POP_PAGE] };
     }
     if (artwork !== undefined && !hasPicture) {

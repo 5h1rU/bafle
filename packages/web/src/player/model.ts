@@ -233,8 +233,11 @@ export const maybeCurrentAlbumId = (model: Model): Option.Option<AlbumId> =>
  */
 export const maybeChosenTrackId = (previous: Model, next: Model): Option.Option<TrackId> =>
   Option.map(
-    Option.filter(next.maybeSession, (session) =>
-      session.cue === "Chosen" && !Option.contains(maybeCurrentTrackId(previous), session.current.id),
+    Option.filter(
+      next.maybeSession,
+      (session) =>
+        session.cue === "Chosen" &&
+        !Option.contains(maybeCurrentTrackId(previous), session.current.id),
     ),
     (session) => session.current.id,
   );

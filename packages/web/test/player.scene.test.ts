@@ -206,14 +206,8 @@ const islandEnters = Mount.resolveAll(
   [Player.Island.DrawFigure, Player.Island.Message.CompletedDrawFigure()],
   [Player.Island.FollowPress, Player.Island.Message.CompletedFollowPress()],
   [Player.Island.StartLight, Player.Island.Message.CompletedStartLight()],
-  [
-    Marquee.Measure,
-    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
-  ],
-  [
-    Marquee.Measure,
-    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
-  ],
+  [Marquee.Measure, Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() })],
+  [Marquee.Measure, Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() })],
 );
 
 /** The line under the title was measured again, and found to fit. */
@@ -235,14 +229,17 @@ const artistGivesWay = () => Mount.expectEnded(Marquee.Measure);
 // Mounts it is given out of its own list as it finds them, so a step used
 // in a second scene would have none left to look for.
 const islandLeaves = () =>
-  Mount.expectEnded(Player.Island.DrawFigure, Player.Island.FollowPress, Player.Island.StartLight, Marquee.Measure, Marquee.Measure);
+  Mount.expectEnded(
+    Player.Island.DrawFigure,
+    Player.Island.FollowPress,
+    Player.Island.StartLight,
+    Marquee.Measure,
+    Marquee.Measure,
+  );
 
 /** The island's light was told its new pace, and has taken it. */
 const lightChangesPace = () =>
-  Command.resolve(
-    Player.Island.ChangeLightPace,
-    Player.Island.Message.CompletedChangeLightPace(),
-  );
+  Command.resolve(Player.Island.ChangeLightPace, Player.Island.Message.CompletedChangeLightPace());
 
 /**
  * The expanded player's sheet entered the document: it was put where it is
@@ -296,7 +293,11 @@ describe("a row plays its track", () => {
       click(playRow(TITLE)),
       islandEnters,
       Command.expectExact(
-        Player.StartPlayback({ order: 1, source: "https://audio.test/tr-1.mp3", positionSeconds: 0 }),
+        Player.StartPlayback({
+          order: 1,
+          source: "https://audio.test/tr-1.mp3",
+          positionSeconds: 0,
+        }),
         Player.WaitBeforeShowingActivity({ order: 1 }),
         Player.PublishNowPlaying,
       ),
@@ -400,7 +401,11 @@ describe("a row plays its track", () => {
         see(selector('[data-glyph="play"]')).toExist(),
         see(text(`Paused: ${TITLE}`)).toHaveAttr("role", "status"),
       ),
-      inside(rowOf(track.id), see(rowMark("Paused")).toExist(), see(rowMark("Sounding")).toBeAbsent()),
+      inside(
+        rowOf(track.id),
+        see(rowMark("Paused")).toExist(),
+        see(rowMark("Sounding")).toBeAbsent(),
+      ),
       see(playRow(TITLE)).toHaveAttr("aria-current", "true"),
       // Not the system's doing: nothing is said of the browser.
       see(text(/Press play/)).toBeAbsent(),
@@ -423,7 +428,11 @@ describe("a row plays its track", () => {
         expectAll(startingMark).toHaveCount(0),
         see(text(`Waiting for more of ${TITLE}`)).toHaveAttr("role", "status"),
       ),
-      inside(rowOf(track.id), see(rowMark("Waiting")).toExist(), see(rowMark("Sounding")).toBeAbsent()),
+      inside(
+        rowOf(track.id),
+        see(rowMark("Waiting")).toExist(),
+        see(rowMark("Sounding")).toBeAbsent(),
+      ),
     ));
 
   test("stopped by the system is not paused: the island says so, and what to do", () =>
@@ -433,7 +442,10 @@ describe("a row plays its track", () => {
       click(playRow(TITLE)),
       islandEnters,
       Command.resolveAll(
-        [Player.StartPlayback, Player.Message.CompletedStartPlayback({ order: 1, outcome: "Refused" })],
+        [
+          Player.StartPlayback,
+          Player.Message.CompletedStartPlayback({ order: 1, outcome: "Refused" }),
+        ],
         [Player.PublishNowPlaying, Player.Message.CompletedPublishNowPlaying()],
       ),
       artistGivesWay(),
@@ -443,7 +455,10 @@ describe("a row plays its track", () => {
         // A capsule has room for a few words; the whole sentence is said aloud.
         see(text("Press play to start")).toExist(),
         see(control("Play")).toHaveAttr("data-playback", "Stopped"),
-        see(text(`Your browser did not let ${TITLE} start. Press play.`)).toHaveAttr("role", "status"),
+        see(text(`Your browser did not let ${TITLE} start. Press play.`)).toHaveAttr(
+          "role",
+          "status",
+        ),
         click(control("Play")),
       ),
       Command.expectExact(
@@ -451,8 +466,14 @@ describe("a row plays its track", () => {
         Player.WaitBeforeShowingActivity({ order: 2 }),
       ),
       Command.resolveAll(
-        [Player.ResumePlayback, Player.Message.CompletedResumePlayback({ order: 2, outcome: "Sounding" })],
-        [Player.WaitBeforeShowingActivity, Player.Message.CompletedWaitBeforeShowingActivity({ order: 2 })],
+        [
+          Player.ResumePlayback,
+          Player.Message.CompletedResumePlayback({ order: 2, outcome: "Sounding" }),
+        ],
+        [
+          Player.WaitBeforeShowingActivity,
+          Player.Message.CompletedWaitBeforeShowingActivity({ order: 2 }),
+        ],
       ),
       // Who the track is by is back where the notice stood.
       artistMeasured(),
@@ -491,7 +512,11 @@ describe("a row plays its track", () => {
       inside(island, click(control("Try again"))),
       artistMeasured(),
       Command.expectHas(
-        Player.StartPlayback({ order: 2, source: "https://audio.test/tr-1.mp3", positionSeconds: 0 }),
+        Player.StartPlayback({
+          order: 2,
+          source: "https://audio.test/tr-1.mp3",
+          positionSeconds: 0,
+        }),
       ),
       resolveStart(2),
       thresholdPasses(2),
@@ -528,7 +553,8 @@ describe("the player expanded: the page of the track it holds", () => {
       given(expandedOnFirst),
       sheetEnters(),
       // The song's face: the way out, the way to the queue with what plays next, and the song's details.
-      inside(expandedLayout,
+      inside(
+        expandedLayout,
         see(role("button", { name: "Close the player" })).toExist(),
         see(role("button", { name: "Playing Next" })).toHaveAttr("aria-expanded", "false"),
         see(text("Technologic · Daft Punk")).toExist(),
@@ -539,7 +565,8 @@ describe("the player expanded: the page of the track it holds", () => {
       ),
       faceShownFromTop(),
       // The queue's face: the same track at its head, the songs to come by their place, and the way back.
-      inside(expandedLayout,
+      inside(
+        expandedLayout,
         see(role("button", { name: "Playing Next" })).toHaveAttr("aria-expanded", "true"),
         // No control of its own closes the queue: the lit one that opened it leads back, and so does the face's name.
         see(role("button", { name: "Close queue" })).toBeAbsent(),
@@ -552,7 +579,8 @@ describe("the player expanded: the page of the track it holds", () => {
         see(text("02")).toExist(),
         click(role("button", { name: "Play: Technologic by Daft Punk" })),
       ),
-      inside(expandedLayout,
+      inside(
+        expandedLayout,
         see(role("heading", { name: "Technologic", level: 1 })).toExist(),
         see(text("No upcoming songs.")).toExist(),
       ),
@@ -643,7 +671,11 @@ describe("the player expanded: the page of the track it holds", () => {
       sheetEnters(),
       // The engine is given its order, and the history is asked nothing.
       Command.expectExact(
-        Player.StartPlayback({ order: 2, source: "https://audio.test/tr-2.mp3", positionSeconds: 0 }),
+        Player.StartPlayback({
+          order: 2,
+          source: "https://audio.test/tr-2.mp3",
+          positionSeconds: 0,
+        }),
         Player.WaitBeforeShowingActivity({ order: 2 }),
         Player.PublishNowPlaying,
       ),
@@ -666,7 +698,11 @@ describe("the player expanded: the page of the track it holds", () => {
       sheetEnters(),
       inside(expandedLayout, click(control("Next track", "Technologic"))),
       Command.expectExact(
-        Player.StartPlayback({ order: 2, source: "https://audio.test/tr-2.mp3", positionSeconds: 0 }),
+        Player.StartPlayback({
+          order: 2,
+          source: "https://audio.test/tr-2.mp3",
+          positionSeconds: 0,
+        }),
         Player.WaitBeforeShowingActivity({ order: 2 }),
         Player.PublishNowPlaying,
         ReplaceTrackUrl({ trackId: explicitTrack.id }),
@@ -788,9 +824,7 @@ describe("the player expanded: the page of the track it holds", () => {
     const asked = after(expandedOnFirst, choseFromPlayer("OpenAlbum"));
     // The player is still the screen, and its route still the track's.
     expect(asked.route).toEqual(expandedOnFirst.route);
-    expect(maybeHeadedFor(asked)).toEqual(
-      Option.some(AppRoute.Album({ albumId: track.album.id })),
-    );
+    expect(maybeHeadedFor(asked)).toEqual(Option.some(AppRoute.Album({ albumId: track.album.id })));
     // The album arrives: its page takes the screen, and the player is its island again.
     const arrivedAt = after(asked, arrived(reply.album(awaitedId(asked))));
     expect(arrivedAt.route).toEqual(AppRoute.Album({ albumId: track.album.id }));
@@ -834,9 +868,14 @@ describe("the player expanded: the page of the track it holds", () => {
       types: [PLAYER_OPENS, `track-cover-${track.id}`],
     });
     // The browser's own Back: the URL has already moved, and the app only follows.
-    expect(transition(expandedOnFirst, changedUrl("/new"))).toEqual({ types: [PLAYER_CLOSES, `track-cover-${track.id}`] });
+    expect(transition(expandedOnFirst, changedUrl("/new"))).toEqual({
+      types: [PLAYER_CLOSES, `track-cover-${track.id}`],
+    });
     expect(
-      transition(onOtherTracksPage, Message.ClickedPlayTrack({ trackId: explicitTrack.id, from: "Track" })),
+      transition(
+        onOtherTracksPage,
+        Message.ClickedPlayTrack({ trackId: explicitTrack.id, from: "Track" }),
+      ),
     ).toEqual({ types: [PLAYER_OPENS, `track-cover-${explicitTrack.id}`] });
     expect(transition(expandedOnFirst, player(Player.Message.ClickedNext()))).toBe(false);
     // Turning to the queue and back is one, each way by its own name: the cover travels to the thumbnail and back.
@@ -854,14 +893,14 @@ describe("the player expanded: the page of the track it holds", () => {
         player(
           Player.Message.GotQueueMessage({
             message: Player.Queue.Message.GotDragMessage({
-            message: DragAndDrop.Message.PressedDraggable({
-              itemId: `${explicitTrack.id}/0`,
-              containerId: Player.Queue.CONTAINER_ID,
-              index: 0,
-              screenX: 0,
-              screenY: 0,
+              message: DragAndDrop.Message.PressedDraggable({
+                itemId: `${explicitTrack.id}/0`,
+                containerId: Player.Queue.CONTAINER_ID,
+                index: 0,
+                screenX: 0,
+                screenY: 0,
+              }),
             }),
-          }),
           }),
         ),
       ),
@@ -893,7 +932,9 @@ describe("the player expanded: the page of the track it holds", () => {
     expect(face(after(onQueue, changedUrl("/new")))).toBe("Artwork");
     expect(face(after(onDetails, changedUrl("/new")))).toBe("Artwork");
     // Nothing sounds differently for it.
-    expect(update(onQueue, changedUrl("/new")).model.player.lastOrder).toBe(onQueue.player.lastOrder);
+    expect(update(onQueue, changedUrl("/new")).model.player.lastOrder).toBe(
+      onQueue.player.lastOrder,
+    );
   });
 });
 
@@ -918,11 +959,7 @@ describe("the expanded player is on a sheet, and the sheet can be swiped away", 
     // Swiped away, closed, and opened again: the new sheet is not the one that left.
     const closed = after(swiping, reaches("Gone"), changedUrl("/new"));
     expect(closed.playerSheet.reach).toBe("Gone");
-    const again = after(
-      closed,
-      clickedLink(trackPath(track.id)),
-      changedUrl(trackPath(track.id)),
-    );
+    const again = after(closed, clickedLink(trackPath(track.id)), changedUrl(trackPath(track.id)));
     expect(isPlayerExpanded(again)).toBe(true);
     expect(again.playerSheet).toBe(initialPlayerSheet);
   });
@@ -994,9 +1031,13 @@ describe("the expanded player is on a sheet, and the sheet can be swiped away", 
     const asked = update(expandedAlone, sheet(Sheet.Message.PressedEscape()));
     expect(asked.model.route).toEqual(AppRoute.Home());
     expect(names(asked).sort()).toEqual(["FocusPage", "HomeFeed", "NavigateInternal"]);
-    expect(viewTransition({
-      previousModel: expandedAlone, model: asked.model, message: sheet(Sheet.Message.PressedEscape()),
-    })).toBe(false);
+    expect(
+      viewTransition({
+        previousModel: expandedAlone,
+        model: asked.model,
+        message: sheet(Sheet.Message.PressedEscape()),
+      }),
+    ).toBe(false);
   });
 
   test("a sheet's word that comes after the player closed closes nothing else", () => {
@@ -1036,10 +1077,7 @@ describe("the expanded player is on a sheet, and the sheet can be swiped away", 
       // The page behind is the one closing leads to. It is seen, and cannot be acted on.
       see(selector("#new-page")).toHaveAttr("inert", "true"),
       see(selector("[data-player]")).toExist(),
-      inside(
-        islandLayout,
-        see(text(TITLE)).toExist(),
-      ),
+      inside(islandLayout, see(text(TITLE)).toExist()),
       see(islandLayout).toHaveAttr("inert", "true"),
       see(islandLayout).toHaveAttr("data-under-sheet", ""),
       // One player by that id, and one piece by each name in a view transition: the one on the sheet.
@@ -1131,9 +1169,8 @@ describe("the player expanded, told from the two Models", () => {
 });
 
 describe("a track with nothing to play", () => {
-  const withSilent = answered(
-    opened("/new"),
-    (requestId) => reply.newMusic(requestId, { ...trending, tracks: [track, silentTrack] }),
+  const withSilent = answered(opened("/new"), (requestId) =>
+    reply.newMusic(requestId, { ...trending, tracks: [track, silentTrack] }),
   );
 
   test("its row says so plainly and is not a control; its menu still leads to its page", () =>
@@ -1193,7 +1230,11 @@ describe("a track's own page puts its track in the queue", () => {
   });
 
   test("with nothing playing there is no queue to put it in, and for the track that plays there is none either", () => {
-    scene(app, given(onTrack), inside(selector("#track-page"), see(role("button", { name: /^Play next/ })).toBeAbsent()));
+    scene(
+      app,
+      given(onTrack),
+      inside(selector("#track-page"), see(role("button", { name: /^Play next/ })).toBeAbsent()),
+    );
     const onItsOwnPage = after(
       onTrack,
       Message.ClickedPlayTrack({ trackId: track.id, from: "Track" }),
@@ -1204,7 +1245,11 @@ describe("a track's own page puts its track in the queue", () => {
 
 describe("a row never grows a line", () => {
   test("a song that could not be played is marked where it would have shown that it sounds", () => {
-    const failed = after(chosen, said(1, "Failed"), player(Player.Message.FailedRefreshSource({ order: 1 })));
+    const failed = after(
+      chosen,
+      said(1, "Failed"),
+      player(Player.Message.FailedRefreshSource({ order: 1 })),
+    );
 
     scene(
       app,
@@ -1219,10 +1264,7 @@ describe("a row never grows a line", () => {
           Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
         ],
       ),
-      inside(
-        rowOf(track.id),
-        see(rowMark("Failed")).toExist(),
-      ),
+      inside(rowOf(track.id), see(rowMark("Failed")).toExist()),
       // Said to assistive technology, and taking no room in the list.
       see(text("This song could not be played.")).toHaveClass("sr-only"),
     );
@@ -1231,7 +1273,14 @@ describe("a row never grows a line", () => {
   test("a song with nothing to play says so where its length would be", () =>
     scene(
       app,
-      given(after(onHome, clickedLink("/new"), arrived(reply.newMusic(nextId(onHome), { ...trending, tracks: [track, silentTrack] })), changedUrl("/new"))),
+      given(
+        after(
+          onHome,
+          clickedLink("/new"),
+          arrived(reply.newMusic(nextId(onHome), { ...trending, tracks: [track, silentTrack] })),
+          changedUrl("/new"),
+        ),
+      ),
       inside(rowOf(silentTrack.id), see(selector("[data-silent]")).toHaveText("No audio")),
       see(text("This song has no audio to play.")).toHaveClass("sr-only"),
     ));
@@ -1279,7 +1328,11 @@ describe("the island", () => {
 
   /** The engine saying the sound has gone on to a later place: where it is, of thirty seconds. */
   const goesOnTo = (positionSeconds: number): Message =>
-    said(1, "Sounding", { positionSeconds, maybeDurationSeconds: Option.some(30), bufferedSeconds: 30 });
+    said(1, "Sounding", {
+      positionSeconds,
+      maybeDurationSeconds: Option.some(30),
+      bufferedSeconds: 30,
+    });
 
   test("the bar is drawn where the engine says the sound is, to the fraction, and what is told of it counts whole seconds", () =>
     scene(
@@ -1311,7 +1364,10 @@ describe("the island", () => {
           expandedOnFirst,
           player(
             Player.Message.GotSeekSliderMessage({
-              message: Slider.Message.PressedKeyboardNavigation({ direction: "StepIncrement", value: 20 }),
+              message: Slider.Message.PressedKeyboardNavigation({
+                direction: "StepIncrement",
+                value: 20,
+              }),
             }),
           ),
         ),
@@ -1337,9 +1393,13 @@ describe("the island", () => {
     expect(drawsSoundProgress(expandedOnFirst)).toBe(true);
     // On a compact screen the island has no bar, and on a desktop's it has.
     expect(drawsSoundProgress(sounding)).toBe(false);
-    expect(drawsSoundProgress(after(sounding, Message.ChangedScreen({ screen: "Desktop" })))).toBe(true);
+    expect(drawsSoundProgress(after(sounding, Message.ChangedScreen({ screen: "Desktop" })))).toBe(
+      true,
+    );
     // With no sound there is nothing to follow.
-    expect(drawsSoundProgress(after(expandedOnFirst, player(Player.Message.ClickedPause())))).toBe(false);
+    expect(drawsSoundProgress(after(expandedOnFirst, player(Player.Message.ClickedPause())))).toBe(
+      false,
+    );
     expect(
       drawsSoundProgress(
         after(
@@ -1464,7 +1524,12 @@ describe("the island", () => {
       // Acknowledged: a wish to sound. The light has never travelled, and stays dark.
       inside(island, see(lights).toHaveAttr("data-light", "Dark")),
       // Every path of the figure and of the light is one the outline is written to.
-      inside(island, expectAll(all.selector("[data-island-layer] path:not([data-island-outline])")).toHaveCount(0)),
+      inside(
+        island,
+        expectAll(all.selector("[data-island-layer] path:not([data-island-outline])")).toHaveCount(
+          0,
+        ),
+      ),
     ));
 
   test("the light travels on the engine's word that there is sound", () =>
@@ -1490,7 +1555,11 @@ describe("the island", () => {
         after(
           sounding,
           player(Player.Message.ClickedNext()),
-          player(Player.Message.CompletedWaitBeforeShowingActivity({ order: sounding.player.lastOrder + 1 })),
+          player(
+            Player.Message.CompletedWaitBeforeShowingActivity({
+              order: sounding.player.lastOrder + 1,
+            }),
+          ),
         ),
       ),
       islandEnters,
@@ -1621,18 +1690,27 @@ describe("the flight: a track's cover is one element on its way to the island", 
       app,
       given(onNew),
       seeCarriers(coverName, { inAll: 1, inIsland: 0 }),
-      inside(rowOf(track.id), see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName)),
+      inside(
+        rowOf(track.id),
+        see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName),
+      ),
       click(playRow(TITLE)),
       islandEnters,
       // One element at a time: two with the same name and the browser drops the transition.
       seeCarriers(coverName, { inAll: 1, inIsland: 1 }),
       // The row keeps its own picture in the list.
       inside(rowOf(track.id), see(selector("img")).toExist()),
-      inside(rowOf(track.id), see(selector("[data-cover]")).not.toHaveStyle("view-transition-name")),
+      inside(
+        rowOf(track.id),
+        see(selector("[data-cover]")).not.toHaveStyle("view-transition-name"),
+      ),
       // Every other row keeps its name, for its own flight or its own page.
       inside(
         rowOf(explicitTrack.id),
-        see(selector("[data-cover]")).toHaveStyle("view-transition-name", `track-cover-${explicitTrack.id}`),
+        see(selector("[data-cover]")).toHaveStyle(
+          "view-transition-name",
+          `track-cover-${explicitTrack.id}`,
+        ),
       ),
       resolveStart(1),
       thresholdPasses(1),
@@ -1647,7 +1725,10 @@ describe("the flight: a track's cover is one element on its way to the island", 
       seeCarriers(`track-cover-${explicitTrack.id}`, { inAll: 1, inIsland: 1 }),
       // The track the island gave up has its name back on its row.
       seeCarriers(coverName, { inAll: 1, inIsland: 0 }),
-      inside(rowOf(track.id), see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName)),
+      inside(
+        rowOf(track.id),
+        see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName),
+      ),
       resolveStart(2),
       thresholdPasses(2),
     ));
@@ -1669,12 +1750,18 @@ describe("the flight: a track's cover is one element on its way to the island", 
       app,
       given(sounding),
       islandEnters,
-      inside(islandLayout, see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName)),
+      inside(
+        islandLayout,
+        see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName),
+      ),
       Subscription.emit(clickedLink(trackPath(track.id))),
       islandLeaves(),
       sheetEnters(),
       seeCarriers(coverName, { inAll: 1, inIsland: 1 }),
-      inside(expandedLayout, see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName)),
+      inside(
+        expandedLayout,
+        see(selector("[data-cover]")).toHaveStyle("view-transition-name", coverName),
+      ),
       resolveOpening(sounding),
     ));
 
@@ -1780,7 +1867,10 @@ describe("the menu at the end of a row", () => {
   // NOTE: a function, since a step that expects Mounts to have ended is used up by one scene.
   const menuLeaves = () => [
     Command.resolve(Menu.FocusButton, Menu.Message.CompletedFocusButton()),
-    Command.resolve(Animation.WaitForPaint, Animation.Message.CompletedWaitForPaint({ generation: 2 })),
+    Command.resolve(
+      Animation.WaitForPaint,
+      Animation.Message.CompletedWaitForPaint({ generation: 2 }),
+    ),
     Command.resolve(
       Menu.DetectMovementOrAnimationEnd,
       Menu.Message.GotAnimationMessage({

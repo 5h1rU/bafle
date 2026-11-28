@@ -216,12 +216,14 @@ it.effect("opening an album the catalog does not have says which one is missing"
   ).pipe(Effect.provide(WorkingCatalog));
 });
 
-it.effect("opening an artist answers with the artist in full, asking for their most played tracks", () =>
-  story(
-    Story.query(ArtistDetail, { artistId: fullArtist.id }, fullArtist),
-    Story.call(MusicCatalog.artist, { artistId: fullArtist.id, topTracks: TOP_TRACKS }),
-    Story.returned(MusicCatalog.artist, fullArtist),
-  ).pipe(Effect.provide(WorkingCatalog)),
+it.effect(
+  "opening an artist answers with the artist in full, asking for their most played tracks",
+  () =>
+    story(
+      Story.query(ArtistDetail, { artistId: fullArtist.id }, fullArtist),
+      Story.call(MusicCatalog.artist, { artistId: fullArtist.id, topTracks: TOP_TRACKS }),
+      Story.returned(MusicCatalog.artist, fullArtist),
+    ).pipe(Effect.provide(WorkingCatalog)),
 );
 
 it.effect("opening an artist the catalog does not have says which one is missing", () => {
@@ -260,12 +262,14 @@ it.effect("Genres answers with every genre the catalog files music under", () =>
   ).pipe(Effect.provide(WorkingCatalog)),
 );
 
-it.effect("opening a genre answers with the genre in full, asking for the tracks played most in it", () =>
-  story(
-    Story.query(GenreDetail, { genreId: fullGenre.id }, fullGenre),
-    Story.call(MusicCatalog.genre, { genreId: fullGenre.id, topTracks: GENRE_TOP_TRACKS }),
-    Story.returned(MusicCatalog.genre, fullGenre),
-  ).pipe(Effect.provide(WorkingCatalog)),
+it.effect(
+  "opening a genre answers with the genre in full, asking for the tracks played most in it",
+  () =>
+    story(
+      Story.query(GenreDetail, { genreId: fullGenre.id }, fullGenre),
+      Story.call(MusicCatalog.genre, { genreId: fullGenre.id, topTracks: GENRE_TOP_TRACKS }),
+      Story.returned(MusicCatalog.genre, fullGenre),
+    ).pipe(Effect.provide(WorkingCatalog)),
 );
 
 it.effect("opening a genre the catalog does not have says which one is missing", () => {
@@ -286,12 +290,14 @@ it.effect("Radio answers with the stations, under the genre each belongs to", ()
   ).pipe(Effect.provide(WorkingCatalog)),
 );
 
-it.effect("opening a station answers with the station in full, asking for as many songs as its page lists", () =>
-  story(
-    Story.query(StationDetail, { stationId: fullStation.id }, fullStation),
-    Story.call(MusicCatalog.station, { stationId: fullStation.id, tracks: STATION_TRACKS }),
-    Story.returned(MusicCatalog.station, fullStation),
-  ).pipe(Effect.provide(WorkingCatalog)),
+it.effect(
+  "opening a station answers with the station in full, asking for as many songs as its page lists",
+  () =>
+    story(
+      Story.query(StationDetail, { stationId: fullStation.id }, fullStation),
+      Story.call(MusicCatalog.station, { stationId: fullStation.id, tracks: STATION_TRACKS }),
+      Story.returned(MusicCatalog.station, fullStation),
+    ).pipe(Effect.provide(WorkingCatalog)),
 );
 
 it.effect("opening a station the catalog does not have says which one is missing", () => {

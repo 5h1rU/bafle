@@ -87,7 +87,8 @@ const isWait = (name: string): boolean => name.startsWith(WAIT);
 
 /** Effect's own Tracer, but for the waits, which are written to the browser's User Timing. */
 export const tracer: Tracer.Tracer = Tracer.make({
-  span: (options) => (isWait(options.name) ? new WaitSpan(options) : new Tracer.NativeSpan(options)),
+  span: (options) =>
+    isWait(options.name) ? new WaitSpan(options) : new Tracer.NativeSpan(options),
 });
 
 /** The Tracer for the life of the page: named in `entry.ts`, with the rest of what Commands are given. */

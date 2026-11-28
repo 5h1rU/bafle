@@ -252,9 +252,7 @@ export const followsSwipeStyles = (
   const from = between.from === undefined ? "0%" : (stops[between.from] ?? "0%");
   const to = between.to === undefined ? "100%" : (stops[between.to] ?? "100%");
   // A sheet that leaves by the start is measured from the other end.
-  const [start, end] = leavesByEnd
-    ? [from, to]
-    : [`calc(100% - ${to})`, `calc(100% - ${from})`];
+  const [start, end] = leavesByEnd ? [from, to] : [`calc(100% - ${to})`, `calc(100% - ${from})`];
   return {
     animationName: keyframes,
     animationTimeline: timelineName(id),

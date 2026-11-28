@@ -259,7 +259,8 @@ export const nothingFound: SearchResults = { tracks: [], albums: [], artists: []
 
 // MESSAGES
 
-export const url = (path: string): Url => Option.getOrThrow(fromString(`https://bafle.test${path}`));
+export const url = (path: string): Url =>
+  Option.getOrThrow(fromString(`https://bafle.test${path}`));
 
 /** The browser's address changed. Sent on its own, it is the listener going Back or Forward. */
 export const changedUrl = (path: string): Message => Message.ChangedUrl({ url: url(path) });
@@ -316,8 +317,7 @@ export const reply = {
     Catalog.Message.SucceededNewMusic({ requestId, result }),
   newMusicRefused: (requestId: string) =>
     Catalog.Message.FailedNewMusic({ requestId, failure: refused }),
-  newMusicLost: (requestId: string) =>
-    Catalog.Message.FailedNewMusic({ requestId, failure: lost }),
+  newMusicLost: (requestId: string) => Catalog.Message.FailedNewMusic({ requestId, failure: lost }),
   search: (requestId: string, result: SearchResults = found) =>
     Catalog.Message.SucceededCatalogSearch({ requestId, result }),
   searchRefused: (requestId: string) =>
@@ -334,8 +334,7 @@ export const reply = {
     }),
   trackRefused: (requestId: string) =>
     Catalog.Message.FailedTrackDetail({ requestId, failure: refused }),
-  trackLost: (requestId: string) =>
-    Catalog.Message.FailedTrackDetail({ requestId, failure: lost }),
+  trackLost: (requestId: string) => Catalog.Message.FailedTrackDetail({ requestId, failure: lost }),
   album: (requestId: string, result: Album = fullAlbum) =>
     Catalog.Message.SucceededAlbumDetail({ requestId, result }),
   /** The catalog has no such album: a final refusal, as for a track. */
@@ -346,8 +345,7 @@ export const reply = {
     }),
   albumRefused: (requestId: string) =>
     Catalog.Message.FailedAlbumDetail({ requestId, failure: refused }),
-  albumLost: (requestId: string) =>
-    Catalog.Message.FailedAlbumDetail({ requestId, failure: lost }),
+  albumLost: (requestId: string) => Catalog.Message.FailedAlbumDetail({ requestId, failure: lost }),
   artist: (requestId: string, result: Artist = fullArtist) =>
     Catalog.Message.SucceededArtistDetail({ requestId, result }),
   /** The catalog has no such artist: a final refusal, as for a track. */
@@ -387,14 +385,12 @@ export const reply = {
     }),
   genreRefused: (requestId: string) =>
     Catalog.Message.FailedGenreDetail({ requestId, failure: refused }),
-  genreLost: (requestId: string) =>
-    Catalog.Message.FailedGenreDetail({ requestId, failure: lost }),
+  genreLost: (requestId: string) => Catalog.Message.FailedGenreDetail({ requestId, failure: lost }),
   radio: (requestId: string, result: RadioStations = allStations) =>
     Catalog.Message.SucceededStationList({ requestId, result }),
   radioRefused: (requestId: string) =>
     Catalog.Message.FailedStationList({ requestId, failure: refused }),
-  radioLost: (requestId: string) =>
-    Catalog.Message.FailedStationList({ requestId, failure: lost }),
+  radioLost: (requestId: string) => Catalog.Message.FailedStationList({ requestId, failure: lost }),
   station: (requestId: string, result: Station = fullStation) =>
     Catalog.Message.SucceededStationDetail({ requestId, result }),
   /** The catalog has no such station: a final refusal, as for a track. */

@@ -83,7 +83,12 @@ const TAIL_NEEDS = TAIL_JOIN_REACH + TAIL_HALF_HEIGHT - SWELL_RADIUS;
  * discs. At the length where the edge begins, both ways of drawing it give
  * the same outline.
  */
-const rightEnd = (swell: Point, width: number, tailWidth: number, endsAt: Point): ReadonlyArray<string> => {
+const rightEnd = (
+  swell: Point,
+  width: number,
+  tailWidth: number,
+  endsAt: Point,
+): ReadonlyArray<string> => {
   if (tailWidth <= 0) {
     return [around(SWELL_RADIUS, endsAt, true)];
   }
@@ -159,7 +164,13 @@ const CHIN_ENDS_BEFORE_SWELL = 30;
  * three sides of a triangle fix. Of the two such places it is the lower one,
  * under the disc.
  */
-const chinJoin = (disc: Point, discRadius: number, corner: Point, cornerRadius: number, joinRadius: number): Point => {
+const chinJoin = (
+  disc: Point,
+  discRadius: number,
+  corner: Point,
+  cornerRadius: number,
+  joinRadius: number,
+): Point => {
   const fromDisc = discRadius + joinRadius;
   const fromCorner = cornerRadius + joinRadius;
   const apart = Math.hypot(corner.x - disc.x, corner.y - disc.y);
@@ -177,12 +188,27 @@ const chinJoin = (disc: Point, discRadius: number, corner: Point, cornerRadius: 
  * from under the swell into the chin's corner, along its foot, and up from
  * its other corner into the cover.
  */
-const chinUnderside = (cover: Point, swell: Point): Readonly<{ leavesSwellAt: Point; path: ReadonlyArray<string>; meetsCoverAt: Point }> => {
+const chinUnderside = (
+  cover: Point,
+  swell: Point,
+): Readonly<{ leavesSwellAt: Point; path: ReadonlyArray<string>; meetsCoverAt: Point }> => {
   const foot = BODY_HEIGHT + CHIN_DEPTH;
   const bySwell: Point = { x: swell.x - CHIN_ENDS_BEFORE_SWELL, y: foot - CHIN_CORNER_BY_SWELL };
   const byCover: Point = { x: CHIN_STARTS_AT, y: foot - CHIN_CORNER_BY_COVER };
-  const swellJoin = chinJoin(swell, SWELL_RADIUS, bySwell, CHIN_CORNER_BY_SWELL, CHIN_JOIN_BY_SWELL);
-  const coverJoin = chinJoin(cover, COVER_RADIUS, byCover, CHIN_CORNER_BY_COVER, CHIN_JOIN_BY_COVER);
+  const swellJoin = chinJoin(
+    swell,
+    SWELL_RADIUS,
+    bySwell,
+    CHIN_CORNER_BY_SWELL,
+    CHIN_JOIN_BY_SWELL,
+  );
+  const coverJoin = chinJoin(
+    cover,
+    COVER_RADIUS,
+    byCover,
+    CHIN_CORNER_BY_COVER,
+    CHIN_JOIN_BY_COVER,
+  );
   const leavesSwellAt = touchPoint(swell, SWELL_RADIUS, swellJoin, CHIN_JOIN_BY_SWELL);
   const meetsCoverAt = touchPoint(cover, COVER_RADIUS, coverJoin, CHIN_JOIN_BY_COVER);
 
@@ -190,10 +216,16 @@ const chinUnderside = (cover: Point, swell: Point): Readonly<{ leavesSwellAt: Po
     leavesSwellAt,
     meetsCoverAt,
     path: [
-      joining(CHIN_JOIN_BY_SWELL, touchPoint(bySwell, CHIN_CORNER_BY_SWELL, swellJoin, CHIN_JOIN_BY_SWELL)),
+      joining(
+        CHIN_JOIN_BY_SWELL,
+        touchPoint(bySwell, CHIN_CORNER_BY_SWELL, swellJoin, CHIN_JOIN_BY_SWELL),
+      ),
       around(CHIN_CORNER_BY_SWELL, { x: bySwell.x, y: foot }),
       lineTo({ x: byCover.x, y: foot }),
-      around(CHIN_CORNER_BY_COVER, touchPoint(byCover, CHIN_CORNER_BY_COVER, coverJoin, CHIN_JOIN_BY_COVER)),
+      around(
+        CHIN_CORNER_BY_COVER,
+        touchPoint(byCover, CHIN_CORNER_BY_COVER, coverJoin, CHIN_JOIN_BY_COVER),
+      ),
       joining(CHIN_JOIN_BY_COVER, meetsCoverAt),
     ],
   };

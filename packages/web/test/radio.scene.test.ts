@@ -117,14 +117,8 @@ const islandEnters = Mount.resolveAll(
   [Player.Island.DrawFigure, Player.Island.Message.CompletedDrawFigure()],
   [Player.Island.FollowPress, Player.Island.Message.CompletedFollowPress()],
   [Player.Island.StartLight, Player.Island.Message.CompletedStartLight()],
-  [
-    Marquee.Measure,
-    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
-  ],
-  [
-    Marquee.Measure,
-    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
-  ],
+  [Marquee.Measure, Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() })],
+  [Marquee.Measure, Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() })],
 );
 
 /** The threshold passes with nothing heard from the engine. */
@@ -376,11 +370,7 @@ describe("a station's tile leads to the station's page", () => {
       Command.expectExact(Catalog.StationDetail, FocusPage),
       Command.resolve(FocusPage, Message.CompletedFocusPage()),
       Command.resolve(Catalog.StationDetail, reply.station("page:3")),
-      inside(
-        onScreen,
-        see(pageTitle("French House")).toExist(),
-        see(role("alert")).toBeAbsent(),
-      ),
+      inside(onScreen, see(pageTitle("French House")).toExist(), see(role("alert")).toBeAbsent()),
     ));
 
   test("a station the catalog does not have says so on its page for good, with no Try again", () =>

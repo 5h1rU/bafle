@@ -55,22 +55,39 @@ const followIslandPress = (surface: Element): (() => void) => {
   const isControl = (target: EventTarget | null) =>
     target instanceof Element && target.closest('a, button:not([aria-disabled="true"])') !== null;
 
-  surface.addEventListener("pointerdown", (event) => {
-    if (event instanceof PointerEvent && event.isPrimary && event.button === 0 && isControl(event.target)) {
-      pointer = event.pointerId;
-      press(event.timeStamp);
-    }
-  }, options);
-  window.addEventListener("pointerup", (event) => {
-    if (event.pointerId === pointer) {
-      release(event.timeStamp);
-    }
-  }, options);
-  window.addEventListener("pointercancel", (event) => {
-    if (event.pointerId === pointer) {
-      clear();
-    }
-  }, options);
+  surface.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (
+        event instanceof PointerEvent &&
+        event.isPrimary &&
+        event.button === 0 &&
+        isControl(event.target)
+      ) {
+        pointer = event.pointerId;
+        press(event.timeStamp);
+      }
+    },
+    options,
+  );
+  window.addEventListener(
+    "pointerup",
+    (event) => {
+      if (event.pointerId === pointer) {
+        release(event.timeStamp);
+      }
+    },
+    options,
+  );
+  window.addEventListener(
+    "pointercancel",
+    (event) => {
+      if (event.pointerId === pointer) {
+        clear();
+      }
+    },
+    options,
+  );
   window.addEventListener("blur", clear, options);
   return () => {
     listeners.abort();
@@ -80,13 +97,14 @@ const followIslandPress = (surface: Element): (() => void) => {
 
 export const FollowPress = Mount.define("FollowPress", {
   messages: [Message.CompletedFollowPress],
-  execute: ({ element }) => Effect.gen(function* () {
-    yield* Effect.acquireRelease(
-      Effect.sync(() => followIslandPress(element)),
-      (stop) => Effect.sync(stop),
-    );
-    return Message.CompletedFollowPress();
-  }),
+  execute: ({ element }) =>
+    Effect.gen(function* () {
+      yield* Effect.acquireRelease(
+        Effect.sync(() => followIslandPress(element)),
+        (stop) => Effect.sync(stop),
+      );
+      return Message.CompletedFollowPress();
+    }),
 });
 
 const pixels = (length: string): number => {
@@ -131,7 +149,12 @@ const milliseconds = (time: string, otherwise: number): number => {
 // island's place (`--dock-out`, `--ease-island-out`, and the two for the way
 // back, on the `dock-island` rules in view/dock.css).
 const DOCK_OUT = { time: "--dock-out", curve: "--ease-island-out", waitMs: 30, otherwiseMs: 500 };
-const DOCK_BACK = { time: "--dock-back", curve: "--ease-island-back", waitMs: 50, otherwiseMs: 620 };
+const DOCK_BACK = {
+  time: "--dock-back",
+  curve: "--ease-island-back",
+  waitMs: 50,
+  otherwiseMs: 620,
+};
 
 /** Keep the figure and transport continuous across the single layout change.
  * The moving layers start at their currently displayed size on a reversal. */
@@ -159,7 +182,7 @@ const dockResizeMotion = (island: Element) => {
     };
     const figuresMoved = Array.from(figures, (figure) => {
       const scale = new DOMMatrixReadOnly(getComputedStyle(figure).transform).a;
-      return move(figure, `scaleX(${scale * oldWidth / width})`, timing);
+      return move(figure, `scaleX(${(scale * oldWidth) / width})`, timing);
     });
     // How far the controls stand, in the new layout, from where they stood.
     const shift = oldWidth - oldTail - width + tail;
@@ -260,9 +283,13 @@ export const DrawFigure = Mount.define("DrawFigure", {
                   y: held.y,
                 }),
             });
-            if (drawn.width > 0 && drawn.tail !== tailWidth && element.closest('[data-input="Pointer"]') &&
+            if (
+              drawn.width > 0 &&
+              drawn.tail !== tailWidth &&
+              element.closest('[data-input="Pointer"]') &&
               !isShownByBrowser() &&
-              matchMedia("(width < 48rem) and (prefers-reduced-motion: no-preference)").matches) {
+              matchMedia("(width < 48rem) and (prefers-reduced-motion: no-preference)").matches
+            ) {
               animateResize(drawn.width, width, drawn.tail, tailWidth);
             }
             drawn.width = width;

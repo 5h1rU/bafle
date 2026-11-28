@@ -53,7 +53,9 @@ describe("the island's outline", () => {
     const lower = points.filter(([, y]) => y > BODY_HEIGHT / 2);
     expect(lower).toHaveLength(upper.length);
     upper.forEach(([x, y]) => {
-      expect(lower.some(([lx, ly]) => lx === x && Math.abs(ly - (BODY_HEIGHT - y)) < 0.011)).toBe(true);
+      expect(lower.some(([lx, ly]) => lx === x && Math.abs(ly - (BODY_HEIGHT - y)) < 0.011)).toBe(
+        true,
+      );
     });
   });
 

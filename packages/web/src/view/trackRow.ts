@@ -276,7 +276,11 @@ const MARK_LOOKS: Readonly<Record<MarkPlace, MarkLook>> = {
  * where it stands, the spinner drawing in as the bars come out of it, and
  * is not one picture taken away and another put in its place.
  */
-const nowPlayingMarkView = (status: TrackStatus, place: MarkPlace, h: HtmlBuilder<Message>): Html => {
+const nowPlayingMarkView = (
+  status: TrackStatus,
+  place: MarkPlace,
+  h: HtmlBuilder<Message>,
+): Html => {
   if (status === "Elsewhere" || status === "Chosen") {
     return h.empty;
   }
@@ -349,7 +353,10 @@ const trackThumbnailView = (
     [
       h.DataAttribute("cover", ""),
       h.Class(clsx(THUMBNAIL_CLASS, "catalog-art relative")),
-      ...flightAttributes(coverTransitionStyle(track.id, { presence, isInPlayer: isInPlayer(status) }), h),
+      ...flightAttributes(
+        coverTransitionStyle(track.id, { presence, isInPlayer: isInPlayer(status) }),
+        h,
+      ),
     ],
     [
       artworkView(Option.fromNullishOr(track.album.cover), "Square", "small", h, loading),
@@ -529,8 +536,7 @@ const isOpening = (pages: RowPages): boolean =>
 const isAmiss = (state: RowState): boolean =>
   RowState.guards.Failed(state) || RowState.guards.NotAvailable(state);
 
-const hasSomethingAmiss = (pages: RowPages): boolean =>
-  isAmiss(pages.song) || isAmiss(pages.album);
+const hasSomethingAmiss = (pages: RowPages): boolean => isAmiss(pages.song) || isAmiss(pages.album);
 
 /**
  * What a row's menu offers for its track, in the order it is offered. A
@@ -733,7 +739,13 @@ const noticeView = (
   context: TrackListContext,
   h: HtmlBuilder<Message>,
 ): Html =>
-  saidView(Array.join(sentences(track, pages, status, Rows.maybeQueuedPlace(context.rows, rowIdOf(track, context))), " "), h);
+  saidView(
+    Array.join(
+      sentences(track, pages, status, Rows.maybeQueuedPlace(context.rows, rowIdOf(track, context))),
+      " ",
+    ),
+    h,
+  );
 
 /**
  * A row: its surface, with the control that plays and the control that
@@ -766,9 +778,7 @@ export const trackRowView = (
           ),
         ],
         [
-          isPlayable(track)
-            ? playRowView(row, status, context, h)
-            : silentRowView(row, context, h),
+          isPlayable(track) ? playRowView(row, status, context, h) : silentRowView(row, context, h),
           Array.match(actionsOf(track, pages, status, context), {
             onEmpty: () => h.empty,
             onNonEmpty: (actions) => rowMenuView(track, actions, pages, context, h),

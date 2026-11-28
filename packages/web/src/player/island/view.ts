@@ -7,7 +7,12 @@ import type { Screen } from "../../screen.ts";
 import { islandFigureView } from "./figure.ts";
 import { Message } from "./message.ts";
 import type { Model } from "./model.ts";
-import { DrawFigure, FollowPress, ISLAND_CHIN_ATTRIBUTE, ISLAND_SURFACE_ATTRIBUTE } from "./mount.ts";
+import {
+  DrawFigure,
+  FollowPress,
+  ISLAND_CHIN_ATTRIBUTE,
+  ISLAND_SURFACE_ATTRIBUTE,
+} from "./mount.ts";
 
 // VIEW
 
@@ -78,8 +83,7 @@ const SURFACE_CLASS =
  * all of it.
  */
 const BOX_CLASS: Readonly<Record<Screen, string>> = {
-  Compact:
-    "bottom-[5.125rem] h-11 items-center md:bottom-[max(1rem,env(safe-area-inset-bottom))]",
+  Compact: "bottom-[5.125rem] h-11 items-center md:bottom-[max(1rem,env(safe-area-inset-bottom))]",
   Desktop: "bottom-[max(0.6875rem,env(safe-area-inset-bottom))] h-17.25 items-start",
 };
 

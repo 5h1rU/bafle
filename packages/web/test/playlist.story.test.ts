@@ -301,9 +301,9 @@ describe("the playlist's page behind a page reached from it", () => {
 
   test("behind an album asked from one of its rows, the playlist is kept, and the album comes back to that row", () => {
     expect(onAlbumFromPlaylist.route).toEqual(AppRoute.Album({ albumId: album.id }));
-    expect(
-      maybePlaylistIdInDocument(onAlbumFromPlaylist.route, onAlbumFromPlaylist.trail),
-    ).toEqual(Option.some(playlist.id));
+    expect(maybePlaylistIdInDocument(onAlbumFromPlaylist.route, onAlbumFromPlaylist.trail)).toEqual(
+      Option.some(playlist.id),
+    );
 
     const back = update(onAlbumFromPlaylist, changedUrl(playlistPath(playlist.id)));
     expect(back.model.route).toEqual(playlistRoute);

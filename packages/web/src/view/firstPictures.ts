@@ -47,7 +47,8 @@ const tilesOf = <A>(
   items: ReadonlyArray<A>,
   artworkOf: (item: A) => Artwork | null,
   count: number = TILES_AT_ONCE,
-): ReadonlyArray<string> => Array.flatMap(Array.take(items, count), (item) => rendition("medium")(artworkOf(item)));
+): ReadonlyArray<string> =>
+  Array.flatMap(Array.take(items, count), (item) => rendition("medium")(artworkOf(item)));
 
 const rowsOf = (
   tracks: ReadonlyArray<TrackSummary>,
@@ -89,8 +90,7 @@ export const firstPicturesOf = (message: CatalogMessage): ReadonlyArray<string> 
           ...headOf(result.picture),
           ...rowsOf(result.tracks),
         ],
-        SucceededGenreList: ({ result }) =>
-          tilesOf(result.genres, pictureOf, GRID_TILES_AT_ONCE),
+        SucceededGenreList: ({ result }) => tilesOf(result.genres, pictureOf, GRID_TILES_AT_ONCE),
         SucceededGenreDetail: ({ result }) => [
           ...headOf(result.picture),
           ...rowsOf(result.topTracks, COLUMN_ROWS_AT_ONCE),

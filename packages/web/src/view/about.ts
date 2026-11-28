@@ -2,13 +2,7 @@ import { Popover } from "@foldkit/ui";
 import { clsx } from "clsx";
 import * as Array from "effect/Array";
 import type { Html, HtmlBuilder } from "foldkit/html";
-import {
-  AUTHOR,
-  AUTHOR_HANDLES,
-  AUTHOR_HREFS,
-  AUTHOR_PLACES,
-  type AuthorPlace,
-} from "../about.ts";
+import { AUTHOR, AUTHOR_HANDLES, AUTHOR_HREFS, AUTHOR_PLACES, type AuthorPlace } from "../about.ts";
 import { Message } from "../message.ts";
 import { iconControlClass } from "./control.ts";
 import { detailsIcon, linkedInIcon, xIcon } from "./icon.ts";
@@ -106,10 +100,7 @@ const ABOUT_LINK_CLASS =
 const aboutPanelView = (h: HtmlBuilder<Message>): ReadonlyArray<Html> => [
   h.div(
     [h.Class("px-4 py-3")],
-    [
-      h.p([h.Class("text-xs text-muted")], [MADE_BY]),
-      h.p([h.Class("font-semibold")], [AUTHOR]),
-    ],
+    [h.p([h.Class("text-xs text-muted")], [MADE_BY]), h.p([h.Class("font-semibold")], [AUTHOR])],
   ),
   h.ul(
     [h.Role("list")],
@@ -121,10 +112,7 @@ const aboutPanelView = (h: HtmlBuilder<Message>): ReadonlyArray<Html> => [
           placeLinkView(
             place,
             ABOUT_LINK_CLASS,
-            [
-              h.span([], [AUTHOR_HANDLES[place]]),
-              PLACE_ICONS[place]("size-4 shrink-0 text-muted"),
-            ],
+            [h.span([], [AUTHOR_HANDLES[place]]), PLACE_ICONS[place]("size-4 shrink-0 text-muted")],
             h,
           ),
         ],

@@ -80,16 +80,40 @@ describe("the box a sheet is swiped in", () => {
 
   test("its content is three screens: a mark at the start, the stage a screen in, a mark at the end", () => {
     // So the box can scroll by exactly one screen, and its two ends are the sheet's two places.
-    expect(startMarkStyles(bottom)).toMatchObject({ top: "0cqh", height: "100cqh", scrollSnapAlign: "start" });
-    expect(stageStyles("Bottom")).toMatchObject({ top: "100cqh", height: "100cqh", width: "100cqw" });
-    expect(endMarkStyles(bottom)).toMatchObject({ top: "200cqh", height: "100cqh", scrollSnapAlign: "end" });
+    expect(startMarkStyles(bottom)).toMatchObject({
+      top: "0cqh",
+      height: "100cqh",
+      scrollSnapAlign: "start",
+    });
+    expect(stageStyles("Bottom")).toMatchObject({
+      top: "100cqh",
+      height: "100cqh",
+      width: "100cqw",
+    });
+    expect(endMarkStyles(bottom)).toMatchObject({
+      top: "200cqh",
+      height: "100cqh",
+      scrollSnapAlign: "end",
+    });
   });
 
   test("the sheet stands at its edge of the stage", () => {
-    expect(stageStyles("Bottom")).toMatchObject({ flexDirection: "column", justifyContent: "flex-end" });
-    expect(stageStyles("Top")).toMatchObject({ flexDirection: "column", justifyContent: "flex-start" });
-    expect(stageStyles("Left")).toMatchObject({ flexDirection: "row", justifyContent: "flex-start" });
-    expect(stageStyles("Right")).toMatchObject({ flexDirection: "row", justifyContent: "flex-end" });
+    expect(stageStyles("Bottom")).toMatchObject({
+      flexDirection: "column",
+      justifyContent: "flex-end",
+    });
+    expect(stageStyles("Top")).toMatchObject({
+      flexDirection: "column",
+      justifyContent: "flex-start",
+    });
+    expect(stageStyles("Left")).toMatchObject({
+      flexDirection: "row",
+      justifyContent: "flex-start",
+    });
+    expect(stageStyles("Right")).toMatchObject({
+      flexDirection: "row",
+      justifyContent: "flex-end",
+    });
   });
 
   test("a sheet that continues past its edge is a screen longer there, and set back by as much", () => {
@@ -98,7 +122,10 @@ describe("the box a sheet is swiped in", () => {
       paddingBottom: "100cqh",
       marginBottom: "-100cqh",
     });
-    expect(sheetStyles("Left", true)).toMatchObject({ paddingLeft: "100cqw", marginLeft: "-100cqw" });
+    expect(sheetStyles("Left", true)).toMatchObject({
+      paddingLeft: "100cqw",
+      marginLeft: "-100cqw",
+    });
     expect(sheetStyles("Bottom", false)).toEqual({ position: "relative" });
   });
 
@@ -176,7 +203,11 @@ describe("a sheet's Model", () => {
 
   test("a sheet stands at the foot unless told otherwise, and slides in", () => {
     expect(sliding).toEqual({
-      id: "cart", edge: "Bottom", entrance: "Slides", reach: "Gone", dismissedByKeyboard: false,
+      id: "cart",
+      edge: "Bottom",
+      entrance: "Slides",
+      reach: "Gone",
+      dismissedByKeyboard: false,
     });
   });
 
@@ -203,7 +234,9 @@ describe("a sheet's Model", () => {
     expect(gone.model.reach).toBe("Gone");
     expect(gone.outMessage).toEqual(OutMessage.Left());
     // Said once: the same word again is no news.
-    expect(Sheet.update(gone.model, Message.ChangedReach({ reach: "Gone" })).outMessage).toBeUndefined();
+    expect(
+      Sheet.update(gone.model, Message.ChangedReach({ reach: "Gone" })).outMessage,
+    ).toBeUndefined();
   });
 
   test("partly off the screen it says nothing to its owner: it may yet come back", () => {

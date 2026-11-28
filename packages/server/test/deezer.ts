@@ -246,7 +246,11 @@ export const bareRadio = { id: 30771, title: "Electro Pop", type: "radio" };
 export const radioGenres = {
   data: [
     { id: 132, title: "Pop", radios: [deezerRadio, bareRadio] },
-    { id: 106, title: "Electro", radios: [bareRadio, { ...deezerRadio, id: 31061, title: "Electro" }] },
+    {
+      id: 106,
+      title: "Electro",
+      radios: [bareRadio, { ...deezerRadio, id: 31061, title: "Electro" }],
+    },
     { id: 113, title: "Dance", radios: [bareRadio] },
     { id: 466, title: "Folk", radios: [] },
   ],
@@ -276,17 +280,23 @@ export const stocked = {
   "/search/playlist": { body: { data: [], total: 0 } },
   "/track/3135556": { body: deezerTrackPage },
   "/track/404": { body: { error: { type: "DataException", message: "no data", code: 800 } } },
-  "/track/429": { body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } } },
+  "/track/429": {
+    body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } },
+  },
   "/album/302127": { body: deezerAlbumPage },
   "/album/77": { body: longAlbumPage },
   "/album/77/tracks": { body: longAlbumTracks },
   "/album/404": { body: { error: { type: "DataException", message: "no data", code: 800 } } },
-  "/album/429": { body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } } },
+  "/album/429": {
+    body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } },
+  },
   "/artist/27": { body: deezerArtistPage },
   "/artist/27/top": { body: artistTop },
   "/artist/27/albums": { body: artistAlbums },
   "/artist/404": { body: { error: { type: "DataException", message: "no data", code: 800 } } },
-  "/artist/429": { body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } } },
+  "/artist/429": {
+    body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } },
+  },
   "/playlist/908622995": { body: deezerPlaylistPage },
   "/playlist/78": { body: longPlaylistPage },
   "/playlist/78/tracks": { body: longPlaylistTracks },
@@ -300,10 +310,14 @@ export const stocked = {
   "/genre/404": { body: { error: { type: "DataException", message: "no data", code: 800 } } },
   // Deezer answers a chart for any id at all, a genre it does not have included.
   "/chart/404": { body: genreChart },
-  "/genre/429": { body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } } },
+  "/genre/429": {
+    body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } },
+  },
   "/radio/genres": { body: radioGenres },
   "/radio/38305": { body: deezerRadio },
   "/radio/38305/tracks": { body: radioTracks },
   "/radio/404": { body: { error: { type: "DataException", message: "no data", code: 800 } } },
-  "/radio/429": { body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } } },
+  "/radio/429": {
+    body: { error: { type: "Exception", message: "Quota limit exceeded", code: 4 } },
+  },
 } satisfies Record<string, Answer>;

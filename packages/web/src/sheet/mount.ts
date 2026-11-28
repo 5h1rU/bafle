@@ -137,8 +137,7 @@ export const FollowSheet = Mount.defineStream("FollowSheet", {
             const watcher = new IntersectionObserver(
               (entries) => {
                 const share = entries.at(-1)?.intersectionRatio ?? 0;
-                const reach: Reach =
-                  share >= WHOLE_FROM ? "Whole" : share > 0 ? "Partly" : "Gone";
+                const reach: Reach = share >= WHOLE_FROM ? "Whole" : share > 0 ? "Partly" : "Gone";
                 seen.is ||= share > 0;
                 if (reach !== "Gone" || seen.is) {
                   Queue.offerUnsafe(queue, Message.ChangedReach({ reach }));

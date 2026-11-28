@@ -338,7 +338,10 @@ describe("playing from the station's page", () => {
 
   test("the queue is the list the page held when the row was tapped, and coming back to the station asks for no other", () => {
     const playing = after(onStation, tapped);
-    const again = update(after(playing, changedUrl("/radio")), clickedLink(stationPath(station.id)));
+    const again = update(
+      after(playing, changedUrl("/radio")),
+      clickedLink(stationPath(station.id)),
+    );
 
     // A station is dealt once: its page, and what plays from it, stay as they were.
     expect(names(again)).not.toContain("StationDetail");

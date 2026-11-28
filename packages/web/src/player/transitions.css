@@ -1,9 +1,15 @@
 /* Give the cover the same clock as the player it travels to. Ordinary
    page navigation finishes with the page fade, even with music playing. */
-:root { --player-swap-duration: 150ms; }
-:root:active-view-transition-type(choose-track) { --player-swap-duration: 250ms; }
+:root {
+  --player-swap-duration: 150ms;
+}
+:root:active-view-transition-type(choose-track) {
+  --player-swap-duration: 250ms;
+}
 :root:active-view-transition-type(player-opens),
-:root:active-view-transition-type(player-closes) { --player-swap-duration: 380ms; }
+:root:active-view-transition-type(player-closes) {
+  --player-swap-duration: 380ms;
+}
 
 ::view-transition-group(.island-cover) {
   z-index: 2;
@@ -68,13 +74,23 @@
 }
 
 @keyframes cover-gives-way {
-  10%, 100% { opacity: 0; }
+  10%,
+  100% {
+    opacity: 0;
+  }
 }
 
 @keyframes cover-lands {
-  0% { opacity: 0; }
-  10%, 80% { opacity: 1; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 0;
+  }
+  10%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* NOTE: while the cover is on its way the sheet has no cover of its own to
@@ -99,21 +115,37 @@
 }
 
 @keyframes head-comes-last {
-  0%, 80% { opacity: 0; }
+  0%,
+  80% {
+    opacity: 0;
+  }
 }
 
 @keyframes head-ground-comes-last {
-  0%, 80% { background-color: transparent; }
+  0%,
+  80% {
+    background-color: transparent;
+  }
 }
 
 @keyframes cover-lifts {
-  0% { opacity: 0; }
-  12%, 90% { opacity: 1; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 0;
+  }
+  12%,
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 @keyframes cover-takes-its-place {
-  0%, 90% { opacity: 0; }
+  0%,
+  90% {
+    opacity: 0;
+  }
 }
 
 /* Its corners go with it: a disc's on the island, the sheet's own at the
@@ -129,13 +161,21 @@
 }
 
 @keyframes cover-squares {
-  from { border-radius: 1.5625rem; }
-  to { border-radius: 1.5rem 1.5rem 0 0; }
+  from {
+    border-radius: 1.5625rem;
+  }
+  to {
+    border-radius: 1.5rem 1.5rem 0 0;
+  }
 }
 
 @keyframes cover-rounds {
-  from { border-radius: 1.5rem 1.5rem 0 0; }
-  to { border-radius: 1.5625rem; }
+  from {
+    border-radius: 1.5rem 1.5rem 0 0;
+  }
+  to {
+    border-radius: 1.5625rem;
+  }
 }
 
 /* CLOSING FROM THE QUEUE'S FACE, OR THE SONG'S DETAILS
@@ -154,13 +194,22 @@
 }
 
 @keyframes thumbnail-goes-to-island {
-  0%, 90% { opacity: 1; }
-  100% { opacity: 0; }
+  0%,
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 @keyframes thumbnail-rounds {
-  from { border-radius: 0.5rem; }
-  to { border-radius: 1.5625rem; }
+  from {
+    border-radius: 0.5rem;
+  }
+  to {
+    border-radius: 1.5625rem;
+  }
 }
 
 /* THE EXPANDED PLAYER TURNING TO ITS QUEUE, AND BACK
@@ -215,30 +264,64 @@
 }
 
 @keyframes cover-draws-back {
-  0% { opacity: 0; }
-  19%, 44% { opacity: 1; }
-  58% { opacity: 0.5; }
-  76% { opacity: 0.05; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 0;
+  }
+  19%,
+  44% {
+    opacity: 1;
+  }
+  58% {
+    opacity: 0.5;
+  }
+  76% {
+    opacity: 0.05;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 @keyframes thumbnail-arrives {
-  0%, 44% { opacity: 0; }
-  58% { opacity: 0.5; }
-  76% { opacity: 0.95; }
+  0%,
+  44% {
+    opacity: 0;
+  }
+  58% {
+    opacity: 0.5;
+  }
+  76% {
+    opacity: 0.95;
+  }
 }
 
 @keyframes thumbnail-leaves {
-  20% { opacity: 0.4; }
-  30%, 100% { opacity: 0; }
+  20% {
+    opacity: 0.4;
+  }
+  30%,
+  100% {
+    opacity: 0;
+  }
 }
 
 @keyframes cover-spreads {
-  0% { opacity: 0; }
-  20% { opacity: 0.6; }
-  30%, 50% { opacity: 1; }
-  75% { opacity: 0.35; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.6;
+  }
+  30%,
+  50% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 :root:active-view-transition-type(player-queue-opens)::view-transition-image-pair(.island-cover) {
@@ -252,13 +335,21 @@
 }
 
 @keyframes cover-to-thumbnail {
-  from { border-radius: 1.5rem 1.5rem 0 0; }
-  to { border-radius: 0.625rem; }
+  from {
+    border-radius: 1.5rem 1.5rem 0 0;
+  }
+  to {
+    border-radius: 0.625rem;
+  }
 }
 
 @keyframes thumbnail-to-cover {
-  from { border-radius: 0.625rem; }
-  to { border-radius: 1.5rem 1.5rem 0 0; }
+  from {
+    border-radius: 0.625rem;
+  }
+  to {
+    border-radius: 1.5rem 1.5rem 0 0;
+  }
 }
 
 /* THE QUEUE'S COLUMN COMING AND GOING
@@ -424,29 +515,56 @@
 }
 
 @keyframes sheet-ground-comes {
-  0% { background-color: transparent; }
-  13%, 100% { background-color: var(--color-canvas); }
+  0% {
+    background-color: transparent;
+  }
+  13%,
+  100% {
+    background-color: var(--color-canvas);
+  }
 }
 
 @keyframes sheet-ground-goes {
-  0%, 87% { background-color: var(--color-canvas); }
-  100% { background-color: transparent; }
+  0%,
+  87% {
+    background-color: var(--color-canvas);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 
 @keyframes sheet-face-comes {
-  0%, 24% { opacity: 0; }
-  35% { opacity: 0.39; }
-  50% { opacity: 0.87; }
-  72%, 100% { opacity: 1; }
+  0%,
+  24% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.39;
+  }
+  50% {
+    opacity: 0.87;
+  }
+  72%,
+  100% {
+    opacity: 1;
+  }
 }
 
 /* NOTE: gone early. The face is a still picture kept at its own size in a
    box that shrinks, and for as long as it is seen the cover in it is seen
    large beside the one that travels (see `cover-lifts`). */
 @keyframes sheet-face-goes {
-  0% { opacity: 1; }
-  12% { opacity: 0.55; }
-  24%, 100% { opacity: 0; }
+  0% {
+    opacity: 1;
+  }
+  12% {
+    opacity: 0.55;
+  }
+  24%,
+  100% {
+    opacity: 0;
+  }
 }
 
 @keyframes island-gives-way {
@@ -485,7 +603,9 @@
     view-transition-name: none;
   }
 
-  :root:active-view-transition-type(player-closes) :is([data-layout="expanded"], [data-layout="island"]) [data-cover] {
+  :root:active-view-transition-type(player-closes)
+    :is([data-layout="expanded"], [data-layout="island"])
+    [data-cover] {
     view-transition-name: none !important;
   }
 

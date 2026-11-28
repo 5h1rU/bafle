@@ -10,13 +10,7 @@ import * as Option from "effect/Option";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Message } from "../message.ts";
 import { GRID_TILES_AT_ONCE, TILES_AT_ONCE } from "./firstPictures.ts";
-import {
-  albumRouter,
-  artistRouter,
-  genreRouter,
-  playlistRouter,
-  stationRouter,
-} from "../route.ts";
+import { albumRouter, artistRouter, genreRouter, playlistRouter, stationRouter } from "../route.ts";
 import {
   type ArtworkShape,
   type PictureLoading,
@@ -25,12 +19,7 @@ import {
   flightAttributes,
   pictureFlightStyle,
 } from "./artwork.ts";
-import {
-  type Presence,
-  SECTION_HEADING_CLASS,
-  TILE_ATTRIBUTES,
-  type TileKind,
-} from "./layout.ts";
+import { type Presence, SECTION_HEADING_CLASS, TILE_ATTRIBUTES, type TileKind } from "./layout.ts";
 import { TURNING_ROW_CLASS, type TurningOf, turningRowIdOf, turningView } from "./turning.ts";
 
 // MODEL
@@ -308,13 +297,10 @@ const tileContentView = (
     ],
   ),
   h.p([h.Class("mt-3 truncate text-sm font-medium")], [tile.title]),
-  tile.subtitle === ""
-    ? h.empty
-    : h.p([h.Class("truncate text-sm text-muted")], [tile.subtitle]),
+  tile.subtitle === "" ? h.empty : h.p([h.Class("truncate text-sm text-muted")], [tile.subtitle]),
 ];
 
-const TILE_LINK_CLASS =
-  "block touch-manipulation rounded-lg focus-ring";
+const TILE_LINK_CLASS = "block touch-manipulation rounded-lg focus-ring";
 
 const tileView = (
   tile: Tile,
@@ -381,7 +367,10 @@ const shelfSectionView = (
   h.section(
     [],
     [
-      artworkFlightRules(tiles.flatMap((tile) => tile.flightStyle.viewTransitionName ?? []), h),
+      artworkFlightRules(
+        tiles.flatMap((tile) => tile.flightStyle.viewTransitionName ?? []),
+        h,
+      ),
       h.h2([h.Id(id), h.Class(SECTION_HEADING_CLASS)], [title]),
       turningView(
         id,
@@ -447,12 +436,21 @@ export const maybeTileGridView = (
         h.div(
           [],
           [
-            artworkFlightRules(shown.flatMap((tile) => tile.flightStyle.viewTransitionName ?? []), h),
+            artworkFlightRules(
+              shown.flatMap((tile) => tile.flightStyle.viewTransitionName ?? []),
+              h,
+            ),
             h.ul(
               [h.Role("list"), h.AriaLabelledBy(labelledBy), h.Class(TILE_GRID_CLASS)],
               // The grid is all its page shows, so it is always at the page's head.
               Array.map(shown, (tile, index) =>
-                tileView(tile, shape, TILE_GRID_TILE_CLASS, index < GRID_TILES_AT_ONCE ? "AtOnce" : "WhenNear", h),
+                tileView(
+                  tile,
+                  shape,
+                  TILE_GRID_TILE_CLASS,
+                  index < GRID_TILES_AT_ONCE ? "AtOnce" : "WhenNear",
+                  h,
+                ),
               ),
             ),
           ],

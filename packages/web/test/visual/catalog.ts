@@ -233,7 +233,12 @@ export const fullAlbum: Album = {
 /** An album of one song: its page is still tall enough for its head to draw back. */
 export const shortAlbum: Album = {
   ...albums[1]!,
-  tracks: [{ ...secondTrack, album: { id: albums[1]!.id, title: albums[1]!.title, cover: albums[1]!.cover } }],
+  tracks: [
+    {
+      ...secondTrack,
+      album: { id: albums[1]!.id, title: albums[1]!.title, cover: albums[1]!.cover },
+    },
+  ],
   releaseDate: null,
 };
 

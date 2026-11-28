@@ -65,13 +65,10 @@ export const Measure = Mount.defineStream("Measure", {
           Effect.sync(() => {
             const sizes = new ResizeObserver(() => Queue.offerUnsafe(queue, undefined));
             sizes.observe(element);
-            Option.match(
-              Option.fromNullishOr(element.querySelector(`[data-${WORDS_ATTRIBUTE}]`)),
-              {
-                onNone: () => undefined,
-                onSome: (words) => sizes.observe(words),
-              },
-            );
+            Option.match(Option.fromNullishOr(element.querySelector(`[data-${WORDS_ATTRIBUTE}]`)), {
+              onNone: () => undefined,
+              onSome: (words) => sizes.observe(words),
+            });
             return sizes;
           }),
           (sizes) => Effect.sync(() => sizes.disconnect()),

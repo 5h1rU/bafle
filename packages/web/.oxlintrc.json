@@ -14,9 +14,7 @@
   ],
   "overrides": [
     {
-      "files": [
-        "test/**/*.ts"
-      ],
+      "files": ["test/**/*.ts"],
       "rules": {
         "foldkit/no-child-message-construction-in-root": "off",
         "foldkit/no-disabling-dev-guardrails": "off"

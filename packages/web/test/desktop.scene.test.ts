@@ -18,12 +18,7 @@ import { describe, expect, test } from "vitest";
 import * as Marquee from "../src/marquee/index.ts";
 import { Catalog } from "../src/catalog.ts";
 import { FocusPage, NavigateInternal } from "../src/command.ts";
-import {
-  QUEUE_COLUMN_CLOSES,
-  QUEUE_COLUMN_OPENS,
-  update,
-  viewTransition,
-} from "../src/main.ts";
+import { QUEUE_COLUMN_CLOSES, QUEUE_COLUMN_OPENS, update, viewTransition } from "../src/main.ts";
 import { Message } from "../src/message.ts";
 import { Awaiting, type Model, isPlayerExpanded, maybeHeadedFor } from "../src/model.ts";
 import type { EnginePhase, EngineReport } from "../src/player/audioEngine.ts";
@@ -134,14 +129,8 @@ const islandEnters = Mount.resolveAll(
   [Player.Island.DrawFigure, Player.Island.Message.CompletedDrawFigure()],
   [Player.Island.FollowPress, Player.Island.Message.CompletedFollowPress()],
   [Player.Island.StartLight, Player.Island.Message.CompletedStartLight()],
-  [
-    Marquee.Measure,
-    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
-  ],
-  [
-    Marquee.Measure,
-    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
-  ],
+  [Marquee.Measure, Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() })],
+  [Marquee.Measure, Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() })],
 );
 
 const transition = (previousModel: Model, message: Message) =>
@@ -218,7 +207,10 @@ describe("the island on a desktop's screen", () => {
         // The length is the engine's, and the times stand on either side of the bar.
         see(role("slider", { name: `Seek: ${TITLE}` })).toHaveAttr("aria-valuenow", "12"),
         see(role("slider", { name: `Seek: ${TITLE}` })).toHaveAttr("aria-valuemax", "30"),
-        see(role("slider", { name: `Seek: ${TITLE}` })).toHaveAttr("aria-valuetext", "0:12 of 0:30"),
+        see(role("slider", { name: `Seek: ${TITLE}` })).toHaveAttr(
+          "aria-valuetext",
+          "0:12 of 0:30",
+        ),
         see(selector("[data-elapsed]")).toHaveText("0:12"),
         see(selector("[data-remaining]")).toHaveText("−0:18"),
       ),
@@ -229,7 +221,10 @@ describe("the island on a desktop's screen", () => {
       onDesktop,
       player(
         Player.Message.GotSeekSliderMessage({
-          message: Slider.Message.PressedKeyboardNavigation({ direction: "StepIncrement", value: 12 }),
+          message: Slider.Message.PressedKeyboardNavigation({
+            direction: "StepIncrement",
+            value: 12,
+          }),
         }),
       ),
     );
@@ -244,11 +239,7 @@ describe("the island on a desktop's screen", () => {
     scene(
       app,
       given(
-        after(
-          onNew,
-          Message.ClickedPlayTrack({ trackId: track.id, from: "New" }),
-          becameDesktop,
-        ),
+        after(onNew, Message.ClickedPlayTrack({ trackId: track.id, from: "New" }), becameDesktop),
       ),
       islandEnters,
       inside(island, see(role("slider")).toBeAbsent(), see(text("–:––")).toExist()),
@@ -276,7 +267,11 @@ describe("the island on a desktop's screen", () => {
     expect(asked.route).toEqual(onDesktop.route);
     expect(maybeHeadedFor(asked)).toEqual(Option.some(AppRoute.Track({ trackId: track.id })));
 
-    const shown = after(asked, arrived(reply.track(awaitedId(asked))), changedUrl(trackPath(track.id)));
+    const shown = after(
+      asked,
+      arrived(reply.track(awaitedId(asked))),
+      changedUrl(trackPath(track.id)),
+    );
     expect(shown.route).toEqual(AppRoute.Track({ trackId: track.id }));
     expect(isPlayerExpanded(shown)).toBe(false);
   });
@@ -286,7 +281,9 @@ describe("the island on a desktop's screen", () => {
       onDesktop,
       player(Player.Message.GotMoreMenuMessage({ message: Menu.Message.ClickedButton() })),
     );
-    expect(Player.isMoreMenuOpen(after(menuOpen, said(1, "Sounding", { positionSeconds: 13 })).player)).toBe(true);
+    expect(
+      Player.isMoreMenuOpen(after(menuOpen, said(1, "Sounding", { positionSeconds: 13 })).player),
+    ).toBe(true);
   });
 });
 
@@ -309,7 +306,9 @@ describe("Song details, from the island's menu", () => {
   });
 
   test("with no row to say a failure on, the page takes the screen and says it", () => {
-    expect(Awaiting.guards.Intention(asked.model.awaiting) && asked.model.awaiting.onPage).toBe(true);
+    expect(Awaiting.guards.Intention(asked.model.awaiting) && asked.model.awaiting.onPage).toBe(
+      true,
+    );
 
     const failed = after(asked.model, arrived(reply.trackLost(awaitedId(asked.model))));
     expect(failed.route).toEqual(AppRoute.Track({ trackId: track.id }));
@@ -328,14 +327,20 @@ describe("Song details, from the island's menu", () => {
       given(onDesktop),
       islandEnters,
       Subscription.emit(choseFromPlayer("SongDetails")),
-      inside(island, see(role("button", { name: `More: ${TITLE}` })).toHaveAttr("aria-busy", "true")),
+      inside(
+        island,
+        see(role("button", { name: `More: ${TITLE}` })).toHaveAttr("aria-busy", "true"),
+      ),
       see(text(`Loading ${TITLE}`)).toExist(),
       Command.resolve(Catalog.TrackDetail, reply.track(awaitedId(asked.model))),
       Command.resolveAll(
         [NavigateInternal, Message.CompletedNavigateInternal()],
         [FocusPage, Message.CompletedFocusPage()],
       ),
-      inside(selector("#track-page"), see(role("heading", { name: new RegExp(TITLE), level: 1 })).toExist()),
+      inside(
+        selector("#track-page"),
+        see(role("heading", { name: new RegExp(TITLE), level: 1 })).toExist(),
+      ),
       see(island).toExist(),
       see(expandedLayout).toBeAbsent(),
     ));
@@ -343,34 +348,75 @@ describe("Song details, from the island's menu", () => {
 
 describe("the queue beside the page", () => {
   test("the island's control opens it and closes it, and nothing of the route or the history moves", () => {
-    const opened = update(onDesktop, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })));
+    const opened = update(
+      onDesktop,
+      player(
+        Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() }),
+      ),
+    );
 
     expect(Player.isQueueColumnOpen(opened.model.player)).toBe(true);
     expect(opened.model.route).toEqual(onDesktop.route);
     expect(opened.model.trail).toEqual(onDesktop.trail);
     expect(opened.commands ?? []).toEqual([]);
 
-    const closed = update(opened.model, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })));
+    const closed = update(
+      opened.model,
+      player(
+        Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() }),
+      ),
+    );
     expect(Player.isQueueColumnOpen(closed.model.player)).toBe(false);
     expect(closed.commands ?? []).toEqual([]);
   });
 
   test("it comes in from its side and goes back off it, each by its own name", () => {
-    const opened = after(onDesktop, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })));
+    const opened = after(
+      onDesktop,
+      player(
+        Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() }),
+      ),
+    );
 
-    expect(transition(onDesktop, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })))).toEqual({
+    expect(
+      transition(
+        onDesktop,
+        player(
+          Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() }),
+        ),
+      ),
+    ).toEqual({
       types: [QUEUE_COLUMN_OPENS],
     });
-    expect(transition(opened, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })))).toEqual({
+    expect(
+      transition(
+        opened,
+        player(
+          Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() }),
+        ),
+      ),
+    ).toEqual({
       types: [QUEUE_COLUMN_CLOSES],
     });
-    expect(transition(opened, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedCloseColumn() })))).toEqual({
+    expect(
+      transition(
+        opened,
+        player(
+          Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedCloseColumn() }),
+        ),
+      ),
+    ).toEqual({
       types: [QUEUE_COLUMN_CLOSES],
     });
   });
 
   test("it stays open while the listener goes to other pages and plays other lists", () => {
-    const opened = after(onDesktop, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })));
+    const opened = after(
+      onDesktop,
+      player(
+        Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() }),
+      ),
+    );
     const elsewhere = after(
       opened,
       clickedLink("/"),
@@ -382,8 +428,18 @@ describe("the queue beside the page", () => {
   });
 
   test("its own control closes it and hands the focus back to the island's", () => {
-    const opened = after(onDesktop, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() })));
-    const closed = update(opened, player(Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedCloseColumn() })));
+    const opened = after(
+      onDesktop,
+      player(
+        Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() }),
+      ),
+    );
+    const closed = update(
+      opened,
+      player(
+        Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedCloseColumn() }),
+      ),
+    );
 
     expect(Player.isQueueColumnOpen(closed.model.player)).toBe(false);
     expect((closed.commands ?? []).map((command) => command.name)).toEqual([
@@ -433,7 +489,10 @@ describe("the queue beside the page", () => {
       islandEnters,
       inside(queueColumn, click(role("button", { name: "Play: Around the World by Daft Punk" }))),
       Command.resolveAll(
-        [Player.StartPlayback, Player.Message.CompletedStartPlayback({ order: 2, outcome: "Sounding" })],
+        [
+          Player.StartPlayback,
+          Player.Message.CompletedStartPlayback({ order: 2, outcome: "Sounding" }),
+        ],
         [Player.PublishNowPlaying, Player.Message.CompletedPublishNowPlaying()],
         [
           Player.WaitBeforeShowingActivity,
@@ -467,9 +526,13 @@ describe("the queue beside the page", () => {
         modifyFields(onDesktop, {
           player: () =>
             Player.update(
-              Player.choose(onDesktop.player, { trackId: explicitTrack.id, list: [track, explicitTrack] })
-                .model,
-              Player.Message.GotQueueMessage({ message: Player.Queue.Message.ClickedColumnControl() }),
+              Player.choose(onDesktop.player, {
+                trackId: explicitTrack.id,
+                list: [track, explicitTrack],
+              }).model,
+              Player.Message.GotQueueMessage({
+                message: Player.Queue.Message.ClickedColumnControl(),
+              }),
             ).model,
         }),
       ),

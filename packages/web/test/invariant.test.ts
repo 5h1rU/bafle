@@ -33,13 +33,7 @@ import {
 } from "../src/model.ts";
 import type { EnginePhase } from "../src/player/audioEngine.ts";
 import * as Player from "../src/player/index.ts";
-import {
-  AppRoute,
-  isSamePage,
-  isSameRoute,
-  searchRouter,
-  urlToAppRoute,
-} from "../src/route.ts";
+import { AppRoute, isSamePage, isSameRoute, searchRouter, urlToAppRoute } from "../src/route.ts";
 import {
   album,
   albumPath,
@@ -166,7 +160,14 @@ const PATHS: Array.NonEmptyReadonlyArray<string> = [
 
 /** The rows a list has: the tracks of the lists, the second on the album that is gone. */
 const ROW_TRACK_IDS: Array.NonEmptyReadonlyArray<TrackId> = [track.id, explicitTrack.id];
-const LINKS: Array.NonEmptyReadonlyArray<string> = ["/", "/new", "/search", "/", "/new", "/nowhere"];
+const LINKS: Array.NonEmptyReadonlyArray<string> = [
+  "/",
+  "/new",
+  "/search",
+  "/",
+  "/new",
+  "/nowhere",
+];
 const FIELD_TEXTS: Array.NonEmptyReadonlyArray<string> = ["", "a", "ab", "a ", " ", "b"];
 
 /** What a row can be tapped for: the tracks of the lists, and one no list has. */
@@ -326,10 +327,7 @@ const engineAnswers = (command: Issued, seed: number): ReadonlyArray<Message> =>
     return [said(order, "Paused", 5)];
   }
   if (name === "SeekPlayback") {
-    return [
-      said(order, "Waiting", 9, true),
-      said(order, roll < 2 ? "Paused" : "Sounding", 9),
-    ];
+    return [said(order, "Waiting", 9, true), said(order, roll < 2 ? "Paused" : "Sounding", 9)];
   }
   if (name === "WaitBeforeShowingActivity") {
     return [player(Player.Message.CompletedWaitBeforeShowingActivity({ order }))];
@@ -679,7 +677,8 @@ const pageOf = (route: AppRoute): Option.Option<PageName> =>
   });
 
 /** The page a reply is awaited for: the one the app is heading for, else the one on screen. */
-const awaitedRoute = (model: Model): AppRoute => Option.getOrElse(maybeHeadedFor(model), () => model.route);
+const awaitedRoute = (model: Model): AppRoute =>
+  Option.getOrElse(maybeHeadedFor(model), () => model.route);
 
 /** Whether the page on screen is one that offers Try again: its last load or refresh failed. */
 const showsTryAgain = (model: Model): boolean =>
@@ -920,8 +919,7 @@ const broken = (model: Model): ReadonlyArray<string> => {
       !Option.exists(
         maybeDestination,
         (route) =>
-          !isPlayersTrack(model, route) &&
-          (!canShow(model, model.route) || canShow(model, route)),
+          !isPlayersTrack(model, route) && (!canShow(model, model.route) || canShow(model, route)),
       ),
     ],
     [
@@ -1222,7 +1220,12 @@ const acting = (walk: Walk, seed: number): Happening => {
     };
   }
   const maybePlaying = Player.maybeCurrentTrackId(walk.model.player);
-  if (playRoll >= 30 && playRoll < 42 && Option.isSome(maybePlaying) && !isPlayerExpanded(walk.model)) {
+  if (
+    playRoll >= 30 &&
+    playRoll < 42 &&
+    Option.isSome(maybePlaying) &&
+    !isPlayerExpanded(walk.model)
+  ) {
     return {
       label: "presses the island to open the player",
       message: clickedLink(trackPath(maybePlaying.value)),
@@ -1278,7 +1281,10 @@ const acting = (walk: Walk, seed: number): Happening => {
   if (albumRoll < 25 && listsAlbum(walk.model)) {
     return {
       label: "taps a row of the album to play",
-      message: Message.ClickedPlayTrack({ trackId: pick(PLAYABLE_IDS, albumChoice), from: "Album" }),
+      message: Message.ClickedPlayTrack({
+        trackId: pick(PLAYABLE_IDS, albumChoice),
+        from: "Album",
+      }),
       ...unchanged,
     };
   }
@@ -1328,7 +1334,10 @@ const acting = (walk: Walk, seed: number): Happening => {
       ...unchanged,
     };
   }
-  if (shelfRoll < 65 && (walk.model.route._tag === "Artist" || walk.model.route._tag === "Playlist")) {
+  if (
+    shelfRoll < 65 &&
+    (walk.model.route._tag === "Artist" || walk.model.route._tag === "Playlist")
+  ) {
     return leaves(walk.model.route._tag === "Artist" ? "artist" : "playlist");
   }
 
@@ -1338,10 +1347,18 @@ const acting = (walk: Walk, seed: number): Happening => {
     // The menu's two other sections, chosen from wherever the listener is.
     return clicks(pick(NEW_SECTION_LINKS, genreChoice));
   }
-  if (genreRoll < 85 && walk.model.route._tag === "Genres" && AsyncData.hasData(walk.model.genreList)) {
+  if (
+    genreRoll < 85 &&
+    walk.model.route._tag === "Genres" &&
+    AsyncData.hasData(walk.model.genreList)
+  ) {
     return clicks(pick(GENRE_PATHS, genreChoice));
   }
-  if (genreRoll < 85 && walk.model.route._tag === "Radio" && AsyncData.hasData(walk.model.stationList)) {
+  if (
+    genreRoll < 85 &&
+    walk.model.route._tag === "Radio" &&
+    AsyncData.hasData(walk.model.stationList)
+  ) {
     return clicks(pick(STATION_PATHS, genreChoice));
   }
   if (genreRoll < 30 && (listsGenre(walk.model) || listsStation(walk.model))) {
@@ -1362,9 +1379,7 @@ const acting = (walk: Walk, seed: number): Happening => {
   }
   if (genreRoll < 68 && listsGenre(walk.model)) {
     // The genre's own shelves: their tiles lead to albums, artists and playlists as any shelf's do.
-    return clicks(
-      pick([...ALBUM_PATHS, ...ARTIST_PATHS, ...PLAYLIST_PATHS], genreChoice),
-    );
+    return clicks(pick([...ALBUM_PATHS, ...ARTIST_PATHS, ...PLAYLIST_PATHS], genreChoice));
   }
   if (genreRoll < 68 && listsStation(walk.model)) {
     return {
@@ -1373,7 +1388,10 @@ const acting = (walk: Walk, seed: number): Happening => {
       ...unchanged,
     };
   }
-  if (genreRoll < 85 && (walk.model.route._tag === "Genre" || walk.model.route._tag === "Station")) {
+  if (
+    genreRoll < 85 &&
+    (walk.model.route._tag === "Genre" || walk.model.route._tag === "Station")
+  ) {
     return leaves(walk.model.route._tag === "Genre" ? "genre" : "station");
   }
 
@@ -1492,7 +1510,11 @@ const step = (walk: Walk): Walk => {
   // Commands that move the history do so at once, in the order they were issued.
   const moved = Array.reduce(
     commands,
-    { history: happened.history, urlChanges: happened.urlChanges, violations: Array.empty<string>() },
+    {
+      history: happened.history,
+      urlChanges: happened.urlChanges,
+      violations: Array.empty<string>(),
+    },
     (soFar, command) =>
       Option.match(moveHistory(soFar.history, command), {
         onNone: () => soFar,
@@ -1564,12 +1586,17 @@ const walkFrom = (seed: number): Walk => {
     trace: [`opens ${path}`],
     violations: [...broken(opening.model), ...astray(opening.model, history)],
   };
-  return Array.reduce(Array.makeBy(STEPS_PER_WALK, () => step), start, (walk, advance) =>
-    advance(walk),
+  return Array.reduce(
+    Array.makeBy(STEPS_PER_WALK, () => step),
+    start,
+    (walk, advance) => advance(walk),
   );
 };
 
-const walks = Array.map(Array.makeBy(WALKS, (index) => index + 1), walkFrom);
+const walks = Array.map(
+  Array.makeBy(WALKS, (index) => index + 1),
+  walkFrom,
+);
 
 test("no sequence of navigating, opening tracks, playing, going back, typing and late replies breaks the rules", () => {
   const violations = Array.flatMap(walks, (walk) => Array.take(walk.violations, 1));
@@ -1597,7 +1624,9 @@ test("the walks do reach what they are meant to try", () => {
   expect(reaching("clicks Try again")).toBeGreaterThan(WALKS / 50);
   // NOTE: fewer than a hundredth of the walks. The figure it had counted the
   // album's retry with it, whose name began with this one's.
-  expect(reaching("presses Song details again on the row that failed")).toBeGreaterThan(WALKS / 300);
+  expect(reaching("presses Song details again on the row that failed")).toBeGreaterThan(
+    WALKS / 300,
+  );
   expect(reaching("FailedTrackDetail")).toBeGreaterThan(WALKS / 20);
   // Pages chosen by a link did take the screen, and the URL with them.
   expect(reaching("pushes /track/")).toBeGreaterThan(WALKS / 20);

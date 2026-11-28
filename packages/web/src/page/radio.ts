@@ -65,7 +65,13 @@ const groupsView = (
   sectionsView(
     // The first genres' shelves are what the page opens with.
     Array.map(radio.groups, (group, index) =>
-      maybeGroupView(group, index < SHELVES_AT_HEAD ? "AtHead" : "Below", presence, isStationOpening, h),
+      maybeGroupView(
+        group,
+        index < SHELVES_AT_HEAD ? "AtHead" : "Below",
+        presence,
+        isStationOpening,
+        h,
+      ),
     ),
     "The catalog has no stations right now.",
     h,

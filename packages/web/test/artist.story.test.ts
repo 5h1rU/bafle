@@ -267,9 +267,7 @@ describe("the artist's page behind a page reached from it", () => {
   );
 
   test("the artist on screen is the one in the document", () => {
-    expect(maybeArtistIdInDocument(onArtist.route, onArtist.trail)).toEqual(
-      Option.some(artist.id),
-    );
+    expect(maybeArtistIdInDocument(onArtist.route, onArtist.trail)).toEqual(Option.some(artist.id));
     expect(maybeArtistIdInDocument(onHome.route, onHome.trail)).toEqual(Option.none());
   });
 

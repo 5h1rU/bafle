@@ -111,24 +111,26 @@ it.effect("another isolate answers from what the first one kept", () =>
   }),
 );
 
-it.effect("a reply no longer fresh is handed over at once, and the catalog is asked behind it", () =>
-  Effect.gen(function* () {
-    const { isolate, afterTheReply } = world();
-    const deezer = catalog(monday);
-    const chart = yield* isolate().keep(keeping, deezer.ask);
-    yield* chart;
-    yield* afterTheReply;
+it.effect(
+  "a reply no longer fresh is handed over at once, and the catalog is asked behind it",
+  () =>
+    Effect.gen(function* () {
+      const { isolate, afterTheReply } = world();
+      const deezer = catalog(monday);
+      const chart = yield* isolate().keep(keeping, deezer.ask);
+      yield* chart;
+      yield* afterTheReply;
 
-    yield* TestClock.adjust(Duration.minutes(6));
-    deezer.says(tuesday);
-    expect(yield* chart).toEqual(monday);
-    expect(deezer.asked()).toBe(1);
+      yield* TestClock.adjust(Duration.minutes(6));
+      deezer.says(tuesday);
+      expect(yield* chart).toEqual(monday);
+      expect(deezer.asked()).toBe(1);
 
-    yield* afterTheReply;
-    expect(deezer.asked()).toBe(2);
-    expect(yield* chart).toEqual(tuesday);
-    expect(deezer.asked()).toBe(2);
-  }),
+      yield* afterTheReply;
+      expect(deezer.asked()).toBe(2);
+      expect(yield* chart).toEqual(tuesday);
+      expect(deezer.asked()).toBe(2);
+    }),
 );
 
 it.effect("visits that arrive while the catalog is asked behind a reply do not ask it again", () =>
@@ -147,32 +149,34 @@ it.effect("visits that arrive while the catalog is asked behind a reply do not a
   }),
 );
 
-it.effect("a catalog that cannot be asked leaves the kept reply on show, and is asked again later", () =>
-  Effect.gen(function* () {
-    const { isolate, afterTheReply } = world();
-    const deezer = catalog(monday);
-    const chart = yield* isolate().keep(keeping, deezer.ask);
-    yield* chart;
-    yield* afterTheReply;
+it.effect(
+  "a catalog that cannot be asked leaves the kept reply on show, and is asked again later",
+  () =>
+    Effect.gen(function* () {
+      const { isolate, afterTheReply } = world();
+      const deezer = catalog(monday);
+      const chart = yield* isolate().keep(keeping, deezer.ask);
+      yield* chart;
+      yield* afterTheReply;
 
-    yield* TestClock.adjust(Duration.minutes(6));
-    deezer.isDown(true);
-    expect(yield* chart).toEqual(monday);
-    yield* afterTheReply;
-    expect(deezer.asked()).toBe(2);
+      yield* TestClock.adjust(Duration.minutes(6));
+      deezer.isDown(true);
+      expect(yield* chart).toEqual(monday);
+      yield* afterTheReply;
+      expect(deezer.asked()).toBe(2);
 
-    // Not on the very next visit: the catalog has just failed to answer.
-    expect(yield* chart).toEqual(monday);
-    yield* afterTheReply;
-    expect(deezer.asked()).toBe(2);
+      // Not on the very next visit: the catalog has just failed to answer.
+      expect(yield* chart).toEqual(monday);
+      yield* afterTheReply;
+      expect(deezer.asked()).toBe(2);
 
-    yield* TestClock.adjust(ASKED_AGAIN_AFTER);
-    deezer.isDown(false);
-    deezer.says(tuesday);
-    expect(yield* chart).toEqual(monday);
-    yield* afterTheReply;
-    expect(yield* chart).toEqual(tuesday);
-  }),
+      yield* TestClock.adjust(ASKED_AGAIN_AFTER);
+      deezer.isDown(false);
+      deezer.says(tuesday);
+      expect(yield* chart).toEqual(monday);
+      yield* afterTheReply;
+      expect(yield* chart).toEqual(tuesday);
+    }),
 );
 
 it.effect("a reply too old to show is not shown: the visit waits for the catalog", () =>

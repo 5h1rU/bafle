@@ -70,12 +70,7 @@ const ARROW_LABELS: Readonly<Record<TurnWay, string>> = {
 // it already, and the focus going from one to the next turns the row by
 // itself: the arrows are for a pointer, which has no other way to turn a
 // row with a wheel that only goes up and down.
-const arrowView = (
-  rowId: string,
-  of: TurningOf,
-  way: TurnWay,
-  h: HtmlBuilder<Message>,
-): Html =>
+const arrowView = (rowId: string, of: TurningOf, way: TurnWay, h: HtmlBuilder<Message>): Html =>
   h.span(
     [
       h.DataAttribute("way", way === "Back" ? "back" : "onward"),

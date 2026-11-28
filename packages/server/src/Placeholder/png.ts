@@ -31,7 +31,7 @@ const readChunks = Effect.fn("readChunks")(function* (bytes: Uint8Array) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let header: Header | undefined;
   const parts: Array<Uint8Array> = [];
-  for (let at = SIGNATURE.length; at + 8 <= bytes.length; ) {
+  for (let at = SIGNATURE.length; at + 8 <= bytes.length;) {
     const length = view.getUint32(at);
     const type = String.fromCharCode(...bytes.subarray(at + 4, at + 8));
     if (at + 12 + length > bytes.length) return yield* new PngUnreadable({ reason: "Truncated" });
@@ -100,12 +100,17 @@ const unfilter = (filtered: Uint8Array, { width, height, channels }: Header): Ui
       const up = row > 0 ? raw[at - stride] : 0;
       const upLeft = row > 0 && index >= channels ? raw[at - stride - channels] : 0;
       const base =
-        filter === 0 ? 0
-        : filter === 1 ? left
-        : filter === 2 ? up
-        : filter === 3 ? (left + up) >> 1
-        : filter === 4 ? paeth(left, up, upLeft)
-        : -1;
+        filter === 0
+          ? 0
+          : filter === 1
+            ? left
+            : filter === 2
+              ? up
+              : filter === 3
+                ? (left + up) >> 1
+                : filter === 4
+                  ? paeth(left, up, upLeft)
+                  : -1;
       if (base < 0) return null;
       raw[at] = (line[index] + base) & 0xff;
     }

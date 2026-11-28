@@ -168,7 +168,8 @@ const dragsUnderSearchField = Stream.suspend(() =>
     filterMapEvent: ({ target }) => {
       const field = document.getElementById(SEARCH_FIELD_ID);
       const isOnField =
-        target instanceof Element && target.closest(`[data-${SEARCH_FIELD_BOX_ATTRIBUTE}]`) !== null;
+        target instanceof Element &&
+        target.closest(`[data-${SEARCH_FIELD_BOX_ATTRIBUTE}]`) !== null;
       return field !== null && document.activeElement === field && !isOnField
         ? Option.some(Message.DraggedSearchPage())
         : Option.none();
@@ -218,35 +219,54 @@ const screens = Stream.callback<Message>((queue) =>
  * from there.
  */
 const navigationSubscriptions = Subscription.make<Model, Message>()((entry) => ({
-  screen: entry({}, {
-    modelToDependencies: () => ({}),
-    dependenciesToStream: () => screens,
-  }),
-  inputMethod: entry({}, {
-    modelToDependencies: () => ({}),
-    dependenciesToStream: () => {
-      const capture = (type: "keydown" | "pointerdown" | "wheel" | "click", method: InputMethod) =>
-        Dom.streamFromEventFilterMap({
-          target: document,
-          type,
-          options: { capture: true, passive: true },
-          filterMapEvent: (event) => type !== "click" ||
-            (event instanceof MouseEvent && event.isTrusted && event.detail === 0)
-            ? Option.some(method) : Option.none(),
-        });
-      return Stream.mergeAll([
-        capture("keydown", "Keyboard"), capture("click", "Keyboard"),
-        capture("pointerdown", "Pointer"), capture("wheel", "Pointer"),
-      ], { concurrency: "unbounded" }).pipe(
-        Stream.changes,
-        Stream.map((method) => Message.ChangedInputMethod({ method })),
-      );
+  screen: entry(
+    {},
+    {
+      modelToDependencies: () => ({}),
+      dependenciesToStream: () => screens,
     },
-  }),
-  connection: entry({}, {
-    modelToDependencies: () => ({}),
-    dependenciesToStream: () => connectionsRegained,
-  }),
+  ),
+  inputMethod: entry(
+    {},
+    {
+      modelToDependencies: () => ({}),
+      dependenciesToStream: () => {
+        const capture = (
+          type: "keydown" | "pointerdown" | "wheel" | "click",
+          method: InputMethod,
+        ) =>
+          Dom.streamFromEventFilterMap({
+            target: document,
+            type,
+            options: { capture: true, passive: true },
+            filterMapEvent: (event) =>
+              type !== "click" ||
+              (event instanceof MouseEvent && event.isTrusted && event.detail === 0)
+                ? Option.some(method)
+                : Option.none(),
+          });
+        return Stream.mergeAll(
+          [
+            capture("keydown", "Keyboard"),
+            capture("click", "Keyboard"),
+            capture("pointerdown", "Pointer"),
+            capture("wheel", "Pointer"),
+          ],
+          { concurrency: "unbounded" },
+        ).pipe(
+          Stream.changes,
+          Stream.map((method) => Message.ChangedInputMethod({ method })),
+        );
+      },
+    },
+  ),
+  connection: entry(
+    {},
+    {
+      modelToDependencies: () => ({}),
+      dependenciesToStream: () => connectionsRegained,
+    },
+  ),
   searchDrag: entry(
     { isOnSearch: Schema.Boolean },
     {

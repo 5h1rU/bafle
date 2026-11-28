@@ -8,11 +8,7 @@ import type { Genre } from "@bafle/domain/Catalog/FullGenre";
 import type { Playlist } from "@bafle/domain/Catalog/FullPlaylist";
 import type { Station } from "@bafle/domain/Catalog/FullStation";
 import { GenreId, type GenreSummary } from "@bafle/domain/Catalog/Genre";
-import {
-  type StationGroup,
-  StationId,
-  type StationSummary,
-} from "@bafle/domain/Catalog/Station";
+import { type StationGroup, StationId, type StationSummary } from "@bafle/domain/Catalog/Station";
 import { type Track, TrackId, type TrackSummary } from "@bafle/domain/Catalog/Track";
 import * as Array from "effect/Array";
 import type {

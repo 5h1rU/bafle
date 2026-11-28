@@ -128,9 +128,11 @@ export const PicturePlaceholdersKV = Layer.effect(
             onNone: () => Effect.void,
             onSome: (likeness) => {
               known.set(picture.key, likeness);
-              return store.put(keptAs(picture.key), likeness).pipe(
-                Effect.catch((error) => Effect.logWarning("Could not keep a likeness", error)),
-              );
+              return store
+                .put(keptAs(picture.key), likeness)
+                .pipe(
+                  Effect.catch((error) => Effect.logWarning("Could not keep a likeness", error)),
+                );
             },
           }),
         ),
@@ -150,11 +152,16 @@ export const PicturePlaceholdersKV = Layer.effect(
           LIKENESSES_PER_REPLY,
         );
         if (missing.length > 0) {
-          const work = Effect.forEach(missing, workOut, { concurrency: "unbounded", discard: true });
+          const work = Effect.forEach(missing, workOut, {
+            concurrency: "unbounded",
+            discard: true,
+          });
           // Inside a request, after it: the reply goes now. Outside one (in a
           // test) there is no request to outlive, and the work is done first.
           const execution = yield* Cloudflare.WorkerExecutionContext;
-          yield* execution === Cloudflare.deferredExecutionContext ? work : execution.waitUntil(work);
+          yield* execution === Cloudflare.deferredExecutionContext
+            ? work
+            : execution.waitUntil(work);
         }
       }
       const found: ReadonlyMap<string, string> = new Map(

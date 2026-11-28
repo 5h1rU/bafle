@@ -191,21 +191,18 @@ const maybeMarkedDestination = (model: Model): Option.Option<Destination> =>
     maybeDestinationOf(model.route),
   );
 
-const circleSection = (model: Model): MenuSection =>
-  circleSectionOf(model.route, model.trail);
+const circleSection = (model: Model): MenuSection => circleSectionOf(model.route, model.trail);
 
 /** A surface that floats over the page: the page is seen through it, blurred. */
 const FLOATING_CLASS = "border border-line bg-panel/85 shadow-lg backdrop-blur-xl";
 
-const ITEM_FOCUS_CLASS =
-  "focus-ring-inset";
+const ITEM_FOCUS_CLASS = "focus-ring-inset";
 
 /** Beside the page, on a wide screen, every item is a row of the same kind. */
 const WIDE_LINK_CLASS =
   "md:h-auto md:w-auto md:flex-row md:justify-start md:gap-3 md:rounded-lg md:border-0 md:bg-transparent md:px-3 md:py-2 md:text-muted md:shadow-none md:backdrop-blur-none md:hover:text-ink md:data-marked:bg-accent-wash md:data-marked:text-accent";
 
-const MENU_ITEM_CLASS =
-  "dock-item min-w-0 grow basis-0 p-1 md:grow-0 md:basis-auto md:p-0";
+const MENU_ITEM_CLASS = "dock-item min-w-0 grow basis-0 p-1 md:grow-0 md:basis-auto md:p-0";
 
 /**
  * The item for where the listener is, which stays when the menu draws back:
@@ -274,9 +271,7 @@ const destinationView = (
   const isSearch = item.value === "Search";
   // NOTE: Search is made smaller as one piece, and its icon is made as much
   // larger within it: the icon keeps its size while its circle draws in.
-  const iconClass = isSearch
-    ? SEARCH_ICON_CLASS
-    : { [CIRCLE_ICON_CLASS]: isShownInCircle };
+  const iconClass = isSearch ? SEARCH_ICON_CLASS : { [CIRCLE_ICON_CLASS]: isShownInCircle };
 
   return h.keyed("li")(
     item.value,
@@ -368,12 +363,21 @@ const menuSurfaceView = (model: Model, h: HtmlBuilder<Message>): Html =>
   h.div(
     [h.AriaHidden(true), h.Class("pointer-events-none md:hidden")],
     [
-      h.div([h.Class(clsx("dock-circle absolute top-1.5 left-1.5 size-11 rounded-full opacity-0 minimized:opacity-100", FLOATING_CLASS))]),
+      h.div([
+        h.Class(
+          clsx(
+            "dock-circle absolute top-1.5 left-1.5 size-11 rounded-full opacity-0 minimized:opacity-100",
+            FLOATING_CLASS,
+          ),
+        ),
+      ]),
       h.div([h.Class(clsx(SURFACE_CLASS, FLOATING_CLASS))]),
       h.div([
         h.Style({
           "--dock-place": String(
-            MENU_PLACES[Option.getOrElse(maybeMarkedMenuSection(model), () => circleSection(model))],
+            MENU_PLACES[
+              Option.getOrElse(maybeMarkedMenuSection(model), () => circleSection(model))
+            ],
           ),
         }),
         h.Class(
@@ -399,18 +403,16 @@ const showNavigationView = (model: Model, h: HtmlBuilder<Message>): Html =>
     {
       onClick: Message.ClickedShowNavigation(),
       toView: (attributes) =>
-        h.button(
-          [
-            ...attributes.button,
-            ...(model.route._tag === "Search"
-              ? [h.AriaLabel(`Go to ${DESTINATION_NAMES[circleSection(model)]}`)]
-              : [h.AriaLabel("Show navigation"), h.AriaExpanded(false)]),
-            h.DataAttribute("section", circleSection(model)),
-            h.Class(
-              "pointer-events-auto absolute top-1.5 left-1.5 hidden size-11 cursor-pointer touch-manipulation rounded-full focus-ring minimized:block",
-            ),
-          ],
-        ),
+        h.button([
+          ...attributes.button,
+          ...(model.route._tag === "Search"
+            ? [h.AriaLabel(`Go to ${DESTINATION_NAMES[circleSection(model)]}`)]
+            : [h.AriaLabel("Show navigation"), h.AriaExpanded(false)]),
+          h.DataAttribute("section", circleSection(model)),
+          h.Class(
+            "pointer-events-auto absolute top-1.5 left-1.5 hidden size-11 cursor-pointer touch-manipulation rounded-full focus-ring minimized:block",
+          ),
+        ]),
     },
     h,
   );
@@ -435,10 +437,7 @@ const navigationView = (model: Model, h: HtmlBuilder<Message>): Html => {
         [
           menuSurfaceView(model, h),
           h.ul(
-            [
-              h.Role("list"),
-              h.Class("relative flex h-full md:flex-col md:gap-1"),
-            ],
+            [h.Role("list"), h.Class("relative flex h-full md:flex-col md:gap-1")],
             Array.map(items, (item) =>
               destinationView(
                 item,
@@ -473,7 +472,8 @@ const presenceOf = (model: Model, kind: AppRoute["_tag"]): Presence => {
   if (model.route._tag === kind) {
     return "OnScreen";
   }
-  return isSheetAway(model) && Option.exists(wayBackOn(model.trail), (behind) => behind._tag === kind)
+  return isSheetAway(model) &&
+    Option.exists(wayBackOn(model.trail), (behind) => behind._tag === kind)
     ? "Uncovered"
     : "Kept";
 };
@@ -1303,7 +1303,11 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
         ],
         [
           h.p(
-            [h.Class("sr-only md:not-sr-only md:px-3 md:pb-6 md:text-2xl md:font-bold md:tracking-tight")],
+            [
+              h.Class(
+                "sr-only md:not-sr-only md:px-3 md:pb-6 md:text-2xl md:font-bold md:tracking-tight",
+              ),
+            ],
             [APP_NAME],
           ),
           navigationView(model, h),

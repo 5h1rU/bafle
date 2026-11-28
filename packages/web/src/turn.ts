@@ -19,9 +19,15 @@ export type Span = Readonly<{ from: number; to: number }>;
 // at the row's edge is not past it for being a hair over.
 const SLACK = 1;
 
-const isCutAtEnd = (seen: Span) => (piece: Span): boolean => piece.to > seen.to + SLACK;
+const isCutAtEnd =
+  (seen: Span) =>
+  (piece: Span): boolean =>
+    piece.to > seen.to + SLACK;
 
-const isCutAtStart = (seen: Span) => (piece: Span): boolean => piece.from < seen.from - SLACK;
+const isCutAtStart =
+  (seen: Span) =>
+  (piece: Span): boolean =>
+    piece.from < seen.from - SLACK;
 
 /**
  * Where the part of a row that is seen starts once the row is turned, or

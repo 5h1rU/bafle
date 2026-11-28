@@ -6,7 +6,18 @@ import * as TestClock from "effect/testing/TestClock";
 import { afterEach, vi } from "vitest";
 import { PICTURE_WAIT, preparePictures } from "../src/command.ts";
 import { ROWS_AT_ONCE, firstPicturesOf } from "../src/view/firstPictures.ts";
-import { album, artist, featured, fullAlbum, fullGenre, otherGenre, playlist, reply, track, trending } from "./fixtures.ts";
+import {
+  album,
+  artist,
+  featured,
+  fullAlbum,
+  fullGenre,
+  otherGenre,
+  playlist,
+  reply,
+  track,
+  trending,
+} from "./fixtures.ts";
 
 // A page takes the screen with the pictures it opens with already painted: the reply for it is
 // held until they are loaded and decoded, and never longer than a moment.
@@ -69,7 +80,9 @@ it.effect("pictures that never finish hold the reply for 300 ms, and not a momen
     expect(Duration.toMillis(PICTURE_WAIT)).toBe(300);
     const asked = picturesThat(() => new Promise<void>(() => {}));
 
-    const waiting = yield* Effect.forkChild(preparePictures(["https://img.test/a", "https://img.test/b"]));
+    const waiting = yield* Effect.forkChild(
+      preparePictures(["https://img.test/a", "https://img.test/b"]),
+    );
     yield* TestClock.adjust(Duration.millis(299));
     expect(waiting.pollUnsafe()).toBeUndefined();
     expect(asked).toEqual(["https://img.test/a", "https://img.test/b"]);

@@ -15,13 +15,7 @@ import { type QueuePlace, type TrackStatus, isPlayable } from "../player/model.t
 import { type AppRoute, homeRouter } from "../route.ts";
 import { artworkView, coverView } from "../view/artwork.ts";
 import { pillButtonView } from "../view/control.ts";
-import {
-  checkIcon,
-  pauseIcon,
-  playIcon,
-  retryIcon,
-  spinnerIcon,
-} from "../view/icon.ts";
+import { checkIcon, pauseIcon, playIcon, retryIcon, spinnerIcon } from "../view/icon.ts";
 import { PAGE_IDS, PAGE_TITLE_CLASS, pageTitleIdOf } from "../view/layout.ts";
 import { saidView } from "../view/feedback.ts";
 import { ACTION_LOOKS, type ActionLook } from "../view/menu.ts";
@@ -105,10 +99,7 @@ const artistView = (artist: ArtistSummary, h: HtmlBuilder<Message>): Html =>
 type Fact = Readonly<{ term: string; detail: Html | string }>;
 
 /** A release date as people write it: `March 12, 2001`. Nothing for a date the catalog garbled. */
-const releaseDay = (
-  releaseDate: string,
-  h: HtmlBuilder<Message>,
-): Option.Option<Html> =>
+const releaseDay = (releaseDate: string, h: HtmlBuilder<Message>): Option.Option<Html> =>
   pipe(
     DateTime.make(releaseDate),
     Option.map(DateTime.formatUtc({ locale: "en-US", dateStyle: "long" })),
@@ -232,7 +223,10 @@ const playControlView = (
           size: "Tall",
           content: [face.icon, face.words],
           onClick: Message.ClickedPlayTrack({ trackId: track.id, from: "Track" }),
-          attributes: [h.AriaLabel(`${face.words}: ${track.title}`), h.AriaBusy(status === "Starting")],
+          attributes: [
+            h.AriaLabel(`${face.words}: ${track.title}`),
+            h.AriaBusy(status === "Starting"),
+          ],
         },
         h,
       ),
@@ -281,14 +275,7 @@ const foundView = (
     [
       h.div(
         [h.Class(COVER_COLUMN_CLASS)],
-        [
-          coverView(
-            track.id,
-            Option.fromNullishOr(track.album.cover),
-            status !== "Elsewhere",
-            h,
-          ),
-        ],
+        [coverView(track.id, Option.fromNullishOr(track.album.cover), status !== "Elsewhere", h)],
       ),
       h.div(
         [h.Class("min-w-0")],
@@ -416,10 +403,7 @@ export const expandedDetailView = (track: TrackData, h: HtmlBuilder<Message>): H
           onSome: (found) =>
             h.div(
               [],
-              [
-                h.p([h.Class("text-lg text-muted")], [found.album.title]),
-                ...creditsView(found, h),
-              ],
+              [h.p([h.Class("text-lg text-muted")], [found.album.title]), ...creditsView(found, h)],
             ),
         }),
         h,

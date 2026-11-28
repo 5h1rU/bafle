@@ -362,7 +362,9 @@ describe("rule 6: a row says that its album failed to open", () => {
       app,
       given(after(failed, pressedMore("New", track.id))),
       menuEnters,
-      see(item(/Go to album.*The music catalog is not answering right now.*Tap to try again/)).toExist(),
+      see(
+        item(/Go to album.*The music catalog is not answering right now.*Tap to try again/),
+      ).toExist(),
       expectAll(all.selector('[data-item-state="failed"]')).toHaveCount(1),
       click(item(/Go to album/)),
       Command.expectExact(Catalog.AlbumDetail),

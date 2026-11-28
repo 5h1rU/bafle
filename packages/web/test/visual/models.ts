@@ -106,10 +106,7 @@ export const albumOfOneSong = answered(
 /** Home with the first album's tile chosen, and its page on its way: the tile's record is out. */
 export const albumOpening = chose(home, albumPath(albumId));
 
-export const artist = answered(
-  opened(artistPath(fullArtist.id)),
-  saying(reply.artist, fullArtist),
-);
+export const artist = answered(opened(artistPath(fullArtist.id)), saying(reply.artist, fullArtist));
 export const artistWaiting = opened(artistPath(fullArtist.id));
 
 export const playlist = answered(
@@ -131,7 +128,11 @@ export const notFound = opened("/nowhere/at/all");
 
 // THE PLAYER
 
-const said = (order: number, phase: Player.EngineReport["phase"], positionSeconds: number): Message =>
+const said = (
+  order: number,
+  phase: Player.EngineReport["phase"],
+  positionSeconds: number,
+): Message =>
   player(
     Player.Message.UpdatedEngineStatus({
       report: {

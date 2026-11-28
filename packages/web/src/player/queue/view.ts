@@ -312,11 +312,7 @@ const rowsView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.ol(
-    [
-      h.AriaLabel("Upcoming songs"),
-      h.DataAttribute("droppable-id", CONTAINER_ID),
-      h.Class("mt-2"),
-    ],
+    [h.AriaLabel("Upcoming songs"), h.DataAttribute("droppable-id", CONTAINER_ID), h.Class("mt-2")],
     rowsOf(later).map((row) =>
       queueRowView(row, firstPlace + row.index, later.length, drag, "OnSheet", h),
     ),
@@ -329,23 +325,22 @@ const lazyRows = createLazy();
  * handle it is moved by. Kept in the document on the other faces too, empty
  * and hidden: the control that opens it names it as what it opens.
  */
-export const panelView = Submodel.defineView<Model, Message, PanelInputs>(
-  (model, viewInputs, h) =>
-    h.div(
-      [
-        h.Id(PANEL_ID),
-        h.Class(clsx("px-6 pt-1 pb-6", viewInputs.isUnderSong ? "flex-none" : FACE_BODY_CLASS)),
-        h.Hidden(!viewInputs.isOpen),
-      ],
-      viewInputs.isOpen
-        ? [
-            h.h2([h.Class(FACE_HEADING_CLASS)], ["Up next"]),
-            Array.isReadonlyArrayNonEmpty(viewInputs.later)
-              ? lazyRows(rowsView, [viewInputs.later, viewInputs.firstPlace, model.drag, h])
-              : h.p([h.Class("mt-3 text-sm text-muted")], ["No upcoming songs."]),
-          ]
-        : [],
-    ),
+export const panelView = Submodel.defineView<Model, Message, PanelInputs>((model, viewInputs, h) =>
+  h.div(
+    [
+      h.Id(PANEL_ID),
+      h.Class(clsx("px-6 pt-1 pb-6", viewInputs.isUnderSong ? "flex-none" : FACE_BODY_CLASS)),
+      h.Hidden(!viewInputs.isOpen),
+    ],
+    viewInputs.isOpen
+      ? [
+          h.h2([h.Class(FACE_HEADING_CLASS)], ["Up next"]),
+          Array.isReadonlyArrayNonEmpty(viewInputs.later)
+            ? lazyRows(rowsView, [viewInputs.later, viewInputs.firstPlace, model.drag, h])
+            : h.p([h.Class("mt-3 text-sm text-muted")], ["No upcoming songs."]),
+        ]
+      : [],
+  ),
 );
 
 /**
@@ -526,7 +521,10 @@ const columnBodyView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
-    [h.DataAttribute("droppable-id", CONTAINER_ID), h.Class("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5.5 pt-5 pb-8")],
+    [
+      h.DataAttribute("droppable-id", CONTAINER_ID),
+      h.Class("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5.5 pt-5 pb-8"),
+    ],
     Array.match(rowsOf(later), {
       onEmpty: () => [h.p([h.Class("text-sm text-muted")], ["No upcoming songs."])],
       onNonEmpty: (rows) => {
@@ -565,15 +563,28 @@ const lazyColumnBody = createLazy();
  */
 export const columnView = Submodel.defineView<Model, Message, ListInputs>((model, viewInputs, h) =>
   h.aside(
-    [h.Id(COLUMN_ID), h.AriaLabelledBy(COLUMN_TITLE_ID), h.Class(
+    [
+      h.Id(COLUMN_ID),
+      h.AriaLabelledBy(COLUMN_TITLE_ID),
+      h.Class(
         "flex min-h-0 w-(--queue-column) flex-none flex-col border-l border-line bg-panel text-ink [view-transition-name:queue-column]",
       ),
     ],
     [
       h.header(
-        [h.Class("mx-5.5 flex flex-none items-center justify-between border-b border-line pt-5 pb-3.5")],
         [
-          h.h2([h.Id(COLUMN_TITLE_ID), h.Class("text-[1.6875rem] leading-[1.2] font-bold tracking-[-0.04em]")], ["Queue"]),
+          h.Class(
+            "mx-5.5 flex flex-none items-center justify-between border-b border-line pt-5 pb-3.5",
+          ),
+        ],
+        [
+          h.h2(
+            [
+              h.Id(COLUMN_TITLE_ID),
+              h.Class("text-[1.6875rem] leading-[1.2] font-bold tracking-[-0.04em]"),
+            ],
+            ["Queue"],
+          ),
           iconButtonView(
             {
               look: "OnPanel",

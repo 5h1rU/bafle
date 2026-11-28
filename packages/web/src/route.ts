@@ -128,10 +128,7 @@ export const isSameRoute = Schema.toEquivalence(AppRoute);
 export type MenuSection = "Home" | "New" | "Genres" | "Radio";
 
 export const maybeMenuSection = (route: AppRoute): Option.Option<MenuSection> =>
-  route._tag === "Home" ||
-  route._tag === "New" ||
-  route._tag === "Genres" ||
-  route._tag === "Radio"
+  route._tag === "Home" || route._tag === "New" || route._tag === "Genres" || route._tag === "Radio"
     ? Option.some(route._tag)
     : Option.none();
 
@@ -144,10 +141,7 @@ export const menuSectionRoute = (section: MenuSection): AppRoute => AppRoute[sec
  * an album, an artist, a playlist, a genre or a station, it shows the nearest
  * one among the pages behind, and Home when there is none.
  */
-export const circleSectionOf = (
-  route: AppRoute,
-  behind: ReadonlyArray<AppRoute>,
-): MenuSection =>
+export const circleSectionOf = (route: AppRoute, behind: ReadonlyArray<AppRoute>): MenuSection =>
   Option.getOrElse(maybeMenuSection(route), () =>
     Option.getOrElse(Array.findLast(behind, maybeMenuSection), () => "Home" as const),
   );

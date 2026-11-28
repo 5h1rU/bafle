@@ -35,10 +35,7 @@ const asked = (outcome: Outcome) =>
 
 /** The light is told to travel, or to come to rest, and that is done. */
 const lightChangesPace = () =>
-  Command.resolve(
-    Player.Island.ChangeLightPace,
-    Player.Island.Message.CompletedChangeLightPace(),
-  );
+  Command.resolve(Player.Island.ChangeLightPace, Player.Island.Message.CompletedChangeLightPace());
 
 /** The Model after these Messages, Commands unrun: an order given and never answered. */
 const after = (start: Player.Model, ...messages: ReadonlyArray<Player.Message>): Player.Model =>
@@ -101,10 +98,7 @@ describe("a tap plays", () => {
     expect(playback(outcome.model)).toEqual(Playback.Acknowledged());
     expect(outcome.model.lastOrder).toBe(1);
     expect(asked(outcome)).toEqual([
-      [
-        "StartPlayback",
-        { order: 1, source: "https://audio.test/tr-2.mp3", positionSeconds: 0 },
-      ],
+      ["StartPlayback", { order: 1, source: "https://audio.test/tr-2.mp3", positionSeconds: 0 }],
       ["WaitBeforeShowingActivity", { order: 1 }],
       [
         "PublishNowPlaying",
@@ -119,7 +113,10 @@ describe("a tap plays", () => {
   });
 
   test("a track with nothing to play cannot be started, and is not queued", () => {
-    const refused = Player.choose(Player.init(), { trackId: silentTrack.id, list: [track, silentTrack] });
+    const refused = Player.choose(Player.init(), {
+      trackId: silentTrack.id,
+      list: [track, silentTrack],
+    });
     expect(refused.model).toEqual(Player.init());
     expect(asked(refused)).toEqual([]);
 
@@ -296,9 +293,7 @@ describe("paused by the listener, stopped by the system", () => {
       Player.update,
       given(acknowledged),
       message(Message.CompletedStartPlayback({ order: 1, outcome: "Refused" })),
-      model((player) =>
-        expect(playback(player)).toEqual(Playback.Stopped({ cause: "Refused" })),
-      ),
+      model((player) => expect(playback(player)).toEqual(Playback.Stopped({ cause: "Refused" }))),
       // Pressing play is the way out, and it is a wish like any other.
       message(Message.ClickedPlay()),
       Command.expectExact(
@@ -307,7 +302,10 @@ describe("paused by the listener, stopped by the system", () => {
       ),
       Command.resolveAll(
         [Player.ResumePlayback, Message.CompletedResumePlayback({ order: 2, outcome: "Sounding" })],
-        [Player.WaitBeforeShowingActivity, Message.CompletedWaitBeforeShowingActivity({ order: 2 })],
+        [
+          Player.WaitBeforeShowingActivity,
+          Message.CompletedWaitBeforeShowingActivity({ order: 2 }),
+        ],
       ),
       message(said(2, "Sounding")),
       lightChangesPace(),
@@ -417,7 +415,10 @@ describe("seeking", () => {
   });
 
   test("a seek made before the start was answered shows the start as slow: its timer was for the order before", () => {
-    const early = after(acknowledged, said(1, "Waiting", { maybeDurationSeconds: Option.some(30) }));
+    const early = after(
+      acknowledged,
+      said(1, "Waiting", { maybeDurationSeconds: Option.some(30) }),
+    );
     const stepped = Player.update(
       early,
       Message.GotSeekSliderMessage({
@@ -435,7 +436,10 @@ describe("seeking", () => {
     const stepped = Player.update(
       sounding,
       Message.GotSeekSliderMessage({
-        message: Slider.Message.PressedKeyboardNavigation({ direction: "StepIncrement", value: 12 }),
+        message: Slider.Message.PressedKeyboardNavigation({
+          direction: "StepIncrement",
+          value: 12,
+        }),
       }),
     );
     expect(session(stepped.model).seek).toEqual(Seek.Seeking({ targetSeconds: 13 }));
@@ -553,7 +557,10 @@ describe("a source that cannot be loaded", () => {
       ),
       Command.resolveAll(
         [Player.StartPlayback, Message.CompletedStartPlayback({ order: 2, outcome: "Sounding" })],
-        [Player.WaitBeforeShowingActivity, Message.CompletedWaitBeforeShowingActivity({ order: 2 })],
+        [
+          Player.WaitBeforeShowingActivity,
+          Message.CompletedWaitBeforeShowingActivity({ order: 2 }),
+        ],
         [Player.PublishNowPlaying, Message.CompletedPublishNowPlaying()],
       ),
       message(said(2, "Sounding", { positionSeconds: 12 })),
@@ -584,9 +591,9 @@ describe("a source that cannot be loaded", () => {
   });
 
   test("a catalog that cannot answer, or answers with nothing to play, is a failure", () => {
-    expect(
-      playback(after(recovering.model, Message.FailedRefreshSource({ order: 1 }))),
-    ).toEqual(Playback.Failed());
+    expect(playback(after(recovering.model, Message.FailedRefreshSource({ order: 1 })))).toEqual(
+      Playback.Failed(),
+    );
     expect(
       playback(
         after(
@@ -689,14 +696,25 @@ describe("what must not strand the player while a source is replaced", () => {
 describe("the queue", () => {
   test("choosing a later song starts it once and keeps its place for Previous and Next", () => {
     const open = after(sounding, Message.ClickedQueue());
-    const jump = Player.update(open, Message.GotQueueMessage({
+    const jump = Player.update(
+      open,
+      Message.GotQueueMessage({
         message: Player.Queue.Message.ClickedItem({ index: 1, trackId: thirdTrack.id }),
-      }));
-    expect(asked(jump)[0]).toEqual(["StartPlayback", {
-      order: 2, source: thirdTrack.previewUrl, positionSeconds: 0,
-    }]);
+      }),
+    );
+    expect(asked(jump)[0]).toEqual([
+      "StartPlayback",
+      {
+        order: 2,
+        source: thirdTrack.previewUrl,
+        positionSeconds: 0,
+      },
+    ]);
     expect(session(jump.model)).toMatchObject({
-      earlier: [track, explicitTrack], current: thirdTrack, later: [], pane: "Queue",
+      earlier: [track, explicitTrack],
+      current: thirdTrack,
+      later: [],
+      pane: "Queue",
     });
     expect(session(after(jump.model, Message.ClickedPrevious())).current.id).toBe(explicitTrack.id);
   });
@@ -706,34 +724,60 @@ describe("the queue", () => {
       Message.GotQueueMessage({
         message: Player.Queue.Message.GotDragMessage({ message: dragMessage }),
       });
-    const put = (index: number) =>
-      Option.some({ containerId: Player.Queue.CONTAINER_ID, index });
+    const put = (index: number) => Option.some({ containerId: Player.Queue.CONTAINER_ID, index });
     const open = after(sounding, Message.ClickedQueue());
     expect(session(open).later).toEqual([explicitTrack, thirdTrack]);
 
     // Taken up by its handle and carried over the row above: it is put before that row.
     const carriedUp = after(
       open,
-      drag(DragAndDrop.Message.PressedDraggable({
-        itemId: `${thirdTrack.id}/0`, containerId: Player.Queue.CONTAINER_ID, index: 1, screenX: 0, screenY: 100,
-      })),
-      drag(DragAndDrop.Message.MovedPointer({
-        screenX: 0, screenY: 40, clientX: 0, clientY: 40, maybeDropTarget: put(0),
-      })),
+      drag(
+        DragAndDrop.Message.PressedDraggable({
+          itemId: `${thirdTrack.id}/0`,
+          containerId: Player.Queue.CONTAINER_ID,
+          index: 1,
+          screenX: 0,
+          screenY: 100,
+        }),
+      ),
+      drag(
+        DragAndDrop.Message.MovedPointer({
+          screenX: 0,
+          screenY: 40,
+          clientX: 0,
+          clientY: 40,
+          maybeDropTarget: put(0),
+        }),
+      ),
     );
     const droppedUp = Player.update(carriedUp, drag(DragAndDrop.Message.ReleasedPointer()));
     expect(asked(droppedUp)).toEqual([]);
-    expect(session(droppedUp.model)).toEqual({ ...session(open), later: [thirdTrack, explicitTrack] });
+    expect(session(droppedUp.model)).toEqual({
+      ...session(open),
+      later: [thirdTrack, explicitTrack],
+    });
 
     // Carried down past the last row: the place is counted among all the rows, itself among them.
     const carriedDown = after(
       droppedUp.model,
-      drag(DragAndDrop.Message.PressedDraggable({
-        itemId: `${thirdTrack.id}/0`, containerId: Player.Queue.CONTAINER_ID, index: 0, screenX: 0, screenY: 40,
-      })),
-      drag(DragAndDrop.Message.MovedPointer({
-        screenX: 0, screenY: 160, clientX: 0, clientY: 160, maybeDropTarget: put(2),
-      })),
+      drag(
+        DragAndDrop.Message.PressedDraggable({
+          itemId: `${thirdTrack.id}/0`,
+          containerId: Player.Queue.CONTAINER_ID,
+          index: 0,
+          screenX: 0,
+          screenY: 40,
+        }),
+      ),
+      drag(
+        DragAndDrop.Message.MovedPointer({
+          screenX: 0,
+          screenY: 160,
+          clientX: 0,
+          clientY: 160,
+          maybeDropTarget: put(2),
+        }),
+      ),
       drag(DragAndDrop.Message.ReleasedPointer()),
     );
     expect(session(carriedDown).later).toEqual([explicitTrack, thirdTrack]);
@@ -741,12 +785,24 @@ describe("the queue", () => {
     // Let go where there is nowhere to put it: the queue is as it was.
     const letGo = after(
       carriedDown,
-      drag(DragAndDrop.Message.PressedDraggable({
-        itemId: `${explicitTrack.id}/0`, containerId: Player.Queue.CONTAINER_ID, index: 0, screenX: 0, screenY: 40,
-      })),
-      drag(DragAndDrop.Message.MovedPointer({
-        screenX: 0, screenY: 400, clientX: 0, clientY: 400, maybeDropTarget: Option.none(),
-      })),
+      drag(
+        DragAndDrop.Message.PressedDraggable({
+          itemId: `${explicitTrack.id}/0`,
+          containerId: Player.Queue.CONTAINER_ID,
+          index: 0,
+          screenX: 0,
+          screenY: 40,
+        }),
+      ),
+      drag(
+        DragAndDrop.Message.MovedPointer({
+          screenX: 0,
+          screenY: 400,
+          clientX: 0,
+          clientY: 400,
+          maybeDropTarget: Option.none(),
+        }),
+      ),
       drag(DragAndDrop.Message.ReleasedPointer()),
     );
     expect(session(letGo).later).toEqual([explicitTrack, thirdTrack]);
@@ -761,12 +817,19 @@ describe("the queue", () => {
     const open = after(sounding, Message.ClickedQueue());
     const moved = after(
       open,
-      drag(DragAndDrop.Message.ActivatedKeyboardDrag({
-        itemId: `${explicitTrack.id}/0`, containerId: Player.Queue.CONTAINER_ID, index: 0,
-      })),
-      drag(DragAndDrop.Message.CompletedResolveKeyboardMove({
-        targetContainerId: Player.Queue.CONTAINER_ID, targetIndex: 1,
-      })),
+      drag(
+        DragAndDrop.Message.ActivatedKeyboardDrag({
+          itemId: `${explicitTrack.id}/0`,
+          containerId: Player.Queue.CONTAINER_ID,
+          index: 0,
+        }),
+      ),
+      drag(
+        DragAndDrop.Message.CompletedResolveKeyboardMove({
+          targetContainerId: Player.Queue.CONTAINER_ID,
+          targetIndex: 1,
+        }),
+      ),
       drag(DragAndDrop.Message.ConfirmedKeyboardDrop()),
     );
     expect(session(moved).later).toEqual([thirdTrack, explicitTrack]);

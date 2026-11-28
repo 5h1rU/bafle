@@ -17,7 +17,8 @@ type Measure = Parameters<typeof Marquee.Message.Measured>[0];
 const measuredTitle = (measure: Measure) => titleSaid(Marquee.Message.Measured(measure));
 const measuredArtist = (measure: Measure) => artistSaid(Marquee.Message.Measured(measure));
 const waitedTitle = (run: { run: number }) => titleSaid(Marquee.Message.CompletedWaitToTravel(run));
-const waitedArtist = (run: { run: number }) => artistSaid(Marquee.Message.CompletedWaitToTravel(run));
+const waitedArtist = (run: { run: number }) =>
+  artistSaid(Marquee.Message.CompletedWaitToTravel(run));
 const travelledTitle = (run: { run: number }) => titleSaid(Marquee.Message.CompletedTravel(run));
 const travelledArtist = (run: { run: number }) => artistSaid(Marquee.Message.CompletedTravel(run));
 
@@ -84,7 +85,9 @@ describe("the island's light follows the playback", () => {
     expect(chosen.island.light).toBe("Dark");
     expect(sounding.island.light).toBe("Travelling");
     expect(after(sounding, Message.ClickedPause()).island.light).toBe("Resting");
-    expect(after(sounding, Message.ClickedPause(), Message.ClickedPlay()).island.light).toBe("Resting");
+    expect(after(sounding, Message.ClickedPause(), Message.ClickedPlay()).island.light).toBe(
+      "Resting",
+    );
   });
 
   test("going on to another track does not halt it", () => {
@@ -126,7 +129,10 @@ describe("the island's light follows the playback", () => {
   });
 
   test("a change of pace that is done changes nothing", () => {
-    const done = Player.update(sounding, Message.GotIslandMessage({ message: Island.Message.CompletedChangeLightPace() }));
+    const done = Player.update(
+      sounding,
+      Message.GotIslandMessage({ message: Island.Message.CompletedChangeLightPace() }),
+    );
     expect(done.model).toBe(sounding);
     expect(done.commands ?? []).toEqual([]);
   });
@@ -160,9 +166,7 @@ describe("the island's title", () => {
 
     const resting = Player.update(travelling.model, travelledTitle({ run }));
     expect(resting.model.island.title.phase).toBe("Standing");
-    expect(asked(resting)).toEqual([
-      { name: "WaitToTravel", args: { run, milliseconds: 5000 } },
-    ]);
+    expect(asked(resting)).toEqual([{ name: "WaitToTravel", args: { run, milliseconds: 5000 } }]);
   });
 
   test("measured the same again, nothing changes: the wait under way goes on", () => {
@@ -174,10 +178,7 @@ describe("the island's title", () => {
 
   test("its place changing width alone disturbs nothing: the pass under way goes on", () => {
     const measured = Player.update(sounding, tooLong).model;
-    const travelling = after(
-      measured,
-      waitedTitle({ run: measured.island.title.run }),
-    );
+    const travelling = after(measured, waitedTitle({ run: measured.island.title.run }));
     // The island narrowed under it: the title is as long as it was.
     const narrower = Player.update(
       travelling,
@@ -255,20 +256,13 @@ describe("the island's title", () => {
   test("a wait or a pass that ends for an earlier run is dropped", () => {
     const measured = Player.update(sounding, tooLong).model;
     const stale = measured.island.title.run - 1;
-    expect(Player.update(measured, waitedTitle({ run: stale })).model).toBe(
-      measured,
-    );
-    expect(Player.update(measured, travelledTitle({ run: stale })).model).toBe(
-      measured,
-    );
+    expect(Player.update(measured, waitedTitle({ run: stale })).model).toBe(measured);
+    expect(Player.update(measured, travelledTitle({ run: stale })).model).toBe(measured);
   });
 
   test("another track is another title: it stands, unmeasured, on a new run", () => {
     const measured = Player.update(sounding, tooLong).model;
-    const travelling = after(
-      measured,
-      waitedTitle({ run: measured.island.title.run }),
-    );
+    const travelling = after(measured, waitedTitle({ run: measured.island.title.run }));
     const next = after(travelling, Message.ClickedNext());
     expect(next.island.title).toEqual({
       run: travelling.island.title.run + 1,
@@ -290,9 +284,7 @@ describe("who the track is by, under the island's title", () => {
     const measured = Player.update(sounding, tooLong);
     const { run } = measured.model.island.artist;
     expect(run).toBe(sounding.island.artist.run + 1);
-    expect(asked(measured)).toEqual([
-      { name: "WaitToTravel", args: { run, milliseconds: 3500 } },
-    ]);
+    expect(asked(measured)).toEqual([{ name: "WaitToTravel", args: { run, milliseconds: 3500 } }]);
 
     const travelling = Player.update(measured.model, waitedArtist({ run }));
     expect(travelling.model.island.artist.phase).toBe("Travelling");
@@ -300,9 +292,7 @@ describe("who the track is by, under the island's title", () => {
 
     const resting = Player.update(travelling.model, travelledArtist({ run }));
     expect(resting.model.island.artist.phase).toBe("Standing");
-    expect(asked(resting)).toEqual([
-      { name: "WaitToTravel", args: { run, milliseconds: 5000 } },
-    ]);
+    expect(asked(resting)).toEqual([{ name: "WaitToTravel", args: { run, milliseconds: 5000 } }]);
   });
 
   test("it is a line of its own: the title stands while it travels, and a title's wait is not taken for its own", () => {
@@ -322,10 +312,7 @@ describe("who the track is by, under the island's title", () => {
 
   test("another track is other words: the line stands, unmeasured, on a new run", () => {
     const measured = Player.update(sounding, tooLong).model;
-    const travelling = after(
-      measured,
-      waitedArtist({ run: measured.island.artist.run }),
-    );
+    const travelling = after(measured, waitedArtist({ run: measured.island.artist.run }));
     const next = after(travelling, Message.ClickedNext());
     expect(next.island.artist).toEqual({
       run: travelling.island.artist.run + 1,

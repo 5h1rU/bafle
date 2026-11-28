@@ -120,14 +120,8 @@ const islandEnters = Mount.resolveAll(
   [Player.Island.DrawFigure, Player.Island.Message.CompletedDrawFigure()],
   [Player.Island.FollowPress, Player.Island.Message.CompletedFollowPress()],
   [Player.Island.StartLight, Player.Island.Message.CompletedStartLight()],
-  [
-    Marquee.Measure,
-    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
-  ],
-  [
-    Marquee.Measure,
-    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
-  ],
+  [Marquee.Measure, Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() })],
+  [Marquee.Measure, Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() })],
 );
 
 /** The threshold passes with nothing heard from the engine. */
@@ -243,7 +237,10 @@ describe("rule 1: Genres chosen from the menu holds the page and marks its item"
       see(destination("Genres")).toHaveAttr("aria-busy", "true"),
       // Its icon breathes where it stands, and the navigation marks it at once:
       // the page on screen is still the one `aria-current` names.
-      inside(destination("Genres"), see(selector("svg")).toHaveClass("motion-safe:animate-breathe")),
+      inside(
+        destination("Genres"),
+        see(selector("svg")).toHaveClass("motion-safe:animate-breathe"),
+      ),
       see(destination("Genres")).toHaveAttr("data-marked", ""),
       see(destination("Genres")).not.toHaveAttr("aria-current"),
       see(text("Loading Genres")).toExist(),
@@ -344,7 +341,10 @@ describe("a genre's tile leads to the genre's page", () => {
       ),
       inside(onScreen, see(pageTitle("Electro")).toExist()),
       // Genres is kept behind it, its tile at rest again.
-      inside(keptGenres, see(selector("a[data-genre-tile='ge-1']")).toHaveAttr("aria-busy", "false")),
+      inside(
+        keptGenres,
+        see(selector("a[data-genre-tile='ge-1']")).toHaveAttr("aria-busy", "false"),
+      ),
       // A genre is not a section: no item is the current page.
       inside(navigation, expectAll(all.selector("[aria-current]")).toHaveCount(0)),
     ));

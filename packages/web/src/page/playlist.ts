@@ -69,7 +69,12 @@ const foundView = (playlist: Playlist, context: TrackListContext, h: HtmlBuilder
       detailHeadView(
         {
           kind: KIND,
-          picture: headPictureOf("Playlist", playlist.id, Option.fromNullishOr(playlist.picture), h),
+          picture: headPictureOf(
+            "Playlist",
+            playlist.id,
+            Option.fromNullishOr(playlist.picture),
+            h,
+          ),
           title: playlist.title,
           facts: { whose: playlist.curator, count: songCount(playlist.tracks.length) },
         },

@@ -19,10 +19,8 @@ type MediaAction = readonly [
   said: (details: MediaSessionActionDetails) => Option.Option<Message>,
 ];
 
-const pressed =
-  (key: MediaKey) =>
-  (): Option.Option<Message> =>
-    Option.some(Message.PressedMediaKey({ key }));
+const pressed = (key: MediaKey) => (): Option.Option<Message> =>
+  Option.some(Message.PressedMediaKey({ key }));
 
 /**
  * The system's own controls for a player, and what each says. Its bar for
@@ -135,7 +133,9 @@ const engineSubscriptions = Subscription.make<Model, Message, AudioEngine>()((en
           Stream.unwrap(
             Effect.gen(function* () {
               const engine = yield* AudioEngine;
-              return Stream.map(engine.reports, (report) => Message.UpdatedEngineStatus({ report }));
+              return Stream.map(engine.reports, (report) =>
+                Message.UpdatedEngineStatus({ report }),
+              );
             }),
           ),
           Effect.sync(() => hasSession),

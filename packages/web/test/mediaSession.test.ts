@@ -43,20 +43,22 @@ const listening = Effect.gen(function* () {
   return heard;
 });
 
-it.effect("the system's bar for the sound says where it was moved to, and its keys which was pressed", () =>
-  Effect.gen(function* () {
-    const handlers = browserWith();
-    const heard = yield* listening;
+it.effect(
+  "the system's bar for the sound says where it was moved to, and its keys which was pressed",
+  () =>
+    Effect.gen(function* () {
+      const handlers = browserWith();
+      const heard = yield* listening;
 
-    handlers.get("seekto")?.({ action: "seekto", seekTime: 21.5 });
-    handlers.get("pause")?.({ action: "pause" });
-    yield* Effect.yieldNow;
+      handlers.get("seekto")?.({ action: "seekto", seekTime: 21.5 });
+      handlers.get("pause")?.({ action: "pause" });
+      yield* Effect.yieldNow;
 
-    expect(heard).toEqual([
-      Message.MovedMediaPosition({ positionSeconds: 21.5 }),
-      Message.PressedMediaKey({ key: "Pause" }),
-    ]);
-  }),
+      expect(heard).toEqual([
+        Message.MovedMediaPosition({ positionSeconds: 21.5 }),
+        Message.PressedMediaKey({ key: "Pause" }),
+      ]);
+    }),
 );
 
 it.effect("a bar moved with no place handed over says nothing", () =>

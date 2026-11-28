@@ -27,8 +27,7 @@
    it stands on (#efdfec). Each token is a variable, so the dark scheme only
    has to change the values, never the classes. */
 @theme {
-  --font-sans:
-    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
   --color-canvas: #fbf7fa;
   --color-panel: #f3eaf1;
@@ -240,8 +239,7 @@
     0 0 0 0.5px rgb(var(--night-channels) / 30%), 0 1px 3px rgb(var(--night-channels) / 35%);
 
   /* What lifts a song of the queue while it is carried. */
-  --shadow-carried:
-    0 0 0 1px var(--color-line), 0 0.75rem 2rem rgb(var(--night-channels) / 28%);
+  --shadow-carried: 0 0 0 1px var(--color-line), 0 0.75rem 2rem rgb(var(--night-channels) / 28%);
 
   /* What lifts a menu off the page. */
   --shadow-menu: 0 10px 38px rgb(0 0 0 / 0.22);

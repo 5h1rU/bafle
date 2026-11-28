@@ -119,10 +119,16 @@ const pauseGlyphView = (isConfirmed: boolean, sizeClass: string, h: HtmlBuilder<
   );
 
 const playGlyphView = (sizeClass: string, h: HtmlBuilder<Message>): Html =>
-  h.span([h.DataAttribute("glyph", "play"), h.Class(clsx(GLYPH_CLASS, sizeClass))], [playIcon("size-full")]);
+  h.span(
+    [h.DataAttribute("glyph", "play"), h.Class(clsx(GLYPH_CLASS, sizeClass))],
+    [playIcon("size-full")],
+  );
 
 const retryGlyphView = (sizeClass: string, h: HtmlBuilder<Message>): Html =>
-  h.span([h.DataAttribute("glyph", "retry"), h.Class(clsx(GLYPH_CLASS, sizeClass))], [retryIcon("size-full")]);
+  h.span(
+    [h.DataAttribute("glyph", "retry"), h.Class(clsx(GLYPH_CLASS, sizeClass))],
+    [retryIcon("size-full")],
+  );
 
 /** Turning: the engine was asked to sound and has not answered for long enough to say so. */
 const startingMarkView = (h: HtmlBuilder<Message>): Html =>
@@ -163,7 +169,9 @@ const mainGlyphView = (playback: Playback, sizeClass: string, h: HtmlBuilder<Mes
   if (wantsToSound(playback)) {
     return pauseGlyphView(isUnderWay(playback), sizeClass, h);
   }
-  return Playback.guards.Failed(playback) ? retryGlyphView(sizeClass, h) : playGlyphView(sizeClass, h);
+  return Playback.guards.Failed(playback)
+    ? retryGlyphView(sizeClass, h)
+    : playGlyphView(sizeClass, h);
 };
 
 /**
@@ -255,7 +263,11 @@ const stepControlView = (
               // NOTE: a step that leads nowhere is dim, and no pointer lights
               // it: its look says that by what the control says of itself
               // (`not-aria-disabled`).
-              clsx(CONTROL_CLASS, isEnabled ? "cursor-pointer" : "cursor-default opacity-40", lookClass),
+              clsx(
+                CONTROL_CLASS,
+                isEnabled ? "cursor-pointer" : "cursor-default opacity-40",
+                lookClass,
+              ),
             ),
           ],
           [icon],
@@ -499,7 +511,9 @@ const seekBarView = (
             h.Class(
               "pointer-events-none absolute inset-0 origin-left rounded-full bg-muted/40 motion-safe:transition-transform motion-safe:duration-300",
             ),
-            h.Style({ transform: `scaleX(${fractionOfDuration(session.bufferedSeconds, durationSeconds)})` }),
+            h.Style({
+              transform: `scaleX(${fractionOfDuration(session.bufferedSeconds, durationSeconds)})`,
+            }),
           ]),
           h.div([
             ...attributes.filledTrack,
@@ -594,7 +608,10 @@ const progressView = (session: Session, durationSeconds: number, h: HtmlBuilder<
             [formatDuration(shownSeconds)],
           ),
           h.span(
-            [h.DataAttribute("remaining", ""), h.Class(clsx(TIME_CLASS, "text-right text-player-time"))],
+            [
+              h.DataAttribute("remaining", ""),
+              h.Class(clsx(TIME_CLASS, "text-right text-player-time")),
+            ],
             [formatRemaining(durationSeconds - shownSeconds)],
           ),
         ],
@@ -614,7 +631,9 @@ const progressPlaceholderView = (session: Session, h: HtmlBuilder<Message>): Htm
           h.div([
             h.Class(
               clsx("h-1 w-full rounded-full bg-player-rail", {
-                "animate-pulse motion-reduce:animate-none": Playback.guards.Starting(session.playback),
+                "animate-pulse motion-reduce:animate-none": Playback.guards.Starting(
+                  session.playback,
+                ),
               }),
             ),
           ]),
@@ -623,8 +642,14 @@ const progressPlaceholderView = (session: Session, h: HtmlBuilder<Message>): Htm
       h.div(
         [h.Class(TIMES_CLASS)],
         [
-          h.span([h.Class(clsx(TIME_CLASS, "text-left text-player-time"))], [formatDuration(session.positionSeconds)]),
-          h.span([h.AriaHidden(true), h.Class(clsx(TIME_CLASS, "text-right text-player-time"))], ["–:––"]),
+          h.span(
+            [h.Class(clsx(TIME_CLASS, "text-left text-player-time"))],
+            [formatDuration(session.positionSeconds)],
+          ),
+          h.span(
+            [h.AriaHidden(true), h.Class(clsx(TIME_CLASS, "text-right text-player-time"))],
+            ["–:––"],
+          ),
         ],
       ),
     ],
@@ -728,7 +753,8 @@ const NEXT_IN_ISLAND_CLASS =
 // NOTE: the swell is 54 pixels across and the body 44: the control's place
 // stands out of the row by five above and below, and the control sits in it
 // with three of island all round. It is drawn over Next.
-const SWELL_CLASS = "relative z-10 -my-[5px] flex size-[3.375rem] shrink-0 items-center justify-center";
+const SWELL_CLASS =
+  "relative z-10 -my-[5px] flex size-[3.375rem] shrink-0 items-center justify-center";
 
 // NOTE: on a desktop's screen the island does not expand, so Previous, which
 // is otherwise the expanded player's, stands in the island's body, before
@@ -779,7 +805,8 @@ const islandControlsView = (
 /** The line under the controls: the progress bar, or the words of a state a control cannot explain. */
 const progressOrNoticeView = (session: Session, h: HtmlBuilder<Message>): Html =>
   Option.match(maybeNotice(session.playback), {
-    onSome: (notice) => h.p([h.Class("flex h-[2.4375rem] items-center text-sm text-muted")], [notice]),
+    onSome: (notice) =>
+      h.p([h.Class("flex h-[2.4375rem] items-center text-sm text-muted")], [notice]),
     onNone: () =>
       Option.match(session.maybeDurationSeconds, {
         onNone: () => progressPlaceholderView(session, h),
@@ -1114,11 +1141,7 @@ const faceHeadView = (
           ),
       }),
       h.div(
-        [
-          h.Class(
-            "relative flex items-center gap-3 px-6 pt-7",
-          ),
-        ],
+        [h.Class("relative flex items-center gap-3 px-6 pt-7")],
         [
           coverView(current, "relative size-13 shrink-0 rounded-lg", "large", h),
           h.keyed("div")(
@@ -1145,15 +1168,13 @@ const faceHeadView = (
             {
               onClick: isDetails ? Message.ClickedDetails() : Message.ClickedQueue(),
               toView: (attributes) =>
-                h.button(
-                  [
-                    ...attributes.button,
-                    h.AriaLabel("Back to the song"),
-                    h.Class(
-                      "absolute inset-0 cursor-pointer touch-manipulation focus-ring-inset-4 focus-visible:rounded-2xl",
-                    ),
-                  ],
-                ),
+                h.button([
+                  ...attributes.button,
+                  h.AriaLabel("Back to the song"),
+                  h.Class(
+                    "absolute inset-0 cursor-pointer touch-manipulation focus-ring-inset-4 focus-visible:rounded-2xl",
+                  ),
+                ]),
             },
             h,
           ),
@@ -1209,9 +1230,7 @@ const moreMenuView = (
       }),
       itemToSearchText: (action: PlayerAction) => ACTION_LOOKS[action].label,
       ariaLabel: `More: ${session.current.title}`,
-      buttonContent: moreIcon(
-        clsx(look.glyph, { [BREATHES_CLASS]: isPageOpening }),
-      ),
+      buttonContent: moreIcon(clsx(look.glyph, { [BREATHES_CLASS]: isPageOpening })),
       buttonClassName: iconControlClass(place),
       // NOTE: lit by the Model's own word that the menu is open, which is
       // taken back the moment it is closed. What the component says on its
@@ -1416,17 +1435,20 @@ export const expandedView = Submodel.defineView<Model, Message, ExpandedViewInpu
  * is opened, and nothing while nothing has been played.
  */
 export const queueColumnView = Submodel.defineView<Model, Message>((model, h) =>
-  Option.match(Option.filter(model.maybeSession, () => Queue.isColumnOpen(model.queue)), {
-    onNone: () => h.empty,
-    onSome: (session) =>
-      h.submodel({
-        slotId: "queue-column",
-        model: model.queue,
-        view: Queue.columnView,
-        viewInputs: queueListOf(session),
-        toParentMessage: (message) => Message.GotQueueMessage({ message }),
-      }),
-  }),
+  Option.match(
+    Option.filter(model.maybeSession, () => Queue.isColumnOpen(model.queue)),
+    {
+      onNone: () => h.empty,
+      onSome: (session) =>
+        h.submodel({
+          slotId: "queue-column",
+          model: model.queue,
+          view: Queue.columnView,
+          viewInputs: queueListOf(session),
+          toParentMessage: (message) => Message.GotQueueMessage({ message }),
+        }),
+    },
+  ),
 );
 
 /**

@@ -14,13 +14,7 @@ import {
   artworkView,
 } from "../view/artwork.ts";
 import { PAGE_IDS, type Presence, SECTION_HEADING_CLASS, pageTitleIdOf } from "../view/layout.ts";
-import {
-  type DetailKind,
-  GONE,
-  detailPageView,
-  detailTitleOf,
-  songCount,
-} from "../view/page.ts";
+import { type DetailKind, GONE, detailPageView, detailTitleOf, songCount } from "../view/page.ts";
 import { BLOCK_CLASS } from "../view/placeholder.ts";
 import {
   type TrackList,
@@ -99,7 +93,8 @@ const BAR_CLASS =
   "album-toolbar pointer-events-none sticky top-0 z-3 -mb-album-bar flex h-album-bar items-center gap-3 px-album-gutter before:absolute before:inset-0 before:-z-1 before:border-b before:border-line before:bg-panel not-scroll-timelines:z-2";
 
 /** What the bar says: the cover as a thumbnail that leaves it a little room above and below, at its near end, and the album's name. */
-const BAR_WORDS_CLASS = "album-compact flex min-w-0 items-center gap-2.5 *:first:w-8 *:first:flex-none";
+const BAR_WORDS_CLASS =
+  "album-compact flex min-w-0 items-center gap-2.5 *:first:w-8 *:first:flex-none";
 
 /**
  * The songs' place on the page.
@@ -129,18 +124,30 @@ const SONGS_CLASS =
 const SONGS_HEADING_CLASS = clsx(SECTION_HEADING_CLASS, "flex min-h-12 items-center");
 
 const placeholderView = (h: HtmlBuilder<Message>): Html =>
-  h.div([], [
-    h.div([h.Class(clsx(HERO_CLASS, HERO_GROUNDS.Waiting)), h.AriaHidden(true)], [
-      h.div([h.Class(CAPTION_CLASS)], [
-        h.div([h.Class(clsx(BLOCK_CLASS, "h-12 w-3/4 rounded"))]),
-        h.div([h.Class(clsx(BLOCK_CLASS, "mt-3 h-5 w-1/3 rounded"))]),
-      ]),
-    ]),
-    h.section([h.Class(SONGS_CLASS)], [
-      h.h2([h.Class(SONGS_HEADING_CLASS)], [SONGS]),
-      trackListPlaceholderView(SONGS_LIST.spread, h),
-    ]),
-  ]);
+  h.div(
+    [],
+    [
+      h.div(
+        [h.Class(clsx(HERO_CLASS, HERO_GROUNDS.Waiting)), h.AriaHidden(true)],
+        [
+          h.div(
+            [h.Class(CAPTION_CLASS)],
+            [
+              h.div([h.Class(clsx(BLOCK_CLASS, "h-12 w-3/4 rounded"))]),
+              h.div([h.Class(clsx(BLOCK_CLASS, "mt-3 h-5 w-1/3 rounded"))]),
+            ],
+          ),
+        ],
+      ),
+      h.section(
+        [h.Class(SONGS_CLASS)],
+        [
+          h.h2([h.Class(SONGS_HEADING_CLASS)], [SONGS]),
+          trackListPlaceholderView(SONGS_LIST.spread, h),
+        ],
+      ),
+    ],
+  );
 
 /** The year an album came out, and how many songs it has: only what the catalog knows. */
 const factsView = (album: Album, h: HtmlBuilder<Message>): Html =>
@@ -162,53 +169,82 @@ const headView = (album: Album, presence: Presence, h: HtmlBuilder<Message>): Ht
       ...albumHeadFlightAttributes(album.id, presence, h),
     ],
     [
-    albumCoverView(Option.fromNullishOr(album.cover), h),
-    h.div([h.Class(CAPTION_CLASS)], [
-      h.h1([h.Id(pageTitleIdOf(KIND.pageId)), h.Class(HEAD_TITLE_CLASS)], [
-        album.title,
-        album.explicit ? explicitMarkerView(h) : h.empty,
-      ]),
-      h.p(
-        [h.Class("mt-[0.2rem] text-[clamp(1.25rem,5.7vw,1.65rem)]/[1.25] font-demi tracking-tight")],
-        [album.artist.name],
+      albumCoverView(Option.fromNullishOr(album.cover), h),
+      h.div(
+        [h.Class(CAPTION_CLASS)],
+        [
+          h.h1(
+            [h.Id(pageTitleIdOf(KIND.pageId)), h.Class(HEAD_TITLE_CLASS)],
+            [album.title, album.explicit ? explicitMarkerView(h) : h.empty],
+          ),
+          h.p(
+            [
+              h.Class(
+                "mt-[0.2rem] text-[clamp(1.25rem,5.7vw,1.65rem)]/[1.25] font-demi tracking-tight",
+              ),
+            ],
+            [album.artist.name],
+          ),
+          factsView(album, h),
+        ],
       ),
-      factsView(album, h),
-    ]),
     ],
   );
 
 const toolbarView = (album: Album, h: HtmlBuilder<Message>): Html =>
-  h.div([h.Class(BAR_CLASS)], [
-    h.div([h.AriaHidden(true), h.Class(BAR_WORDS_CLASS)], [
-      artworkView(Option.fromNullishOr(album.cover), "Square", "small", h),
-      h.div([h.Class("min-w-0")], [
-        h.p([h.Class("truncate text-15/[1.2] font-[650] tracking-[-0.015em]")], [album.title]),
-        h.p([h.Class("truncate text-xs/[1.25] text-muted")], [album.artist.name]),
-      ]),
-    ]),
-  ]);
+  h.div(
+    [h.Class(BAR_CLASS)],
+    [
+      h.div(
+        [h.AriaHidden(true), h.Class(BAR_WORDS_CLASS)],
+        [
+          artworkView(Option.fromNullishOr(album.cover), "Square", "small", h),
+          h.div(
+            [h.Class("min-w-0")],
+            [
+              h.p(
+                [h.Class("truncate text-15/[1.2] font-[650] tracking-[-0.015em]")],
+                [album.title],
+              ),
+              h.p([h.Class("truncate text-xs/[1.25] text-muted")], [album.artist.name]),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
 
-const foundView = (
-  album: Album,
-  context: TrackListContext,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.div([h.Class("album-detail")], [
-    toolbarView(album, h),
-    headView(album, context.presence, h),
-    Array.match(album.tracks, {
-      onEmpty: () =>
-        h.p([h.Class(clsx(SONGS_CLASS, "text-muted"))], ["The catalog lists no songs for this album."]),
-      onNonEmpty: (tracks) =>
-        h.section([h.Class(SONGS_CLASS)], [
-          // NOTE: there is no control here to play the album. Any row does
-          // it: pressed, it plays its song and the songs under it are what
-          // comes next (playback rule 1).
-          h.h2([h.Id(SONGS_LIST.labelledBy), h.Class(SONGS_HEADING_CLASS)], [SONGS]),
-          ...trackListView(SONGS_LIST, tracks, { ...context, albumArtistId: album.artist.id }, h),
-        ]),
-    }),
-  ]);
+const foundView = (album: Album, context: TrackListContext, h: HtmlBuilder<Message>): Html =>
+  h.div(
+    [h.Class("album-detail")],
+    [
+      toolbarView(album, h),
+      headView(album, context.presence, h),
+      Array.match(album.tracks, {
+        onEmpty: () =>
+          h.p(
+            [h.Class(clsx(SONGS_CLASS, "text-muted"))],
+            ["The catalog lists no songs for this album."],
+          ),
+        onNonEmpty: (tracks) =>
+          h.section(
+            [h.Class(SONGS_CLASS)],
+            [
+              // NOTE: there is no control here to play the album. Any row does
+              // it: pressed, it plays its song and the songs under it are what
+              // comes next (playback rule 1).
+              h.h2([h.Id(SONGS_LIST.labelledBy), h.Class(SONGS_HEADING_CLASS)], [SONGS]),
+              ...trackListView(
+                SONGS_LIST,
+                tracks,
+                { ...context, albumArtistId: album.artist.id },
+                h,
+              ),
+            ],
+          ),
+      }),
+    ],
+  );
 
 /**
  * The page is a list, so it is kept behind a page reached from it, as a

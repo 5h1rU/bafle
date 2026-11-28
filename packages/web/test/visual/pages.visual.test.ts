@@ -61,7 +61,8 @@ describe("an album's page", () => {
 describe("an artist's page", () => {
   test("on a phone", () => looksAs("artist-phone", { model: Models.artist, screen: "Phone" }));
 
-  test("on a desktop", () => looksAs("artist-desktop", { model: Models.artist, screen: "Desktop" }));
+  test("on a desktop", () =>
+    looksAs("artist-desktop", { model: Models.artist, screen: "Desktop" }));
 
   test("before the catalog has answered, on a phone", () =>
     looksAs("artist-waiting-phone", { model: Models.artistWaiting, screen: "Phone" }));

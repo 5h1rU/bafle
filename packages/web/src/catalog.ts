@@ -39,8 +39,10 @@ const UNANSWERED: Readonly<{ _tag: "Unknown" }> = { _tag: "Unknown" };
  * server that hangs: only the catalog says what its replies are.
  */
 export const unanswered = {
-  HomeFeed: (requestId: string) => Catalog.Message.FailedHomeFeed({ requestId, failure: UNANSWERED }),
-  NewMusic: (requestId: string) => Catalog.Message.FailedNewMusic({ requestId, failure: UNANSWERED }),
+  HomeFeed: (requestId: string) =>
+    Catalog.Message.FailedHomeFeed({ requestId, failure: UNANSWERED }),
+  NewMusic: (requestId: string) =>
+    Catalog.Message.FailedNewMusic({ requestId, failure: UNANSWERED }),
   GenreList: (requestId: string) =>
     Catalog.Message.FailedGenreList({ requestId, failure: UNANSWERED }),
   StationList: (requestId: string) =>

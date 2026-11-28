@@ -102,9 +102,7 @@ describe("a row's menu", () => {
   test("pressing a row's last control opens that row's menu, and no other", () => {
     const opened = after(onNew, pressedMore("New", track.id));
     expect(Rows.menuOf(opened.rows, row).isOpen).toBe(true);
-    expect(
-      Rows.menuOf(opened.rows, { from: "New", trackId: explicitTrack.id }).isOpen,
-    ).toBe(false);
+    expect(Rows.menuOf(opened.rows, { from: "New", trackId: explicitTrack.id }).isOpen).toBe(false);
     // The same track listed on another page has a menu of its own.
     expect(Rows.menuOf(opened.rows, { from: "Search", trackId: track.id }).isOpen).toBe(false);
   });
@@ -195,10 +193,16 @@ describe("a row's menu", () => {
     const first = after(playing, choseFromRow("New", track.id, "PlayNext"));
     const second = after(first, choseFromRow("New", track.id, "AddToQueue"));
 
-    const stale = update(second, Message.GotRowsMessage({ message: Rows.Message.CompletedWaitToClearDone({ turn: 1 }) }));
+    const stale = update(
+      second,
+      Message.GotRowsMessage({ message: Rows.Message.CompletedWaitToClearDone({ turn: 1 }) }),
+    );
     expect(stale.model).toBe(second);
 
-    const ended = update(second, Message.GotRowsMessage({ message: Rows.Message.CompletedWaitToClearDone({ turn: 2 }) }));
+    const ended = update(
+      second,
+      Message.GotRowsMessage({ message: Rows.Message.CompletedWaitToClearDone({ turn: 2 }) }),
+    );
     expect(ended.model.rows.done).toEqual({ turn: 2, maybeRow: Option.none() });
   });
 

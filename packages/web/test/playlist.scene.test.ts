@@ -116,14 +116,8 @@ const islandEnters = Mount.resolveAll(
   [Player.Island.DrawFigure, Player.Island.Message.CompletedDrawFigure()],
   [Player.Island.FollowPress, Player.Island.Message.CompletedFollowPress()],
   [Player.Island.StartLight, Player.Island.Message.CompletedStartLight()],
-  [
-    Marquee.Measure,
-    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
-  ],
-  [
-    Marquee.Measure,
-    Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() }),
-  ],
+  [Marquee.Measure, Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() })],
+  [Marquee.Measure, Marquee.Message.Measured({ placePixels: 0, maybeTravelPixels: Option.none() })],
 );
 
 /** The threshold passes with nothing heard from the engine. */
@@ -339,7 +333,10 @@ describe("playlist tiles lead to the playlist's page", () => {
     scene(
       app,
       given(onHome),
-      inside(playlistTile, see(selector("[data-sleeve]")).toHaveStyle("view-transition-name", name)),
+      inside(
+        playlistTile,
+        see(selector("[data-sleeve]")).toHaveStyle("view-transition-name", name),
+      ),
     );
     scene(
       app,

@@ -294,7 +294,9 @@ describe("A1 and A2: a link is an intention, and the URL moves when the screen d
       Command.resolve(Catalog.CatalogSearch, reply.search(nextId(onHome))),
       model((model) => {
         expect(model.route).toEqual(searchFor("daft"));
-        expect(model.search).toEqual(SearchData.Success({ data: { term: "daft", results: found } }));
+        expect(model.search).toEqual(
+          SearchData.Success({ data: { term: "daft", results: found } }),
+        );
       }),
       // The field takes the focus when the page opens.
       Command.expectExact(NavigateInternal({ url: "/search?q=daft" }), FocusSearchField()),
@@ -887,9 +889,7 @@ describe("A8: a section commits like any page, and states its failure on its own
       message(arrived(reply.homeRefused(awaitedId(refreshingHome)))),
       model((model) => {
         expect(model.route).toEqual(AppRoute.Home());
-        expect(model.home).toEqual(
-          HomeData.Stale({ error: "CatalogUnavailable", data: featured }),
-        );
+        expect(model.home).toEqual(HomeData.Stale({ error: "CatalogUnavailable", data: featured }));
       }),
       message(Message.ClickedTryAgain()),
       model((model) => expect(model.home).toEqual(HomeData.Refreshing({ data: featured }))),
@@ -915,7 +915,9 @@ describe("A8: a section commits like any page, and states its failure on its own
       Command.resolve(FocusPage, Message.CompletedFocusPage()),
       Command.resolve(Catalog.CatalogSearch, reply.search(nextId(failedSearch))),
       model((model) =>
-        expect(model.search).toEqual(SearchData.Success({ data: { term: "daft", results: found } })),
+        expect(model.search).toEqual(
+          SearchData.Success({ data: { term: "daft", results: found } }),
+        ),
       ),
       Command.resolve(ShowSearchFromTop, Message.CompletedShowSearchFromTop()),
     );
@@ -1386,7 +1388,9 @@ describe("rule 6: search keeps its results while it loads", () => {
         reply.search(nextId(after(onMore, changedUrl("/search?q=daft")))),
       ),
       model((model) =>
-        expect(model.search).toEqual(SearchData.Success({ data: { term: "daft", results: found } })),
+        expect(model.search).toEqual(
+          SearchData.Success({ data: { term: "daft", results: found } }),
+        ),
       ),
     );
   });

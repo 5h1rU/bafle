@@ -161,8 +161,7 @@ const genreListPage: Page<MusicGenres> = {
 
 const stationListPage: Page<RadioStations> = {
   read: (model) => model.stationList,
-  write: (model, nextStationList) =>
-    modifyFields(model, { stationList: () => nextStationList }),
+  write: (model, nextStationList) => modifyFields(model, { stationList: () => nextStationList }),
 };
 
 const searchPage: Page<SearchAnswer> = {
@@ -191,8 +190,7 @@ const albumPage = (albumId: AlbumId): Page<Option.Option<Album>> => ({
 /** An artist's page keeps what the catalog told it under the artist's id. */
 const artistPage = (artistId: ArtistId): Page<Option.Option<Artist>> => ({
   read: (model) => artistData(model, artistId),
-  write: (model, nextArtist) =>
-    modifyFields(model, { artists: heldUnder(artistId, nextArtist) }),
+  write: (model, nextArtist) => modifyFields(model, { artists: heldUnder(artistId, nextArtist) }),
 });
 
 /** A playlist's page keeps what the catalog told it under the playlist's id. */
@@ -273,7 +271,12 @@ const forIntention =
 const forArrival =
   (route: AppRoute, entrance: Entrance, input: InputMethod): Expecting =>
   (requestId) =>
-    Awaiting.Arrival({ requestId, route, entrance, ...(input === "Keyboard" && { viaKeyboard: true }) });
+    Awaiting.Arrival({
+      requestId,
+      route,
+      entrance,
+      ...(input === "Keyboard" && { viaKeyboard: true }),
+    });
 
 const maybeAwaitedRequestId = (awaiting: Awaiting): Option.Option<string> =>
   Awaiting.match(awaiting, {
@@ -292,7 +295,8 @@ const isAwaitingPause = (awaiting: Awaiting, pauseId: string): boolean =>
   );
 
 /** The page a reply is about: the one the app is heading for, else the one on screen. */
-const awaitedRoute = (model: Model): AppRoute => Option.getOrElse(maybeHeadedFor(model), () => model.route);
+const awaitedRoute = (model: Model): AppRoute =>
+  Option.getOrElse(maybeHeadedFor(model), () => model.route);
 
 /** Search opens with its field focused, ready to be typed into. */
 const focusSearchFieldOnSearch: Step = (model) =>
@@ -348,11 +352,7 @@ const focusOn = (model: Model, entered: AppRoute, entrance: Entrance) => {
   if (entrance === "Returning" && left._tag === "Artist" && leadsToArtistsAndPlaylists(entered)) {
     return [FocusArtistTile({ pageId, artistId: left.artistId })];
   }
-  if (
-    entrance === "Returning" &&
-    left._tag === "Playlist" &&
-    leadsToArtistsAndPlaylists(entered)
-  ) {
+  if (entrance === "Returning" && left._tag === "Playlist" && leadsToArtistsAndPlaylists(entered)) {
     return [FocusPlaylistTile({ pageId, playlistId: left.playlistId })];
   }
   if (entrance === "Returning" && left._tag === "Genre" && entered._tag === "Genres") {
@@ -394,8 +394,7 @@ const requestPage = <A>(
   page: Page<A>,
   ask: Request,
   expecting: Expecting,
-): UpdateReturn =>
-  send(page.write(model, markPending(page.read(model))), ask, expecting);
+): UpdateReturn => send(page.write(model, markPending(page.read(model))), ask, expecting);
 
 /** Ask the catalog for what a route shows. */
 const load =
@@ -480,7 +479,8 @@ const waitForTypingPause: Step = (model) => {
 const followTyping: Step = (model) =>
   Option.match(searchedTerm(model.route), {
     onNone: () => ({ model: forgetAnswer(model) }),
-    onSome: (term) => waitForTypingPause(Option.getOrElse(recallAnswerFor(term)(model), () => model)),
+    onSome: (term) =>
+      waitForTypingPause(Option.getOrElse(recallAnswerFor(term)(model), () => model)),
   });
 
 /**
@@ -630,9 +630,10 @@ const showPage =
     return isSamePage(model.route, route)
       ? { model: shown }
       : {
-          model: navigationOnEntering(route, entrance)(
-            withPlayerSheetAnew(withAboutClosed(withRowMenusClosed(shown))),
-          ),
+          model: navigationOnEntering(
+            route,
+            entrance,
+          )(withPlayerSheetAnew(withAboutClosed(withRowMenusClosed(shown)))),
           commands: [
             ...focusOn(model, route, entrance),
             ...(entrance === "Returning" ? [MeasureReturnedPage({ pageId: pageIdOf(route) })] : []),
@@ -958,8 +959,7 @@ const receivePlaylist = (
   AppRoute.matchOrElse<UpdateReturn>(
     awaitedRoute(model),
     {
-      Playlist: ({ playlistId }) =>
-        receive(model, playlistPage(playlistId), requestId, outcome),
+      Playlist: ({ playlistId }) => receive(model, playlistPage(playlistId), requestId, outcome),
     },
     () => ({ model }),
   );
@@ -1045,7 +1045,11 @@ const askNextAhead: Step = (model) => {
       onEmpty: () =>
         Array.isReadonlyArrayEmpty(model.ahead.toAsk)
           ? { model }
-          : { model: modifyFields(model, { ahead: () => ({ maybeAsked: Option.none(), toAsk: [] }) }) },
+          : {
+              model: modifyFields(model, {
+                ahead: () => ({ maybeAsked: Option.none(), toAsk: [] }),
+              }),
+            },
       onNonEmpty: ([section, ...toAsk]): UpdateReturn => {
         const allocation = DomainFoldkit.next(model.requestIds);
         return {
@@ -1180,9 +1184,7 @@ const rewriteSearchTerm =
       model.awaiting,
       {
         Arrival: (awaited) =>
-          moveUrlTo(route)(
-            modifyFields(abandon(model), { trail: Array.append(awaited.route) }),
-          ),
+          moveUrlTo(route)(modifyFields(abandon(model), { trail: Array.append(awaited.route) })),
       },
       () => ({
         model: modifyFields(model, { maybeAskedRoute: () => Option.some(route) }),
@@ -1316,8 +1318,7 @@ const foldPlayerSheet = Update.foldChild({
   read: (model: Model) => Option.some(model.playerSheet),
   write: (model: Model, nextSheet: Sheet.Model): Model =>
     nextSheet === model.playerSheet ? model : modifyFields(model, { playerSheet: () => nextSheet }),
-  toParentMessage: (message: Sheet.Message): Message =>
-    Message.GotPlayerSheetMessage({ message }),
+  toParentMessage: (message: Sheet.Message): Message => Message.GotPlayerSheetMessage({ message }),
   foldOutMessage: (said: Sheet.OutMessage): Step =>
     Sheet.OutMessage.match<Step>(said, {
       Left: () => leavePlayer,
@@ -1671,10 +1672,7 @@ const changeScreen =
 const respond = (model: Model, message: Message) =>
   Message.match<UpdateReturn>(message, {
     ChangedInputMethod: ({ method }) =>
-      foldRowsInputMethod(
-        modifyFields(model, { inputMethod: () => method }),
-        method === "Pointer",
-      ),
+      foldRowsInputMethod(modifyFields(model, { inputMethod: () => method }), method === "Pointer"),
 
     ChangedScreen: ({ screen }) => changeScreen(screen)(model),
 
@@ -1716,7 +1714,8 @@ const respond = (model: Model, message: Message) =>
 
     // NOTE: a track's page is a list of one, and its track is queued as a
     // row's is: the page's control shows that it was done, for a moment.
-    ClickedQueueTrack: ({ trackId, place }) => queueFromRow({ from: "Track", trackId }, place)(model),
+    ClickedQueueTrack: ({ trackId, place }) =>
+      queueFromRow({ from: "Track", trackId }, place)(model),
 
     UpdatedSearchField: ({ value }) =>
       rewriteSearchTerm(Option.liftPredicate(value, String.isNonEmpty))(model),
@@ -1879,7 +1878,9 @@ const showSongOnceCollapsed: Step = (model) =>
 const showSearchFromTopOnceAnswered =
   (before: Model): Step =>
   (model) =>
-    isSamePage(before.route, model.route) && !isSearchFieldAtHead(before) && isSearchFieldAtHead(model)
+    isSamePage(before.route, model.route) &&
+    !isSearchFieldAtHead(before) &&
+    isSearchFieldAtHead(model)
       ? { model, commands: [ShowSearchFromTop()] }
       : { model };
 
@@ -1901,9 +1902,7 @@ export const update = (model: Model, message: Message) =>
  * mark the page opened with stands over those placeholders until the page
  * has more to show; a page that needs nothing is launched here.
  */
-export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services> = (
-  url: Url,
-) => {
+export const init: Runtime.RoutingApplicationInit<Model, Message, void, Services> = (url: Url) => {
   const route = urlToAppRoute(url);
   return Update.combine(
     Model.make({
@@ -2010,9 +2009,12 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   model,
 }) => {
   const awaited = previousModel.awaiting;
-  if (model.inputMethod === "Keyboard" ||
+  if (
+    model.inputMethod === "Keyboard" ||
     ((awaited._tag === "Intention" || awaited._tag === "Arrival") &&
-      awaited.viaKeyboard && isSameRoute(awaited.route, model.route))) {
+      awaited.viaKeyboard &&
+      isSameRoute(awaited.route, model.route))
+  ) {
     return false;
   }
   // NOTE: a window made wider or narrower is no change the app shows: the
@@ -2054,7 +2056,8 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
           return false;
         }
         const returning = Option.exists(wayBackOn(previousModel.trail), (route) =>
-          isSamePage(route, model.route));
+          isSamePage(route, model.route),
+        );
         // NOTE: a section is one of the navigation's own. Going from one to
         // another, in whichever direction and by whichever way, and leaving
         // any page for one by the navigation, is a change of place and not
@@ -2082,7 +2085,10 @@ export const viewTransition: Runtime.ViewTransitionConfig<Model, Message> = ({
   // into the island, and a transition would bring the sheet back to do it.
   // It is read from the Model as it is now, since the sheet's last word and
   // the page change it caused can reach one frame together.
-  if (wasExpanded && (model.playerSheet.reach === "Gone" || model.playerSheet.dismissedByKeyboard)) {
+  if (
+    wasExpanded &&
+    (model.playerSheet.reach === "Gone" || model.playerSheet.dismissedByKeyboard)
+  ) {
     return false;
   }
   // NOTE: opening and closing the player are told apart by name, since the

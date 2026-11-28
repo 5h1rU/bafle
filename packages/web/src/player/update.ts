@@ -274,12 +274,15 @@ const playFromQueue = (session: Session, index: number, trackId: TrackId): Step 
   if (current?.id !== trackId) {
     return unchanged;
   }
-  return startTrack({
-    ...session,
-    earlier: [...session.earlier, session.current, ...session.later.slice(0, index)],
-    current,
-    later: session.later.slice(index + 1),
-  }, "Chosen");
+  return startTrack(
+    {
+      ...session,
+      earlier: [...session.earlier, session.current, ...session.later.slice(0, index)],
+      current,
+      later: session.later.slice(index + 1),
+    },
+    "Chosen",
+  );
 };
 
 /**
@@ -531,7 +534,9 @@ const isDragging = (slider: Slider.Model): boolean => slider.dragState._tag === 
 const changedSeekValue = (wasDragging: boolean, value: number): Step =>
   onSession((session) => {
     if (isDragging(session.seekSlider)) {
-      return settle(modifyFields(session, { seek: () => Seek.Scrubbing({ targetSeconds: value }) }));
+      return settle(
+        modifyFields(session, { seek: () => Seek.Scrubbing({ targetSeconds: value }) }),
+      );
     }
     return wasDragging
       ? settle(modifyFields(session, { seek: () => Seek.Settled({}) }))
@@ -638,7 +643,8 @@ const tellOfChoice =
       action === "SongDetails" ? OutMessage.RequestedSongDetails() : OutMessage.RequestedAlbum(),
   });
 
-const readMoreMenu = (model: Model) => Option.map(model.maybeSession, (session) => session.moreMenu);
+const readMoreMenu = (model: Model) =>
+  Option.map(model.maybeSession, (session) => session.moreMenu);
 
 const writeMoreMenu = (model: Model, nextMenu: Menu.Model): Model =>
   modifyFields(model, {
@@ -681,10 +687,7 @@ const gotSeekSliderMessage = (model: Model, message: Slider.Message): UpdateRetu
   const wasDragging = Option.exists(model.maybeSession, (session) =>
     isDragging(session.seekSlider),
   );
-  return Update.combine(model, [
-    foldSeekSlider(wasDragging)(message),
-    seekOnRelease(wasDragging),
-  ]);
+  return Update.combine(model, [foldSeekSlider(wasDragging)(message), seekOnRelease(wasDragging)]);
 };
 
 // THE ISLAND
@@ -784,11 +787,13 @@ const handle = (model: Model, message: Message) =>
     // NOTE: the control for the queue is on every face. On the queue's it
     // leads back to the song; on any other it leads to the queue.
     ClickedQueue: () =>
-      onSession((session) =>
-        turnTo(session, session.pane === "Queue" ? "Artwork" : "Queue"),
-      )(model),
+      onSession((session) => turnTo(session, session.pane === "Queue" ? "Artwork" : "Queue"))(
+        model,
+      ),
     ClickedDetails: () =>
-      onSession((session) => (session.pane === "Details" ? turnTo(session, "Artwork") : unchanged))(model),
+      onSession((session) => (session.pane === "Details" ? turnTo(session, "Artwork") : unchanged))(
+        model,
+      ),
     ClickedTryAgain: () => onSession(play)(model),
     PressedMediaKey: ({ key }) => onSession((session) => pressedMediaKey(session, key))(model),
     MovedMediaPosition: ({ positionSeconds }) =>

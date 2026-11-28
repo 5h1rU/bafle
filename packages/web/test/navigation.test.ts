@@ -53,7 +53,10 @@ const circle = role("button", { name: "Show navigation" });
 const circleTo = (section: string) => role("button", { name: `Go to ${section}` });
 
 /** New on screen with its first track playing: there is an island. */
-const withIsland: Model = after(onNew, Message.ClickedPlayTrack({ trackId: track.id, from: "New" }));
+const withIsland: Model = after(
+  onNew,
+  Message.ClickedPlayTrack({ trackId: track.id, from: "New" }),
+);
 
 /** The same, scrolled down: the menu has drawn back, and the island is in its row. */
 const drawnBack: Model = after(withIsland, Message.ScrolledDown());
@@ -240,7 +243,7 @@ describe("the navigation on screen", () => {
         navigation,
         // The item for where the listener is: gone as a link, its icon still drawn.
         see(role("link", { name: "New" })).toHaveClass("minimized:invisible"),
-        see(selector('a[aria-current] svg')).toHaveClass("minimized:visible"),
+        see(selector("a[aria-current] svg")).toHaveClass("minimized:visible"),
         // Search is its own control, and stays one.
         see(role("link", { name: "Search" })).not.toHaveClass("minimized:invisible"),
       ),

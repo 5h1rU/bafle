@@ -130,12 +130,10 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, view
       ...overlayAttributes,
     ],
     [
-      h.div(
-        [
-          h.Class(backdropClassName),
-          h.Style({ position: "absolute", inset: "0", ...follows(backdropFollows) }),
-        ],
-      ),
+      h.div([
+        h.Class(backdropClassName),
+        h.Style({ position: "absolute", inset: "0", ...follows(backdropFollows) }),
+      ]),
       h.div(
         [
           h.Id(scrollerId(id)),
@@ -156,7 +154,10 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, view
                   h.Style(contentStyles(id, swipe)),
                 ]),
                 stops: stopsView,
-                closeControl: childAttributes([h.Type("button"), h.OnClick(Message.ClickedClose())]),
+                closeControl: childAttributes([
+                  h.Type("button"),
+                  h.OnClick(Message.ClickedClose()),
+                ]),
                 isWhole: reach === "Whole",
               }),
             ],

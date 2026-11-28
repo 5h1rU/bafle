@@ -30,6 +30,9 @@ catalog:
   effect: ^4.1.5
   foldkit: ^0.170.0
   oxlint: ^1.95.0
+  # The formatter is pinned: another release may lay the same code out
+  # another way, and the check in CI would fail on code nobody changed.
+  oxfmt: 0.80.0
   playwright: 1.63.0
   tailwindcss: ^4.1.18
   thumbhash: ^0.1.1

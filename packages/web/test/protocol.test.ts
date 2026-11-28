@@ -152,7 +152,9 @@ it.live("the queries are answered over plain HTTP", () =>
     expect(
       yield* Catalog.StationDetail({ input: { stationId: fullStation.id }, requestId: "page:10" })
         .effect,
-    ).toEqual(Catalog.Message.SucceededStationDetail({ requestId: "page:10", result: fullStation }));
+    ).toEqual(
+      Catalog.Message.SucceededStationDetail({ requestId: "page:10", result: fullStation }),
+    );
   }).pipe(Effect.provide(connectedTo(WorkingCatalog))),
 );
 
@@ -254,8 +256,6 @@ it.live("a server that answers with an error page is an Unknown failure too", ()
       Catalog.Message.FailedNewMusic({ requestId: "page:0", failure: { _tag: "Unknown" } }),
     );
   }).pipe(
-    Effect.provide(
-      clientOver(() => Promise.resolve(new Response("Bad Gateway", { status: 502 }))),
-    ),
+    Effect.provide(clientOver(() => Promise.resolve(new Response("Bad Gateway", { status: 502 })))),
   ),
 );

@@ -18,15 +18,17 @@ test("a DOM failure before the first page mounts leaves a visible reload button"
     return createElement(tag, options);
   });
   const log = vi.spyOn(console, "error").mockImplementation(() => {});
-  const app = Runtime.embed(Runtime.makeApplication({
-    Model: Schema.String,
-    init: () => ({ model: "" }),
-    update: (model) => ({ model }),
-    view: (_model, h) => ({ title: "Opening Bafle", body: h.article([], []) }),
-    crash: { view: crashView },
-    container,
-    devTools: false,
-  }));
+  const app = Runtime.embed(
+    Runtime.makeApplication({
+      Model: Schema.String,
+      init: () => ({ model: "" }),
+      update: (model) => ({ model }),
+      view: (_model, h) => ({ title: "Opening Bafle", body: h.article([], []) }),
+      crash: { view: crashView },
+      container,
+      devTools: false,
+    }),
+  );
 
   try {
     await vi.waitFor(() => expect(host.querySelector("h1")?.textContent).toBe("Bafle stopped."));

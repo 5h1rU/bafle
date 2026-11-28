@@ -43,10 +43,7 @@ const pictureView = <M>(url: string, loading: PictureLoading, h: HtmlBuilder<M>)
   ]);
 
 export const missingPictureView = <M>(h: HtmlBuilder<M>): Html =>
-  h.div(
-    [h.Class("flex size-full items-center justify-center text-muted")],
-    [noteIcon("size-2/5")],
-  );
+  h.div([h.Class("flex size-full items-center justify-center text-muted")], [noteIcon("size-2/5")]);
 
 /**
  * A picture in a box that has its final size before the picture arrives: a
@@ -83,8 +80,7 @@ export const artworkView = <M>(
  * card of the artist a search found): a piece of its own over the picture,
  * clear at the top and the night under the words.
  */
-export const VEIL_CLASS =
-  "after:pointer-events-none after:absolute after:inset-0 after:bg-veil";
+export const VEIL_CLASS = "after:pointer-events-none after:absolute after:inset-0 after:bg-veil";
 
 /**
  * A picture at the size of a page's head, in a box that is never empty: the
@@ -192,8 +188,7 @@ const ident = (id: string): string =>
  * carries it at a time: the player's while the track is the one it holds,
  * else the one on the page on screen.
  */
-export const coverTransitionName = (trackId: TrackId): string =>
-  `track-cover-${ident(trackId)}`;
+export const coverTransitionName = (trackId: TrackId): string => `track-cover-${ident(trackId)}`;
 
 export const CHOOSE_TRACK = "choose-track";
 
@@ -244,14 +239,18 @@ export const pictureFlightStyle = (
 
 /** A section has no shared artwork. Each detail page has exactly one candidate. */
 export const routeArtwork = (route: AppRoute): Option.Option<string> =>
-  AppRoute.matchOrElse(route, {
-    Track: ({ trackId }) => Option.some(coverTransitionName(trackId)),
-    Album: ({ albumId }) => Option.some(pictureFlightName("Album", albumId)),
-    Artist: ({ artistId }) => Option.some(pictureFlightName("Artist", artistId)),
-    Playlist: ({ playlistId }) => Option.some(pictureFlightName("Playlist", playlistId)),
-    Genre: ({ genreId }) => Option.some(pictureFlightName("Genre", genreId)),
-    Station: ({ stationId }) => Option.some(pictureFlightName("Station", stationId)),
-  }, () => Option.none());
+  AppRoute.matchOrElse(
+    route,
+    {
+      Track: ({ trackId }) => Option.some(coverTransitionName(trackId)),
+      Album: ({ albumId }) => Option.some(pictureFlightName("Album", albumId)),
+      Artist: ({ artistId }) => Option.some(pictureFlightName("Artist", artistId)),
+      Playlist: ({ playlistId }) => Option.some(pictureFlightName("Playlist", playlistId)),
+      Genre: ({ genreId }) => Option.some(pictureFlightName("Genre", genreId)),
+      Station: ({ stationId }) => Option.some(pictureFlightName("Station", stationId)),
+    },
+    () => Option.none(),
+  );
 
 export const flightAttributes = <M>(style: Readonly<Record<string, string>>, h: HtmlBuilder<M>) =>
   style.viewTransitionName

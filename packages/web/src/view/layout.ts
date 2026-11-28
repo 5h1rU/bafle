@@ -150,5 +150,4 @@ export const pagePlaceView = (
   presence: Presence,
   page: ReadonlyArray<Html>,
   h: HtmlBuilder<Message>,
-): Html =>
-  h.div([h.Class(clsx("absolute inset-0", { invisible: presence === "Kept" }))], page);
+): Html => h.div([h.Class(clsx("absolute inset-0", { invisible: presence === "Kept" }))], page);

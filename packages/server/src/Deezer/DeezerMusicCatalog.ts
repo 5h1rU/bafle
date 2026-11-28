@@ -165,7 +165,9 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
      */
     const whole = <Item extends Schema.Top>(path: string, item: Item) => {
       type Items = ReadonlyArray<Item["Type"]>;
-      const from = (got: Items): Effect.Effect<Items, CatalogUnavailable, Item["DecodingServices"]> =>
+      const from = (
+        got: Items,
+      ): Effect.Effect<Items, CatalogUnavailable, Item["DecodingServices"]> =>
         read(path, pageOf(item), { index: got.length, limit: PAGE_SIZE }).pipe(
           Effect.flatMap((page) => {
             const items: Items = [...got, ...page.data];
@@ -360,17 +362,16 @@ export const DeezerMusicCatalog = MusicCatalog.toLayer(
         // it says it has, all of them are asked for.
         const first = answer.tracks?.data ?? [];
         const isWhole = answer.nb_tracks != null && first.length >= answer.nb_tracks;
-        const tracks = isWhole ? first : yield* whole(`/playlist/${playlistId}/tracks`, DeezerTrack);
+        const tracks = isWhole
+          ? first
+          : yield* whole(`/playlist/${playlistId}/tracks`, DeezerTrack);
         return toFullPlaylist(answer, tracks);
       }),
       genres: () => genres,
       genre: Effect.fn(function* ({ genreId, topTracks }) {
         // As with a track: an id that is no number was never one of Deezer's.
         if (!isOneOfDeezers(genreId)) return yield* new GenreNotFound({ genreId });
-        const answer = yield* read(
-          `/genre/${genreId}`,
-          Schema.Union([DeezerRefusal, DeezerGenre]),
-        );
+        const answer = yield* read(`/genre/${genreId}`, Schema.Union([DeezerRefusal, DeezerGenre]));
         if ("error" in answer) {
           if (answer.error.code === DEEZER_NO_DATA) return yield* new GenreNotFound({ genreId });
           yield* Effect.logWarning(`Deezer refused /genre/${genreId}`, answer.error);

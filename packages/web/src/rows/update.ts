@@ -87,5 +87,8 @@ export const informInputMethod = (
   model: Model,
   isByPointer: boolean,
 ): Update.Return<Model, Message> => ({
-  model: model.isAnimated === isByPointer ? model : modifyFields(model, { isAnimated: () => isByPointer }),
+  model:
+    model.isAnimated === isByPointer
+      ? model
+      : modifyFields(model, { isAnimated: () => isByPointer }),
 });

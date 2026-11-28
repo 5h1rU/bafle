@@ -56,7 +56,8 @@ describe("New", () => {
 describe("Genres", () => {
   test("on a phone", () => looksAs("genres-phone", { model: Models.genres, screen: "Phone" }));
 
-  test("on a desktop", () => looksAs("genres-desktop", { model: Models.genres, screen: "Desktop" }));
+  test("on a desktop", () =>
+    looksAs("genres-desktop", { model: Models.genres, screen: "Desktop" }));
 
   test("before the catalog has answered", () =>
     looksAs("genres-waiting-phone", { model: Models.genresWaiting, screen: "Phone" }));

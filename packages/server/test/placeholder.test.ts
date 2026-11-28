@@ -6,7 +6,11 @@ import { DeezerMusicCatalog } from "../src/Deezer/DeezerMusicCatalog.ts";
 import { likenessSourceOf, toArtwork } from "../src/Deezer/translate.ts";
 import { KeptRepliesInMemory } from "../src/Kept/KeptReplies.ts";
 import { artworksIn, withPlaceholders } from "../src/Placeholder/artworks.ts";
-import { type Picture, PicturePlaceholders, likenessOf } from "../src/Placeholder/PicturePlaceholders.ts";
+import {
+  type Picture,
+  PicturePlaceholders,
+  likenessOf,
+} from "../src/Placeholder/PicturePlaceholders.ts";
 import { PngUnreadable, decodePng } from "../src/Placeholder/png.ts";
 import { MusicCatalog } from "@bafle/domain/Catalog/MusicCatalog.external";
 import { fakeDeezer, stocked } from "./deezer.ts";
@@ -33,7 +37,10 @@ const deflate = async (data: Uint8Array<ArrayBuffer>): Promise<Uint8Array> => {
 const chunk = (type: string, body: Uint8Array): Uint8Array => {
   const out = new Uint8Array(12 + body.length);
   new DataView(out.buffer).setUint32(0, body.length);
-  out.set([...type].map((letter) => letter.charCodeAt(0)), 4);
+  out.set(
+    [...type].map((letter) => letter.charCodeAt(0)),
+    4,
+  );
   out.set(body, 8);
   // The checksum is not read: four bytes of nothing stand in for it.
   return out;
@@ -49,7 +56,8 @@ const writePng = async (
 ): Promise<Uint8Array> => {
   const stride = width * channels;
   const raw = new Uint8Array(height * stride);
-  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) raw.set(pixel(x, y), y * stride + x * channels);
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) raw.set(pixel(x, y), y * stride + x * channels);
   const filtered = new Uint8Array(height * (stride + 1));
   for (let y = 0; y < height; y++) {
     const filter = filterOf(y);
@@ -82,7 +90,9 @@ const gradient = (x: number, y: number) => [x * 7, y * 5, (x * y) % 256];
 
 it.effect("a PNG is read whatever filters its rows were written with", () =>
   Effect.gen(function* () {
-    const png = yield* Effect.promise(() => writePng(9, 10, 3, gradient, (row) => FILTERS[row % 5] ?? 0));
+    const png = yield* Effect.promise(() =>
+      writePng(9, 10, 3, gradient, (row) => FILTERS[row % 5] ?? 0),
+    );
     const pixels = yield* decodePng(png);
     expect([pixels.width, pixels.height]).toEqual([9, 10]);
     expect(Array.from(pixels.rgba.subarray(0, 4))).toEqual([0, 0, 0, 255]);
@@ -94,7 +104,13 @@ it.effect("a PNG is read whatever filters its rows were written with", () =>
 it.effect("a PNG with an opacity of its own keeps it", () =>
   Effect.gen(function* () {
     const png = yield* Effect.promise(() =>
-      writePng(4, 4, 4, (x, y) => [...gradient(x, y), 40 * x], () => 4),
+      writePng(
+        4,
+        4,
+        4,
+        (x, y) => [...gradient(x, y), 40 * x],
+        () => 4,
+      ),
     );
     const pixels = yield* decodePng(png);
     expect(Array.from(pixels.rgba.subarray(12, 16))).toEqual([...gradient(3, 0), 120]);
@@ -121,13 +137,25 @@ it.effect("bytes that are no PNG, or a PNG of another kind, cannot be read, and 
 it.effect("a likeness keeps the colour of the picture it is of", () =>
   Effect.gen(function* () {
     const terracotta = [200, 90, 60];
-    const png = yield* Effect.promise(() => writePng(32, 32, 3, () => terracotta, () => 1));
+    const png = yield* Effect.promise(() =>
+      writePng(
+        32,
+        32,
+        3,
+        () => terracotta,
+        () => 1,
+      ),
+    );
     const likeness = yield* likenessOf(png);
     // A ThumbHash of a few dozen bytes, in base64.
     expect(likeness.length).toBeLessThan(64);
-    const average = thumbHashToAverageRGBA(Uint8Array.from(atob(likeness), (letter) => letter.charCodeAt(0)));
+    const average = thumbHashToAverageRGBA(
+      Uint8Array.from(atob(likeness), (letter) => letter.charCodeAt(0)),
+    );
     const drawn = [average.r, average.g, average.b].map((value) => Math.round(value * 255));
-    drawn.forEach((value, channel) => expect(Math.abs(value - (terracotta[channel] ?? 0))).toBeLessThanOrEqual(3));
+    drawn.forEach((value, channel) =>
+      expect(Math.abs(value - (terracotta[channel] ?? 0))).toBeLessThanOrEqual(3),
+    );
   }),
 );
 
@@ -137,7 +165,12 @@ it("a Deezer picture's likeness is worked out from the same picture, 32 pixels a
   const artwork = toArtwork(cover(250, "jpg"), cover(500, "jpg"), cover(1000, "jpg"));
   expect(artwork && likenessSourceOf(artwork)).toBe(cover(32, "png"));
   expect(
-    likenessSourceOf({ small: "https://cdn.test/1/250.jpg", medium: "", large: "", placeholder: null }),
+    likenessSourceOf({
+      small: "https://cdn.test/1/250.jpg",
+      medium: "",
+      large: "",
+      placeholder: null,
+    }),
   ).toBeNull();
 });
 
@@ -150,7 +183,10 @@ it("every picture of a reply is found, in the order its page draws them, and giv
   });
   const reply = {
     picture: picture("genre"),
-    topTracks: [{ title: "One", album: { cover: picture("one") } }, { title: "Two", album: { cover: null } }],
+    topTracks: [
+      { title: "One", album: { cover: picture("one") } },
+      { title: "Two", album: { cover: null } },
+    ],
     albums: [{ title: "Three", cover: picture("three") }],
   };
   expect(artworksIn(reply).map((artwork) => artwork.small)).toEqual([
@@ -159,43 +195,53 @@ it("every picture of a reply is found, in the order its page draws them, and giv
     "https://img.test/three/small",
   ]);
 
-  const pictured = withPlaceholders(reply, new Map([["https://img.test/one/small", "1QcSHQRnh493V4dIh4eXh1h4kJUI"]]));
+  const pictured = withPlaceholders(
+    reply,
+    new Map([["https://img.test/one/small", "1QcSHQRnh493V4dIh4eXh1h4kJUI"]]),
+  );
   expect(pictured.topTracks[0]?.album.cover?.placeholder).toBe("1QcSHQRnh493V4dIh4eXh1h4kJUI");
   expect(pictured.picture.placeholder).toBeNull();
   expect(pictured.topTracks[1]).toEqual(reply.topTracks[1]);
 });
 
-it.effect("every reply of the catalog carries the likenesses that are known, asked for in the order of its page", () => {
-  const asked: Array<ReadonlyArray<Picture>> = [];
-  const Likenesses = Layer.succeed(PicturePlaceholders, {
-    likenesses: (pictures) =>
-      Effect.sync(() => {
-        asked.push(pictures);
-        return new Map(pictures.slice(0, 1).map((picture) => [picture.key, "known"] as const));
-      }),
-  });
-  // Deezer's pictures, at addresses of the shape its image server has: a likeness has a source.
-  const deezer = fakeDeezer(
-    JSON.parse(
-      JSON.stringify(stocked).replaceAll(
-        /https:\/\/cdn\.test\/(\d+)\/(\d+)\.jpg/g,
-        "https://cdn-images.dzcdn.net/images/cover/$1/$2x$2-000000-80-0-0.jpg",
+it.effect(
+  "every reply of the catalog carries the likenesses that are known, asked for in the order of its page",
+  () => {
+    const asked: Array<ReadonlyArray<Picture>> = [];
+    const Likenesses = Layer.succeed(PicturePlaceholders, {
+      likenesses: (pictures) =>
+        Effect.sync(() => {
+          asked.push(pictures);
+          return new Map(pictures.slice(0, 1).map((picture) => [picture.key, "known"] as const));
+        }),
+    });
+    // Deezer's pictures, at addresses of the shape its image server has: a likeness has a source.
+    const deezer = fakeDeezer(
+      JSON.parse(
+        JSON.stringify(stocked).replaceAll(
+          /https:\/\/cdn\.test\/(\d+)\/(\d+)\.jpg/g,
+          "https://cdn-images.dzcdn.net/images/cover/$1/$2x$2-000000-80-0-0.jpg",
+        ),
       ),
-    ),
-  );
-  const layer = DeezerMusicCatalog.pipe(
-    Layer.provide(Layer.mergeAll(deezer.layer, Likenesses, KeptRepliesInMemory)),
-  );
+    );
+    const layer = DeezerMusicCatalog.pipe(
+      Layer.provide(Layer.mergeAll(deezer.layer, Likenesses, KeptRepliesInMemory)),
+    );
 
-  return Effect.gen(function* () {
-    const catalog = yield* MusicCatalog;
-    const featured = yield* catalog.featured();
-    expect(asked).toHaveLength(1);
-    const first = artworksIn(featured)[0];
-    expect(first?.placeholder).toBe("known");
-    expect(asked[0]?.[0]?.key).toBe(first?.small);
-    expect(asked[0]?.[0]?.source).toMatch(/\/32x32-000000-80-0-0\.png$/);
-    // Only the first was known: the others are drawn as they always were.
-    expect(artworksIn(featured).slice(1).every((artwork) => artwork.placeholder === null)).toBe(true);
-  }).pipe(Effect.provide(layer));
-});
+    return Effect.gen(function* () {
+      const catalog = yield* MusicCatalog;
+      const featured = yield* catalog.featured();
+      expect(asked).toHaveLength(1);
+      const first = artworksIn(featured)[0];
+      expect(first?.placeholder).toBe("known");
+      expect(asked[0]?.[0]?.key).toBe(first?.small);
+      expect(asked[0]?.[0]?.source).toMatch(/\/32x32-000000-80-0-0\.png$/);
+      // Only the first was known: the others are drawn as they always were.
+      expect(
+        artworksIn(featured)
+          .slice(1)
+          .every((artwork) => artwork.placeholder === null),
+      ).toBe(true);
+    }).pipe(Effect.provide(layer));
+  },
+);

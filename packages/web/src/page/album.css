@@ -32,25 +32,48 @@
   /* NOTE: the timeline is measured against the whole of the page's box. Left
      to itself it would be measured inside the page's `scroll-padding`, which
      is the bar's height, and every place below would be that much out. */
-  .album-hero { view-timeline: --album-cover block; view-timeline-inset: 0; }
-  .album-detail { timeline-scope: --album-cover; }
-  .album-toolbar::before, .album-compact > *,
-  .album-hero, .album-hero .album-cover, .album-hero::after, .album-caption {
+  .album-hero {
+    view-timeline: --album-cover block;
+    view-timeline-inset: 0;
+  }
+  .album-detail {
+    timeline-scope: --album-cover;
+  }
+  .album-toolbar::before,
+  .album-compact > *,
+  .album-hero,
+  .album-hero .album-cover,
+  .album-hero::after,
+  .album-caption {
     animation-timing-function: linear;
     animation-fill-mode: both;
     animation-timeline: --album-cover;
     animation-range: exit 0% exit calc(100% - var(--spacing-album-bar));
   }
-  .album-toolbar::before, .album-compact > * {
+  .album-toolbar::before,
+  .album-compact > * {
     animation-name: album-bar-takes-over;
     animation-timing-function: steps(1, end);
   }
-  @keyframes album-bar-takes-over { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes album-bar-takes-over {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 
   @media (prefers-reduced-motion: no-preference) {
-    .album-hero { animation-name: album-ground-turns; }
-    .album-hero .album-cover { animation-name: album-cover-draws-back; }
-    .album-hero::after { animation-name: album-veil-lifts; }
+    .album-hero {
+      animation-name: album-ground-turns;
+    }
+    .album-hero .album-cover {
+      animation-name: album-cover-draws-back;
+    }
+    .album-hero::after {
+      animation-name: album-veil-lifts;
+    }
     .album-caption {
       /* How small the head's words are when they reach the bar, and how far
          across they have gone: to where the bar's title stands, past the
@@ -71,8 +94,13 @@
     }
   }
   @keyframes album-ground-turns {
-    0%, 68% { background-color: var(--color-night); }
-    100% { background-color: var(--color-panel); }
+    0%,
+    68% {
+      background-color: var(--color-night);
+    }
+    100% {
+      background-color: var(--color-panel);
+    }
   }
   /* At its own size, growing dim, and clear well before the strip at the
      head's foot is the bar. It is never put anywhere else: it goes, and the
@@ -86,20 +114,46 @@
      the top of the screen and drop back. A thumbnail that is the bar's from
      the start stands where the bar stands, and cannot be anywhere else. */
   @keyframes album-cover-draws-back {
-    0% { opacity: 1; }
-    80%, 100% { opacity: 0; }
+    0% {
+      opacity: 1;
+    }
+    80%,
+    100% {
+      opacity: 0;
+    }
   }
-  @keyframes album-veil-lifts { 0%, 60% { opacity: 1; } 80%, 100% { opacity: 0; } }
+  @keyframes album-veil-lifts {
+    0%,
+    60% {
+      opacity: 1;
+    }
+    80%,
+    100% {
+      opacity: 0;
+    }
+  }
   @keyframes album-caption-rises {
-    0%, 10% { transform: none; opacity: 1; }
-    64% { opacity: 1; }
-    86%, 100% {
+    0%,
+    10% {
+      transform: none;
+      opacity: 1;
+    }
+    64% {
+      opacity: 1;
+    }
+    86%,
+    100% {
       transform: translateX(var(--album-caption-shift)) scale(var(--album-caption-lands-at));
       opacity: 0;
     }
   }
   @keyframes album-compact-title-comes {
-    0%, 84% { opacity: 0; }
-    100% { opacity: 1; }
+    0%,
+    84% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
   }
 }
