@@ -46,6 +46,8 @@ export const Message = defineMessageUnion({
   GotAboutMessage: { message: Popover.Message },
   ScrolledDown: {},
   ScrolledToTop: {},
+  /** How far down from its top the page gone back to stands, as it takes the screen. */
+  MeasuredReturnedPage: { top: Schema.Number },
   ClickedShowNavigation: {},
   /** One of the two arrows of a row that goes on sideways: it turns the row a screenful that way. */
   ClickedTurnRow: { rowId: Schema.String, way: TurnWay },

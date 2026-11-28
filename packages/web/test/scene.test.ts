@@ -21,6 +21,7 @@ import {
   FocusPage,
   FocusSearchField,
   FocusTrackRow,
+  MeasureReturnedPage,
   NavigateInternal,
   ReplaceSearchTerm,
   ShowSearchFromTop,
@@ -296,6 +297,7 @@ describe("B: a page reached through the browser's history", () => {
       Subscription.emit(changedUrl("/")),
       inside(onScreen, see(pageTitle("Home")).toExist(), see(text("Discovery")).toExist()),
       Command.resolve(Catalog.HomeFeed, reply.home(nextId(onNew))),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
     ));
 
   test("one it does not hold keeps the page on screen, its item busy, until it loads", () =>
@@ -879,6 +881,7 @@ describe("A1: the row shows that its track is loading", () => {
       ),
       expectAll(all.selector("svg.animate-spin")).toHaveCount(0),
       Command.resolve(Catalog.HomeFeed, reply.home(nextId(openingTrack))),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
     ));
 
   test("choosing another row clears the first: one row loads at a time, and none says it failed", () =>
@@ -1279,6 +1282,7 @@ describe("rule f: the pages behind the one on screen are kept, and hidden", () =
       see(selector("#new-page[inert]")).toExist(),
       expectAll(pages).toHaveCount(2),
       Command.resolve(Catalog.HomeFeed, reply.home(nextId(onNew))),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
     ));
 
   test("back from a track, the list is the page on screen again and the track's page is gone", () =>
@@ -1293,6 +1297,7 @@ describe("rule f: the pages behind the one on screen are kept, and hidden", () =
       see(destination("New")).toHaveAttr("aria-current", "page"),
       // The focus goes back to the row the track was opened from.
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.NewMusic, reply.newMusic(nextId(onTrack))),
     ));
 

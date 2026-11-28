@@ -21,6 +21,7 @@ import {
   FocusPage,
   FocusStationTile,
   FocusTrackRow,
+  MeasureReturnedPage,
   NavigateInternal,
 } from "../src/command.ts";
 import { update, viewTransition } from "../src/main.ts";
@@ -402,6 +403,7 @@ describe("a station's tile leads to the station's page", () => {
       Subscription.emit(changedUrl("/radio")),
       Command.expectHas(FocusStationTile),
       Command.resolve(FocusStationTile, Message.CompletedFocusStationTile()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.StationList, reply.radio(nextId(onStation))),
       inside(onScreen, see(pageTitle("Radio")).toExist()),
       see(selector("#station-page")).toBeAbsent(),
@@ -573,8 +575,9 @@ describe("rule 9: the pages around a station are found as they were left", () =>
       // Back from the song, the station is the page on screen again, not built anew.
       Subscription.emit(changedUrl(stationPath(station.id))),
       // The station is not asked for again: it would be dealt other songs.
-      Command.expectExact(FocusTrackRow),
+      Command.expectExact(FocusTrackRow, MeasureReturnedPage),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       inside(onScreen, see(pageTitle("French House")).toExist()),
       see(keptStation).toBeAbsent(),
       see(selector("#track-page")).toBeAbsent(),

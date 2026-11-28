@@ -129,6 +129,30 @@ describe("the navigation draws back as a page goes down, and comes out again", (
     expect(after(onDetails, changedUrl("/new")).navigation).toBe("Minimized");
   });
 
+  test("a page gone back to finds it as it was left beside it, whatever the pages between did with it", () => {
+    // Forward to a section brought the menu out; Back finds New scrolled down where it was left.
+    const onDetails = after(
+      drawnBack,
+      clickedLink(trackPath(explicitTrack.id)),
+      arrived(reply.track(nextId(drawnBack), bareTrack)),
+      changedUrl(trackPath(explicitTrack.id)),
+      Message.ScrolledToTop(),
+    );
+    expect(onDetails.navigation).toBe("Open");
+    const back = update(onDetails, changedUrl("/new"));
+    expect(back.model.route._tag).toBe("New");
+    expect((back.commands ?? []).map((command) => command.name)).toContain("MeasureReturnedPage");
+    expect(after(back.model, Message.MeasuredReturnedPage({ top: 900 })).navigation).toBe(
+      "Minimized",
+    );
+    expect(after(back.model, Message.MeasuredReturnedPage({ top: 0 })).navigation).toBe("Open");
+    // A page arrived at is not measured: a section chosen shows the menu whole.
+    const chosen = update(drawnBack, clickedLink("/"));
+    expect((chosen.commands ?? []).map((command) => command.name)).not.toContain(
+      "MeasureReturnedPage",
+    );
+  });
+
   test("the expanded player has no navigation under it: scrolling it changes nothing for the page behind", () => {
     expect(expanded.navigation).toBe("Minimized");
     expect(after(expanded, Message.ScrolledToTop()).navigation).toBe("Minimized");

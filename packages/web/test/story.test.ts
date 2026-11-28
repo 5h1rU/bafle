@@ -11,6 +11,7 @@ import {
   FocusSearchField,
   FocusTrackRow,
   LetGoOfSearchField,
+  MeasureReturnedPage,
   NavigateBack,
   NavigateInternal,
   PaintSystemBar,
@@ -958,8 +959,12 @@ describe("B: the browser moved the URL first, so only the screen can be held", (
         expect(model.home).toEqual(HomeData.Refreshing({ data: featured }));
       }),
       // The browser moved the URL itself: the app asks nothing of the history.
-      Command.expectExact(Catalog.HomeFeed({ input: {}, requestId: nextId(onNew) })),
+      Command.expectExact(
+        Catalog.HomeFeed({ input: {}, requestId: nextId(onNew) }),
+        MeasureReturnedPage({ pageId: PAGE_IDS.Home }),
+      ),
       Command.resolve(Catalog.HomeFeed, reply.home(nextId(onNew), featuredLater)),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       model((model) => expect(model.home).toEqual(HomeData.Success({ data: featuredLater }))),
     ));
 
@@ -1615,8 +1620,10 @@ describe("the page behind", () => {
       Command.expectExact(
         Catalog.NewMusic({ input: {}, requestId: nextId(onTrack) }),
         FocusTrackRow({ pageId: PAGE_IDS.New, trackId: track.id }),
+        MeasureReturnedPage({ pageId: PAGE_IDS.New }),
       ),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.NewMusic, reply.newMusic(nextId(onTrack))),
     ));
 
@@ -1642,8 +1649,10 @@ describe("the page behind", () => {
       Command.expectExact(
         Catalog.CatalogSearch({ input: { term: "daft" }, requestId: nextId(onTrackFromSearch) }),
         FocusTrackRow({ pageId: PAGE_IDS.Search, trackId: track.id }),
+        MeasureReturnedPage({ pageId: PAGE_IDS.Search }),
       ),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.CatalogSearch, reply.search(nextId(onTrackFromSearch))),
     );
   });
@@ -1697,8 +1706,10 @@ describe("the page behind", () => {
       Command.expectExact(
         Catalog.CatalogSearch({ input: { term: "daft" }, requestId: nextId(backOnTrack) }),
         FocusTrackRow({ pageId: PAGE_IDS.Search, trackId: track.id }),
+        MeasureReturnedPage({ pageId: PAGE_IDS.Search }),
       ),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.CatalogSearch, reply.search(nextId(backOnTrack))),
     );
   });
@@ -1716,8 +1727,12 @@ describe("the page behind", () => {
       Command.resolve(Catalog.CatalogSearch, reply.search(nextId(backOnTrack))),
       model((model) => expect(model.route).toEqual(searchFor("daft"))),
       // As when the list is there at once: the row, not the field.
-      Command.expectExact(FocusTrackRow({ pageId: PAGE_IDS.Search, trackId: track.id })),
+      Command.expectExact(
+        FocusTrackRow({ pageId: PAGE_IDS.Search, trackId: track.id }),
+        MeasureReturnedPage({ pageId: PAGE_IDS.Search }),
+      ),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
     );
   });
 

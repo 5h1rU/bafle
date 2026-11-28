@@ -21,6 +21,7 @@ import {
   FocusPage,
   FocusPlaylistTile,
   FocusTrackRow,
+  MeasureReturnedPage,
   NavigateInternal,
 } from "../src/command.ts";
 import { update, viewTransition } from "../src/main.ts";
@@ -432,6 +433,7 @@ describe("rule 9: the pages around a playlist are found as they were left", () =
       Subscription.emit(changedUrl("/")),
       Command.expectHas(FocusPlaylistTile),
       Command.resolve(FocusPlaylistTile, Message.CompletedFocusPlaylistTile()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.HomeFeed, reply.home(nextId(onPlaylist))),
       inside(onScreen, see(pageTitle("Home")).toExist()),
       see(selector("#playlist-page")).toBeAbsent(),
@@ -456,6 +458,7 @@ describe("rule 9: the pages around a playlist are found as they were left", () =
       // Back from the song, the playlist is the page on screen again, not built anew.
       Subscription.emit(changedUrl(playlistPath(playlist.id))),
       Command.resolve(FocusTrackRow, Message.CompletedFocusTrackRow()),
+      Command.resolve(MeasureReturnedPage, Message.MeasuredReturnedPage({ top: 0 })),
       Command.resolve(Catalog.PlaylistDetail, reply.playlist(nextId(onSongFromPlaylist))),
       inside(onScreen, see(pageTitle("French Touch")).toExist()),
       see(keptPlaylist).toBeAbsent(),

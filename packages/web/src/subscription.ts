@@ -139,10 +139,15 @@ const wentDown = (pageId: string): Stream.Stream<Message> =>
     ),
   );
 
-const reachedTop: Stream.Stream<Message> = pagePositions.pipe(
-  Stream.filter(isAtTop),
-  Stream.map(() => Message.ScrolledToTop()),
-);
+// NOTE: only the page on screen. A page kept behind it is still in the
+// document, and one that scrolls there (a browser putting it back as it
+// draws it, or the app bringing a row of it into view) brought the menu out
+// over a page scrolled far down.
+const reachedTop = (pageId: string): Stream.Stream<Message> =>
+  pagePositions.pipe(
+    Stream.filter((position) => position.pageId === pageId && isAtTop(position)),
+    Stream.map(() => Message.ScrolledToTop()),
+  );
 
 /**
  * A finger dragging Search's page while its field has the focus, anywhere
@@ -257,7 +262,7 @@ const navigationSubscriptions = Subscription.make<Model, Message>()((entry) => (
         pageId: pageIdOf(model.route),
       }),
       dependenciesToStream: ({ isMinimized, pageId }) =>
-        isMinimized ? reachedTop : wentDown(pageId),
+        isMinimized ? reachedTop(pageId) : wentDown(pageId),
     },
   ),
 }));
