@@ -53,10 +53,15 @@ export const toArtwork = (picture: AudiusPicture): Artwork | null => {
       };
 };
 
-// NOTE: Audius draws its pictures as JPEG and at its three sizes only, and
-// the server works a likeness out of a PNG alone (`Placeholder/png.ts`), so
-// no picture of Audius's has a likeness yet: it is drawn on the ground of
-// its box until it comes, as a picture whose likeness is not known is.
+/**
+ * Where a picture's likeness is worked out from: its smallest rendition, 150
+ * pixels a side. Audius draws JPEG only and at its three sizes only, so the
+ * server has it drawn again as a small PNG (`smallPngOf` in
+ * `Placeholder/PicturePlaceholders.ts`). An address that is not on Audius's
+ * own node is not one of its pictures, and has none.
+ */
+export const likenessSourceOf = (artwork: Artwork): string | null =>
+  artwork.small.startsWith(`${AUDIUS_PICTURES}/content/`) ? artwork.small : null;
 
 /** Whether the artist marked it explicit on upload. */
 const isExplicit = (warning: string | null | undefined): boolean =>

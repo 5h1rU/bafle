@@ -2,6 +2,11 @@ import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { thumbHashToAverageRGBA } from "thumbhash";
+import {
+  AUDIUS_PICTURES,
+  toArtwork as audiusArtwork,
+  likenessSourceOf as audiusLikenessSourceOf,
+} from "../src/Audius/translate.ts";
 import { DeezerMusicCatalog } from "../src/Deezer/DeezerMusicCatalog.ts";
 import { likenessSourceOf, toArtwork } from "../src/Deezer/translate.ts";
 import { KeptRepliesInMemory } from "../src/Kept/KeptReplies.ts";
@@ -9,7 +14,9 @@ import { artworksIn, withPlaceholders } from "../src/Placeholder/artworks.ts";
 import {
   type Picture,
   PicturePlaceholders,
+  isPng,
   likenessOf,
+  smallPngOf,
 } from "../src/Placeholder/PicturePlaceholders.ts";
 import { PngUnreadable, decodePng } from "../src/Placeholder/png.ts";
 import { MusicCatalog } from "@bafle/domain/Catalog/MusicCatalog.external";
@@ -158,6 +165,50 @@ it.effect("a likeness keeps the colour of the picture it is of", () =>
     );
   }),
 );
+
+/** The first bytes of a JPEG, which is all Audius draws. */
+const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+
+it.effect("a PNG is read as it comes, and any other picture is drawn small as one first", () =>
+  Effect.gen(function* () {
+    const png = yield* Effect.promise(() => writePng(4, 4, 3, gradient, () => 0));
+    const drawn: Array<Uint8Array> = [];
+    const drawSmall = (bytes: Uint8Array) =>
+      Effect.sync(() => {
+        drawn.push(bytes);
+        return png;
+      });
+    expect([isPng(png), isPng(JPEG), isPng(new Uint8Array())]).toEqual([true, false, false]);
+
+    expect(yield* smallPngOf(png, drawSmall)).toBe(png);
+    expect(drawn).toEqual([]);
+
+    const fromJpeg = yield* smallPngOf(JPEG, drawSmall);
+    expect(drawn).toEqual([JPEG]);
+    expect((yield* likenessOf(fromJpeg)).length).toBeGreaterThan(0);
+  }),
+);
+
+it("an Audius picture's likeness is worked out from its smallest JPEG, on Audius's own node", () => {
+  const picture = (node: string) =>
+    audiusArtwork({
+      "150x150": `${node}/content/cid/150x150.jpg`,
+      "480x480": `${node}/content/cid/480x480.jpg`,
+      "1000x1000": `${node}/content/cid/1000x1000.jpg`,
+    });
+  const onAnyNode = picture("https://node-9.audius.test");
+  expect(onAnyNode && audiusLikenessSourceOf(onAnyNode)).toBe(
+    `${AUDIUS_PICTURES}/content/cid/150x150.jpg`,
+  );
+  expect(
+    audiusLikenessSourceOf({
+      small: "https://elsewhere.test/cover.jpg",
+      medium: "https://elsewhere.test/cover.jpg",
+      large: "https://elsewhere.test/cover.jpg",
+      placeholder: null,
+    }),
+  ).toBeNull();
+});
 
 it("a Deezer picture's likeness is worked out from the same picture, 32 pixels a side, as a PNG", () => {
   const cover = (size: number, extension: string) =>

@@ -22,6 +22,11 @@ import {
 import { AUDIUS_API, genreIdOf } from "../src/Audius/translate.ts";
 import { KeptRepliesInMemory } from "../src/Kept/KeptReplies.ts";
 import {
+  NoPicturePlaceholders,
+  type Picture,
+  PicturePlaceholders,
+} from "../src/Placeholder/PicturePlaceholders.ts";
+import {
   type Route,
   audiusAlbum,
   audiusAlbumTrack,
@@ -40,8 +45,11 @@ const TOKEN = "token-of-bafle";
 const environment = (env: Record<string, string>) =>
   ConfigProvider.layer(ConfigProvider.fromEnvRecord(env));
 
-/** The catalog, read from a fake Audius, as Bafle's app. */
-const catalogOver = (routes: ReadonlyArray<Route>) => {
+/** The catalog, read from a fake Audius, as Bafle's app, with `placeholders` for its pictures. */
+const catalogOver = (
+  routes: ReadonlyArray<Route>,
+  placeholders: Layer.Layer<PicturePlaceholders> = NoPicturePlaceholders,
+) => {
   const audius = fakeAudius(routes);
   return {
     audius,
@@ -50,6 +58,7 @@ const catalogOver = (routes: ReadonlyArray<Route>) => {
         Layer.mergeAll(
           audius.layer,
           KeptRepliesInMemory,
+          placeholders,
           environment({ AUDIUS_BEARER_TOKEN: TOKEN }),
         ),
       ),
@@ -234,12 +243,44 @@ it.effect("every question carries the bearer token of Bafle's app", () => {
 
 it.effect("a catalog with no bearer token cannot be built", () => {
   const layer = AudiusMusicCatalog.pipe(
-    Layer.provide(Layer.mergeAll(fakeAudius([]).layer, KeptRepliesInMemory, environment({}))),
+    Layer.provide(
+      Layer.mergeAll(
+        fakeAudius([]).layer,
+        KeptRepliesInMemory,
+        NoPicturePlaceholders,
+        environment({}),
+      ),
+    ),
   );
   return Effect.gen(function* () {
     const failure = yield* Layer.build(layer).pipe(Effect.scoped, Effect.flip);
     expect(String(failure)).toContain("AUDIUS_BEARER_TOKEN");
   });
+});
+
+it.effect("each picture is given its likeness, worked out from its smallest JPEG", () => {
+  const asked: Array<Picture> = [];
+  const placeholders = Layer.succeed(PicturePlaceholders, {
+    likenesses: (pictures) =>
+      Effect.sync(() => {
+        asked.push(...pictures);
+        return new Map([[artwork("jack").small, "likeness-of-jack"]]);
+      }),
+  });
+  const { layer } = catalogOver(
+    [{ path: "/tracks/1174250038", answer: data(audiusTrack) }],
+    placeholders,
+  );
+  return Effect.gen(function* () {
+    const catalog = yield* MusicCatalog;
+    const track = yield* catalog.track({ trackId: TrackId.make("1174250038") });
+    expect(track.album.cover?.placeholder).toBe("likeness-of-jack");
+    expect(track.artists[0]?.picture?.placeholder).toBeNull();
+    expect(asked).toEqual([
+      { key: artwork("jack").small, source: artwork("jack").small },
+      { key: artwork("raar").small, source: artwork("raar").small },
+    ]);
+  }).pipe(Effect.provide(layer));
 });
 
 it.effect("track: one track in full", () => {

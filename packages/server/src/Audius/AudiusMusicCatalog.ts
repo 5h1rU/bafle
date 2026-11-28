@@ -22,6 +22,8 @@ import * as Random from "effect/Random";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 import { KeptReplies } from "../Kept/KeptReplies.ts";
+import { artworksIn, withPlaceholders } from "../Placeholder/artworks.ts";
+import { PicturePlaceholders } from "../Placeholder/PicturePlaceholders.ts";
 import {
   AudiusGenreCount,
   AudiusPlaylist,
@@ -36,6 +38,7 @@ import {
   type AudiusGenre,
   genreOf,
   genresByCount,
+  likenessSourceOf,
   stationOf,
   toAlbum,
   toArtist,
@@ -116,7 +119,23 @@ export const AudiusMusicCatalog = MusicCatalog.toLayer(
   Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
     const replies = yield* KeptReplies;
+    const placeholders = yield* PicturePlaceholders;
     const token = yield* AUDIUS_BEARER_TOKEN;
+
+    /**
+     * A reply with the likeness of each of its pictures that is known
+     * (`placeholder` on `Artwork`), so that the app draws it where the picture
+     * goes until the picture comes. A reply never fails for want of one.
+     */
+    const pictured = <Reply>(reply: Reply) =>
+      placeholders
+        .likenesses(
+          artworksIn(reply).flatMap((artwork) => {
+            const source = likenessSourceOf(artwork);
+            return source === null ? [] : [{ key: artwork.small, source }];
+          }),
+        )
+        .pipe(Effect.map((likenesses) => withPlaceholders(reply, likenesses)));
 
     type Params = Record<string, string | number | boolean>;
 
@@ -299,7 +318,7 @@ export const AudiusMusicCatalog = MusicCatalog.toLayer(
         Effect.map((found) => found?.data[0] ?? null),
       );
 
-    return {
+    const catalog = {
       featured: () => featured,
       trending: () => trending,
       search: ({ term, limit }) =>
@@ -413,6 +432,23 @@ export const AudiusMusicCatalog = MusicCatalog.toLayer(
         const dealt = Array.take(yield* Random.shuffle(asked.dealsFrom), tracks);
         return toFullStation(window, genre, asked.week ?? asked.dealsFrom, dealt);
       }),
+    } satisfies MusicCatalog["Service"];
+
+    // NOTE: the likenesses are added to each reply as it leaves, and not to
+    // what is kept: a list is kept for a while, and the likenesses worked
+    // out meanwhile reach it on the next visit.
+    return {
+      featured: () => catalog.featured().pipe(Effect.flatMap(pictured)),
+      trending: () => catalog.trending().pipe(Effect.flatMap(pictured)),
+      search: (args) => catalog.search(args).pipe(Effect.flatMap(pictured)),
+      track: (args) => catalog.track(args).pipe(Effect.flatMap(pictured)),
+      album: (args) => catalog.album(args).pipe(Effect.flatMap(pictured)),
+      artist: (args) => catalog.artist(args).pipe(Effect.flatMap(pictured)),
+      playlist: (args) => catalog.playlist(args).pipe(Effect.flatMap(pictured)),
+      genres: () => catalog.genres().pipe(Effect.flatMap(pictured)),
+      genre: (args) => catalog.genre(args).pipe(Effect.flatMap(pictured)),
+      stations: () => catalog.stations().pipe(Effect.flatMap(pictured)),
+      station: (args) => catalog.station(args).pipe(Effect.flatMap(pictured)),
     };
   }),
 );

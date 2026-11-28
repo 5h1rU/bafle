@@ -17,12 +17,15 @@ import { PicturePlaceholdersKV } from "./Placeholder/PicturePlaceholders.ts";
  * (`DeezerMusicCatalog` is the other one there is: Deezer stopped letting its
  * audio be played outside its own apps.)
  */
-// NOTE: Audius's pictures have no likeness yet (`toArtwork` in
-// `Audius/translate.ts`), so its catalog asks nothing of
-// `PicturePlaceholdersKV`. It stays provided for an adapter that does.
 const Catalog = AudiusMusicCatalog.pipe(
   Layer.provide(Layer.mergeAll(PicturePlaceholdersKV, KeptRepliesKV)),
-  Layer.provide(Layer.mergeAll(FetchHttpClient.layer, Cloudflare.KV.ReadWriteNamespaceBinding)),
+  Layer.provide(
+    Layer.mergeAll(
+      FetchHttpClient.layer,
+      Cloudflare.KV.ReadWriteNamespaceBinding,
+      Cloudflare.Images.ImagesBinding,
+    ),
+  ),
 );
 
 /** Everything the Worker serves: Bafle hosted on Cloudflare, reading its catalog. */
